@@ -33,7 +33,7 @@ function HoloReticle({ lock, presence, body, stability, gainReduction, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 160;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -359,7 +359,7 @@ function HoloReticle({ lock, presence, body, stability, gainReduction, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 160, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── GR Meter Bar ─────────────────────────────────────────────────────────
@@ -479,13 +479,13 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         <HoloKnobVisual size={size} norm={norm} dragging={dragging} />
       </div>
       <span style={{
-        fontSize: 7, letterSpacing: '0.14em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.14em', textTransform: 'uppercase',
         color: 'rgba(80, 210, 200, 0.6)', fontWeight: 600, textAlign: 'center',
         width: '100%', lineHeight: 1.2, fontFamily: 'system-ui',
         textShadow: '0 0 8px rgba(60, 200, 200, 0.15)',
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(80, 200, 200, 0.35)',
+        fontSize: 5.5, color: 'rgba(80, 200, 200, 0.35)',
         fontFamily: '"Courier New",monospace', fontWeight: 600, textAlign: 'center', width: '100%',
       }}>{display}</span>
     </div>
@@ -681,7 +681,7 @@ export default function VocalLockOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #081418 0%, #060f14 25%, #040a0e 50%, #030810 75%, #061014 100%)',
       border: '1.5px solid rgba(60,180,180,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(60,200,200,0.06), inset 0 1px 0 rgba(80,220,220,0.04)',
@@ -701,7 +701,7 @@ export default function VocalLockOrb({
             filter: 'drop-shadow(0 0 10px rgba(80,220,210,0.3))',
           }}>VOCALLOCK</span>
           <span style={{
-            fontSize: 5, fontWeight: 600, color: 'rgba(80,200,200,0.3)',
+            fontSize: 6, fontWeight: 600, color: 'rgba(80,200,200,0.3)',
             letterSpacing: '0.4em', marginTop: 3, textTransform: 'uppercase',
           }}>targeting reticle</span>
         </div>
@@ -744,22 +744,22 @@ export default function VocalLockOrb({
 
       {/* Knobs row 1: LOCK, PRESENCE, BODY */}
       <div style={{
-        padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="LOCK" value={lock} defaultValue={0.45} size={36} format={pctFmt} onChange={v => { setLock(v); engineRef.current?.setLock(v); setActivePreset(null); }} />
-        <Knob label="PRESENCE" value={presence} defaultValue={0.40} size={34} format={pctFmt} onChange={v => { setPresence(v); engineRef.current?.setPresence(v); setActivePreset(null); }} />
-        <Knob label="BODY" value={body} defaultValue={0.50} size={34} format={pctFmt} onChange={v => { setBody(v); engineRef.current?.setBody(v); setActivePreset(null); }} />
+        <Knob label="LOCK" value={lock} defaultValue={0.45} size={28} format={pctFmt} onChange={v => { setLock(v); engineRef.current?.setLock(v); setActivePreset(null); }} />
+        <Knob label="PRESENCE" value={presence} defaultValue={0.40} size={28} format={pctFmt} onChange={v => { setPresence(v); engineRef.current?.setPresence(v); setActivePreset(null); }} />
+        <Knob label="BODY" value={body} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setBody(v); engineRef.current?.setBody(v); setActivePreset(null); }} />
       </div>
 
       {/* Knobs row 2: STABILITY, MIX, OUTPUT */}
       <div style={{
-        padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="STABILITY" value={stability} defaultValue={0.50} size={30} format={pctFmt} onChange={v => { setStability(v); engineRef.current?.setStability(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={1} size={30} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
-        <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={30} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
+        <Knob label="STABILITY" value={stability} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setStability(v); engineRef.current?.setStability(v); setActivePreset(null); }} />
+        <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
+        <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={28} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
       </div>
 
       {/* Bypass */}

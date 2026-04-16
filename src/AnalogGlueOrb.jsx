@@ -59,7 +59,7 @@ function ChromeKnob({ size = 44, norm = 0 }) {
 }
 
 // ─── Knob wrapper ─────────────────────────────────────────────────────────────
-function Knob({ label, value, onChange, min=0, max=1, defaultValue, size=36, format }) {
+function Knob({ label, value, onChange, min=0, max=1, defaultValue, size=28, format }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y:0, v:0 });
   const norm = (value - min) / (max - min);
@@ -78,7 +78,7 @@ function Knob({ label, value, onChange, min=0, max=1, defaultValue, size=36, for
         <ChromeKnob size={size} norm={norm} />
       </div>
       <span style={{ fontSize:6.5, letterSpacing:'0.14em', textTransform:'uppercase', color:'rgba(230,235,240,0.92)', fontWeight:700, textAlign:'center', width:'100%', lineHeight:1.2 }}>{label}</span>
-      <span style={{ fontSize:6, color:'rgba(180,200,220,0.55)', fontFamily:'"Courier New",monospace', fontWeight:700, textAlign:'center', width:'100%' }}>{display}</span>
+      <span style={{ fontSize:5.5, color:'rgba(180,200,220,0.55)', fontFamily:'"Courier New",monospace', fontWeight:700, textAlign:'center', width:'100%' }}>{display}</span>
     </div>
   );
 }
@@ -142,9 +142,9 @@ function GRHistoryScope({ inPeak, outPeak, grDb }) {
   const canvasRef = useRef(null);
   const propsRef  = useRef({ inPeak: 0, outPeak: 0, grDb: 0 });
   const stateRef  = useRef({
-    inBuf:  new Float32Array(280),
-    outBuf: new Float32Array(280),
-    grBuf:  new Float32Array(280),
+    inBuf:  new Float32Array(380),
+    outBuf: new Float32Array(380),
+    grBuf:  new Float32Array(380),
     head: 0,
   });
 
@@ -244,7 +244,7 @@ function GRHistoryScope({ inPeak, outPeak, grDb }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} width={280} height={54}
+  return <canvas ref={canvasRef} width={380} height={54}
     style={{ width:'100%', borderRadius:3, border:'1px solid rgba(180,216,236,0.18)' }} />;
 }
 
@@ -494,7 +494,7 @@ export default function AnalogGlueOrb({
 
   return (
     <div style={{
-      width: 300,
+      width: 380,
       background: '#080b10',
       borderRadius: 10,
       overflow: 'hidden',
@@ -508,7 +508,7 @@ export default function AnalogGlueOrb({
       <div style={{ background: facePlate, padding:'10px 12px 9px', borderBottom:`1px solid rgba(180,216,236,0.2)` }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-            <span style={{ fontSize:13, fontWeight:700, letterSpacing:'0.04em', color:'#e8ecf0', fontFamily:"Georgia,'Times New Roman',serif", fontStyle:'italic', textShadow:'0 1px 2px rgba(0,0,0,0.8)' }}>Nasty Glue Comp</span>
+            <span style={{ fontSize:14, fontWeight:700, letterSpacing:'0.04em', color:'#e8ecf0', fontFamily:"Georgia,'Times New Roman',serif", fontStyle:'italic', textShadow:'0 1px 2px rgba(0,0,0,0.8)' }}>Nasty Glue Comp</span>
             <span style={{ fontSize:6.5, fontWeight:600, letterSpacing:'0.28em', color:'rgba(200,215,230,0.55)' }}>ANALOG BUS COMPRESSOR</span>
           </div>
           <PresetSelector presets={AG_PRESETS} activePreset={activePreset} onSelect={loadPreset}
@@ -537,8 +537,8 @@ export default function AnalogGlueOrb({
               <LedMeter level={inPeak}  label="IN"  />
               <LedMeter level={outPeak} label="OUT" />
             </div>
-            <Knob label="In"  value={inputGain}  onChange={v=>{setInputGain(v); engineRef.current?.setInputGain(v*2); clearPreset();}}  defaultValue={0.5} size={24} format={ioFmt} />
-            <Knob label="Out" value={outputGain} onChange={v=>{setOutputGain(v); engineRef.current?.setOutputGain(v*2); clearPreset();}} defaultValue={0.5} size={24} format={ioFmt} />
+            <Knob label="In"  value={inputGain}  onChange={v=>{setInputGain(v); engineRef.current?.setInputGain(v*2); clearPreset();}}  defaultValue={0.5} size={28} format={ioFmt} />
+            <Knob label="Out" value={outputGain} onChange={v=>{setOutputGain(v); engineRef.current?.setOutputGain(v*2); clearPreset();}} defaultValue={0.5} size={28} format={ioFmt} />
           </div>
         </div>
 
@@ -556,11 +556,11 @@ export default function AnalogGlueOrb({
         <div style={panel}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
             <Knob label="Threshold" value={threshold} onChange={v=>{setThreshold(v); engineRef.current?.setThreshold(v); clearPreset();}}
-              min={-60} max={0} defaultValue={-12} size={32} format={v=>`${v.toFixed(1)}dB`} />
+              min={-60} max={0} defaultValue={-12} size={28} format={v=>`${v.toFixed(1)}dB`} />
             <Knob label="Makeup" value={makeup} onChange={v=>{setMakeup(v); engineRef.current?.setMakeup(v); clearPreset();}}
-              min={-6} max={24} defaultValue={0} size={32} format={dBFmt} />
+              min={-6} max={24} defaultValue={0} size={28} format={dBFmt} />
             <Knob label="Mix" value={mix} onChange={v=>{setMix(v); engineRef.current?.setMix(v); clearPreset();}}
-              min={0} max={1} defaultValue={1} size={32} format={pct} />
+              min={0} max={1} defaultValue={1} size={28} format={pct} />
           </div>
           <div style={{ display:'flex', justifyContent:'space-between' }}>
             <Knob label="Knee" value={knee} onChange={v=>{setKnee(v); engineRef.current?.setKnee(v); clearPreset();}}

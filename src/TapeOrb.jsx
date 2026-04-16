@@ -163,7 +163,7 @@ function Knob({
     }}>
       {/* Value number — sits ABOVE the knob, big and clear */}
       <div style={{
-        fontSize: 9.5, fontFamily: '"Inter", "Helvetica Neue", sans-serif',
+        fontSize: 7.5, fontFamily: '"Inter", "Helvetica Neue", sans-serif',
         fontVariantNumeric: 'tabular-nums',
         fontWeight: 600,
         color: 'rgba(255,255,255,0.85)', minHeight: 12,
@@ -253,7 +253,7 @@ function Knob({
 
       {/* Label — sits BELOW the knob, small caps */}
       <div style={{
-        fontSize: 8, fontWeight: 700, letterSpacing: '0.18em',
+        fontSize: 7, fontWeight: 700, letterSpacing: '0.18em',
         textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)',
       }}>{label}</div>
     </div>
@@ -280,7 +280,7 @@ function SmallSlider({ label, value, onChange, min = 0, max = 1, step = 0.01, fo
         style={{ flex: 1, accentColor: TASCAM_RED, height: 3, cursor: 'pointer' }}
       />
       <span style={{
-        fontSize: 9, color: value > 0 ? CREAM : 'rgba(255,255,255,0.35)',
+        fontSize: 7, color: value > 0 ? CREAM : 'rgba(255,255,255,0.35)',
         width: 32, textAlign: 'right', flexShrink: 0,
         fontFamily: '"Courier New", monospace', fontVariantNumeric: 'tabular-nums',
       }}>
@@ -305,7 +305,7 @@ function SmallSlider({ label, value, onChange, min = 0, max = 1, step = 0.01, fo
 //   │            ●              │   ← pivot
 //   │           VU              │   ← cream label
 //   └───────────────────────────┘
-function VuMeter({ level, peak, label = 'VU', width = 184, height = 96, drive = 0 }) {
+function VuMeter({ level, peak, label = 'VU', width = 170, height = 90, drive = 0 }) {
   // ── Drive heat ────────────────────────────────────────────────────────────
   // 0..1 normalized drive amount. As the user pushes INPUT, the meter face
   // backlight warms toward red and the needle picks up a red tint — that's
@@ -824,7 +824,7 @@ export default function TapeOrb({
       `}</style>
 
       <div style={{
-        width: 404,
+        width: 380,
         fontFamily: 'sans-serif',
         userSelect: 'none',
         // rounded-2xl (16 px) like the Space module — soft, atmospheric,
@@ -887,12 +887,12 @@ export default function TapeOrb({
               {/* Red TEAC-style badge — boxy, sans-serif, the unmistakable
                   livery of every Portastudio ever made */}
               <span style={{
-                fontSize: 9, fontWeight: 900,
+                fontSize: 14, fontWeight: 900,
                 color: CREAM,
-                letterSpacing: '0.14em',
+                letterSpacing: '0.08em',
                 fontFamily: '"Helvetica Neue", Arial, sans-serif',
                 background: TASCAM_RED,
-                padding: '2px 5px',
+                padding: '1px 4px',
                 borderRadius: 1,
               }}>TASCAM</span>
               <span style={{
@@ -936,7 +936,7 @@ export default function TapeOrb({
                 title={bypassed ? 'Click to enable' : 'Click to bypass'}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  fontSize: 9, fontWeight: 800, padding: '4px 9px',
+                  fontSize: 7.5, fontWeight: 800, padding: '4px 9px',
                   borderRadius: 10, cursor: 'pointer',
                   letterSpacing: '0.12em',
                   transition: 'all 0.15s',
@@ -1006,7 +1006,7 @@ export default function TapeOrb({
               value={drive}
               min={0} max={18} default={0}
               onChange={handleDriveChange}
-              size={62}
+              size={56}
               ringColor={INPUT_RED}
               format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`}
             />
@@ -1015,7 +1015,7 @@ export default function TapeOrb({
               value={bassGain}
               min={-10} max={10} default={0}
               onChange={(v) => { setBassGain(v); setActivePreset(null); }}
-              size={62}
+              size={56}
               ringColor={EQ_GREEN}
               bipolar
               format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
@@ -1025,7 +1025,7 @@ export default function TapeOrb({
               value={trebleGain}
               min={-10} max={10} default={0}
               onChange={(v) => { setTrebleGain(v); setActivePreset(null); }}
-              size={62}
+              size={56}
               ringColor={EQ_ORANGE}
               bipolar
               format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`}
@@ -1035,7 +1035,7 @@ export default function TapeOrb({
               value={volume}
               min={VOL_MIN} max={VOL_MAX} default={0}
               onChange={(v) => { setVolume(v); setActivePreset(null); }}
-              size={62}
+              size={56}
               ringColor={VOL_BLUE}
               format={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`}
             />

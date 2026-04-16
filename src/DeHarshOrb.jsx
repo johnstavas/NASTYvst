@@ -36,7 +36,7 @@ function CrystalPrism({ smooth, focusMode, airReturn, sibilance, harshLevel, sib
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 155;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -306,7 +306,7 @@ function CrystalPrism({ smooth, focusMode, airReturn, sibilance, harshLevel, sib
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 155, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Octagon Crystal Knob ─────────────────────────────────────────────────
@@ -388,13 +388,13 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         <PrismKnobVisual size={size} norm={norm} dragging={dragging} />
       </div>
       <span style={{
-        fontSize: 7, letterSpacing: '0.14em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.14em', textTransform: 'uppercase',
         color: 'rgba(200, 160, 120, 0.6)', fontWeight: 600, textAlign: 'center',
         width: '100%', lineHeight: 1.2, fontFamily: 'system-ui',
         textShadow: '0 0 8px rgba(200, 140, 80, 0.1)',
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(180, 140, 100, 0.35)',
+        fontSize: 5.5, color: 'rgba(180, 140, 100, 0.35)',
         fontFamily: '"Courier New",monospace', fontWeight: 600, textAlign: 'center', width: '100%',
       }}>{display}</span>
     </div>
@@ -605,7 +605,7 @@ export default function DeHarshOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #120a06 0%, #0e0810 25%, #0a060f 50%, #08050a 75%, #0c0810 100%)',
       border: '1.5px solid rgba(180,120,60,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(180,120,60,0.05), inset 0 1px 0 rgba(220,160,80,0.04)',
@@ -619,13 +619,13 @@ export default function DeHarshOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 13, fontWeight: 900, letterSpacing: '0.08em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.08em',
             background: 'linear-gradient(135deg, #e0a060 0%, #c08040 30%, #80a0d0 70%, #60a0e0 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(200,140,80,0.2))',
           }}>DEHARSH</span>
           <span style={{
-            fontSize: 5, fontWeight: 600, color: 'rgba(180,130,80,0.3)',
+            fontSize: 6, fontWeight: 600, color: 'rgba(180,130,80,0.3)',
             letterSpacing: '0.35em', marginTop: 3, textTransform: 'uppercase',
           }}>crystal prism</span>
         </div>
@@ -668,21 +668,21 @@ export default function DeHarshOrb({
 
       {/* Knobs row 1: SMOOTH, SIBILANCE, AIR RETURN */}
       <div style={{
-        padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(180,120,60,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="SMOOTH" value={smooth} defaultValue={0.40} size={34} format={pctFmt} onChange={v => { setSmooth(v); engineRef.current?.setSmooth(v); setActivePreset(null); }} />
-        <Knob label="SIBILANCE" value={sibilance} defaultValue={0.40} size={34} format={pctFmt} onChange={v => { setSibilance(v); engineRef.current?.setSibilance(v); setActivePreset(null); }} />
-        <Knob label="AIR" value={airReturn} defaultValue={0.35} size={34} format={pctFmt} onChange={v => { setAirReturn(v); engineRef.current?.setAirReturn(v); setActivePreset(null); }} />
+        <Knob label="SMOOTH" value={smooth} defaultValue={0.40} size={28} format={pctFmt} onChange={v => { setSmooth(v); engineRef.current?.setSmooth(v); setActivePreset(null); }} />
+        <Knob label="SIBILANCE" value={sibilance} defaultValue={0.40} size={28} format={pctFmt} onChange={v => { setSibilance(v); engineRef.current?.setSibilance(v); setActivePreset(null); }} />
+        <Knob label="AIR" value={airReturn} defaultValue={0.35} size={28} format={pctFmt} onChange={v => { setAirReturn(v); engineRef.current?.setAirReturn(v); setActivePreset(null); }} />
       </div>
 
       {/* Knobs row 2: MIX, OUTPUT */}
       <div style={{
-        padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(180,120,60,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="MIX" value={mix} defaultValue={1} size={30} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
-        <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={30} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
+        <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
+        <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={28} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
       </div>
 
       {/* Bypass */}

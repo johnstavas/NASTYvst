@@ -83,7 +83,7 @@ function SelectorKnobSVG({ size, norm }) {
 }
 
 // ─── Knob wrapper ─────────────────────────────────────────────────────────────
-function SelectorKnob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 52, accent, format }) {
+function SelectorKnob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, accent, format }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
   const norm = (value - min) / (max - min);
@@ -112,7 +112,7 @@ function SelectorKnob({ label, value, onChange, min = 0, max = 1, defaultValue, 
       <div style={{
         background: accent,
         color: '#000',
-        fontSize: 7.5,
+        fontSize: 5.5,
         fontFamily: '"Courier New", monospace',
         fontWeight: 900,
         padding: '2px 6px',
@@ -132,7 +132,7 @@ function SelectorKnob({ label, value, onChange, min = 0, max = 1, defaultValue, 
       </div>
       {/* Label */}
       <span style={{
-        fontSize: 7, letterSpacing: '0.2em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.2em', textTransform: 'uppercase',
         color: 'rgba(255,255,255,0.38)', fontWeight: 700,
       }}>{label}</span>
     </div>
@@ -304,7 +304,7 @@ export default function SpringPhysicsOrb({
 
   return (
     <div style={{
-      width: 430,
+      width: 380,
       background: '#0e0e0e',
       borderRadius: 8,
       overflow: 'hidden',
@@ -323,7 +323,7 @@ export default function SpringPhysicsOrb({
         {/* Title */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
           <span style={{
-            fontSize: 15, fontWeight: 900, letterSpacing: '0.08em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.08em',
             color: accent, fontFamily: 'Georgia, serif', fontStyle: 'italic',
             textShadow: `0 0 18px ${accent}88`,
             transition: 'color 0.3s, text-shadow 0.3s',
@@ -399,11 +399,11 @@ export default function SpringPhysicsOrb({
             borderBottom: '1px solid rgba(255,255,255,0.05)',
             background: 'rgba(0,0,0,0.18)',
           }}>
-            <SelectorKnob label="Decay"  value={decay}  onChange={setDecay}  min={0} max={1} defaultValue={0.38} size={38} accent={accent} format={fmtDecay} />
-            <SelectorKnob label="Length" value={length} onChange={setLength} min={0} max={1} defaultValue={0.35} size={38} accent={accent} format={fmtLen}   />
-            <SelectorKnob label="Damp"   value={damp}   onChange={setDamp}   min={0} max={1} defaultValue={0.55} size={38} accent={accent} format={fmtDamp}  />
-            <SelectorKnob label="LFO"    value={chaos}  onChange={setChaos}  min={0} max={1} defaultValue={0.15} size={38} accent={accent} format={fmtPct}   />
-            <SelectorKnob label="Mix"    value={mix}    onChange={setMix}    min={0} max={1} defaultValue={0.30} size={38} accent={accent} format={fmtPct}   />
+            <SelectorKnob label="Decay"  value={decay}  onChange={setDecay}  min={0} max={1} defaultValue={0.38} size={28} accent={accent} format={fmtDecay} />
+            <SelectorKnob label="Length" value={length} onChange={setLength} min={0} max={1} defaultValue={0.35} size={28} accent={accent} format={fmtLen}   />
+            <SelectorKnob label="Damp"   value={damp}   onChange={setDamp}   min={0} max={1} defaultValue={0.55} size={28} accent={accent} format={fmtDamp}  />
+            <SelectorKnob label="LFO"    value={chaos}  onChange={setChaos}  min={0} max={1} defaultValue={0.15} size={28} accent={accent} format={fmtPct}   />
+            <SelectorKnob label="Mix"    value={mix}    onChange={setMix}    min={0} max={1} defaultValue={0.30} size={28} accent={accent} format={fmtPct}   />
           </div>
 
           {/* ── Secondary row: B-mode params + WIDTH + TONE ── */}
@@ -418,12 +418,12 @@ export default function SpringPhysicsOrb({
               opacity: isB ? 1 : 0.20, pointerEvents: isB ? 'auto' : 'none',
               transition: 'opacity 0.25s',
             }}>
-              <SelectorKnob label="Shape"   value={shape}   onChange={setShape}   min={0} max={1} defaultValue={0.5}  size={34} accent={accent} format={fmtPct} />
-              <SelectorKnob label="Scatter" value={scatter} onChange={setScatter} min={0} max={1} defaultValue={0.5}  size={34} accent={accent} format={fmtPct} />
+              <SelectorKnob label="Shape"   value={shape}   onChange={setShape}   min={0} max={1} defaultValue={0.5}  size={28} accent={accent} format={fmtPct} />
+              <SelectorKnob label="Scatter" value={scatter} onChange={setScatter} min={0} max={1} defaultValue={0.5}  size={28} accent={accent} format={fmtPct} />
             </div>
-            <SelectorKnob label="Smooth" value={smooth} onChange={setSmooth} min={0} max={1} defaultValue={0.5} size={34} accent={accent} format={fmtPct} />
-            <SelectorKnob label="Width"  value={width}  onChange={setWidth}  min={0} max={1} defaultValue={1.0} size={34} accent={accent} format={fmtPct} />
-            <SelectorKnob label="Tone"   value={tone}   onChange={setTone}   min={0} max={1} defaultValue={0.5} size={34} accent={accent} format={fmtDb}  />
+            <SelectorKnob label="Smooth" value={smooth} onChange={setSmooth} min={0} max={1} defaultValue={0.5} size={28} accent={accent} format={fmtPct} />
+            <SelectorKnob label="Width"  value={width}  onChange={setWidth}  min={0} max={1} defaultValue={1.0} size={28} accent={accent} format={fmtPct} />
+            <SelectorKnob label="Tone"   value={tone}   onChange={setTone}   min={0} max={1} defaultValue={0.5} size={28} accent={accent} format={fmtDb}  />
           </div>
 
         </div>{/* end left knob column */}

@@ -24,7 +24,7 @@ function SonarDisplay({ weight, tight, focus, growl, subLevel, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const SIZE = 260;
+    const SIZE = 300;
     const DPR = 2;
     canvas.width = SIZE * DPR;
     canvas.height = SIZE * DPR;
@@ -269,7 +269,7 @@ function SonarDisplay({ weight, tight, focus, growl, subLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 260, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 300, height: 300, display: 'block' }} />;
 }
 
 // ─── Bubble Particles Layer ───────────────────────────────────────────────
@@ -285,7 +285,7 @@ function BubbleLayer({ subLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 40;
+    const W = 300, H = 40;
     const DPR = 2;
     canvas.width = W * DPR;
     canvas.height = H * DPR;
@@ -337,7 +337,7 @@ function BubbleLayer({ subLevel }) {
 
   return (
     <canvas ref={canvasRef} style={{
-      width: 260, height: 40, display: 'block',
+      width: 300, height: 40, display: 'block',
       position: 'absolute', bottom: 0, left: 0,
       pointerEvents: 'none', opacity: 0.8,
     }} />
@@ -426,7 +426,7 @@ function RotaryControl({ label, value, onChange, min = 0, max = 1, defaultValue,
         <KnobVisual size={size} norm={norm} spokes={spokes || 4} />
       </div>
       {/* Pressure readout number in monospace cyan */}
-      <span style={{ fontSize: 7, color: 'rgba(0,220,240,0.55)', fontFamily: '"Courier New", monospace', fontWeight: 700, letterSpacing: '0.05em' }}>{display}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(0,220,240,0.55)', fontFamily: '"Courier New", monospace', fontWeight: 700, letterSpacing: '0.05em' }}>{display}</span>
     </div>
   );
 }
@@ -853,7 +853,7 @@ export default function BassmindOrb({
 
   return (
     <div style={{
-      width: 320, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: `
         linear-gradient(180deg, #0c1828 0%, #081420 15%, #060e18 40%, #040a12 60%, #060e18 80%, #081420 100%)
       `,
@@ -892,14 +892,14 @@ export default function BassmindOrb({
         position: 'relative', zIndex: 2,
       }}>
         {/* IN gain valve */}
-        <RotaryControl label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={26}
+        <RotaryControl label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={28}
           format={dbFmt} sensitivity={120}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
 
         {/* Title block */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 17, fontWeight: 900, letterSpacing: '0.1em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em',
             background: 'linear-gradient(180deg, #00d0e0 0%, #40f0ff 50%, #00a0c0 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -915,7 +915,7 @@ export default function BassmindOrb({
         </div>
 
         {/* OUT gain valve */}
-        <RotaryControl label="OUT" value={outputGain} min={0} max={2} defaultValue={1} size={26}
+        <RotaryControl label="OUT" value={outputGain} min={0} max={2} defaultValue={1} size={28}
           format={dbFmt} sensitivity={120}
           onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }} />
       </div>
@@ -987,7 +987,7 @@ export default function BassmindOrb({
         padding: '8px 0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center',
         position: 'relative', zIndex: 2,
       }}>
-        <RotaryControl label="GROWL" value={growl} defaultValue={0} size={56} format={pctFmt}
+        <RotaryControl label="GROWL" value={growl} defaultValue={0} size={38} format={pctFmt}
           sensitivity={140} Visual={LargeValveWheelKnob} spokes={6}
           onChange={v => { setGrowl(v); engineRef.current?.setGrowl(v); setActivePreset(null); }} />
       </div>
@@ -1013,7 +1013,7 @@ export default function BassmindOrb({
         position: 'relative', zIndex: 2,
       }}>
         {/* MIX valve knob */}
-        <RotaryControl label="MIX" value={mix} defaultValue={1} size={24} format={pctFmt}
+        <RotaryControl label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt}
           sensitivity={140}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
 

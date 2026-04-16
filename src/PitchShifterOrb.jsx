@@ -55,8 +55,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 4
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size + 8, height: size + 8, cursor: dragging ? 'grabbing' : 'grab' }}>
         <PShiftKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 7, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#00ddff', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 6, color: 'rgba(0,221,255,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#00ddff', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(0,221,255,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -243,7 +243,7 @@ export default function PitchShifterOrb({
 
   return (
     <div style={{
-      width: 240, borderRadius: 6, overflow: 'hidden',
+      width: 380, borderRadius: 6, overflow: 'hidden',
       background: '#0a0e12',
       border: '1.5px solid rgba(0,221,255,0.15)',
       boxShadow: '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(0,221,255,0.05)',
@@ -256,8 +256,8 @@ export default function PitchShifterOrb({
         borderBottom: '1px solid rgba(0,221,255,0.1)',
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 900, color: '#00ddff', letterSpacing: '0.06em' }}>Poly Pitch</span>
-          <span style={{ fontSize: 5, fontWeight: 600, color: 'rgba(0,221,255,0.3)', letterSpacing: '0.3em', marginTop: 2 }}>GRANULAR · LO-FI</span>
+          <span style={{ fontSize: 14, fontWeight: 900, color: '#00ddff', letterSpacing: '0.06em' }}>Poly Pitch</span>
+          <span style={{ fontSize: 6, fontWeight: 600, color: 'rgba(0,221,255,0.3)', letterSpacing: '0.3em', marginTop: 2 }}>GRANULAR · LO-FI</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={PRESET_COLORS} />
@@ -274,7 +274,7 @@ export default function PitchShifterOrb({
         <LedMeterDom meterRef={inMeterRef} />
         <Knob label="PITCH" value={pitch} min={-12} max={12} defaultValue={0}
           onChange={v => { setPitch(v); engineRef.current?.setPitch(v); setActivePreset(null); }}
-          size={52} format={stFmt} step={0.1} sensitivity={300} />
+          size={28} format={stFmt} step={0.1} sensitivity={300} />
         <LedMeterDom meterRef={outMeterRef} />
         <VSlider label="OUT" value={outputGain} min={0} max={2} defaultValue={1}
           onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }}
@@ -285,22 +285,22 @@ export default function PitchShifterOrb({
       <div style={{ padding: '6px 4px', display: 'flex', justifyContent: 'space-around', borderBottom: '1px solid rgba(0,221,255,0.07)' }}>
         <Knob label="GRAIN" value={grain} min={0} max={1} defaultValue={0.5}
           onChange={v => { setGrain(v); engineRef.current?.setGrain(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="DELAY" value={time} min={0} max={1} defaultValue={0}
           onChange={v => { setTime(v); engineRef.current?.setTime(v); setActivePreset(null); }}
-          size={30} format={v => v < 0.01 ? '0ms' : `${Math.round(64 / 48 + v * 500)}ms`} />
+          size={28} format={v => v < 0.01 ? '0ms' : `${Math.round(64 / 48 + v * 500)}ms`} />
         <Knob label="LOFI" value={lofi} min={0} max={1} defaultValue={0}
           onChange={v => { setLofi(v); engineRef.current?.setLofi(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="DRIVE" value={drive} min={0} max={1} defaultValue={0}
           onChange={v => { setDrive(v); engineRef.current?.setDrive(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="TONE" value={tone} min={0} max={1} defaultValue={1}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
       </div>
 
       {/* Bypass */}

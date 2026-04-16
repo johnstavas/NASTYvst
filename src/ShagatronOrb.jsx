@@ -49,7 +49,7 @@ function BakeliteKnob({ size = 44, norm = 0 }) {
 }
 
 // ─── Knob wrapper (drag interaction + label) ─────────────────────────────────
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 40, format }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
   const norm = (value - min) / (max - min);
@@ -67,8 +67,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 4
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size + 8, height: size + 8, cursor: dragging ? 'grabbing' : 'grab' }}>
         <BakeliteKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 7, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#1a1a2a', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 6, color: 'rgba(30,30,50,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#1a1a2a', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(30,30,50,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -260,7 +260,7 @@ export default function ShagatronOrb({
 
   return (
     <div style={{
-      width: 330,
+      width: 380,
       borderRadius: 6,
       overflow: 'hidden',
       // Black rack frame
@@ -304,7 +304,7 @@ export default function ShagatronOrb({
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{
-                fontSize: 15, fontWeight: 900, color: '#1a1a2a',
+                fontSize: 14, fontWeight: 900, color: '#1a1a2a',
                 letterSpacing: '0.08em',
                 fontStyle: 'italic',
               }}>Shagatron</span>
@@ -355,7 +355,7 @@ export default function ShagatronOrb({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Knob label="SHAG" value={shag} min={0} max={1} defaultValue={0.4}
               onChange={v => { setShag(v); engineRef.current?.setShag(v); setActivePreset(null); }}
-              size={52} format={shagFmt} />
+              size={38} format={shagFmt} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
                 <LedMeter level={inPeak} label="IN" />
@@ -365,7 +365,7 @@ export default function ShagatronOrb({
             </div>
             <Knob label="LEVEL" value={level} min={-12} max={12} defaultValue={0}
               onChange={v => { setLevel(v); engineRef.current?.setLevel(v); setActivePreset(null); }}
-              size={52} format={dbFmt} />
+              size={38} format={dbFmt} />
           </div>
         </div>
 
@@ -374,22 +374,22 @@ export default function ShagatronOrb({
           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start' }}>
             <Knob label="WEIGHT" value={weight} min={0} max={1} defaultValue={0.3}
               onChange={v => { setWeight(v); engineRef.current?.setWeight(v); setActivePreset(null); }}
-              size={38} format={pctFmt} />
+              size={28} format={pctFmt} />
             <Knob label="BITE" value={bite} min={0} max={1} defaultValue={0.2}
               onChange={v => { setBite(v); engineRef.current?.setBite(v); setActivePreset(null); }}
-              size={38} format={pctFmt} />
+              size={28} format={pctFmt} />
             <Knob label="TIGHT" value={tight} min={0} max={1} defaultValue={0.2}
               onChange={v => { setTight(v); engineRef.current?.setTight(v); setActivePreset(null); }}
-              size={38} format={pctFmt} />
+              size={28} format={pctFmt} />
             <Knob label="HAIR" value={hair} min={0} max={1} defaultValue={0.1}
               onChange={v => { setHair(v); engineRef.current?.setHair(v); setActivePreset(null); }}
-              size={38} format={pctFmt} />
+              size={28} format={pctFmt} />
             <Knob label="AIR" value={air} min={0} max={1} defaultValue={0}
               onChange={v => { setAir(v); engineRef.current?.setAir(v); setActivePreset(null); }}
-              size={38} format={pctFmt} />
+              size={28} format={pctFmt} />
             <Knob label="SMOOTH" value={smooth} min={0} max={1} defaultValue={0}
               onChange={v => { setSmooth(v); engineRef.current?.setSmooth(v); setActivePreset(null); }}
-              size={38} format={pctFmt} />
+              size={28} format={pctFmt} />
           </div>
         </div>
 
@@ -397,7 +397,7 @@ export default function ShagatronOrb({
         <div style={{ ...panel, padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none' }}>
           <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1}
             onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
-            size={30} format={pctFmt} />
+            size={28} format={pctFmt} />
           <button onClick={() => {
             const n = !bypassed;
             setBypassed(n);

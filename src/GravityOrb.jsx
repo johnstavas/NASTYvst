@@ -21,7 +21,7 @@ function GravityField({ space, gravity, bloom, density, color, width, mix, peakL
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 280, H = 160;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -323,7 +323,7 @@ function GravityField({ space, gravity, bloom, density, color, width, mix, peakL
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 280, height: 160, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob ───────────────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         <GravityKnob size={size} norm={norm} />
       </div>
       <span style={{
-        fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'rgba(180,170,220,0.7)', fontWeight: 700, textAlign: 'center', lineHeight: 1.1,
       }}>{label}</span>
       <span style={{
@@ -554,7 +554,7 @@ export default function GravityOrb({
 
   return (
     <div style={{
-      width: 300, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #0e0a20 0%, #08061a 35%, #050312 70%, #030210 100%)',
       border: '1.5px solid rgba(120,100,200,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(80,60,160,0.1), inset 0 1px 0 rgba(160,140,220,0.05)',
@@ -569,13 +569,13 @@ export default function GravityOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 900, letterSpacing: '0.1em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em',
             background: 'linear-gradient(135deg, #a090e0, #c0b0ff, #8070c0)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(120,100,220,0.3))',
           }}>GRAVITY</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(160,140,200,0.35)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(160,140,200,0.35)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>BEHAVIORAL REVERB</span>
         </div>
@@ -616,32 +616,32 @@ export default function GravityOrb({
 
       {/* Knobs Row 1: SPACE, GRAVITY, BLOOM, DENSITY */}
       <div style={{
-        padding: '7px 4px 4px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(120,100,200,0.06)',
       }}>
-        <Knob label="SPACE" value={space} min={0} max={1} defaultValue={0.4} size={34}
+        <Knob label="SPACE" value={space} min={0} max={1} defaultValue={0.4} size={28}
           onChange={v => { setSpace(v); engineRef.current?.setSpace(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="GRAVITY" value={gravity} min={0} max={1} defaultValue={0.5} size={34}
+        <Knob label="GRAVITY" value={gravity} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setGravity(v); engineRef.current?.setGravity(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="BLOOM" value={bloom} min={0} max={1} defaultValue={0.3} size={34}
+        <Knob label="BLOOM" value={bloom} min={0} max={1} defaultValue={0.3} size={28}
           onChange={v => { setBloom(v); engineRef.current?.setBloom(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="DENSITY" value={density} min={0} max={1} defaultValue={0.5} size={34}
+        <Knob label="DENSITY" value={density} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setDensity(v); engineRef.current?.setDensity(v); setActivePreset(null); }} format={pctFmt} />
       </div>
 
       {/* Knobs Row 2: COLOR, WIDTH, MIX, OUTPUT */}
       <div style={{
-        padding: '4px 4px 7px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(120,100,200,0.06)',
       }}>
-        <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} size={32}
+        <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }}
           format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'NEUTRAL'} />
-        <Knob label="WIDTH" value={width} min={0} max={1} defaultValue={0.6} size={32}
+        <Knob label="WIDTH" value={width} min={0} max={1} defaultValue={0.6} size={28}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.3} size={32}
+        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.3} size={28}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={32}
+        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setOutputLevel(v); engineRef.current?.setOutput(v); setActivePreset(null); }} format={outFmt} />
       </div>
 
@@ -657,7 +657,7 @@ export default function GravityOrb({
         </div>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(120,100,220,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(180,160,255,0.95)' : 'rgba(120,100,180,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(120,100,220,0.45)' : 'rgba(80,60,140,0.2)'}`,

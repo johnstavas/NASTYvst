@@ -23,7 +23,7 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 340, H = 180;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -366,7 +366,7 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 340, height: 180, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Orbit Ring Bypass ───────────────────────────────────────────────────────
@@ -438,8 +438,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <SpaceKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(60,180,255,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5, color: 'rgba(40,140,255,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(60,180,255,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(40,140,255,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -572,7 +572,7 @@ export default function OrbitOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0a1020 0%, #060c1a 30%, #040816 60%, #020410 100%)',
       border: '1.5px solid rgba(40,120,255,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(40,120,255,0.06), inset 0 1px 0 rgba(60,160,255,0.06)',
@@ -593,14 +593,14 @@ export default function OrbitOrb({
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 800, letterSpacing: '0.15em',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
             background: 'linear-gradient(135deg, #3090ff 0%, #40c0e0 50%, #80d0ff 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(40,140,255,0.3))',
             fontFamily: 'Georgia, "Times New Roman", serif',
           }}>ORBIT</span>
           <span style={{
-            fontSize: 5.5, fontWeight: 400, color: 'rgba(60,150,255,0.35)',
+            fontSize: 6, fontWeight: 400, color: 'rgba(60,150,255,0.35)',
             letterSpacing: '0.3em', marginTop: 1.5,
             fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif',
           }}>spatial movement reverb</span>
@@ -637,25 +637,25 @@ export default function OrbitOrb({
 
       {/* Knob row */}
       <div style={{
-        padding: '5px 10px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderTop: '1px solid rgba(40,120,255,0.06)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="SPEED" value={speed} defaultValue={0.3} size={26} format={v => `${(0.05 + v * 1.95).toFixed(2)}Hz`}
+        <Knob label="SPEED" value={speed} defaultValue={0.3} size={28} format={v => `${(0.05 + v * 1.95).toFixed(2)}Hz`}
           onChange={v => { setSpeed(v); engineRef.current?.setSpeed(v); setActivePreset(null); }} />
-        <Knob label="WIDTH" value={width} defaultValue={0.6} size={26} format={pctFmt}
+        <Knob label="WIDTH" value={width} defaultValue={0.6} size={28} format={pctFmt}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
-        <Knob label="DEPTH" value={depth} defaultValue={0.4} size={26} format={pctFmt}
+        <Knob label="DEPTH" value={depth} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setDepth(v); engineRef.current?.setDepth(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.5} size={26} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
+        <Knob label="TONE" value={tone} defaultValue={0.5} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.3} size={26} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.3} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
       {/* Footer */}
       <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-          fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+          fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
           background: smooth > 0 ? 'rgba(60,180,255,0.18)' : 'transparent',
           color: smooth > 0 ? 'rgba(100,210,255,0.95)' : 'rgba(60,140,200,0.4)',
           border: `1px solid ${smooth > 0 ? 'rgba(60,180,255,0.45)' : 'rgba(40,80,140,0.2)'}`,

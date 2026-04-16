@@ -24,7 +24,7 @@ function AuroraCanvas({ motion, speed, random, stereo, peakLevel = 0, depth, byp
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 200, H = 280;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -238,7 +238,7 @@ function AuroraCanvas({ motion, speed, random, stereo, peakLevel = 0, depth, byp
   }, []);
 
   return <canvas ref={canvasRef} style={{
-    width: 200, height: 280, display: 'block',
+    width: 380, height: 160, display: 'block',
     position: 'absolute', top: 0, left: 0,
   }} />;
 }
@@ -350,7 +350,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       </div>
       {/* Label fades in on hover */}
       <span style={{
-        fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'rgba(240,120,180,0.65)', fontWeight: 600, textAlign: 'center',
         fontFamily: 'system-ui, -apple-system, Arial, sans-serif', lineHeight: 1,
         opacity: showLabel ? 1 : 0,
@@ -358,7 +358,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         marginTop: 1,
       }}>{label}</span>
       <span style={{
-        fontSize: 5, color: 'rgba(200,100,160,0.4)', fontFamily: '"Courier New",monospace',
+        fontSize: 5.5, color: 'rgba(200,100,160,0.4)', fontFamily: '"Courier New",monospace',
         fontWeight: 600, textAlign: 'center',
         opacity: showLabel ? 1 : 0,
         transition: 'opacity 0.2s ease',
@@ -562,7 +562,7 @@ export default function DriftOrb({
 
   return (
     <div style={{
-      width: 200, position: 'relative',
+      width: 380, position: 'relative',
       background: 'linear-gradient(170deg, #100a10 0%, #0e0810 50%, #0c080e 100%)',
       borderRadius: 0,
       border: 'none',
@@ -587,7 +587,7 @@ export default function DriftOrb({
       `}</style>
 
       {/* ── Full-canvas aurora (behind everything) ── */}
-      <div style={{ position: 'relative', width: 200, height: 280 }}>
+      <div style={{ position: 'relative', width: 380, height: 160 }}>
         <AuroraCanvas
           motion={motion} speed={speed} random={random}
           stereo={stereo} peakLevel={peakLevel} depth={depth}
@@ -595,22 +595,22 @@ export default function DriftOrb({
         />
 
         {/* ── Constellation lines connecting some knob positions ── */}
-        <svg width="200" height="280" style={{
+        <svg width="380" height="160" style={{
           position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 4,
         }}>
-          <line x1="100" y1="152" x2="40" y2="182" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
+          <line x1="190" y1="70" x2="100" y2="100" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
             style={{ animation: 'constellationPulse 5s ease-in-out infinite' }} />
-          <line x1="100" y1="152" x2="160" y2="182" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
+          <line x1="190" y1="70" x2="280" y2="100" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
             style={{ animation: 'constellationPulse 5s ease-in-out infinite 1s' }} />
-          <line x1="40" y1="182" x2="100" y2="212" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
+          <line x1="100" y1="100" x2="190" y2="130" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
             style={{ animation: 'constellationPulse 5s ease-in-out infinite 2s' }} />
-          <line x1="160" y1="182" x2="100" y2="212" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
+          <line x1="280" y1="100" x2="190" y2="130" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
             style={{ animation: 'constellationPulse 5s ease-in-out infinite 3s' }} />
           {/* Small constellation dots at intersections */}
-          <circle cx="100" cy="152" r="1" fill="rgba(200,120,180,0.12)" />
-          <circle cx="40" cy="182" r="1" fill="rgba(200,120,180,0.12)" />
-          <circle cx="160" cy="182" r="1" fill="rgba(200,120,180,0.12)" />
-          <circle cx="100" cy="212" r="1" fill="rgba(200,120,180,0.12)" />
+          <circle cx="190" cy="70" r="1" fill="rgba(200,120,180,0.12)" />
+          <circle cx="100" cy="100" r="1" fill="rgba(200,120,180,0.12)" />
+          <circle cx="280" cy="100" r="1" fill="rgba(200,120,180,0.12)" />
+          <circle cx="190" cy="130" r="1" fill="rgba(200,120,180,0.12)" />
         </svg>
 
         {/* ── Loading indicator ── */}
@@ -644,73 +644,71 @@ export default function DriftOrb({
         {/* ── 4 main knobs in diamond/constellation, floating over aurora ── */}
         {/* Organic scattered positions — not rigid rows */}
 
-        {/* Top center: MOTION */}
+        {/* Knobs arranged horizontally over aurora */}
+        {/* Row 1: TONE, MOTION, RANDOM */}
         <div style={{
-          position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 138, zIndex: 10,
+          position: 'absolute', left: 30, top: 55, zIndex: 10,
           background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
           backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
         }}>
-          <Knob label="MOTION" value={motion} defaultValue={0.3} size={24} format={pctFmt}
-            onChange={v => { setMotion(v); engineRef.current?.setMotion(v); setActivePreset(null); }} />
-        </div>
-
-        {/* Left: DEPTH */}
-        <div style={{
-          position: 'absolute', left: 18, top: 168, zIndex: 10,
-          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
-          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-        }}>
-          <Knob label="DEPTH" value={depth} defaultValue={0.3} size={24} format={pctFmt}
-            onChange={v => { setDepth(v); engineRef.current?.setDepth(v); setActivePreset(null); }} />
-        </div>
-
-        {/* Right: STEREO */}
-        <div style={{
-          position: 'absolute', right: 18, top: 168, zIndex: 10,
-          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
-          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-        }}>
-          <Knob label="STEREO" value={stereo} defaultValue={0.4} size={24} format={pctFmt}
-            onChange={v => { setStereo(v); engineRef.current?.setStereo(v); setActivePreset(null); }} />
-        </div>
-
-        {/* Bottom center: MIX */}
-        <div style={{
-          position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 200, zIndex: 10,
-          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
-          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-        }}>
-          <Knob label="MIX" value={mix} defaultValue={0.5} size={24} format={pctFmt}
-            onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
-        </div>
-
-        {/* Extra organic scattered knobs -- TONE top-left, RANDOM offset right */}
-        <div style={{
-          position: 'absolute', left: 14, top: 95, zIndex: 10,
-          background: 'rgba(16,10,16,0.2)', borderRadius: 12, padding: '2px 4px',
-          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-        }}>
-          <Knob label="TONE" value={tone} defaultValue={0.6} size={22}
+          <Knob label="TONE" value={tone} defaultValue={0.6} size={28}
             format={v => v < 0.3 ? 'DARK' : v > 0.7 ? 'AIR' : 'WARM'}
             onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
         </div>
 
         <div style={{
-          position: 'absolute', right: 14, top: 100, zIndex: 10,
-          background: 'rgba(16,10,16,0.2)', borderRadius: 12, padding: '2px 4px',
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 50, zIndex: 10,
+          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
           backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
         }}>
-          <Knob label="RANDOM" value={random} defaultValue={0.2} size={22} format={pctFmt}
+          <Knob label="MOTION" value={motion} defaultValue={0.3} size={28} format={pctFmt}
+            onChange={v => { setMotion(v); engineRef.current?.setMotion(v); setActivePreset(null); }} />
+        </div>
+
+        <div style={{
+          position: 'absolute', right: 30, top: 55, zIndex: 10,
+          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
+          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
+        }}>
+          <Knob label="RANDOM" value={random} defaultValue={0.2} size={28} format={pctFmt}
             onChange={v => { setRandom(v); engineRef.current?.setRandom(v); setActivePreset(null); }} />
         </div>
 
-        {/* Extra constellation lines for the new knobs */}
-        <svg width="200" height="280" style={{
+        {/* Row 2: DEPTH, STEREO, MIX */}
+        <div style={{
+          position: 'absolute', left: 70, top: 108, zIndex: 10,
+          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
+          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
+        }}>
+          <Knob label="DEPTH" value={depth} defaultValue={0.3} size={28} format={pctFmt}
+            onChange={v => { setDepth(v); engineRef.current?.setDepth(v); setActivePreset(null); }} />
+        </div>
+
+        <div style={{
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 108, zIndex: 10,
+          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
+          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
+        }}>
+          <Knob label="STEREO" value={stereo} defaultValue={0.4} size={28} format={pctFmt}
+            onChange={v => { setStereo(v); engineRef.current?.setStereo(v); setActivePreset(null); }} />
+        </div>
+
+        <div style={{
+          position: 'absolute', right: 70, top: 108, zIndex: 10,
+          background: 'rgba(16,10,16,0.25)', borderRadius: 12, padding: '2px 4px',
+          backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
+        }}>
+          <Knob label="MIX" value={mix} defaultValue={0.5} size={28} format={pctFmt}
+            onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
+        </div>
+
+        {/* Extra constellation lines */}
+        <svg width="380" height="160" style={{
           position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 3,
         }}>
-          <line x1="30" y1="110" x2="100" y2="152" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />
-          <line x1="170" y1="115" x2="160" y2="182" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />
-          <line x1="30" y1="110" x2="40" y2="182" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />
+          <line x1="50" y1="70" x2="190" y2="65" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />
+          <line x1="330" y1="70" x2="280" y2="120" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />
+          <line x1="50" y1="70" x2="100" y2="120" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />
         </svg>
       </div>
 

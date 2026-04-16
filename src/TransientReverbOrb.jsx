@@ -20,7 +20,7 @@ function ShockwaveCanvas({ protect, tail, attackClear, size, peakLevel = 0, bloo
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 280, H = 160;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -228,7 +228,7 @@ function ShockwaveCanvas({ protect, tail, attackClear, size, peakLevel = 0, bloo
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 280, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Diamond Knob ────────────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ function DiamondKnob({ size = 26, norm = 0 }) {
   );
 }
 
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 26, format, sensitivity = 120 }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format, sensitivity = 120 }) {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
@@ -285,12 +285,12 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         <DiamondKnob size={size} norm={norm} />
       </div>
       <span style={{
-        fontSize: 5.5, letterSpacing: '0.1em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.1em', textTransform: 'uppercase',
         color: 'rgba(80,180,140,0.55)', fontWeight: 600, textAlign: 'center',
         fontFamily: 'system-ui', lineHeight: 1, marginTop: 1,
       }}>{label}</span>
       <span style={{
-        fontSize: 5, color: 'rgba(60,160,120,0.4)', fontFamily: '"Courier New",monospace',
+        fontSize: 5.5, color: 'rgba(60,160,120,0.4)', fontFamily: '"Courier New",monospace',
         fontWeight: 600, textAlign: 'center',
       }}>{display}</span>
     </div>
@@ -422,7 +422,7 @@ export default function TransientReverbOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #12100a 0%, #0e0c08 35%, #0a0a06 70%, #080808 100%)',
       border: '1.5px solid rgba(220,180,60,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(220,160,40,0.08), inset 0 1px 0 rgba(240,200,100,0.05)',
@@ -443,7 +443,7 @@ export default function TransientReverbOrb({
             filter: 'drop-shadow(0 0 8px rgba(220,160,40,0.3))',
           }}>TRANSIENT REVERB</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(220,180,80,0.35)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(220,180,80,0.35)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>PUNCH-SAFE REVERB</span>
         </div>
@@ -483,10 +483,10 @@ export default function TransientReverbOrb({
 
       {/* Knobs Row 1: PROTECT, TAIL, ATK CLEAR */}
       <div style={{
-        padding: '8px 8px 4px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(220,180,60,0.06)',
       }}>
-        <Knob label="PROTECT" value={protect} defaultValue={0.6} size={32} format={pctFmt}
+        <Knob label="PROTECT" value={protect} defaultValue={0.6} size={28} format={pctFmt}
           onChange={v => { setProtect(v); engineRef.current?.setProtect(v); setActivePreset(null); }} />
         <Knob label="TAIL" value={tail} defaultValue={0.5} format={pctFmt}
           onChange={v => { setTail(v); engineRef.current?.setTail(v); setActivePreset(null); }} />
@@ -496,7 +496,7 @@ export default function TransientReverbOrb({
 
       {/* Knobs Row 2: SIZE, TONE, MIX */}
       <div style={{
-        padding: '4px 8px 8px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(220,180,60,0.06)',
       }}>
         <Knob label="SIZE" value={size} defaultValue={0.4}
@@ -515,7 +515,7 @@ export default function TransientReverbOrb({
       }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(60,200,140,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(100,240,180,0.95)' : 'rgba(60,160,120,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(60,200,140,0.45)' : 'rgba(40,100,80,0.2)'}`,

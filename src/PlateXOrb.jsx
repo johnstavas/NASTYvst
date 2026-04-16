@@ -20,7 +20,7 @@ function PlateCanvas({ tension, size, energy, metal, peak = 0, outPeak = 0, ener
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 340, H = 180;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -379,7 +379,7 @@ function PlateCanvas({ tension, size, energy, metal, peak = 0, outPeak = 0, ener
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 340, height: 180, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Rivet Bypass Button ─────────────────────────────────────────────────────
@@ -450,8 +450,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <SteelKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(180,170,130,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5, color: 'rgba(150,145,120,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(180,170,130,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(150,145,120,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -565,7 +565,7 @@ export default function PlateXOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #222428 0%, #1c1e22 30%, #181a1e 60%, #141618 100%)',
       border: '1.5px solid rgba(180,160,100,0.12)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 15px rgba(180,160,100,0.04), inset 0 1px 0 rgba(200,180,120,0.04)',
@@ -586,14 +586,14 @@ export default function PlateXOrb({
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 800, letterSpacing: '0.15em',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
             background: 'linear-gradient(135deg, #c8b478 0%, #a09070 30%, #e0d0a0 50%, #c0a868 70%, #b09860 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 6px rgba(200,180,120,0.2))',
             fontFamily: 'Georgia, "Times New Roman", serif',
           }}>PLATEX</span>
           <span style={{
-            fontSize: 5.5, fontWeight: 400, color: 'rgba(180,160,100,0.35)',
+            fontSize: 6, fontWeight: 400, color: 'rgba(180,160,100,0.35)',
             letterSpacing: '0.3em', marginTop: 1.5,
             fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif',
           }}>dynamic plate reverb</span>
@@ -622,27 +622,27 @@ export default function PlateXOrb({
 
       {/* Knob row */}
       <div style={{
-        padding: '6px 8px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderTop: '1px solid rgba(180,160,100,0.06)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="TENSION" value={tension} defaultValue={0.5} size={26} format={pctFmt}
+        <Knob label="TENSION" value={tension} defaultValue={0.5} size={28} format={pctFmt}
           onChange={v => { setTension(v); engineRef.current?.setTension(v); setActivePreset(null); }} />
-        <Knob label="SIZE" value={size} defaultValue={0.5} size={26} format={pctFmt}
+        <Knob label="SIZE" value={size} defaultValue={0.5} size={28} format={pctFmt}
           onChange={v => { setSize(v); engineRef.current?.setSize(v); setActivePreset(null); }} />
-        <Knob label="ENERGY" value={energy} defaultValue={0.3} size={26} format={pctFmt}
+        <Knob label="ENERGY" value={energy} defaultValue={0.3} size={28} format={pctFmt}
           onChange={v => { setEnergy(v); engineRef.current?.setEnergy(v); setActivePreset(null); }} />
-        <Knob label="METAL" value={metal} defaultValue={0.25} size={26} format={pctFmt}
+        <Knob label="METAL" value={metal} defaultValue={0.25} size={28} format={pctFmt}
           onChange={v => { setMetal(v); engineRef.current?.setMetal(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.55} size={26} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
+        <Knob label="TONE" value={tone} defaultValue={0.55} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.25} size={26} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.25} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
       {/* Footer */}
       <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-          fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+          fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
           background: smooth > 0 ? 'rgba(200,180,120,0.18)' : 'transparent',
           color: smooth > 0 ? 'rgba(240,220,160,0.95)' : 'rgba(150,145,120,0.4)',
           border: `1px solid ${smooth > 0 ? 'rgba(200,180,120,0.45)' : 'rgba(100,95,80,0.2)'}`,

@@ -31,7 +31,7 @@ function MicStudio({ micType, proximity, presShape, character, focus, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 165;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -354,7 +354,7 @@ function MicStudio({ micType, proximity, presShape, character, focus, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 165, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Copper/Gold Arc Knob ─────────────────────────────────────────────────
@@ -429,7 +429,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         textShadow: '0 0 8px rgba(200, 140, 50, 0.1)',
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(190, 140, 70, 0.35)',
+        fontSize: 5.5, color: 'rgba(190, 140, 70, 0.35)',
         fontFamily: '"Courier New",monospace', fontWeight: 600, textAlign: 'center', width: '100%',
       }}>{display}</span>
     </div>
@@ -634,7 +634,7 @@ export default function VibeMicOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #1a1008 0%, #140c04 25%, #0e0804 50%, #0a0603 75%, #100a06 100%)',
       border: '1.5px solid rgba(200,150,60,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(200,140,40,0.05), inset 0 1px 0 rgba(240,180,60,0.04)',
@@ -654,7 +654,7 @@ export default function VibeMicOrb({
             filter: 'drop-shadow(0 0 10px rgba(200,150,50,0.25))',
           }}>VIBEMIC</span>
           <span style={{
-            fontSize: 5, fontWeight: 600, color: 'rgba(200,150,60,0.3)',
+            fontSize: 6, fontWeight: 600, color: 'rgba(200,150,60,0.3)',
             letterSpacing: '0.35em', marginTop: 3, textTransform: 'uppercase',
           }}>studio character</span>
         </div>
@@ -697,17 +697,17 @@ export default function VibeMicOrb({
 
       {/* Knobs row 1: PROXIMITY, PRESENCE, CHARACTER */}
       <div style={{
-        padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="PROXIMITY" value={proximity} defaultValue={0.50} size={32} format={pctFmt} onChange={v => { setProximity(v); engineRef.current?.setProximity(v); setActivePreset(null); }} />
-        <Knob label="PRESENCE" value={presShape} defaultValue={0.50} size={32} format={pctFmt} onChange={v => { setPresShape(v); engineRef.current?.setPresShape(v); setActivePreset(null); }} />
-        <Knob label="CHARACTER" value={character} defaultValue={0.40} size={32} format={pctFmt} onChange={v => { setCharacter(v); engineRef.current?.setCharacter(v); setActivePreset(null); }} />
+        <Knob label="PROXIMITY" value={proximity} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setProximity(v); engineRef.current?.setProximity(v); setActivePreset(null); }} />
+        <Knob label="PRESENCE" value={presShape} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setPresShape(v); engineRef.current?.setPresShape(v); setActivePreset(null); }} />
+        <Knob label="CHARACTER" value={character} defaultValue={0.40} size={28} format={pctFmt} onChange={v => { setCharacter(v); engineRef.current?.setCharacter(v); setActivePreset(null); }} />
       </div>
 
       {/* Knobs row 2: FOCUS, MIX, OUTPUT */}
       <div style={{
-        padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2,
       }}>
         <Knob label="FOCUS" value={focus} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} />

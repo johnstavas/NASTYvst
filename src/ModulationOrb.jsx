@@ -4,12 +4,12 @@ import ClipMeter from './ClipMeter';
 
 const SliderRow = ({ label, value, set, min = 0, max = 1, step = 0.01, fmt, ac, labelWidth = 42 }) => (
   <div className="flex items-center gap-2">
-    <span style={{ color: ac(50, 62, 0.6), fontSize: 9, width: labelWidth, flexShrink: 0 }}>{label}</span>
+    <span style={{ color: ac(50, 62, 0.6), fontSize: 7.5, width: labelWidth, flexShrink: 0 }}>{label}</span>
     <input type="range" min={min} max={max} step={step} value={value}
       onChange={e => set(parseFloat(e.target.value))}
       className="flex-1 h-1 rounded-full appearance-none cursor-pointer outline-none"
       style={{ accentColor: ac(70, 65, 1) }} />
-    <span style={{ color: ac(50, 65, 0.8), fontSize: 9, width: 30, textAlign: 'right' }}>
+    <span style={{ color: ac(50, 65, 0.8), fontSize: 7, width: 30, textAlign: 'right' }}>
       {fmt ? fmt(value) : Math.round(value * 100) + '%'}
     </span>
   </div>
@@ -273,7 +273,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
       <div className="grid items-center px-3 py-2 shrink-0"
         style={{ gridTemplateColumns: '1fr auto 1fr', borderBottom: `1px solid ${ac(30, 30, 0.12)}` }}>
         {/* Left */}
-        <span className="text-[8px] uppercase tracking-[0.35em]" style={{ color: ac(50, 60, 0.5) }}>Mod</span>
+        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', color: ac(50, 60, 0.5) }}>Mod</span>
 
         {/* Center — A/B/C buttons always stay centred */}
         <div className="flex items-center gap-1">
@@ -428,7 +428,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
 
         {/* Dist % near orb */}
         {dist > 0.02 && (
-          <div className="absolute pointer-events-none text-[9px]" style={{
+          <div className="absolute pointer-events-none text-[7.5px]" style={{
             left: point.x, top: point.y - orbR - 12,
             transform: 'translateX(-50%)', color: ac(55, 65, 0.6),
           }}>{Math.round(dist * 100)}%</div>
@@ -443,15 +443,15 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
         style={{ borderTop: `1px solid ${ac(30, 30, 0.15)}` }}>
 
         <div className="flex items-center gap-1.5 flex-1">
-          <span className="text-[9px] shrink-0" style={{ color: ac(45, 55, 0.5) }}>Mix</span>
+          <span className="text-[7.5px] shrink-0" style={{ color: ac(45, 55, 0.5) }}>Mix</span>
           <input type="range" min="0" max="1" step="0.01" value={mix}
             onChange={e => setMix(parseFloat(e.target.value))}
             style={{ accentColor: ac(70, 60, 1), height: '3px', flex: 1 }} />
-          <span className="text-[9px]" style={{ color: ac(50, 62, 0.65), width: 28, textAlign: 'right' }}>{Math.round(mix * 100)}%</span>
+          <span className="text-[7.5px]" style={{ color: ac(50, 62, 0.65), width: 28, textAlign: 'right' }}>{Math.round(mix * 100)}%</span>
         </div>
 
         <button onClick={() => setShowPanel(p => !p)}
-          className="rounded px-2 py-1 text-[9px] border transition-colors"
+          className="rounded px-2 py-1 text-[7.5px] border transition-colors"
           style={showPanel
             ? { background: ac(50, 50, 0.2), borderColor: ac(50, 55, 0.4), color: ac(60, 70, 1) }
             : { background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>⚙</button>
@@ -466,7 +466,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
             <div className="flex items-center gap-2">
               <select value={selectedPreset}
                 onChange={e => { setSelectedPreset(e.target.value); if (e.target.value) applySnapshot(userPresets[e.target.value] || {}); }}
-                className="flex-1 text-[9px] rounded px-2 py-1 outline-none cursor-pointer"
+                className="flex-1 text-[7.5px] rounded px-2 py-1 outline-none cursor-pointer"
                 style={{ WebkitAppearance: 'none', background: 'rgba(0,0,0,0.4)', border: `1px solid ${ac(40, 30, 0.25)}`, color: 'rgba(255,255,255,0.6)' }}>
                 <option value="" style={{ background: '#050a06' }}>— Load preset —</option>
                 {Object.keys(userPresets).sort().map(name => (
@@ -474,10 +474,10 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
                 ))}
               </select>
               <button onClick={savePreset}
-                className="text-[9px] font-medium px-2 py-1 rounded whitespace-nowrap"
+                className="text-[7.5px] font-medium px-2 py-1 rounded whitespace-nowrap"
                 style={{ background: ac(30, 12, 0.5), border: `1px solid ${ac(50, 40, 0.3)}`, color: ac(60, 75, 0.9) }}>Save</button>
               <button onClick={() => deletePreset(selectedPreset)} disabled={!selectedPreset}
-                className="text-[9px] font-medium px-2 py-1 rounded whitespace-nowrap disabled:opacity-30"
+                className="text-[7.5px] font-medium px-2 py-1 rounded whitespace-nowrap disabled:opacity-30"
                 style={{ background: ac(30, 12, 0.5), border: `1px solid ${ac(50, 40, 0.3)}`, color: ac(60, 75, 0.9) }}>Delete</button>
             </div>
 
@@ -494,7 +494,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
               fmt={v => `${Math.round(v)}`} ac={ac} labelWidth={42} />
 
             <div className="flex flex-col gap-1">
-              <span style={{ color: ac(50, 62, 0.5), fontSize: 9 }}>Division</span>
+              <span style={{ color: ac(50, 62, 0.5), fontSize: 7.5 }}>Division</span>
               <div className="flex flex-wrap gap-1">
                 {DIVISIONS.map((div, i) => (
                   <button key={i} onClick={() => setDivisionIdx(i)}

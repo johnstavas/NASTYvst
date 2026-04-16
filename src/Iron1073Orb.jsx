@@ -30,7 +30,7 @@ const COPPER_H  = 'hsl(28, 85%, 65%)';
 function IronKnob({
   label, value, onChange,
   min = 0, max = 1, defaultValue,
-  size = 56, ringColor = COPPER, format,
+  size = 28, ringColor = COPPER, format,
 }) {
   const [dragging, setDragging] = useState(false);
   const startRef = useRef({ y: 0, v: 0 });
@@ -74,7 +74,7 @@ function IronKnob({
 
   return (
     <div className="flex flex-col items-center select-none" style={{ width: size + 12 }}>
-      <div className="text-[8px] tracking-[0.18em] font-semibold mb-1" style={{ color: 'rgba(255,230,180,0.55)' }}>
+      <div className="tracking-[0.18em] font-semibold mb-1" style={{ color: 'rgba(255,230,180,0.55)', fontSize: '6.5px' }}>
         {label}
       </div>
       <div
@@ -104,7 +104,7 @@ function IronKnob({
           boxShadow: `0 0 4px ${ringColor}`,
         }} />
       </div>
-      <div className="text-[9px] mt-1 font-mono tabular-nums" style={{ color: CREAM }}>
+      <div className="mt-1 font-mono tabular-nums" style={{ color: CREAM, fontSize: '5.5px' }}>
         {format ? format(value) : value.toFixed(2)}
       </div>
     </div>
@@ -206,7 +206,7 @@ export default function Iron1073Orb({
 
   return (
     <div style={{
-      width: 280,
+      width: 380,
       borderRadius: 12,
       padding: 14,
       background: PANEL_BG,
@@ -218,7 +218,7 @@ export default function Iron1073Orb({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-[12px] font-bold tracking-wider" style={{ color: COPPER_H }}>
+          <div className="font-bold tracking-wider" style={{ color: COPPER_H, fontSize: 14 }}>
             IRON 1073
           </div>
           <div className="text-[8px] tracking-[0.22em] uppercase" style={{ color: 'rgba(255,200,140,0.4)' }}>

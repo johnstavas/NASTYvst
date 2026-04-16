@@ -25,7 +25,7 @@ function InfiniteTunnel({ feedback, degrade, motion, fbLevel, time, blur, peak =
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 340, H = 180;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -329,7 +329,7 @@ function InfiniteTunnel({ feedback, degrade, motion, fbLevel, time, blur, peak =
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 340, height: 180, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Portal Ring Bypass Button ────────────────────────────────────────────────
@@ -539,8 +539,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size + 6, height: size + 6, cursor: dragging ? 'grabbing' : 'grab' }}>
         <HoloKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(80,180,255,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5, color: 'rgba(60,160,255,0.45)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(80,180,255,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(60,160,255,0.45)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -702,7 +702,7 @@ export default function EchoformOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0e1220 0%, #0b0f1a 20%, #090d16 45%, #080c14 70%, #060a10 100%)',
       border: '1.5px solid rgba(40,140,255,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(40,140,255,0.08), inset 0 1px 0 rgba(60,160,255,0.06)',
@@ -729,14 +729,14 @@ export default function EchoformOrb({
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 800, letterSpacing: '0.12em',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.12em',
             background: 'linear-gradient(135deg, #4090ff 0%, #5098ff 30%, #80c0ff 50%, #60a8ff 70%, #4090ff 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(40,140,255,0.3))',
             fontFamily: 'Georgia, "Times New Roman", serif',
           }}>ECHOFORM</span>
           <span style={{
-            fontSize: 5.5, fontWeight: 400, color: 'rgba(60,150,255,0.35)',
+            fontSize: 6, fontWeight: 400, color: 'rgba(60,150,255,0.35)',
             letterSpacing: '0.3em', marginTop: 1.5,
             fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif',
           }}>infinite echo chamber</span>
@@ -778,23 +778,23 @@ export default function EchoformOrb({
 
       {/* ── All 7 knobs in one row (holographic arc knobs) ── */}
       <div style={{
-        padding: '5px 14px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderBottom: '1px solid rgba(40,140,255,0.06)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="TIME" value={time} defaultValue={0.4} size={26}
+        <Knob label="TIME" value={time} defaultValue={0.4} size={28}
           format={v => { const ms = 50 + v * 1150; return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(2)}s`; }}
           onChange={v => { setTime(v); engineRef.current?.setTime(v); setActivePreset(null); }} />
-        <Knob label="FDBK" value={feedback} defaultValue={0.4} size={26} format={pctFmt}
+        <Knob label="FDBK" value={feedback} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setFeedback(v); engineRef.current?.setFeedback(v); setActivePreset(null); }} />
-        <Knob label="DEGRADE" value={degrade} defaultValue={0.3} size={26} format={pctFmt}
+        <Knob label="DEGRADE" value={degrade} defaultValue={0.3} size={28} format={pctFmt}
           onChange={v => { setDegrade(v); engineRef.current?.setDegrade(v); setActivePreset(null); }} />
-        <Knob label="MOTION" value={motion} defaultValue={0} size={26} format={pctFmt}
+        <Knob label="MOTION" value={motion} defaultValue={0} size={28} format={pctFmt}
           onChange={v => { setMotion(v); engineRef.current?.setMotion(v); setActivePreset(null); }} />
-        <Knob label="BLUR" value={blur} defaultValue={0} size={26} format={pctFmt}
+        <Knob label="BLUR" value={blur} defaultValue={0} size={28} format={pctFmt}
           onChange={v => { setBlur(v); engineRef.current?.setBlur(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.5} size={26} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
+        <Knob label="TONE" value={tone} defaultValue={0.5} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.35} size={26} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.35} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
