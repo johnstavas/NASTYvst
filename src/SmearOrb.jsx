@@ -2,6 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createSmearEngine } from './smearEngine';
 import PresetSelector from './PresetSelector';
 
+// Load chubby display font
+if (typeof document !== 'undefined' && !document.getElementById('smear-font')) {
+  const link = document.createElement('link');
+  link.id = 'smear-font';
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap';
+  document.head.appendChild(link);
+}
+
 // ─── SMEAR: Dream / Lo-Fi Unstable Reverb ────────────────────────────────────
 // Visual: WATERCOLOR PAINT — muted pastels bleeding & diffusing
 // Hero: Paint drops that spread, bleed, mix organically
@@ -639,11 +648,11 @@ export default function SmearOrb({
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 22, fontWeight: 400, letterSpacing: '0.08em',
-            background: 'linear-gradient(135deg, #d2919b 0%, #9b9bc3 40%, #9bb98f 70%, #d7c38c 100%)',
+            fontSize: 28, fontWeight: 400, letterSpacing: '0.06em',
+            background: 'linear-gradient(135deg, #e8a0aa 0%, #b8a8d8 40%, #a8c898 70%, #e0c878 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 0 8px rgba(210,145,155,0.3))',
-            fontFamily: '"Brush Script MT", "Segoe Script", "Comic Sans MS", cursive',
+            filter: 'drop-shadow(0 2px 10px rgba(210,145,155,0.5))',
+            fontFamily: '"Fredoka One", "Nunito", "Comic Sans MS", cursive',
           }}>SMEAR</span>
           <span style={{
             fontSize: 6, fontWeight: 400, color: 'rgba(210,145,155,0.35)',
