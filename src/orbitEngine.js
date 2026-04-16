@@ -13,7 +13,7 @@
 //   MIX    — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'orbit-v2';
+const PROCESSOR_VERSION = 'orbit-v3';
 
 const PROCESSOR_CODE = `
 class OrbitProcessor extends AudioWorkletProcessor {
@@ -144,20 +144,21 @@ class OrbitProcessor extends AudioWorkletProcessor {
     const tiltGainLow  = 1 + (0.5 - tone) * 1.2;
     const tiltGainHigh = 1 + (tone - 0.5) * 1.2;
 
-    // Drift update
+    // Drift update — speed affects wander rate and jump frequency
     this.driftTimer += iL.length;
-    if (this.driftTimer > sr * 0.5) {
+    if (this.driftTimer > sr * (0.8 - speed * 0.55)) {
       this.driftTimer = 0;
-      this.driftTargetX = Math.random() * 2 - 1;
-      this.driftTargetY = Math.random() * 2 - 1;
+      this.driftTargetX = (Math.random() * 2 - 1);
+      this.driftTargetY = (Math.random() * 2 - 1);
     }
-    this.driftX += (this.driftTargetX - this.driftX) * 0.001;
-    this.driftY += (this.driftTargetY - this.driftY) * 0.001;
+    const driftSmooth = 0.002 + speed * 0.004;
+    this.driftX += (this.driftTargetX - this.driftX) * driftSmooth;
+    this.driftY += (this.driftTargetY - this.driftY) * driftSmooth;
 
-    // Spiral
-    this.spiralRadius += this.spiralDir * 0.00015 * (0.3 + speed);
-    if (this.spiralRadius > 1)    { this.spiralRadius = 1;    this.spiralDir = -1; }
-    if (this.spiralRadius < 0.1)  { this.spiralRadius = 0.1;  this.spiralDir =  1; }
+    // Spiral — speed affects breathing rate
+    this.spiralRadius += this.spiralDir * 0.00025 * (0.4 + speed * 1.2);
+    if (this.spiralRadius > 1)   { this.spiralRadius = 1;   this.spiralDir = -1; }
+    if (this.spiralRadius < 0.1) { this.spiralRadius = 0.1; this.spiralDir =  1; }
 
     // Per-block LFO increment
     const lfoInc = new Float32Array(8);
@@ -229,39 +230,40 @@ class OrbitProcessor extends AudioWorkletProcessor {
         reverbL = outL; reverbR = outR;
       }
 
-      // ── Spatial orbit: 4 taps panned around stereo field
+      // ── Spatial orbit: single position sweeps clearly through stereo field ──
+      // (4-tap approach cancelled itself out — opposite taps averaged to center)
       this.orbitPhase += orbitInc;
       if (this.orbitPhase > 1) this.orbitPhase -= 1;
       const t = this.orbitPhase * Math.PI * 2;
 
-      let spatialL = 0, spatialR = 0;
-      for (let tap = 0; tap < 4; tap++) {
-        const tapPhase = t + (tap / 4) * Math.PI * 2;
-        let panX, panY;
-
-        if (path === 0) {
-          panX = Math.cos(tapPhase); panY = Math.sin(tapPhase);
-        } else if (path === 1) {
-          panX = Math.sin(tapPhase); panY = Math.sin(tapPhase * 2);
-        } else if (path === 2) {
-          panX = this.driftX + Math.sin(tapPhase) * 0.4;
-          panY = this.driftY + Math.cos(tapPhase) * 0.4;
-        } else {
-          const r = this.spiralRadius;
-          panX = Math.cos(tapPhase) * r; panY = Math.sin(tapPhase) * r;
-        }
-
-        if (tap === 0) { lastOrbX = panX; lastOrbY = panY; }
-
-        const pan      = Math.max(0, Math.min(1, panX * width * 0.5 + 0.5));
-        const panL     = Math.cos(pan * Math.PI * 0.5);
-        const panR     = Math.sin(pan * Math.PI * 0.5);
-        const gainMod  = 1 + panY * depth * 0.4;
-        const tapSig   = reverbL * 0.5 + reverbR * 0.5;
-
-        spatialL += tapSig * gainMod * panL * 0.65;
-        spatialR += tapSig * gainMod * panR * 0.65;
+      let orbX, orbY;
+      if (path === 0) {        // CIRCLE: smooth continuous L→R→L sweep
+        orbX = Math.cos(t);
+        orbY = Math.sin(t);
+      } else if (path === 1) { // FIG-8: crosses center TWICE per cycle, different rhythm
+        orbX = Math.sin(t);
+        orbY = Math.sin(t * 2);
+      } else if (path === 2) { // DRIFT: slow unpredictable wander — no fixed pattern
+        orbX = this.driftX;
+        orbY = this.driftY;
+      } else {                 // SPIRAL: orbit + pulsing amplitude breath in/out
+        orbX = Math.cos(t) * this.spiralRadius;
+        orbY = (this.spiralRadius - 0.5) * 2; // drives depth pump: loud when big, quiet when small
       }
+
+      lastOrbX = orbX; lastOrbY = orbY;
+
+      // WIDTH: 0=locked mono center, 1=full hard L↔R sweep
+      const pan  = Math.max(0, Math.min(1, orbX * width + 0.5));
+      const panL = Math.cos(pan * Math.PI * 0.5);
+      const panR = Math.sin(pan * Math.PI * 0.5);
+
+      // DEPTH: front/back amplitude (orbY>0=near=louder, orbY<0=far=quieter)
+      const depthMod = Math.max(0.15, 0.65 + orbY * depth * 0.55);
+
+      const monoRev = (reverbL + reverbR) * 0.5;
+      let spatialL = monoRev * panL * depthMod * 1.8;
+      let spatialR = monoRev * panR * depthMod * 1.8;
 
       // Tilt EQ
       this.tiltLpL = tiltCoef * this.tiltLpL + (1 - tiltCoef) * spatialL;
