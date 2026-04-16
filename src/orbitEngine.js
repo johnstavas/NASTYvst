@@ -13,7 +13,7 @@
 //   MIX    — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'orbit-v1';
+const PROCESSOR_VERSION = 'orbit-v2';
 
 const PROCESSOR_CODE = `
 class OrbitProcessor extends AudioWorkletProcessor {
@@ -127,8 +127,8 @@ class OrbitProcessor extends AudioWorkletProcessor {
       return true;
     }
 
-    // Lush reverb time — size mapped to 0.82–0.93 feedback
-    const combFb   = 0.82 + depth * 0.11;
+    // Lush reverb time — deeper feedback for audible tail
+    const combFb   = 0.88 + depth * 0.06; // 0.88–0.94
     // Damping: tone 0=warm/dark (2kHz cutoff), 1=bright (18kHz)
     const dampFreq = 2000 + tone * 16000;
     const dampCoef = Math.exp(-2 * Math.PI * dampFreq / sr);
@@ -259,8 +259,8 @@ class OrbitProcessor extends AudioWorkletProcessor {
         const gainMod  = 1 + panY * depth * 0.4;
         const tapSig   = reverbL * 0.5 + reverbR * 0.5;
 
-        spatialL += tapSig * gainMod * panL * 0.3;
-        spatialR += tapSig * gainMod * panR * 0.3;
+        spatialL += tapSig * gainMod * panL * 0.65;
+        spatialR += tapSig * gainMod * panR * 0.65;
       }
 
       // Tilt EQ
