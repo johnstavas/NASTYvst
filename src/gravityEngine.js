@@ -19,7 +19,7 @@
 //   OUTPUT  — gain in dB mapped 0-1 => -18..+18dB
 //   BYPASS
 
-const PROCESSOR_VERSION = 'gravity-v1';
+const PROCESSOR_VERSION = 'gravity-v2';
 
 const PROCESSOR_CODE = `
 class GravityProcessor extends AudioWorkletProcessor {
@@ -132,15 +132,19 @@ class GravityProcessor extends AudioWorkletProcessor {
       return true;
     }
 
-    // ── Compute FDN delay lengths (scaled by space) — wider range ──
-    const sizeScale = 0.3 + space * 3.2; // 0.3x to 3.5x
+    // ── Compute FDN delay lengths (scaled by space + gravity) ──
+    // High gravity compresses the delay times (tighter orbit = faster circulation)
+    // Low gravity lets delays expand outward (things drift freely)
+    const gravCompress = 1 - gravity * 0.45;
+    const sizeScale = (0.3 + space * 3.2) * gravCompress; // gravity physically shrinks the room
     const fdnLens = this.fdnBaseLengths.map(b => Math.min(this.fdnMaxLen - 2, Math.round(b * sizeScale)));
 
-    // ── Gravity => feedback gain. High gravity = shorter denser, low = longer floatier ──
-    // Invert: high gravity = concentrated = less feedback but denser initial energy
-    const baseFeedback = 0.35 + space * 0.55; // longer rooms ring more
-    const gravFactor = 1 - gravity * 0.6; // gravity reduces feedback more dramatically
-    const bloomFactor = 1 + bloom * 0.5;  // bloom extends feedback more
+    // ── Gravity => feedback: high gravity TRAPS energy (higher feedback) ──
+    // Low gravity: things drift away = shorter decay
+    // High gravity: things are held in orbit = longer, denser decay
+    const baseFeedback = 0.42 + space * 0.45;
+    const gravFactor = 0.68 + gravity * 0.58; // gravity 0→1 boosts feedback 0.68→1.26
+    const bloomFactor = 1 + bloom * 0.45;
     const feedbackGain = Math.min(0.92, baseFeedback * gravFactor * bloomFactor);
 
     // ── Damping frequency: lower = darker ──
@@ -157,7 +161,7 @@ class GravityProcessor extends AudioWorkletProcessor {
     const erGainScale = 0.3 + density * 0.7;
 
     // ── Bloom modulation depth (in samples) ──
-    const bloomDepth = bloom * 40; // up to 40 samples modulation — much more audible
+    const bloomDepth = bloom * 110; // ±110 samples — audible chorus/shimmer at bloom > 0.3
 
     for (let n = 0; n < iL.length; n++) {
       const dryL = iL[n];
@@ -173,8 +177,8 @@ class GravityProcessor extends AudioWorkletProcessor {
       let erL = 0, erR = 0;
       const erMax = this.erMaxSamp;
       for (let t = 0; t < 8; t++) {
-        // Scale tap time by space, add density variation
-        const tapMs = this.erBaseTimes[t] * (0.3 + space * 0.7) * (0.8 + density * 0.4);
+        // Scale tap time by space + gravity (high gravity pulls reflections closer together)
+        const tapMs = this.erBaseTimes[t] * (0.3 + space * 0.7) * (0.8 + density * 0.4) * (1 - gravity * 0.28);
         const tapSamp = Math.min(erMax - 2, Math.round(tapMs * sr / 1000));
         let readPos = this.erWritePos - tapSamp;
         while (readPos < 0) readPos += erMax;
@@ -225,11 +229,12 @@ class GravityProcessor extends AudioWorkletProcessor {
       }
 
       // Gravity: redistribute energy. High gravity concentrates into first lines
-      const gravitySkew = gravity * 1.0;
+      // Wider skew range (1.6 vs 1.0) makes the pull more dramatic
+      const gravitySkew = gravity * 1.6;
       const fdnScaled = [
         fdnMixed[0] * (1 + gravitySkew),
-        fdnMixed[1] * (1 + gravitySkew * 0.3),
-        fdnMixed[2] * (1 - gravitySkew * 0.3),
+        fdnMixed[1] * (1 + gravitySkew * 0.35),
+        fdnMixed[2] * (1 - gravitySkew * 0.35),
         fdnMixed[3] * (1 - gravitySkew),
       ];
 
