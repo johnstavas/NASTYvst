@@ -646,7 +646,7 @@ export default function SmearOrb({
 
       {/* Knob row */}
       <div style={{
-        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '10px 0 6px', display: 'flex', justifyContent: 'space-evenly', alignItems: 'flex-start',
         borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="SMEAR" value={smear} defaultValue={0.4} size={34} format={pctFmt} hue="210,145,155"

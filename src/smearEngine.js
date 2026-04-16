@@ -154,15 +154,13 @@ class SmearProcessor extends AudioWorkletProcessor {
     // Drift depth: ±60 samples at full drift (audible pitch wander)
     const driftDepth = drift * 60;
 
-    // Degrade settings
-    // Low degrade (0–0.3): gentle bit crush + subtle noise
-    // High degrade (0.3–1.0): heavy bit crush + pitch instability + strong LP
-    const bitLevels = degrade > 0.01 ? Math.max(4, Math.floor(256 * (1 - degrade * 0.94))) : 0;
-    const noiseAmt  = degrade * 0.025;
-    // Pitch instability at high degrade: extra per-sample modulation on reads
-    const pitchInstab = Math.max(0, (degrade - 0.3) / 0.7) * 8; // 0→8 samples extra wobble
-    const degradeLpFreq = 18000 - degrade * 14000;               // 4000–18000 Hz
+    // Degrade settings — tape warmth/smear, not hiss
+    // Low (0-0.4):  gentle tape saturation + subtle LP warmth
+    // High (0.4-1): heavy saturation + strong LP + pitch smearing (warbly tape)
+    const degradeSat   = degrade * 2.2;          // saturation drive 0→2.2
+    const degradeLpFreq = 18000 - degrade * 13000; // LP cutoff 18kHz→5kHz
     const degradeLpCoef = Math.exp(-2 * Math.PI * degradeLpFreq / sr);
+    const pitchInstab = Math.max(0, (degrade - 0.3) / 0.7) * 6; // tape wobble at high degrade
 
     // Tilt EQ: dark(0)=heavy LP at 800 Hz, bright(1)=HP shelf boost — ±1.5×
     const tiltFreq    = 800;
@@ -252,21 +250,16 @@ class SmearProcessor extends AudioWorkletProcessor {
       wetL /= 6;
       wetR /= 6;
 
-      // ── 3. Degrade layer ──────────────────────────────────────────────────
+      // ── 3. Degrade layer — tape warmth, not hiss ─────────────────────────
       if (degrade > 0.01) {
-        // Bit reduction
-        if (bitLevels > 0) {
-          wetL = Math.round(wetL * bitLevels) / bitLevels;
-          wetR = Math.round(wetR * bitLevels) / bitLevels;
-        }
-        // Noise injection
-        wetL += (Math.random() * 2 - 1) * noiseAmt;
-        wetR += (Math.random() * 2 - 1) * noiseAmt;
-        // LP aging: blend toward low-passed version proportional to degrade
+        // Tape saturation: soft clip with drive — adds warmth/harmonics not noise
+        wetL = Math.tanh(wetL * (1 + degradeSat)) / (1 + degradeSat * 0.5);
+        wetR = Math.tanh(wetR * (1 + degradeSat)) / (1 + degradeSat * 0.5);
+        // LP warmth: progressively rolls off highs like old tape
         this.degLpL = degradeLpCoef * this.degLpL + (1 - degradeLpCoef) * wetL;
         this.degLpR = degradeLpCoef * this.degLpR + (1 - degradeLpCoef) * wetR;
-        const lpBlend = Math.min(1, degrade * 1.2); // 0→1 across degrade range
-        wetL = wetL * (1 - lpBlend * 0.6) + this.degLpL * lpBlend * 0.6;
+        const lpBlend = Math.min(1, degrade * 1.1);
+        wetL = wetL * (1 - lpBlend * 0.55) + this.degLpL * lpBlend * 0.55;
         wetR = wetR * (1 - lpBlend * 0.6) + this.degLpR * lpBlend * 0.6;
       }
 
