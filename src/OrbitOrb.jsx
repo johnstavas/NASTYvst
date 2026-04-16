@@ -60,11 +60,11 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
       var cx = W / 2, cy = H / 2;
 
       // Fade for trail persistence (long-exposure look)
-      ctx.fillStyle = 'rgba(2, 3, 15, 0.08)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.09)';
       ctx.fillRect(0, 0, W, H);
 
-      // Deep space base with nebula tones
-      ctx.fillStyle = 'rgba(2, 3, 15, 0.92)';
+      // Pure black deep space base
+      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
       ctx.globalCompositeOperation = 'destination-over';
       ctx.fillRect(0, 0, W, H);
       ctx.globalCompositeOperation = 'source-over';
@@ -76,8 +76,8 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
       var neb1y = H * 0.35 + Math.cos(nebPhase * 0.7) * 20;
       var neb1r = 60 + Math.sin(nebPhase * 0.5) * 15;
       var nebGrad1 = ctx.createRadialGradient(neb1x, neb1y, 0, neb1x, neb1y, neb1r);
-      nebGrad1.addColorStop(0, 'rgba(100, 40, 180, 0.06)');
-      nebGrad1.addColorStop(0.5, 'rgba(60, 20, 140, 0.03)');
+      nebGrad1.addColorStop(0, 'rgba(100, 40, 180, 0.12)');
+      nebGrad1.addColorStop(0.5, 'rgba(60, 20, 140, 0.06)');
       nebGrad1.addColorStop(1, 'rgba(30, 10, 80, 0)');
       ctx.fillStyle = nebGrad1;
       ctx.fillRect(0, 0, W, H);
@@ -87,8 +87,8 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
       var neb2y = H * 0.6 + Math.sin(nebPhase * 0.6) * 18;
       var neb2r = 55 + Math.cos(nebPhase * 0.4) * 12;
       var nebGrad2 = ctx.createRadialGradient(neb2x, neb2y, 0, neb2x, neb2y, neb2r);
-      nebGrad2.addColorStop(0, 'rgba(20, 60, 180, 0.06)');
-      nebGrad2.addColorStop(0.5, 'rgba(10, 40, 120, 0.03)');
+      nebGrad2.addColorStop(0, 'rgba(20, 60, 180, 0.11)');
+      nebGrad2.addColorStop(0.5, 'rgba(10, 40, 120, 0.06)');
       nebGrad2.addColorStop(1, 'rgba(5, 20, 60, 0)');
       ctx.fillStyle = nebGrad2;
       ctx.fillRect(0, 0, W, H);
@@ -97,7 +97,7 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
       var neb3x = W * 0.5 + Math.sin(nebPhase * 1.2) * 40;
       var neb3y = H * 0.2 + Math.cos(nebPhase * 0.9) * 15;
       var nebGrad3 = ctx.createRadialGradient(neb3x, neb3y, 0, neb3x, neb3y, 45);
-      nebGrad3.addColorStop(0, 'rgba(0, 180, 160, 0.04)');
+      nebGrad3.addColorStop(0, 'rgba(0, 180, 160, 0.09)');
       nebGrad3.addColorStop(1, 'rgba(0, 80, 100, 0)');
       ctx.fillStyle = nebGrad3;
       ctx.fillRect(0, 0, W, H);
@@ -550,6 +550,14 @@ export default function OrbitOrb({
   const [orbX, setOrbX] = useState(0);
   const [orbY, setOrbY] = useState(0);
 
+  // Load Orbitron font
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap';
+    document.head.appendChild(link);
+  }, []);
+
   const stateRefs = useRef({});
   stateRefs.current = { inputGain, outputGain, speed, path, width, depth, tone, mix, bypassed, smooth };
 
@@ -634,15 +642,15 @@ export default function OrbitOrb({
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 20, fontWeight: 800, letterSpacing: '0.15em',
-            background: 'linear-gradient(135deg, #3090ff 0%, #40c0e0 50%, #80d0ff 100%)',
+            fontSize: 22, fontWeight: 900, letterSpacing: '0.12em',
+            fontFamily: '"Orbitron", sans-serif',
+            background: 'linear-gradient(90deg, #ff3080 0%, #ff8c00 20%, #ffd700 38%, #00e676 55%, #00b4ff 75%, #b040ff 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 0 8px rgba(40,140,255,0.3))',
-            fontFamily: 'Georgia, "Times New Roman", serif',
+            filter: 'drop-shadow(0 0 10px rgba(160,80,255,0.5)) drop-shadow(0 0 20px rgba(0,180,255,0.25))',
           }}>ORBIT</span>
           <span style={{
-            fontSize: 6, fontWeight: 400, color: 'rgba(60,150,255,0.35)',
-            letterSpacing: '0.3em', marginTop: 1.5,
+            fontSize: 6.5, fontWeight: 400, color: 'rgba(60,150,255,0.4)',
+            letterSpacing: '0.3em', marginTop: 2,
             fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif',
           }}>spatial movement reverb</span>
         </div>
