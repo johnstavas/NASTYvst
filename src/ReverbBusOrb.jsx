@@ -109,7 +109,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       for (var ti=0;ti<6;ti++){var tx=25+ti*62,th=18+Math.sin(ti*1.9)*7;ctx.beginPath();ctx.moveTo(tx,H*0.62);ctx.lineTo(tx-10,H*0.62+th);ctx.lineTo(tx+10,H*0.62+th);ctx.closePath();ctx.fill();}
 
       // ROAD
-      var roadY = H - 42;
+      var roadY = H - 32;
       var roadG = ctx.createLinearGradient(0,roadY,0,H);
       roadG.addColorStop(0,'#4e4e52'); roadG.addColorStop(1,'#3a3a3e');
       ctx.fillStyle=roadG; ctx.fillRect(0,roadY,W,H-roadY);
@@ -121,8 +121,8 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
       for(var pl=0;pl<5;pl++){ctx.beginPath();ctx.moveTo(50+pl*62,roadY+4);ctx.lineTo(50+pl*62,H-2);ctx.stroke();}
 
-      // BUS LAYOUT — taller sky above, proper road below
-      var bY=52+bounce, bL=8, bR=315, bW=bR-bL, bH=roadY-bY;
+      // BUS LAYOUT — balanced sky/road within 200px canvas
+      var bY=42+bounce, bL=8, bR=315, bW=bR-bL, bH=roadY-bY;
       var midY=bY+bH*0.63;
       var wR2=20, rWx=bL+58, fWx=bR-46, wCy=roadY-wR2;
 
@@ -451,7 +451,7 @@ export default function ReverbBusOrb({
 
   return (
     <div style={{
-      width: 380, height: 540, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #222428 0%, #1e2024 30%, #1a1c20 60%, #16181c 100%)',
       border: '1.5px solid rgba(212,170,24,0.18)',
