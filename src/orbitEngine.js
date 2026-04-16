@@ -13,7 +13,7 @@
 //   MIX    — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'orbit-v4';
+const PROCESSOR_VERSION = 'orbit-v5';
 
 const PROCESSOR_CODE = `
 class OrbitProcessor extends AudioWorkletProcessor {
@@ -252,6 +252,9 @@ class OrbitProcessor extends AudioWorkletProcessor {
         orbX = Math.cos(t) * this.spiralRadius;
         orbY = (this.spiralRadius - 0.5) * 2; // drives depth pump: loud when big, quiet when small
       }
+
+      // Speed=0: snap to center so it's not stuck at a random pan position
+      if (orbitHz < 0.001) { orbX = 0; orbY = 0; }
 
       lastOrbX = orbX; lastOrbY = orbY;
 
