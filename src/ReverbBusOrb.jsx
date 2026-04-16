@@ -184,16 +184,6 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       // BODY OUTLINE
       ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1; ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.stroke();
 
-      // STOP SIGN
-      var sX=bL+9,sY2=bY+bH*0.22+bounce,sR2=9;
-      var flash=hist.peakSmooth>0.12?Math.min(1,(hist.peakSmooth-0.12)*5):0;
-      ctx.fillStyle=flash>0?'rgba(220,30,30,'+(0.75+flash*0.25)+')':'rgba(185,25,25,0.8)';
-      ctx.shadowColor=flash>0?'rgba(255,40,40,'+(flash*0.65)+')':'transparent'; ctx.shadowBlur=flash>0?flash*10:0;
-      ctx.beginPath();
-      for(var oi=0;oi<8;oi++){var oa=(oi/8)*Math.PI*2-Math.PI/8;oi===0?ctx.moveTo(sX+Math.cos(oa)*sR2,sY2+Math.sin(oa)*sR2):ctx.lineTo(sX+Math.cos(oa)*sR2,sY2+Math.sin(oa)*sR2);}
-      ctx.closePath(); ctx.fill(); ctx.shadowBlur=0;
-      ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=0.7; ctx.stroke();
-      ctx.font='bold 4px Arial'; ctx.textAlign='center'; ctx.fillStyle='white'; ctx.fillText('STOP',sX,sY2+1.5);
 
       // HEADLIGHT
       var hlX=hR-3,hlY=hTop+9+bounce;
