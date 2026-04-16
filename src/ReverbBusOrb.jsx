@@ -9,8 +9,9 @@ import PresetSelector from './PresetSelector';
 
 // ─── Monster Truck School Bus Canvas ─────────────────────────────────────────
 // Canvas is drawn at EXACTLY W×H matching the CSS display size to avoid oval circles.
-// Header≈40 + Presets≈25 + Modes≈26 + Knobs≈63 + Footer≈24 = 178px → canvas gets 322px
-const BUS_W = 380, BUS_H = 322;
+// Header≈42 + Presets≈26 + Canvas + Modes≈27 + Knobs≈62 + Footer≈46 = ~203px non-canvas
+// Plugin is 500px → canvas gets 500 - 203 = 297px
+const BUS_W = 380, BUS_H = 297;
 
 function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0, gr = 0, reverbLevel = 0 }) {
   const canvasRef = useRef(null);
@@ -85,10 +86,10 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
 
       // ════════════════════════════════════════════════════════════════
       // LAYOUT CONSTANTS — all derived so nothing stretches
-      var roadY = H - 22;           // road surface
-      var wR    = 52;               // MONSTER TRUCK tire radius — true circle in W×H space
+      var roadY = H - 18;           // road surface
+      var wR    = 42;               // monster truck tire radius — chunky but fits the frame
       var wCy   = roadY - wR;       // axle center
-      var lift  = 28;               // suspension clearance above tire tops (lifted!)
+      var lift  = 22;               // suspension clearance above tire tops (lifted)
       var bBot  = wCy - wR - lift;  // bottom of bus body
       var bY    = 16 + bounce;      // top of bus body
       var bL    = 10;               // bus left edge
