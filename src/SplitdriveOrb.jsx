@@ -21,7 +21,7 @@ function TachometerGauges({ lowDrive, midDrive, highDrive, crossLo, crossHi, pea
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 140;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -370,7 +370,7 @@ function TachometerGauges({ lowDrive, midDrive, highDrive, crossLo, crossHi, pea
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 140, display: 'block', borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 4 }} />;
 }
 
 // ─── Chrome Shift Knob ──────────────────────────────────────────────────────
@@ -804,7 +804,7 @@ export default function SplitdriveOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #1c0e0a 0%, #180a08 25%, #140806 50%, #100604 75%, #140a08 100%)',
       border: '1.5px solid rgba(180,90,40,0.18)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 20px rgba(200,60,20,0.06), inset 0 1px 0 rgba(255,200,150,0.04)',
@@ -845,7 +845,7 @@ export default function SplitdriveOrb({
             }}>V8 POWERED</span>
           </div>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(200,140,80,0.3)', letterSpacing: '0.35em',
+            fontSize: 6, fontWeight: 700, color: 'rgba(200,140,80,0.3)', letterSpacing: '0.35em',
             marginTop: 2, textTransform: 'uppercase',
           }}>frequency forge</span>
         </div>
@@ -889,11 +889,11 @@ export default function SplitdriveOrb({
         padding: '7px 6px 3px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="LOW" value={lowDrive} defaultValue={0.2} size={34} format={pctFmt}
+        <Knob label="LOW" value={lowDrive} defaultValue={0.2} size={28} format={pctFmt}
           onChange={v => { setLowDrive(v); engineRef.current?.setLowDrive(v); setActivePreset(null); }} />
-        <Knob label="MID" value={midDrive} defaultValue={0.4} size={34} format={pctFmt}
+        <Knob label="MID" value={midDrive} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setMidDrive(v); engineRef.current?.setMidDrive(v); setActivePreset(null); }} />
-        <Knob label="HIGH" value={highDrive} defaultValue={0.2} size={34} format={pctFmt}
+        <Knob label="HIGH" value={highDrive} defaultValue={0.2} size={28} format={pctFmt}
           onChange={v => { setHighDrive(v); engineRef.current?.setHighDrive(v); setActivePreset(null); }} />
       </div>
 

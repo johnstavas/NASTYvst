@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createTapeDelayEngine } from './tapeDelayEngine';
 
 // ─── Chrome Knob ──────────────────────────────────────────────────────────────
-function ChromeKnob({ size = 44, norm = 0 }) {
+function ChromeKnob({ size = 28, norm = 0 }) {
   const id  = useRef(`ck-${Math.random().toString(36).slice(2,7)}`).current;
   const cx = size / 2, cy = size / 2;
   const r  = size / 2 - 2;
@@ -51,7 +51,7 @@ function ChromeKnob({ size = 44, norm = 0 }) {
 }
 
 // ─── Knob wrapper ─────────────────────────────────────────────────────────────
-function Knob({ label, value, onChange, min=0, max=1, defaultValue, size=44, format, hideValue }) {
+function Knob({ label, value, onChange, min=0, max=1, defaultValue, size=28, format, hideValue }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y:0, v:0 });
   const norm = (value - min) / (max - min);
@@ -70,7 +70,7 @@ function Knob({ label, value, onChange, min=0, max=1, defaultValue, size=44, for
         <ChromeKnob size={size} norm={norm} />
       </div>
       <span style={{ fontSize:6.5, letterSpacing:'0.10em', textTransform:'uppercase', color:'rgba(210,230,170,0.85)', fontWeight:800, fontFamily:'sans-serif', textAlign:'center', width:'100%', lineHeight:1.2 }}>{label}</span>
-      {!hideValue && <span style={{ fontSize:6, color:'rgba(180,220,140,0.55)', fontFamily:'"Courier New",monospace', fontWeight:700, textAlign:'center', width:'100%', overflow:'hidden', display:'block' }}>{display}</span>}
+      {!hideValue && <span style={{ fontSize:5.5, color:'rgba(180,220,140,0.55)', fontFamily:'"Courier New",monospace', fontWeight:700, textAlign:'center', width:'100%', overflow:'hidden', display:'block' }}>{display}</span>}
     </div>
   );
 }
@@ -372,7 +372,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
 
   return (
     <div style={{
-      width: 300,
+      width: 380,
       background: '#181814',
       borderRadius: 10,
       overflow: 'hidden',
@@ -386,7 +386,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
       <div style={{ background: facePlate, padding:'9px 12px 8px', borderBottom:'2px solid #888' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-            <span style={{ fontSize:13, fontWeight:900, letterSpacing:'0.12em', color:'#1a1a10', fontFamily:'serif', textShadow:'0 1px 0 rgba(255,255,255,0.4)' }}>SPACE ECHO</span>
+            <span style={{ fontSize:14, fontWeight:900, letterSpacing:'0.12em', color:'#1a1a10', fontFamily:'serif', textShadow:'0 1px 0 rgba(255,255,255,0.4)' }}>SPACE ECHO</span>
             <span style={{ fontSize:6.5, fontWeight:700, letterSpacing:'0.28em', color:'#5a5040' }}>TAPE DELAY  ·  RE-201</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -473,10 +473,10 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
         <div style={greenPanel}>
           <span style={secLabel}>Controls</span>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-            <Knob label="Rate"      value={repeatRate} onChange={v=>setRepeatRate(v)}                  defaultValue={0.5}  size={30} format={fmtRate} />
-            <Knob label="Intensity" value={feedback}   onChange={bind(setFeedback,'setFeedback')}       defaultValue={0.42} size={30} format={fmtPct} />
-            <Knob label="Echo Vol"  value={mix}        onChange={bind(setMix,'setMix')}                 defaultValue={0.45} size={30} format={fmtPct} />
-            <Knob label="Wow"       value={wow}        onChange={bind(setWow,'setWow')}                 defaultValue={0.35} size={30} format={fmtPct} />
+            <Knob label="Rate"      value={repeatRate} onChange={v=>setRepeatRate(v)}                  defaultValue={0.5}  size={28} format={fmtRate} />
+            <Knob label="Intensity" value={feedback}   onChange={bind(setFeedback,'setFeedback')}       defaultValue={0.42} size={28} format={fmtPct} />
+            <Knob label="Echo Vol"  value={mix}        onChange={bind(setMix,'setMix')}                 defaultValue={0.45} size={28} format={fmtPct} />
+            <Knob label="Wow"       value={wow}        onChange={bind(setWow,'setWow')}                 defaultValue={0.35} size={28} format={fmtPct} />
           </div>
           <div style={{ display:'flex', justifyContent:'space-between' }}>
             <Knob label="Bass"   value={bass}   onChange={bind(setBass,'setBass')}     defaultValue={0.5} size={28} format={fmtDb} />

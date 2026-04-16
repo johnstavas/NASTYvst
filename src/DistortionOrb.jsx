@@ -4,11 +4,11 @@ import ClipMeter from './ClipMeter';
 
 const SliderRow = ({ label, value, set, min = 0, max = 1, step = 0.01, fmt, ac, labelWidth = 38 }) => (
   <div className="flex items-center gap-2">
-    <span className="text-[9px] shrink-0" style={{ color: ac(45, 55, 0.55), width: labelWidth }}>{label}</span>
+    <span className="shrink-0" style={{ fontSize: 7.5, color: ac(45, 55, 0.55), width: labelWidth }}>{label}</span>
     <input type="range" min={min} max={max} step={step} value={value}
       onChange={e => set(parseFloat(e.target.value))}
       style={{ accentColor: ac(70, 60, 1), height: '3px', flex: 1 }} />
-    <span className="text-[9px] text-right" style={{ color: ac(50, 60, 0.65), width: 28 }}>
+    <span className="text-right" style={{ fontSize: 7, color: ac(50, 60, 0.65), width: 28 }}>
       {fmt ? fmt(value) : `${Math.round(value * 100)}%`}
     </span>
   </div>
@@ -294,7 +294,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
       {/* ===== HEADER BAR ===== */}
       <div className="flex items-center justify-between px-3 py-2 shrink-0"
         style={{ borderBottom: `1px solid ${accent(30, 30, 0.12)}` }}>
-        <span className="text-[8px] uppercase tracking-[0.35em]" style={{ color: accent(50, 60, 0.5) }}>Distortion</span>
+        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', color: accent(50, 60, 0.5) }}>Distortion</span>
         <div className="flex items-center gap-2">
           <span className="text-[8px] uppercase tracking-[0.25em]" style={{ color: accent(50, 60, 0.4) }}>
             {inCleanZone ? 'Clean' : `${activeZoneName}${drive > 0.01 ? ` · ${Math.round(drive * 100)}%` : ''}`}
@@ -426,7 +426,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
 
         {/* Drive % shown near orb */}
         {drive > 0.01 && (
-          <div className="absolute pointer-events-none text-[9px]" style={{
+          <div className="absolute pointer-events-none text-[7.5px]" style={{
             left: point.x, top: point.y - innerRadius * coreScale - 14,
             transform: 'translateX(-50%)', color: accent(55, 65, 0.6),
           }}>{Math.round(drive * 100)}%</div>
@@ -442,19 +442,19 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
 
         {/* Mix slider */}
         <div className="flex items-center gap-1.5 flex-1">
-          <span className="text-[9px] shrink-0" style={{ color: accent(45, 55, 0.5) }}>Mix</span>
+          <span className="shrink-0" style={{ fontSize: 7.5, color: accent(45, 55, 0.5) }}>Mix</span>
           <input type="range" min="0" max="1" step="0.01" value={mix}
             onChange={e => setMix(parseFloat(e.target.value))}
             style={{ accentColor: accent(70, 60, 1), height: '3px', flex: 1 }} />
-          <span className="text-[9px]" style={{ color: accent(50, 62, 0.65), width: 28, textAlign: 'right' }}>{Math.round(mix * 100)}%</span>
+          <span style={{ fontSize: 7, color: accent(50, 62, 0.65), width: 28, textAlign: 'right' }}>{Math.round(mix * 100)}%</span>
         </div>
 
         {/* Settings toggle */}
         <button onClick={() => setShowPanel(p => !p)}
-          className="rounded px-2 py-1 text-[9px] border transition-colors"
-          style={showPanel
+          className="rounded px-2 py-1 border transition-colors"
+          style={{ fontSize: 7.5, ...(showPanel
             ? { background: accent(50, 50, 0.2), borderColor: accent(50, 55, 0.4), color: accent(60, 70, 1) }
-            : { background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>⚙</button>
+            : { background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }) }}>⚙</button>
       </div>
 
       {/* ===== SETTINGS PANEL ===== */}
@@ -466,7 +466,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
           {/* Presets */}
           <div className="flex items-center gap-2">
             <select value={selectedPreset} onChange={e => { setSelectedPreset(e.target.value); if (e.target.value) applySnapshot(userPresets[e.target.value] || {}); }}
-              className="flex-1 text-[9px] rounded px-2 py-1 outline-none cursor-pointer"
+              className="flex-1 text-[7.5px] rounded px-2 py-1 outline-none cursor-pointer"
               style={{ WebkitAppearance: 'none', background: 'rgba(0,0,0,0.4)', border: `1px solid ${accent(40, 30, 0.25)}`, color: 'rgba(255,255,255,0.6)' }}>
               <option value="" style={{ background: '#050a06' }}>— Load preset —</option>
               {Object.keys(userPresets).sort().map(name => (
@@ -474,10 +474,10 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
               ))}
             </select>
             <button onClick={savePreset}
-              className="text-[9px] font-medium px-2 py-1 rounded whitespace-nowrap"
+              className="text-[7.5px] font-medium px-2 py-1 rounded whitespace-nowrap"
               style={{ background: accent(30, 12, 0.5), border: `1px solid ${accent(50, 40, 0.3)}`, color: accent(60, 75, 0.9) }}>Save</button>
             <button onClick={() => deletePreset(selectedPreset)} disabled={!selectedPreset}
-              className="text-[9px] font-medium px-2 py-1 rounded whitespace-nowrap disabled:opacity-30"
+              className="text-[7.5px] font-medium px-2 py-1 rounded whitespace-nowrap disabled:opacity-30"
               style={{ background: accent(30, 12, 0.5), border: `1px solid ${accent(50, 40, 0.3)}`, color: accent(60, 75, 0.9) }}>Delete</button>
           </div>
 
@@ -486,12 +486,12 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
           <SliderRow label="Output" value={outputGainVal} set={setOutputGainVal} min={0} max={2} fmt={v => `${Math.round(v * 100)}%`} ac={accent} />
 
           <div className="flex items-center gap-2">
-            <span className="text-[9px] shrink-0" style={{ color: accent(45, 55, 0.55), width: 38 }}>Pan</span>
+            <span className="shrink-0" style={{ fontSize: 7.5, color: accent(45, 55, 0.55), width: 38 }}>Pan</span>
             <input type="range" min="-100" max="100" step="1" value={Math.round(pan * 100)}
               onChange={e => setPanVal(parseInt(e.target.value) / 100)}
               onDoubleClick={() => setPanVal(0)}
               style={{ accentColor: accent(70, 60, 1), height: '3px', flex: 1 }} />
-            <span className="text-[9px] text-right" style={{ color: accent(50, 62, 0.65), width: 28 }}>
+            <span className="text-right" style={{ fontSize: 7, color: accent(50, 62, 0.65), width: 28 }}>
               {Math.abs(pan) < 0.01 ? 'C' : pan < 0 ? `L${Math.round(Math.abs(pan) * 100)}` : `R${Math.round(pan * 100)}`}
             </span>
           </div>
@@ -510,7 +510,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
                 </button>
               </div>
               <select value={eqPreset} onChange={e => applyEqPreset(e.target.value)}
-                className="flex-1 text-[9px] rounded px-1.5 py-0.5 outline-none cursor-pointer"
+                className="flex-1 text-[7.5px] rounded px-1.5 py-0.5 outline-none cursor-pointer"
                 style={{ WebkitAppearance: 'none', background: accent(20, 8, 0.6), border: `1px solid ${accent(40, 30, 0.25)}`, color: 'rgba(255,255,255,0.6)' }}>
                 {Object.keys(EQ_PRESETS).map(name => (
                   <option key={name} value={name} style={{ background: '#050a06' }}>{name}</option>
@@ -537,7 +537,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
           </div>
 
           <button onClick={() => setBypassed(b => !b)}
-            className="w-full rounded-lg py-1 text-[9px] font-medium border mt-1"
+            className="w-full rounded-lg py-1 text-[7.5px] font-medium border mt-1"
             style={bypassed
               ? { background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', color: 'rgb(252,211,77)' }
               : { background: accent(30, 10, 0.3), border: `1px solid ${accent(40, 30, 0.2)}`, color: accent(50, 60, 0.6) }}>

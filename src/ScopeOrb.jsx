@@ -295,11 +295,11 @@ function dbColor(db) {
 // ─── SliderRow (matches OrbPluginDemo.jsx) ────────────────────────────────
 const SliderRow = ({ label, value, set, min = 0, max = 1, step = 0.01, fmt, labelWidth = 48 }) => (
   <div className="flex items-center gap-2">
-    <span className="text-[9px] shrink-0" style={{ color: accentColor(45, 55, 0.55), width: labelWidth }}>{label}</span>
+    <span className="shrink-0" style={{ fontSize: 7.5, color: accentColor(45, 55, 0.55), width: labelWidth }}>{label}</span>
     <input type="range" min={min} max={max} step={step} value={value}
       onChange={e => set(parseFloat(e.target.value))}
       style={{ accentColor: accentColor(70, 60, 1), height: '3px', flex: 1 }} />
-    <span className="text-[9px] text-right" style={{ color: accentColor(50, 60, 0.65), width: 28 }}>
+    <span className="text-right" style={{ fontSize: 7, color: accentColor(50, 60, 0.65), width: 28 }}>
       {fmt ? fmt(value) : `${Math.round(value * 100)}%`}
     </span>
   </div>
@@ -421,7 +421,7 @@ export default function ScopeOrb({
         className="grid items-center px-3 py-2"
         style={{ gridTemplateColumns: '1fr auto 1fr', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <span className="text-[8px] uppercase tracking-[0.35em]" style={{ color: accentColor(50, 60, 0.5) }}>Scope</span>
+        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', color: accentColor(50, 60, 0.5) }}>Scope</span>
         <div
           className="text-[8px] uppercase tracking-[0.25em] px-1.5 py-0.5 rounded"
           style={
@@ -455,11 +455,11 @@ export default function ScopeOrb({
           { ch: 'R', peak: readout.rPeakDb, rms: readout.rRmsDb, crest: readout.rCrest },
         ].map(({ ch, peak, rms, crest }) => (
           <div key={ch} className="flex items-baseline gap-1.5">
-            <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: accentColor(45, 55, 0.5) }}>{ch}</span>
+            <span className="text-[7.5px] uppercase tracking-[0.2em]" style={{ color: accentColor(45, 55, 0.5) }}>{ch}</span>
             <span
               className="font-mono tabular-nums"
               style={{
-                fontSize: 18,
+                fontSize: 14,
                 fontWeight: 600,
                 color: dbColor(peak),
                 letterSpacing: '-0.02em',
@@ -512,9 +512,9 @@ export default function ScopeOrb({
         <div className="flex-1 flex flex-col justify-center gap-2 px-3 py-2">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: accentColor(45, 55, 0.5) }}>Correlation</span>
+              <span className="text-[7.5px] uppercase tracking-[0.2em]" style={{ color: accentColor(45, 55, 0.5) }}>Correlation</span>
               <span
-                className="font-mono tabular-nums text-[11px]"
+                className="font-mono tabular-nums text-[8px]"
                 style={{ color: readout.corr >= 0 ? SAFE_MINT : CLIP_RED }}
               >
                 {fmtCorr(readout.corr)}
@@ -566,20 +566,20 @@ export default function ScopeOrb({
           <SliderRow label="Input"  value={inputGain}  set={setInputGain}  min={0} max={2} fmt={v => `${Math.round(v*100)}%`} />
           <SliderRow label="Output" value={outputGain} set={setOutputGain} min={0} max={2} fmt={v => `${Math.round(v*100)}%`} />
           <div className="flex items-center gap-2">
-            <span className="text-[9px] shrink-0" style={{ color: accentColor(45, 55, 0.55), width: 48 }}>Pan</span>
+            <span className="text-[7.5px] shrink-0" style={{ color: accentColor(45, 55, 0.55), width: 48 }}>Pan</span>
             <input type="range" min="-100" max="100" step="1"
               value={Math.round(pan * 100)}
               onChange={e => setPan(parseInt(e.target.value) / 100)}
               onDoubleClick={() => setPan(0)}
               style={{ accentColor: accentColor(70, 60, 1), height: '3px', flex: 1 }} />
-            <span className="text-[9px] text-right" style={{ color: accentColor(50, 60, 0.65), width: 28 }}>
+            <span className="text-[7.5px] text-right" style={{ color: accentColor(50, 60, 0.65), width: 28 }}>
               {Math.abs(pan) < 0.01 ? 'C' : pan < 0 ? `L${Math.round(Math.abs(pan)*100)}` : `R${Math.round(pan*100)}`}
             </span>
           </div>
         </div>
         <button
           onClick={() => setBypassed(b => !b)}
-          className="w-full mt-2 rounded-lg py-1 text-[10px] font-medium transition-colors"
+          className="w-full mt-2 rounded-lg py-1 text-[7.5px] font-medium transition-colors"
           style={bypassed
             ? { background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', color: 'rgb(252,211,77)' }
             : { background: accentColor(30, 10, 0.3), border: `1px solid ${accentColor(40, 30, 0.2)}`, color: accentColor(50, 60, 0.6) }}

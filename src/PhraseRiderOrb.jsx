@@ -33,7 +33,7 @@ function WaveformLane({ speed, smoothness, phraseWord, presComp, peak, waveform,
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 140;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -393,7 +393,7 @@ function WaveformLane({ speed, smoothness, phraseWord, presComp, peak, waveform,
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 140, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Purple Arc Knob ──────────────────────────────────────────────────────
@@ -475,7 +475,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         textShadow: '0 0 8px rgba(140, 70, 220, 0.1)',
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(150, 90, 230, 0.35)',
+        fontSize: 5.5, color: 'rgba(150, 90, 230, 0.35)',
         fontFamily: '"Courier New",monospace', fontWeight: 600, textAlign: 'center', width: '100%',
       }}>{display}</span>
     </div>
@@ -708,7 +708,7 @@ export default function PhraseRiderOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #100820 0%, #0c0618 25%, #080412 50%, #06030e 75%, #0a0618 100%)',
       border: '1.5px solid rgba(140,70,220,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(140,60,220,0.05), inset 0 1px 0 rgba(180,100,255,0.04)',
@@ -722,13 +722,13 @@ export default function PhraseRiderOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 13, fontWeight: 900, letterSpacing: '0.08em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.08em',
             background: 'linear-gradient(135deg, #c070ff 0%, #9040e0 35%, #60e080 70%, #c070ff 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 10px rgba(150,80,240,0.25))',
           }}>PHRASERIDER</span>
           <span style={{
-            fontSize: 5, fontWeight: 600, color: 'rgba(150,90,230,0.3)',
+            fontSize: 6, fontWeight: 600, color: 'rgba(150,90,230,0.3)',
             letterSpacing: '0.35em', marginTop: 3, textTransform: 'uppercase',
           }}>automation lane</span>
         </div>
@@ -772,20 +772,20 @@ export default function PhraseRiderOrb({
 
       {/* Knobs row 1: SMOOTHNESS, PHRASE<>WORD, PRES COMP */}
       <div style={{
-        padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="SMOOTH" value={smoothness} defaultValue={0.60} size={34} format={pctFmt} onChange={v => { setSmoothness(v); engineRef.current?.setSmoothness(v); setActivePreset(null); }} />
-        <Knob label="PH\u2194WD" value={phraseWord} defaultValue={0.50} size={34} format={biasFmt} onChange={v => { setPhraseWord(v); engineRef.current?.setPhraseWord(v); setActivePreset(null); }} />
-        <Knob label="PRES COMP" value={presComp} defaultValue={0.30} size={34} format={pctFmt} onChange={v => { setPresComp(v); engineRef.current?.setPresComp(v); setActivePreset(null); }} />
+        <Knob label="SMOOTH" value={smoothness} defaultValue={0.60} size={28} format={pctFmt} onChange={v => { setSmoothness(v); engineRef.current?.setSmoothness(v); setActivePreset(null); }} />
+        <Knob label="PH\u2194WD" value={phraseWord} defaultValue={0.50} size={28} format={biasFmt} onChange={v => { setPhraseWord(v); engineRef.current?.setPhraseWord(v); setActivePreset(null); }} />
+        <Knob label="PRES COMP" value={presComp} defaultValue={0.30} size={28} format={pctFmt} onChange={v => { setPresComp(v); engineRef.current?.setPresComp(v); setActivePreset(null); }} />
       </div>
 
       {/* Knobs row 2: OUTPUT */}
       <div style={{
-        padding: '4px 4px 6px', display: 'flex', justifyContent: 'center',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'center',
         borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={30} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
+        <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={28} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
       </div>
 
       {/* Bypass */}

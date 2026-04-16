@@ -23,7 +23,7 @@ function LiquidMorphCanvas({ morph, texture, spaceA, spaceB, peakLevel = 0, bypa
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 316, H = 160;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -340,7 +340,7 @@ function LiquidMorphCanvas({ morph, texture, spaceA, spaceB, peakLevel = 0, bypa
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 316, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Liquid Split Knob ────────────────────────────────────────────────────────
@@ -375,7 +375,7 @@ function RingKnob({ size = 26, norm = 0 }) {
   );
 }
 
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 26, format, sensitivity = 120, colorA, colorB }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format, sensitivity = 120, colorA, colorB }) {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
@@ -399,12 +399,12 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         <RingKnob size={size} norm={norm} colorA={colorA} colorB={colorB} />
       </div>
       <span style={{
-        fontSize: 7, letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'rgba(180,180,160,0.6)', fontWeight: 700, textAlign: 'center',
         fontFamily: 'system-ui', lineHeight: 1, marginTop: 2,
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(160,160,140,0.45)', fontFamily: '"Courier New",monospace',
+        fontSize: 5.5, color: 'rgba(160,160,140,0.45)', fontFamily: '"Courier New",monospace',
         fontWeight: 600, textAlign: 'center',
       }}>{display}</span>
     </div>
@@ -554,7 +554,7 @@ export default function MorphReverbOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #14120a 0%, #0e0e0c 35%, #0a0a08 70%, #08080a 100%)',
       border: '1.5px solid rgba(180,160,80,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(180,150,60,0.08), inset 0 1px 0 rgba(200,180,100,0.05)',
@@ -569,13 +569,13 @@ export default function MorphReverbOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 900, letterSpacing: '0.1em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em',
             background: 'linear-gradient(135deg, #d4a040, #40b0c0)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(180,150,60,0.3))',
           }}>MORPH REVERB</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(180,160,100,0.35)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(180,160,100,0.35)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>BLEND BETWEEN WORLDS</span>
         </div>
@@ -621,21 +621,21 @@ export default function MorphReverbOrb({
 
       {/* Knobs Row: MORPH (big), TEXTURE, TONE, MIX */}
       <div style={{
-        padding: '10px 8px 8px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
         borderBottom: '1px solid rgba(180,160,80,0.06)',
       }}>
-        <Knob label="MORPH" value={morph} defaultValue={0.5} size={36}
+        <Knob label="MORPH" value={morph} defaultValue={0.5} size={28}
           colorA="rgba(220,160,60,0.6)" colorB="rgba(60,180,220,0.6)"
           format={v => v < 0.2 ? 'A' : v > 0.8 ? 'B' : Math.round(v * 100) + '%'}
           onChange={v => { setMorph(v); engineRef.current?.setMorph(v); setActivePreset(null); }} />
-        <Knob label="TEXTURE" value={texture} defaultValue={0.3} size={30} format={pctFmt}
+        <Knob label="TEXTURE" value={texture} defaultValue={0.3} size={28} format={pctFmt}
           colorA="rgba(200,180,100,0.5)" colorB="rgba(200,180,100,0.5)"
           onChange={v => { setTexture(v); engineRef.current?.setTexture(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.5} size={30}
+        <Knob label="TONE" value={tone} defaultValue={0.5} size={28}
           colorA="rgba(200,180,100,0.5)" colorB="rgba(200,180,100,0.5)"
           format={v => v < 0.3 ? 'DARK' : v > 0.7 ? 'BRIGHT' : 'NEUTRAL'}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.3} size={30} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.3} size={28} format={pctFmt}
           colorA="rgba(180,180,150,0.5)" colorB="rgba(180,180,150,0.5)"
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
@@ -647,7 +647,7 @@ export default function MorphReverbOrb({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <BypassDot active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
           <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(180,150,60,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(220,190,100,0.95)' : 'rgba(160,130,60,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(180,150,60,0.45)' : 'rgba(120,100,40,0.2)'}`,

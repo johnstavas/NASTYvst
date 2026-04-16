@@ -120,7 +120,7 @@ function NeveKnobSVG({ size, norm, accentColor = '#e8e8e8', faceColor = null, nD
 }
 
 // ── StepKnob — discrete stepped rotary (click cycles, drag steps) ───────────
-function StepKnob({ label, steps, selectedIndex, onChange, size = 50, accentColor = '#e8e8e8', faceColor = null }) {
+function StepKnob({ label, steps, selectedIndex, onChange, size = 28, accentColor = '#e8e8e8', faceColor = null }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, idx: 0, changed: false });
   const n    = steps.length;
@@ -148,7 +148,7 @@ function StepKnob({ label, steps, selectedIndex, onChange, size = 50, accentColo
 
   return (
     <div className="flex flex-col items-center select-none" style={{ width: size + 10 }}>
-      <div className="text-[7px] tracking-[0.20em] font-semibold mb-1" style={{ color: FG_DIM }}>
+      <div className="tracking-[0.20em] font-semibold mb-1" style={{ color: FG_DIM, fontSize: '6.5px' }}>
         {label}
       </div>
       <div
@@ -157,7 +157,7 @@ function StepKnob({ label, steps, selectedIndex, onChange, size = 50, accentColo
       >
         <NeveKnobSVG size={size} norm={norm} accentColor={accentColor} faceColor={faceColor} nDots={n} />
       </div>
-      <div className="text-[8px] mt-1 font-mono font-bold" style={{ color: FG }}>
+      <div className="mt-1 font-mono font-bold" style={{ color: FG, fontSize: '5.5px' }}>
         {steps[selectedIndex]}
       </div>
     </div>
@@ -168,7 +168,7 @@ function StepKnob({ label, steps, selectedIndex, onChange, size = 50, accentColo
 function NastyKnob({
   label, value, onChange,
   min = 0, max = 1, defaultValue,
-  size = 50, accentColor = '#e8e8e8', faceColor = null, format,
+  size = 28, accentColor = '#e8e8e8', faceColor = null, format,
   // legacy props ignored (ringColor / knobBg) — kept for call-site compat
   ringColor, knobBg,
 }) {
@@ -196,7 +196,7 @@ function NastyKnob({
 
   return (
     <div className="flex flex-col items-center select-none" style={{ width: size + 10 }}>
-      <div className="text-[7px] tracking-[0.20em] font-semibold mb-1" style={{ color: FG_DIM }}>
+      <div className="tracking-[0.20em] font-semibold mb-1" style={{ color: FG_DIM, fontSize: '6.5px' }}>
         {label}
       </div>
       <div
@@ -206,7 +206,7 @@ function NastyKnob({
       >
         <NeveKnobSVG size={size} norm={norm} accentColor={accentColor} faceColor={faceColor} />
       </div>
-      <div className="text-[8px] mt-1 font-mono tabular-nums" style={{ color: FG }}>
+      <div className="mt-1 font-mono tabular-nums" style={{ color: FG, fontSize: '5.5px' }}>
         {format ? format(value) : value.toFixed(2)}
       </div>
     </div>
@@ -361,7 +361,7 @@ export default function NastyNeveOrb({
 
   return (
     <div style={{
-      width: 382,
+      width: 380,
       borderRadius: 12,
       padding: '12px 14px 10px',
       background: PANEL_BG,
@@ -374,7 +374,7 @@ export default function NastyNeveOrb({
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="text-[13px] font-black tracking-[0.10em]" style={{
+          <div className="font-black tracking-[0.10em]" style={{ fontSize: 14,
             color: STEEL_H,
             textShadow: `0 0 10px ${STEEL}, 0 0 2px rgba(200,230,248,0.4)`,
           }}>
@@ -449,18 +449,18 @@ export default function NastyNeveOrb({
       <div className="flex items-end justify-around mb-4">
         <NastyKnob
           label="DRIVE" value={drive} onChange={wDriveS}
-          min={0} max={18} defaultValue={0} size={60}
+          min={0} max={18} defaultValue={0} size={38}
           accentColor={MIC_RED} faceColor="#3a1a1a"
           format={v => `${v.toFixed(1)} dB`}
         />
         <NastyKnob
           label="THICK" value={thickness} onChange={wThicknessS}
-          min={0} max={1} defaultValue={0} size={60}
+          min={0} max={1} defaultValue={0} size={38}
           format={v => `${(v * 100).toFixed(0)}%`}
         />
         <NastyKnob
           label="OUT" value={outputTrim} onChange={wOutputTrimS}
-          min={-24} max={20} defaultValue={0} size={60}
+          min={-24} max={20} defaultValue={0} size={38}
           format={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB`}
         />
       </div>
@@ -497,7 +497,7 @@ export default function NastyNeveOrb({
           steps={HPF_STEPS}
           selectedIndex={hpfIdx}
           onChange={wHpfIdx}
-          size={50}
+          size={28}
           accentColor={BLUE}
           faceColor="#1a2a4a"
         />
@@ -508,7 +508,7 @@ export default function NastyNeveOrb({
         <div className="flex flex-col items-center gap-1">
           <NastyKnob
             label="LOW" value={lowGain} onChange={wLowGain}
-            min={-16} max={16} defaultValue={0} size={46}
+            min={-16} max={16} defaultValue={0} size={28}
             format={fmtGain}
           />
           <div className="flex gap-[3px] flex-wrap justify-center" style={{ maxWidth: 80 }}>
@@ -537,11 +537,11 @@ export default function NastyNeveOrb({
             steps={MID_STEPS}
             selectedIndex={midIdx}
             onChange={wMidIdx}
-            size={46}
+            size={28}
           />
           <NastyKnob
             label="GAIN" value={midGain} onChange={wMidGain}
-            min={-18} max={18} defaultValue={0} size={46}
+            min={-18} max={18} defaultValue={0} size={28}
             format={fmtGain}
           />
         </div>
@@ -551,7 +551,7 @@ export default function NastyNeveOrb({
         {/* HIGH: gain only, fixed 12 kHz */}
         <NastyKnob
           label="12k" value={highGain} onChange={wHighGain}
-          min={-16} max={16} defaultValue={0} size={46}
+          min={-16} max={16} defaultValue={0} size={28}
           format={fmtGain}
         />
       </div>

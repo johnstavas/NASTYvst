@@ -20,7 +20,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 340, H = 180;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -439,7 +439,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 340, height: 180, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Console Bypass Button ───────────────────────────────────────────────────
@@ -517,8 +517,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <ConsoleKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(140,150,165,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5, color: 'rgba(120,130,145,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(140,150,165,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(120,130,145,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -632,7 +632,7 @@ export default function ReverbBusOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #222428 0%, #1e2024 30%, #1a1c20 60%, #16181c 100%)',
       border: '1.5px solid rgba(140,150,165,0.1)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 10px rgba(40,180,80,0.03), inset 0 1px 0 rgba(255,255,255,0.02)',
@@ -653,13 +653,13 @@ export default function ReverbBusOrb({
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 13, fontWeight: 800, letterSpacing: '0.12em',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.12em',
             color: 'rgba(160, 170, 185, 0.85)',
             textShadow: '0 0 8px rgba(40,180,80,0.15)',
             fontFamily: '"Courier New", monospace',
           }}>REVERB BUS</span>
           <span style={{
-            fontSize: 5.5, fontWeight: 400, color: 'rgba(140,150,165,0.3)',
+            fontSize: 6, fontWeight: 400, color: 'rgba(140,150,165,0.3)',
             letterSpacing: '0.25em', marginTop: 1.5,
             fontFamily: '"Courier New", monospace',
           }}>stem glue reverb</span>
@@ -688,20 +688,20 @@ export default function ReverbBusOrb({
 
       {/* Knob row */}
       <div style={{
-        padding: '6px 8px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderTop: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="SPACE" value={space} defaultValue={0.35} size={26} format={pctFmt}
+        <Knob label="SPACE" value={space} defaultValue={0.35} size={28} format={pctFmt}
           onChange={v => { setSpace(v); engineRef.current?.setSpace(v); setActivePreset(null); }} />
-        <Knob label="TUCK" value={tuck} defaultValue={0.4} size={26} format={pctFmt}
+        <Knob label="TUCK" value={tuck} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setTuck(v); engineRef.current?.setTuck(v); setActivePreset(null); }} />
-        <Knob label="GLUE" value={glue} defaultValue={0.3} size={26} format={pctFmt}
+        <Knob label="GLUE" value={glue} defaultValue={0.3} size={28} format={pctFmt}
           onChange={v => { setGlue(v); engineRef.current?.setGlue(v); setActivePreset(null); }} />
-        <Knob label="COLOR" value={color} defaultValue={0.5} size={26} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'OPEN' : 'WARM'}
+        <Knob label="COLOR" value={color} defaultValue={0.5} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'OPEN' : 'WARM'}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }} />
-        <Knob label="WIDTH" value={width} defaultValue={0.5} size={26} format={pctFmt}
+        <Knob label="WIDTH" value={width} defaultValue={0.5} size={28} format={pctFmt}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.2} size={26} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.2} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
@@ -709,7 +709,7 @@ export default function ReverbBusOrb({
       <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(40,180,80,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(80,220,120,0.95)' : 'rgba(100,130,110,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(40,180,80,0.45)' : 'rgba(60,90,70,0.2)'}`,

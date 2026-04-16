@@ -31,7 +31,7 @@ function CRTScreen({ mode, intensity, tone, motion, peakLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 110;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -507,7 +507,7 @@ function CRTScreen({ mode, intensity, tone, motion, peakLevel }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 110, display: 'block', borderRadius: 2, border: '2px solid #1a1a1a' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2, border: '2px solid #1a1a1a' }} />;
 }
 
 // ─── Channel Button ─────────────────────────────────────────────────────────
@@ -572,7 +572,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         style={{ width: size + 8, height: size + 8, cursor: dragging ? 'grabbing' : 'grab' }}>
         <CRTKnob size={size} norm={norm} accent={accent} />
       </div>
-      <span style={{ fontSize: 6, letterSpacing: '0.12em', color: `${accent}aa`, fontWeight: 700, fontFamily: 'monospace' }}>{label}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', color: `${accent}aa`, fontWeight: 700, fontFamily: 'monospace' }}>{label}</span>
       <span style={{ fontSize: 5.5, color: `${accent}60`, fontFamily: 'monospace', fontWeight: 600 }}>{display}</span>
     </div>
   );
@@ -754,7 +754,7 @@ export default function CharacterOrb({
 
   return (
     <div style={{
-      width: 280, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #0e0e1a 0%, #0a0a14 40%, #080810 100%)',
       border: `1.5px solid ${th.accent}22`,
       boxShadow: `0 4px 30px rgba(0,0,0,0.9), 0 0 15px ${th.accentDim}, inset 0 1px 0 ${th.accent}08`,
@@ -770,12 +770,12 @@ export default function CharacterOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 12, fontWeight: 900, letterSpacing: '0.05em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.05em',
             color: th.accent, fontFamily: 'monospace',
             textShadow: `0 0 10px ${th.accentDim}`,
           }}>CHARACTER</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: `${th.accent}40`,
+            fontSize: 6, fontWeight: 700, color: `${th.accent}40`,
             letterSpacing: '0.3em', marginTop: 1, fontFamily: 'monospace',
           }}>VOCAL BOX</span>
         </div>
@@ -826,26 +826,26 @@ export default function CharacterOrb({
 
       {/* Knobs */}
       <div style={{
-        padding: '7px 6px 4px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: `1px solid ${th.accent}08`,
       }}>
-        <Knob label="INTENSITY" value={intensity} min={0} max={1} defaultValue={0.5} accent={th.accent}
+        <Knob label="INTENSITY" value={intensity} min={0} max={1} defaultValue={0.5} accent={th.accent} size={28}
           onChange={v => { setIntensity(v); engineRef.current?.setIntensity(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="TONE" value={tone} min={0} max={1} defaultValue={0.5} accent={th.accent}
+        <Knob label="TONE" value={tone} min={0} max={1} defaultValue={0.5} accent={th.accent} size={28}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }}
           format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} />
-        <Knob label="MOTION" value={motion} min={0} max={1} defaultValue={0.3} accent={th.accent}
+        <Knob label="MOTION" value={motion} min={0} max={1} defaultValue={0.3} accent={th.accent} size={28}
           onChange={v => { setMotion(v); engineRef.current?.setMotion(v); setActivePreset(null); }} format={pctFmt} />
       </div>
 
       {/* Mix, Output, Bypass row */}
       <div style={{
-        padding: '4px 6px 7px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end',
         borderBottom: `1px solid ${th.accent}08`,
       }}>
-        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.5} accent={th.accent} size={30}
+        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.5} accent={th.accent} size={28}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} accent={th.accent} size={30}
+        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} accent={th.accent} size={28}
           onChange={v => { setOutputLevel(v); engineRef.current?.setOutput(v); setActivePreset(null); }} format={outFmt} />
       </div>
 

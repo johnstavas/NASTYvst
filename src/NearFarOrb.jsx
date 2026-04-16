@@ -19,7 +19,7 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 316, H = 160;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -370,7 +370,7 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 316, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Simple Arc Knob ─────────────────────────────────────────────────────────
@@ -408,7 +408,7 @@ function ArcKnob({ size = 26, norm = 0 }) {
   );
 }
 
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 26, format, sensitivity = 120 }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format, sensitivity = 120 }) {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
@@ -432,12 +432,12 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         <ArcKnob size={size} norm={norm} />
       </div>
       <span style={{
-        fontSize: 7, letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'rgba(200,150,90,0.65)', fontWeight: 700, textAlign: 'center',
         fontFamily: 'system-ui', lineHeight: 1, marginTop: 2,
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(180,130,70,0.45)', fontFamily: '"Courier New",monospace',
+        fontSize: 5.5, color: 'rgba(180,130,70,0.45)', fontFamily: '"Courier New",monospace',
         fontWeight: 600, textAlign: 'center',
       }}>{display}</span>
     </div>
@@ -564,7 +564,7 @@ export default function NearFarOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #14100a 0%, #100c08 35%, #0c0a06 70%, #0a0808 100%)',
       border: '1.5px solid rgba(200,150,70,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(200,140,50,0.08), inset 0 1px 0 rgba(220,180,100,0.05)',
@@ -579,13 +579,13 @@ export default function NearFarOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 900, letterSpacing: '0.1em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em',
             background: 'linear-gradient(135deg, #d4a040, #8090c0)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(200,140,50,0.3))',
           }}>NEAR / FAR</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(200,150,90,0.35)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(200,150,90,0.35)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>DISTANCE DESIGNER</span>
         </div>
@@ -624,28 +624,28 @@ export default function NearFarOrb({
 
       {/* Knobs Row 1: DISTANCE (big), ROOM, FOCUS */}
       <div style={{
-        padding: '8px 8px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
         borderBottom: '1px solid rgba(200,150,70,0.06)',
       }}>
-        <Knob label="DISTANCE" value={distance} defaultValue={0.3} size={34}
+        <Knob label="DISTANCE" value={distance} defaultValue={0.3} size={28}
           format={v => v < 0.25 ? 'NEAR' : v > 0.75 ? 'FAR' : 'MID'}
           onChange={v => { setDistance(v); engineRef.current?.setDistance(v); setActivePreset(null); }} />
-        <Knob label="ROOM" value={room} defaultValue={0.4} size={30} format={pctFmt}
+        <Knob label="ROOM" value={room} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setRoom(v); engineRef.current?.setRoom(v); setActivePreset(null); }} />
-        <Knob label="FOCUS" value={focus} defaultValue={0.6} size={30} format={pctFmt}
+        <Knob label="FOCUS" value={focus} defaultValue={0.6} size={28} format={pctFmt}
           onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} />
       </div>
 
       {/* Knobs Row 2: AIR LOSS, TAIL, MIX */}
       <div style={{
-        padding: '4px 8px 8px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
         borderBottom: '1px solid rgba(200,150,70,0.06)',
       }}>
-        <Knob label="AIR LOSS" value={airLoss} defaultValue={0.5} size={30} format={pctFmt}
+        <Knob label="AIR LOSS" value={airLoss} defaultValue={0.5} size={28} format={pctFmt}
           onChange={v => { setAirLoss(v); engineRef.current?.setAirLoss(v); setActivePreset(null); }} />
-        <Knob label="TAIL" value={tail} defaultValue={0.4} size={30} format={pctFmt}
+        <Knob label="TAIL" value={tail} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setTail(v); engineRef.current?.setTail(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={1.0} size={30} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={1.0} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
@@ -656,7 +656,7 @@ export default function NearFarOrb({
         <BypassDot active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(200,150,70,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(240,200,120,0.95)' : 'rgba(160,120,60,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(200,150,70,0.45)' : 'rgba(120,90,40,0.2)'}`,

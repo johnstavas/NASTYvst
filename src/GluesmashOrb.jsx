@@ -404,7 +404,7 @@ function HexBoltKnob({ size = 32, norm = 0, hexSize }) {
   );
 }
 
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 32, hexSize, format, step, sensitivity = 140 }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, hexSize, format, step, sensitivity = 140 }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
   const norm = (value - min) / (max - min);
@@ -427,7 +427,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size + 8, height: size + 8, cursor: dragging ? 'grabbing' : 'grab' }}>
         <HexBoltKnob size={size} norm={norm} hexSize={hexSize} />
       </div>
-      <span style={{ fontSize: 6, color: 'rgba(200,60,60,0.5)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 5.5, color: 'rgba(200,60,60,0.5)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -865,7 +865,7 @@ export default function GluesmashOrb({
 
   return (
     <div style={{
-      width: 320, borderRadius: 4, position: 'relative',
+      width: 380, borderRadius: 4, position: 'relative',
       background: `
         linear-gradient(170deg, #1e2024 0%, #181a1e 20%, #141618 50%, #101214 80%, #141618 100%)
       `,
@@ -913,7 +913,7 @@ export default function GluesmashOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 18, fontWeight: 900, letterSpacing: '0.12em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.12em',
             background: 'linear-gradient(180deg, #ff4040 0%, #cc2020 50%, #ff6060 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -965,13 +965,13 @@ export default function GluesmashOrb({
         }}>
           {/* LEFT COLUMN: ATK, REL, TONE */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-            <Knob label="ATK" value={attack} min={0} max={1} defaultValue={0.3} size={32} hexSize={10}
+            <Knob label="ATK" value={attack} min={0} max={1} defaultValue={0.3} size={28} hexSize={10}
               onChange={v => { setAttack(v); engineRef.current?.setAttack(v); setActivePreset(null); }}
               format={v => { const ms = 0.1 * Math.pow(1000, v); return ms < 1 ? `${(ms * 1000).toFixed(0)}us` : ms < 10 ? `${ms.toFixed(1)}ms` : `${Math.round(ms)}ms`; }} />
-            <Knob label="REL" value={release} min={0} max={1} defaultValue={0.4} size={32} hexSize={10}
+            <Knob label="REL" value={release} min={0} max={1} defaultValue={0.4} size={28} hexSize={10}
               onChange={v => { setRelease(v); engineRef.current?.setRelease(v); setActivePreset(null); }}
               format={v => { const ms = 20 * Math.pow(40, v); return ms < 100 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(2)}s`; }} />
-            <Knob label="TONE" value={tone} min={0} max={1} defaultValue={0.5} size={30} hexSize={9}
+            <Knob label="TONE" value={tone} min={0} max={1} defaultValue={0.5} size={28} hexSize={9}
               onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }}
               format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'FLAT'} />
           </div>
@@ -981,13 +981,13 @@ export default function GluesmashOrb({
 
           {/* RIGHT COLUMN: PUNCH, SMASH, MIX */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-            <Knob label="PUNCH" value={punch} min={0} max={1} defaultValue={0} size={32} hexSize={10}
+            <Knob label="PUNCH" value={punch} min={0} max={1} defaultValue={0} size={28} hexSize={10}
               onChange={v => { setPunch(v); engineRef.current?.setPunch(v); setActivePreset(null); }}
               format={pctFmt} />
-            <Knob label="SMASH" value={smash} min={0} max={1} defaultValue={0} size={32} hexSize={10}
+            <Knob label="SMASH" value={smash} min={0} max={1} defaultValue={0} size={28} hexSize={10}
               onChange={v => { setSmash(v); engineRef.current?.setSmash(v); setActivePreset(null); }}
               format={pctFmt} />
-            <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1} size={30} hexSize={9}
+            <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1} size={28} hexSize={9}
               onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
               format={pctFmt} />
           </div>

@@ -22,7 +22,7 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 340, H = 180;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -368,7 +368,7 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 340, height: 180, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Watercolor Bypass Droplet ───────────────────────────────────────────────
@@ -398,7 +398,7 @@ function DropletBypass({ active, onClick }) {
 }
 
 // ─── Watercolor Knob ─────────────────────────────────────────────────────────
-function WashKnob({ size = 26, norm = 0 }) {
+function WashKnob({ size = 26, norm = 0, hue = '210,145,155' }) {
   const cx = size / 2, cy = size / 2, r = size / 2 - 2;
   const startAngle = Math.PI * 0.75;
   const totalSweep = Math.PI * 1.5;
@@ -408,22 +408,43 @@ function WashKnob({ size = 26, norm = 0 }) {
   const large = norm * totalSweep > Math.PI ? 1 : 0;
   const dotX = cx + Math.cos(sweepAngle) * r;
   const dotY = cy + Math.sin(sweepAngle) * r;
-  const ACCENT_HUE = 340;
+  // Line pointer angle
+  const ptrLen = r * 0.55;
+  const ptrX = cx + Math.cos(sweepAngle) * ptrLen;
+  const ptrY = cy + Math.sin(sweepAngle) * ptrLen;
+  const filterId = `wash-glow-${size}`;
+  const gradId = `wash-bg-${size}`;
   return (
     <svg width={size} height={size} style={{ display: 'block', pointerEvents: 'none' }}>
-      <circle cx={cx} cy={cy} r={r} fill="rgba(10,14,20,0.9)"
-        stroke="rgba(120,140,180,0.08)" strokeWidth="1.5" />
+      <defs>
+        <radialGradient id={gradId} cx="38%" cy="35%" r="65%">
+          <stop offset="0%" stopColor={`rgba(${hue},0.25)`} />
+          <stop offset="100%" stopColor="rgba(20,18,16,0.95)" />
+        </radialGradient>
+        <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.5" />
+        </filter>
+      </defs>
+      {/* Body with radial gradient */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${gradId})`}
+        stroke={`rgba(${hue},0.12)`} strokeWidth="1" />
+      {/* Arc with glow */}
       {norm > 0.005 && (
         <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`}
           fill="none"
-          stroke={`hsla(${ACCENT_HUE},65%,55%,0.7)`}
-          strokeWidth="1.8" strokeLinecap="round" />
+          stroke={`rgba(${hue},0.8)`}
+          strokeWidth="1.8" strokeLinecap="round"
+          filter={`url(#${filterId})`} />
       )}
+      {/* Dot at arc end with glow */}
       <circle cx={dotX} cy={dotY} r="2.2"
-        fill={`hsla(${ACCENT_HUE},80%,70%,0.9)`} />
-      <circle cx={dotX} cy={dotY} r="4"
-        fill={`hsla(${ACCENT_HUE},80%,70%,0.12)`} />
-      <circle cx={cx} cy={cy} r="1.5" fill="rgba(160,180,220,0.2)" />
+        fill={`rgba(${hue},0.95)`}
+        filter={`url(#${filterId})`} />
+      {/* Line pointer from center */}
+      <line x1={cx} y1={cy} x2={ptrX} y2={ptrY}
+        stroke={`rgba(${hue},0.5)`} strokeWidth="1" strokeLinecap="round" />
+      {/* Center dot */}
+      <circle cx={cx} cy={cy} r="1.5" fill={`rgba(${hue},0.25)`} />
     </svg>
   );
 }
@@ -446,8 +467,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <WashKnob size={size} norm={norm} hue={hue} />
       </div>
-      <span style={{ fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase', color: `rgba(${hue},0.7)`, fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5, color: `rgba(${hue},0.4)`, fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: `rgba(${hue},0.7)`, fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: `rgba(${hue},0.4)`, fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -561,7 +582,7 @@ export default function SmearOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #2a2522 0%, #231f1d 30%, #1e1b19 60%, #1a1715 100%)',
       border: '1.5px solid rgba(210,145,155,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(210,145,155,0.05), inset 0 1px 0 rgba(210,145,155,0.06)',
@@ -583,14 +604,14 @@ export default function SmearOrb({
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 800, letterSpacing: '0.15em',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
             background: 'linear-gradient(135deg, #d2919b 0%, #9b9bc3 40%, #9bb98f 70%, #d7c38c 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 6px rgba(210,145,155,0.2))',
             fontFamily: 'Georgia, "Times New Roman", serif',
           }}>SMEAR</span>
           <span style={{
-            fontSize: 5.5, fontWeight: 400, color: 'rgba(210,145,155,0.35)',
+            fontSize: 6, fontWeight: 400, color: 'rgba(210,145,155,0.35)',
             letterSpacing: '0.3em', marginTop: 1.5,
             fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif',
           }}>watercolor reverb</span>
@@ -627,17 +648,17 @@ export default function SmearOrb({
         padding: '6px 10px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="SMEAR" value={smear} defaultValue={0.4} size={26} format={pctFmt} hue="210,145,155"
+        <Knob label="SMEAR" value={smear} defaultValue={0.4} size={28} format={pctFmt} hue="210,145,155"
           onChange={v => { setSmear(v); engineRef.current?.setSmear(v); setActivePreset(null); }} />
-        <Knob label="DRIFT" value={drift} defaultValue={0.2} size={26} format={pctFmt} hue="155,185,145"
+        <Knob label="DRIFT" value={drift} defaultValue={0.2} size={28} format={pctFmt} hue="155,185,145"
           onChange={v => { setDrift(v); engineRef.current?.setDrift(v); setActivePreset(null); }} />
-        <Knob label="DEGRADE" value={degrade} defaultValue={0.15} size={26} format={pctFmt} hue="175,155,195"
+        <Knob label="DEGRADE" value={degrade} defaultValue={0.15} size={28} format={pctFmt} hue="175,155,195"
           onChange={v => { setDegrade(v); engineRef.current?.setDegrade(v); setActivePreset(null); }} />
-        <Knob label="SIZE" value={size} defaultValue={0.5} size={26} format={pctFmt} hue="215,195,140"
+        <Knob label="SIZE" value={size} defaultValue={0.5} size={28} format={pctFmt} hue="215,195,140"
           onChange={v => { setSize(v); engineRef.current?.setSize(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.45} size={26} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} hue="180,160,170"
+        <Knob label="TONE" value={tone} defaultValue={0.45} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} hue="180,160,170"
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.3} size={26} format={pctFmt} hue="145,175,175"
+        <Knob label="MIX" value={mix} defaultValue={0.3} size={28} format={pctFmt} hue="145,175,175"
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 

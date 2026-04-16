@@ -53,16 +53,16 @@ const ModeLED = ({ label, active, color, onClick }) => (
       flexShrink: 0,
     }} />
     <span style={{
-      fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
+      fontSize: 7.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
       color: active ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.22)',
       transition: 'color 0.08s',
     }}>{label}</span>
   </button>
 );
 
-const size   = 360;
+const size   = 380;
 const center = size / 2;
-const radius = 136;
+const radius = 146;
 
 export default function VocalOrb({
   instanceId, sharedSource,
@@ -290,7 +290,7 @@ export default function VocalOrb({
         background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
         borderBottom: '1px solid #1e1e1e',
       }}>
-        <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.35em', textTransform: 'uppercase' }}>Vocal</span>
+        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.25)' }}>Vocal</span>
 
         {/* Mode LEDs */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -422,7 +422,7 @@ export default function VocalOrb({
             position: 'absolute', pointerEvents: 'none',
             left: displayPt.x, top: displayPt.y - orbR - 16,
             transform: 'translateX(-50%)',
-            color: AMBER, fontSize: 10, fontFamily: '"Courier New", monospace', fontWeight: 'bold',
+            color: AMBER, fontSize: 8, fontFamily: '"Courier New", monospace', fontWeight: 'bold',
             textShadow: `0 0 8px ${AMBER}80`,
           }}>{pitchDisplay}</div>
         )}
@@ -509,7 +509,7 @@ export default function VocalOrb({
               onPointerDown={onDrivePD} onPointerMove={onDrivePM} onPointerUp={onDrivePU} onDoubleClick={() => setDrive(0)}>
               <KnobArc value={drive} color={RED} size={44} />
             </div>
-            <div style={{ fontFamily: '"Courier New", monospace', fontSize: 10, color: RED, marginTop: 3 }}>
+            <div style={{ fontFamily: '"Courier New", monospace', fontSize: 8, color: RED, marginTop: 3 }}>
               {drive < 0.01 ? 'OFF' : Math.round(drive * 100)}
             </div>
           </div>
@@ -529,7 +529,7 @@ export default function VocalOrb({
               onPointerDown={onMixPD} onPointerMove={onMixPM} onPointerUp={onMixPU} onDoubleClick={() => setMix(0.5)}>
               <KnobArc value={mix} color={TEAL} size={44} />
             </div>
-            <div style={{ fontFamily: '"Courier New", monospace', fontSize: 10, color: TEAL, marginTop: 3 }}>
+            <div style={{ fontFamily: '"Courier New", monospace', fontSize: 8, color: TEAL, marginTop: 3 }}>
               {mix < 0.01 ? 'DRY' : mix > 0.99 ? 'WET' : `${Math.round(mix * 100)}%`}
             </div>
           </div>
@@ -568,11 +568,11 @@ export default function VocalOrb({
             ['Pan',      pan,        setPan,        -1, 1, v => v === 0 ? 'C' : v > 0 ? `R${Math.round(v*100)}` : `L${Math.round(-v*100)}`],
           ].map(([label, val, setter, mn, mx, fmt]) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-              <span style={{ fontSize: 9, color: '#555', width: 50, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
+              <span style={{ fontSize: 7.5, color: '#555', width: 50, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
               <input type="range" min={mn} max={mx} step={0.01} value={val}
                 onChange={e => setter(parseFloat(e.target.value))}
                 style={{ flex: 1, accentColor: AMBER, height: 2 }} />
-              <span style={{ fontSize: 9, color: '#888', width: 32, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(val)}</span>
+              <span style={{ fontSize: 7, color: '#888', width: 32, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(val)}</span>
             </div>
           ))}
         </div>

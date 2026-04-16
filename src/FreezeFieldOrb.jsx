@@ -20,7 +20,7 @@ function IceCaveCanvas({ freeze, smear, drift, shape, width, peakLevel = 0, bypa
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 316, H = 160;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -455,7 +455,7 @@ function IceCaveCanvas({ freeze, smear, drift, shape, width, peakLevel = 0, bypa
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 316, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Hex Crystal Knob ────────────────────────────────────────────────────────
@@ -489,7 +489,7 @@ function CrystalKnob({ size = 26, norm = 0 }) {
 }
 
 // ─── Knob Component ──────────────────────────────────────────────────────────
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 26, format, sensitivity = 120 }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format, sensitivity = 120 }) {
   const [dragging, setDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
@@ -513,12 +513,12 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         <CrystalKnob size={size} norm={norm} />
       </div>
       <span style={{
-        fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'rgba(120,180,220,0.6)', fontWeight: 600, textAlign: 'center',
         fontFamily: 'system-ui', lineHeight: 1, marginTop: 1,
       }}>{label}</span>
       <span style={{
-        fontSize: 5, color: 'rgba(100,160,200,0.4)', fontFamily: '"Courier New",monospace',
+        fontSize: 5.5, color: 'rgba(100,160,200,0.4)', fontFamily: '"Courier New",monospace',
         fontWeight: 600, textAlign: 'center',
       }}>{display}</span>
     </div>
@@ -669,7 +669,7 @@ export default function FreezeFieldOrb({
 
   return (
     <div style={{
-      width: 340, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #0a1520 0%, #081018 35%, #060c14 70%, #040810 100%)',
       border: '1.5px solid rgba(80,160,240,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(60,120,200,0.1), inset 0 1px 0 rgba(120,180,255,0.05)',
@@ -684,13 +684,13 @@ export default function FreezeFieldOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 15, fontWeight: 900, letterSpacing: '0.1em',
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em',
             background: 'linear-gradient(135deg, #80c0ff, #40a0e0, #a0d0ff)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(60,120,200,0.3))',
           }}>FREEZEFIELD</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(100,160,220,0.35)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(100,160,220,0.35)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>FREEZE / TEXTURE REVERB</span>
         </div>
@@ -731,7 +731,7 @@ export default function FreezeFieldOrb({
 
       {/* Knobs Row 1: SMEAR, DRIFT, SHAPE */}
       <div style={{
-        padding: '8px 8px 4px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(80,160,240,0.06)',
       }}>
         <Knob label="SMEAR" value={smear} defaultValue={0.3} format={pctFmt}
@@ -745,7 +745,7 @@ export default function FreezeFieldOrb({
 
       {/* Knobs Row 2: WIDTH, MIX */}
       <div style={{
-        padding: '4px 8px 8px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(80,160,240,0.06)',
       }}>
         <Knob label="WIDTH" value={width} defaultValue={0.6} format={pctFmt}
@@ -761,7 +761,7 @@ export default function FreezeFieldOrb({
         <BypassDot active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(80,160,240,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(120,200,255,0.95)' : 'rgba(80,140,200,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(80,160,240,0.45)' : 'rgba(60,100,160,0.2)'}`,

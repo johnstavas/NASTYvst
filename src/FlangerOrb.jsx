@@ -59,7 +59,7 @@ function SparkleOverlay({ theme }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 500;
+    const W = 380, H = 500;
     canvas.width = W * 2;
     canvas.height = H * 2;
     ctx.scale(2, 2);
@@ -203,8 +203,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 4
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size + 8, height: size + 8, cursor: dragging ? 'grabbing' : 'grab' }}>
         <FlangerKnob size={size} norm={norm} theme={theme} />
       </div>
-      <span style={{ fontSize: 7, letterSpacing: '0.14em', textTransform: 'uppercase', color: theme.label, fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', textShadow: theme.labelShadow }}>{label}</span>
-      <span style={{ fontSize: 6, color: theme.accentDim, fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 6.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: theme.label, fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', textShadow: theme.labelShadow }}>{label}</span>
+      <span style={{ fontSize: 5.5, color: theme.accentDim, fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -427,7 +427,7 @@ export default function FlangerOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: th.panelGrad,
       border: `1.5px solid ${th.borderColor}`,
       boxShadow: th.outerGlow,
@@ -452,7 +452,7 @@ export default function FlangerOrb({
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: th.titleGlow,
           }}>Dual Flanger</span>
-          <span style={{ fontSize: 5, fontWeight: 700, color: th.labelDim, letterSpacing: '0.35em', marginTop: 2, textTransform: 'uppercase', transition: 'color 0.4s ease' }}>MXR + SBF-325</span>
+          <span style={{ fontSize: 6, fontWeight: 700, color: th.labelDim, letterSpacing: '0.35em', marginTop: 2, textTransform: 'uppercase', transition: 'color 0.4s ease' }}>MXR + SBF-325</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={presetColors} />
@@ -501,35 +501,35 @@ export default function FlangerOrb({
       <div style={{ padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around', borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2 }}>
         <Knob label="MANUAL" value={manual} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setManual(v); engineRef.current?.setManual(v); setActivePreset(null); }}
-          size={34} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="RATE" value={rate} min={0} max={1} defaultValue={0.3} theme={th}
           onChange={v => { setRate(v); engineRef.current?.setRate(v); setActivePreset(null); }}
-          size={34} format={v => {
+          size={28} format={v => {
             const hz = engine === 0 ? 0.05 * Math.pow(100, v) : 0.03 * Math.pow(333, v);
             return hz < 1 ? `${(hz * 1000).toFixed(0)}m` : `${hz.toFixed(1)}Hz`;
           }} />
         <Knob label="DEPTH" value={depth} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setDepth(v); engineRef.current?.setDepth(v); setActivePreset(null); }}
-          size={34} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="REGEN" value={regen} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setRegen(v); engineRef.current?.setRegen(v); setActivePreset(null); }}
-          size={34} format={pctFmt} />
+          size={28} format={pctFmt} />
       </div>
 
       {/* Knobs row 2: MIX, WIDTH, COLOR, DRIVE */}
       <div style={{ padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around', borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2 }}>
         <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="WIDTH" value={width} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }}
-          size={30} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'FLAT'} />
+          size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'FLAT'} />
         <Knob label="DRIVE" value={drive} min={0} max={1} defaultValue={0} theme={th}
           onChange={v => { setDrive(v); engineRef.current?.setDrive(v); setActivePreset(null); }}
-          size={30} format={pctFmt} />
+          size={28} format={pctFmt} />
       </div>
 
       {/* Bypass */}

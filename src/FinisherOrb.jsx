@@ -30,7 +30,7 @@ function SpectrumAnalyzer({ engineRef, signalLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 280, H = 80;
+    const W = 380, H = 80;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -179,7 +179,7 @@ function SpectrumAnalyzer({ engineRef, signalLevel }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 280, height: 80, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 80, display: 'block' }} />;
 }
 
 // ─── Stepped Attenuator Knob ─────────────────────────────────────────────
@@ -268,13 +268,13 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         <SteppedAttenuator size={size} norm={norm} />
       </div>
       <span style={{
-        fontSize: size <= 22 ? 5 : 6, letterSpacing: '0.14em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.14em', textTransform: 'uppercase',
         color: '#a0a0a8', fontWeight: 600, textAlign: 'center', width: '100%',
         lineHeight: 1.2, fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
       }}>{label}</span>
       {/* LCD-style digital readout */}
       <div style={{
-        fontSize: size <= 22 ? 5 : 5.5,
+        fontSize: 5.5,
         color: '#c0d0e0',
         fontFamily: '"Courier New", monospace', fontWeight: 700,
         textAlign: 'center', width: '100%',
@@ -722,7 +722,7 @@ export default function FinisherOrb({
 
   return (
     <div style={{
-      width: 280, borderRadius: 4, position: 'relative',
+      width: 380, borderRadius: 4, position: 'relative',
       background: 'linear-gradient(175deg, #1c1c20 0%, #18181c 25%, #161618 50%, #141416 75%, #18181c 100%)',
       border: '1px solid rgba(180,180,195,0.1)',
       boxShadow: '0 4px 24px rgba(0,0,0,0.6), 0 0 20px rgba(180,180,200,0.05)',
@@ -745,7 +745,7 @@ export default function FinisherOrb({
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 11, fontWeight: 300, letterSpacing: '0.3em',
+            fontSize: 14, fontWeight: 300, letterSpacing: '0.3em',
             color: '#a0a0a8',
           }}>FINISHER</span>
           <span style={{
@@ -819,12 +819,12 @@ export default function FinisherOrb({
         borderBottom: '1px solid rgba(180,180,195,0.05)',
         position: 'relative', zIndex: 2,
       }}>
-        <Knob label="TONE" value={tone} defaultValue={0.5} size={26}
+        <Knob label="TONE" value={tone} defaultValue={0.5} size={28}
           format={v => v < 0.35 ? 'WARM' : v > 0.65 ? 'BRIGHT' : 'NEUTRAL'}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="LOUD" value={loud} defaultValue={0} size={26} format={pctFmt}
+        <Knob label="LOUD" value={loud} defaultValue={0} size={28} format={pctFmt}
           onChange={v => { setLoud(v); engineRef.current?.setLoud(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={1} size={26} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
@@ -833,7 +833,7 @@ export default function FinisherOrb({
         padding: '5px 10px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'relative', zIndex: 2,
       }}>
-        <Knob label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={22}
+        <Knob label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={28}
           format={dbFmt} sensitivity={120}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
 
@@ -847,7 +847,7 @@ export default function FinisherOrb({
           <LissajousScope />
         </div>
 
-        <Knob label="OUT" value={outputGain} min={0} max={2} defaultValue={1} size={22}
+        <Knob label="OUT" value={outputGain} min={0} max={2} defaultValue={1} size={28}
           format={dbFmt} sensitivity={120}
           onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }} />
       </div>

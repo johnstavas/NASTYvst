@@ -21,7 +21,7 @@ function FocusLensCanvas({ focus, wrap, separation, size, tone, mix, peakLevel, 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 280, H = 150;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -393,7 +393,7 @@ function FocusLensCanvas({ focus, wrap, separation, size, tone, mix, peakLevel, 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 280, height: 150, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob ───────────────────────────────────────────────────────────────────
@@ -428,7 +428,7 @@ function FocusKnob({ size = 36, norm = 0 }) {
   );
 }
 
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 36, format, sensitivity = 160 }) {
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format, sensitivity = 160 }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
   const norm = (value - min) / (max - min);
@@ -449,7 +449,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         <FocusKnob size={size} norm={norm} />
       </div>
       <span style={{
-        fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'rgba(180,195,220,0.65)', fontWeight: 700, textAlign: 'center', lineHeight: 1.1,
       }}>{label}</span>
       <span style={{
@@ -625,7 +625,7 @@ export default function FocusReverbOrb({
 
   return (
     <div style={{
-      width: 290, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #0e1020 0%, #0a0c1a 35%, #060810 70%, #040610 100%)',
       border: '1.5px solid rgba(140,160,210,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 20px rgba(100,130,200,0.06), inset 0 1px 0 rgba(180,200,240,0.04)',
@@ -652,7 +652,7 @@ export default function FocusReverbOrb({
             }}>REVERB</span>
           </div>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(150,170,200,0.3)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(150,170,200,0.3)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>CLARITY PRESERVING</span>
         </div>
@@ -693,30 +693,30 @@ export default function FocusReverbOrb({
 
       {/* Knobs Row 1: FOCUS, WRAP, SEPARATION */}
       <div style={{
-        padding: '7px 6px 4px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(140,160,210,0.05)',
       }}>
-        <Knob label="FOCUS" value={focus} min={0} max={1} defaultValue={0.5} size={34}
+        <Knob label="FOCUS" value={focus} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="WRAP" value={wrap} min={0} max={1} defaultValue={0.5} size={34}
+        <Knob label="WRAP" value={wrap} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setWrap(v); engineRef.current?.setWrap(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="SEPARATION" value={separation} min={0} max={1} defaultValue={0.5} size={34}
+        <Knob label="SEPARATION" value={separation} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setSeparation(v); engineRef.current?.setSeparation(v); setActivePreset(null); }} format={pctFmt} />
       </div>
 
       {/* Knobs Row 2: SIZE, TONE, MIX, OUTPUT */}
       <div style={{
-        padding: '4px 4px 7px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(140,160,210,0.05)',
       }}>
-        <Knob label="SIZE" value={size} min={0} max={1} defaultValue={0.5} size={32}
+        <Knob label="SIZE" value={size} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setSize(v); engineRef.current?.setSize(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="TONE" value={tone} min={0} max={1} defaultValue={0.5} size={32}
+        <Knob label="TONE" value={tone} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }}
           format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'NEUTRAL'} />
-        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.3} size={32}
+        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.3} size={28}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={32}
+        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setOutputLevel(v); engineRef.current?.setOutput(v); setActivePreset(null); }} format={outFmt} />
       </div>
 
@@ -744,7 +744,7 @@ export default function FocusReverbOrb({
         </div>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(140,160,220,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(180,200,255,0.95)' : 'rgba(140,160,200,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(140,160,220,0.45)' : 'rgba(80,100,160,0.2)'}`,

@@ -22,7 +22,7 @@ function MatrixOscilloscope({ react, speed, depth, shape, reactLevel, engineRef 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 130;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -218,7 +218,7 @@ function MatrixOscilloscope({ react, speed, depth, shape, reactLevel, engineRef 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 130, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
 }
 
 // ─── Terminal Bypass Toggle ─────────────────────────────────────────────────
@@ -371,7 +371,7 @@ function DataDial({ label, value, onChange, min = 0, max = 1, defaultValue, size
         </div>
       </div>
       <span style={{
-        fontSize: 5.5, letterSpacing: '0.15em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.15em', textTransform: 'uppercase',
         color: 'rgba(0,255,96,0.45)', fontWeight: 700, fontFamily: '"Courier New", monospace',
         textAlign: 'center', width: '100%', lineHeight: 1,
       }}>{label}</span>
@@ -438,7 +438,7 @@ function LedBarGraph({ value, onChange, label, min = 0, max = 1, defaultValue = 
         })}
       </div>
       <span style={{
-        fontSize: 5.5, color: 'rgba(0,255,96,0.45)', fontFamily: '"Courier New", monospace',
+        fontSize: 6.5, color: 'rgba(0,255,96,0.45)', fontFamily: '"Courier New", monospace',
         fontWeight: 700, letterSpacing: '0.1em',
       }}>{label}</span>
     </div>
@@ -686,7 +686,7 @@ export default function ReactorOrb({
 
   return (
     <div style={{
-      width: 260, position: 'relative', overflow: 'hidden',
+      width: 380, position: 'relative', overflow: 'hidden',
       background: '#010301',
       /* Corner bracket border via box-shadow + hard border */
       border: '1px solid rgba(0,255,96,0.2)',
@@ -721,7 +721,7 @@ export default function ReactorOrb({
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{
-              fontSize: 13, fontWeight: 900, letterSpacing: '0.2em',
+              fontSize: 14, fontWeight: 900, letterSpacing: '0.2em',
               color: '#00ff60', fontFamily: '"Courier New", monospace',
               textShadow: '0 0 12px rgba(0,255,96,0.6), 0 0 24px rgba(0,255,96,0.2)',
             }}>REACTOR</span>
@@ -733,7 +733,7 @@ export default function ReactorOrb({
             }}>CLASSIFIED</span>
           </div>
           <span style={{
-            fontSize: 5, fontWeight: 600, color: 'rgba(0,255,96,0.25)', letterSpacing: '0.35em',
+            fontSize: 6, fontWeight: 600, color: 'rgba(0,255,96,0.25)', letterSpacing: '0.35em',
             marginTop: 2, textTransform: 'uppercase',
           }}>listening machine</span>
         </div>

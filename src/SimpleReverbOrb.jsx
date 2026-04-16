@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createSimpleReverbEngine } from './simpleReverbEngine';
 import ClipMeter from './ClipMeter';
 
-const size   = 360;
+const size   = 380;
 const center = size / 2;
-const radius = 136;
+const radius = 146;
 
 export default function SimpleReverbOrb({
   instanceId, sharedSource,
@@ -159,7 +159,7 @@ export default function SimpleReverbOrb({
         background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
         borderBottom: '1px solid #1e1e1e',
       }}>
-        <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.35em', textTransform: 'uppercase' }}>Reverb</span>
+        <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.25)' }}>Reverb</span>
         <div />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
           <button onClick={() => setBypassed(b => !b)} style={{
@@ -276,7 +276,7 @@ export default function SimpleReverbOrb({
               onPointerDown={onMixPD} onPointerMove={onMixPM} onPointerUp={onMixPU} onDoubleClick={() => setMix(0)}>
               <KnobArc value={mix} color={BLUE} size={44} />
             </div>
-            <div style={{ fontFamily: '"Courier New", monospace', fontSize: 10, color: BLUE, marginTop: 3 }}>
+            <div style={{ fontFamily: '"Courier New", monospace', fontSize: 8, color: BLUE, marginTop: 3 }}>
               {mix < 0.01 ? 'DRY' : mix > 0.99 ? 'WET' : `${Math.round(mix * 100)}%`}
             </div>
           </div>
@@ -303,11 +303,11 @@ export default function SimpleReverbOrb({
             ['Pan',      pan,        setPan,        -1, 1, v => v === 0 ? 'C' : v > 0 ? `R${Math.round(v*100)}` : `L${Math.round(-v*100)}`],
           ].map(([label, val, setter, mn, mx, fmt]) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-              <span style={{ fontSize: 9, color: '#555', width: 50, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
+              <span style={{ fontSize: 7.5, color: '#555', width: 50, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
               <input type="range" min={mn} max={mx} step={0.01} value={val}
                 onChange={e => setter(parseFloat(e.target.value))}
                 style={{ flex: 1, accentColor: BLUE, height: 2 }} />
-              <span style={{ fontSize: 9, color: '#888', width: 32, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(val)}</span>
+              <span style={{ fontSize: 7, color: '#888', width: 32, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(val)}</span>
             </div>
           ))}
         </div>

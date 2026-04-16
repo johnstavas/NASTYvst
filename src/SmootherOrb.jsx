@@ -74,7 +74,7 @@ function WaterRipplePool({ smooth, focus, width, air, harshLevel, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 150;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -317,7 +317,7 @@ function WaterRipplePool({ smooth, focus, width, air, harshLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 150, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Harshness Thermometer ─────────────────────────────────────────────────
@@ -502,14 +502,14 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         <BubbleKnob size={size} norm={norm} dragging={dragging} />
       </div>
       <span style={{
-        fontSize: 7, letterSpacing: '0.14em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.14em', textTransform: 'uppercase',
         color: 'rgba(160, 140, 200, 0.65)', fontWeight: 600, textAlign: 'center',
         width: '100%', lineHeight: 1.2,
         fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
         textShadow: '0 0 8px rgba(130, 100, 200, 0.15)',
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(140, 110, 200, 0.35)',
+        fontSize: 5.5, color: 'rgba(140, 110, 200, 0.35)',
         fontFamily: '"Courier New",monospace', fontWeight: 600,
         textAlign: 'center', width: '100%',
       }}>{display}</span>
@@ -714,14 +714,14 @@ export default function SmootherOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0e0a18 0%, #0a0814 25%, #08060f 50%, #06050c 75%, #0a0814 100%)',
       border: '1.5px solid rgba(130,100,200,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(120,80,200,0.06), inset 0 1px 0 rgba(180,150,240,0.04)',
       fontFamily: 'system-ui, -apple-system, Arial, sans-serif', userSelect: 'none',
     }}>
       {/* Watercolor wash background texture */}
-      <WatercolorWash width={260} height={600} />
+      <WatercolorWash width={380} height={600} />
 
       {/* Header */}
       <div style={{
@@ -753,7 +753,7 @@ export default function SmootherOrb({
             }}>SMOOTHER</span>
           </div>
           <span style={{
-            fontSize: 5, fontWeight: 600, color: 'rgba(150,120,200,0.3)',
+            fontSize: 6, fontWeight: 600, color: 'rgba(150,120,200,0.3)',
             letterSpacing: '0.4em', marginTop: 4, textTransform: 'uppercase',
           }}>zen water pool</span>
         </div>
@@ -800,9 +800,9 @@ export default function SmootherOrb({
         padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="SMOOTH" value={smooth} defaultValue={0.4} size={34} format={pctFmt} onChange={v => { setSmooth(v); engineRef.current?.setSmooth(v); setActivePreset(null); }} />
-        <Knob label="FOCUS" value={focus} defaultValue={0.5} size={34} format={freqFmt} onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} />
-        <Knob label="WIDTH" value={width} defaultValue={0.4} size={34} format={v => v < 0.3 ? 'NARROW' : v > 0.7 ? 'WIDE' : 'MED'} onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
+        <Knob label="SMOOTH" value={smooth} defaultValue={0.4} size={28} format={pctFmt} onChange={v => { setSmooth(v); engineRef.current?.setSmooth(v); setActivePreset(null); }} />
+        <Knob label="FOCUS" value={focus} defaultValue={0.5} size={28} format={freqFmt} onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} />
+        <Knob label="WIDTH" value={width} defaultValue={0.4} size={28} format={v => v < 0.3 ? 'NARROW' : v > 0.7 ? 'WIDE' : 'MED'} onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
       </div>
 
       {/* Knobs row 2: AIR, BODY, MIX */}
@@ -810,9 +810,9 @@ export default function SmootherOrb({
         padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2,
       }}>
-        <Knob label="AIR" value={air} defaultValue={0.3} size={30} format={pctFmt} onChange={v => { setAir(v); engineRef.current?.setAir(v); setActivePreset(null); }} />
-        <Knob label="BODY" value={body} defaultValue={0.5} size={30} format={pctFmt} onChange={v => { setBody(v); engineRef.current?.setBody(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={1} size={30} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
+        <Knob label="AIR" value={air} defaultValue={0.3} size={28} format={pctFmt} onChange={v => { setAir(v); engineRef.current?.setAir(v); setActivePreset(null); }} />
+        <Knob label="BODY" value={body} defaultValue={0.5} size={28} format={pctFmt} onChange={v => { setBody(v); engineRef.current?.setBody(v); setActivePreset(null); }} />
+        <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
       {/* Bypass — Zen Breathing Circle */}

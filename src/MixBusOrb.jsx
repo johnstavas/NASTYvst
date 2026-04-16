@@ -11,7 +11,7 @@ import { createMixBusEngine } from './mixBusEngine';
 // Labels live in outer padding (PAD_L/R/T/B) so the plottable area is a clean
 // inner rect (GRAPH_W × GRAPH_H). All drawing and hit-testing happens in that
 // inset coordinate space via freqToX / dbToY helpers.
-const MODULE_W = 360;
+const MODULE_W = 380;
 const EQ_W   = MODULE_W;   // canvas = module width, zero horizontal dead space
 const EQ_H   = 160;
 const DB_MAX = 15;
@@ -214,7 +214,7 @@ function ModeLED({ label, active, color, onClick }) {
         transition:'all 0.08s', flexShrink:0,
       }} />
       <span style={{
-        fontSize:9, fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase',
+        fontSize:7.5, fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase',
         color: active ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.22)',
         transition:'color 0.08s',
       }}>{label}</span>
@@ -510,8 +510,8 @@ export default function MixBusOrb({
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'5px 10px',
         borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-        <span style={{ fontSize:8, fontWeight:700, letterSpacing:'0.35em',
-          textTransform:'uppercase', color:'rgba(255,255,255,0.3)' }}>Mix Bus</span>
+        <span style={{ fontSize:14, fontWeight:700, letterSpacing:'0.04em',
+          color:'rgba(255,255,255,0.3)' }}>Mix Bus</span>
 
         {/* Mode LEDs */}
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>

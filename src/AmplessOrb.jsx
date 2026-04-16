@@ -39,7 +39,7 @@ function VacuumTubeGlow({ drive, body, bite, sag, inputLevel, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 220, H = 150;
+    const W = 380, H = 150;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -260,7 +260,7 @@ function VacuumTubeGlow({ drive, body, bite, sag, inputLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 220, height: 150, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 150, display: 'block' }} />;
 }
 
 // ─── Chicken Head Knob (SVG) ─────────────────────────────────────────────
@@ -366,7 +366,7 @@ function PositionDots({ size, steps = 10, showNumbers = false }) {
   );
 }
 
-function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 48, format, sensitivity = 160,
+function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 28, format, sensitivity = 160,
   chickenColor = '#1a1a1a', showDots = false, showNumbers = false }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
@@ -387,14 +387,14 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 4
         <ChickenHeadKnob size={size} norm={norm} color={chickenColor} />
       </div>
       <span style={{
-        fontSize: size <= 28 ? 5.5 : size <= 40 ? 6.5 : 7.5,
+        fontSize: 6.5,
         letterSpacing: '0.14em', textTransform: 'uppercase',
         color: '#2a2a2a', fontWeight: 800, textAlign: 'center', width: '100%',
         lineHeight: 1.2, fontFamily: 'system-ui',
         textShadow: '0 0.5px 0 rgba(255,255,255,0.4)',
       }}>{label}</span>
       <span style={{
-        fontSize: size <= 28 ? 5 : 6, color: 'rgba(0,0,0,0.35)',
+        fontSize: 5.5, color: 'rgba(0,0,0,0.35)',
         fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%',
       }}>{display}</span>
     </div>
@@ -614,7 +614,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
   return (
     <div style={{
-      width: 220, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
       // 3D box pedal depth
       background: 'linear-gradient(175deg, #ece4d2 0%, #e6ddc8 20%, #e0d8c2 50%, #dbd3be 80%, #ddd5c0 100%)',
       border: '2px solid rgba(60,50,40,0.35)',
@@ -655,7 +655,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         {/* IN knob - small cream chicken head */}
-        <Knob label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={22}
+        <Knob label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={28}
           format={dbFmt} sensitivity={120} chickenColor="#e8dfc8"
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
 
@@ -693,7 +693,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
             onMouseEnter={e => { e.currentTarget.style.color = '#cc2020'; e.currentTarget.style.background = 'rgba(200,40,40,0.1)'; }}
             onMouseLeave={e => { e.currentTarget.style.color = 'rgba(200,60,60,0.6)'; e.currentTarget.style.background = 'transparent'; }}>x</span>
           )}
-          <Knob label="OUT" value={outputGain} min={0} max={2} defaultValue={1} size={22}
+          <Knob label="OUT" value={outputGain} min={0} max={2} defaultValue={1} size={28}
             format={dbFmt} sensitivity={120} chickenColor="#e8dfc8"
             onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }} />
         </div>
@@ -720,7 +720,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
         padding: '10px 0 4px', display: 'flex', justifyContent: 'center',
         position: 'relative', zIndex: 2,
       }}>
-        <Knob label="DRIVE" value={drive} defaultValue={0.3} size={56} format={pctFmt}
+        <Knob label="DRIVE" value={drive} defaultValue={0.3} size={38} format={pctFmt}
           sensitivity={200} chickenColor="#cc2222" showDots showNumbers
           onChange={v => { setDrive(v); engineRef.current?.setDrive(v); setActivePreset(null); }} />
       </div>
@@ -730,10 +730,10 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
         padding: '4px 16px', display: 'flex', justifyContent: 'space-around',
         position: 'relative', zIndex: 2,
       }}>
-        <Knob label="BODY" value={body} defaultValue={0.5} size={40} format={pctFmt}
+        <Knob label="BODY" value={body} defaultValue={0.5} size={28} format={pctFmt}
           chickenColor="#1a1a1a" showDots
           onChange={v => { setBody(v); engineRef.current?.setBody(v); setActivePreset(null); }} />
-        <Knob label="BITE" value={bite} defaultValue={0.3} size={40} format={pctFmt}
+        <Knob label="BITE" value={bite} defaultValue={0.3} size={28} format={pctFmt}
           chickenColor="#1a1a1a" showDots
           onChange={v => { setBite(v); engineRef.current?.setBite(v); setActivePreset(null); }} />
       </div>
@@ -757,10 +757,10 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
         padding: '4px 36px 6px', display: 'flex', justifyContent: 'space-around',
         position: 'relative', zIndex: 2,
       }}>
-        <Knob label="GATE" value={gate} defaultValue={0} size={22} format={pctFmt}
+        <Knob label="GATE" value={gate} defaultValue={0} size={28} format={pctFmt}
           sensitivity={130} chickenColor="#e8dfc8"
           onChange={v => { setGate(v); engineRef.current?.setGate(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={1} size={22} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt}
           sensitivity={130} chickenColor="#e8dfc8"
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>

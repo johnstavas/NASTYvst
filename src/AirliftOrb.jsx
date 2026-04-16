@@ -22,7 +22,7 @@ function SkyCanvas({ air, silk, shine, guard, mix, peakLevel, airLevel, guardAct
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 280, H = 140;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -323,7 +323,7 @@ function SkyCanvas({ air, silk, shine, guard, mix, peakLevel, airLevel, guardAct
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 280, height: 140, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob Component ─────────────────────────────────────────────────────────
@@ -385,7 +385,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         color: '#e0d8c0', fontWeight: 700, textAlign: 'center', lineHeight: 1.1,
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: 'rgba(255,210,120,0.5)', fontFamily: '"Courier New",monospace', fontWeight: 600,
+        fontSize: 5.5, color: 'rgba(255,210,120,0.5)', fontFamily: '"Courier New",monospace', fontWeight: 600,
       }}>{display}</span>
     </div>
   );
@@ -563,7 +563,7 @@ export default function AirliftOrb({
 
   return (
     <div style={{
-      width: 280, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: 'linear-gradient(170deg, #1a1428 0%, #120e20 30%, #0e0a18 60%, #0a0814 100%)',
       border: '1.5px solid rgba(255,210,100,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 20px rgba(255,210,100,0.08), inset 0 1px 0 rgba(255,230,160,0.06)',
@@ -584,7 +584,7 @@ export default function AirliftOrb({
             textShadow: 'none', filter: 'drop-shadow(0 0 6px rgba(255,210,100,0.3))',
           }}>AIRLIFT</span>
           <span style={{
-            fontSize: 5, fontWeight: 700, color: 'rgba(200,190,160,0.4)',
+            fontSize: 6, fontWeight: 700, color: 'rgba(200,190,160,0.4)',
             letterSpacing: '0.35em', marginTop: 1,
           }}>VOCAL AIR ENHANCER</span>
         </div>
@@ -625,27 +625,27 @@ export default function AirliftOrb({
 
       {/* Main knobs row 1: AIR, SILK, SHINE */}
       <div style={{
-        padding: '7px 8px 4px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(255,210,100,0.06)',
       }}>
-        <Knob label="AIR" value={air} min={0} max={1} defaultValue={0.4}
+        <Knob label="AIR" value={air} min={0} max={1} defaultValue={0.4} size={28}
           onChange={v => { setAir(v); engineRef.current?.setAir(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="SILK" value={silk} min={0} max={1} defaultValue={0.5}
+        <Knob label="SILK" value={silk} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setSilk(v); engineRef.current?.setSilk(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="SHINE" value={shine} min={0} max={1} defaultValue={0.3}
+        <Knob label="SHINE" value={shine} min={0} max={1} defaultValue={0.3} size={28}
           onChange={v => { setShine(v); engineRef.current?.setShine(v); setActivePreset(null); }} format={pctFmt} />
       </div>
 
       {/* Main knobs row 2: GUARD, MIX, OUTPUT */}
       <div style={{
-        padding: '4px 8px 7px', display: 'flex', justifyContent: 'space-around',
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(255,210,100,0.06)',
       }}>
-        <Knob label="GUARD" value={guard} min={0} max={1} defaultValue={0.5}
+        <Knob label="GUARD" value={guard} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setGuard(v); engineRef.current?.setGuard(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1.0}
+        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1.0} size={28}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5}
+        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setOutputLevel(v); engineRef.current?.setOutput(v); setActivePreset(null); }} format={outFmt} />
       </div>
 

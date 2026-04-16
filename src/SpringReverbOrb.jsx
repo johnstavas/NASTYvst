@@ -40,7 +40,7 @@ const SPRING_DAMP = 0.14;   // damping — how quickly the bounce dies
 // Supports bipolar mode (ring fills from 12-o'clock center outward).
 function SpringKnob({
   label, value, onChange, defaultValue = 0.5,
-  size = 44, ringColor = 'hsl(46, 90%, 60%)',
+  size = 28, ringColor = 'hsl(46, 90%, 60%)',
   bipolar = false, format,
 }) {
   const dragRef = useRef(null);
@@ -91,7 +91,7 @@ function SpringKnob({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, userSelect: 'none' }}>
-      <div style={{ fontSize: 8, fontFamily: '"Courier New", monospace', color: ringColor, minHeight: 10 }}>{valLabel}</div>
+      <div style={{ fontSize: 5.5, fontFamily: '"Courier New", monospace', color: ringColor, minHeight: 10 }}>{valLabel}</div>
       <div onPointerDown={onPointerDown} onDoubleClick={onDouble}
         style={{ width: size, height: size, position: 'relative', cursor: 'ns-resize' }}
       >
@@ -119,7 +119,7 @@ function SpringKnob({
             fill="rgba(255,255,255,0.10)" />
         </svg>
       </div>
-      <div style={{ fontSize: 7, fontWeight: 800, letterSpacing: '0.2em', color: DIM, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 6.5, fontWeight: 800, letterSpacing: '0.2em', color: DIM, textTransform: 'uppercase' }}>{label}</div>
     </div>
   );
 }
@@ -405,7 +405,7 @@ export default function SpringReverbOrb({
   useEffect(() => { engineRef.current?.setBypass(bypassed);              }, [bypassed]);
 
   // Panel width matches Scope/Space orbs
-  const W       = 360;
+  const W       = 380;
   const TANK_H  = 220;
   const SPRING_W = W / 3;
 
@@ -430,7 +430,7 @@ export default function SpringReverbOrb({
         }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span style={{
-              fontSize: 12, fontWeight: 900, color: CREAM,
+              fontSize: 14, fontWeight: 900, color: CREAM,
               letterSpacing: '0.12em', fontFamily: 'Georgia, serif', fontStyle: 'italic',
             }}>Wabble</span>
             <span style={{

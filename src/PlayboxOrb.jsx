@@ -100,7 +100,7 @@ function ChainStageDisplay({ chain, intensity, speed, color, mix, peakLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 260, H = 120;
+    const W = 380, H = 160;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -564,7 +564,7 @@ function ChainStageDisplay({ chain, intensity, speed, color, mix, peakLevel }) {
     return () => cancelAnimationFrame(raf);
   }, [chain]);
 
-  return <canvas ref={canvasRef} style={{ width: 260, height: 120, display: 'block', borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 4 }} />;
 }
 
 // ─── Arcade Button (3D raised circle) ──────────────────────────────────────
@@ -708,14 +708,14 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 3
         <ToyKnob size={size} norm={norm} theme={theme} sparkle={sparkle} />
       </div>
       <span style={{
-        fontSize: 7, letterSpacing: '0.14em', textTransform: 'uppercase',
+        fontSize: 6.5, letterSpacing: '0.14em', textTransform: 'uppercase',
         color: theme.label, fontWeight: 800, textAlign: 'center',
         width: '100%', lineHeight: 1.2,
         fontFamily: '"Courier New", monospace',
         textShadow: `0 0 6px ${theme.accentDim}`,
       }}>{label}</span>
       <span style={{
-        fontSize: 6, color: theme.accentDim,
+        fontSize: 5.5, color: theme.accentDim,
         fontFamily: '"Courier New",monospace', fontWeight: 700,
         textAlign: 'center', width: '100%',
       }}>{display}</span>
@@ -1071,7 +1071,7 @@ export default function PlayboxOrb({
 
   return (
     <div style={{
-      width: 260, borderRadius: 6, position: 'relative',
+      width: 380, borderRadius: 6, position: 'relative',
       background: th.panelGrad,
       border: `1.5px solid ${th.borderColor}`,
       boxShadow: th.outerGlow,
@@ -1123,7 +1123,7 @@ export default function PlayboxOrb({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
             <span style={{
-              fontSize: 5, fontWeight: 700, color: th.labelDim,
+              fontSize: 6, fontWeight: 700, color: th.labelDim,
               letterSpacing: '0.35em', textTransform: 'uppercase',
               transition: 'color 0.4s ease',
               fontFamily: '"Courier New", monospace',
@@ -1192,16 +1192,16 @@ export default function PlayboxOrb({
       }}>
         <Knob label="INTENSITY" value={intensity} min={0} max={1} defaultValue={0.4} theme={th}
           onChange={v => { setIntensity(v); engineRef.current?.setIntensity(v); setActivePreset(null); }}
-          size={34} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="SPEED" value={speed} min={0} max={1} defaultValue={0.3} theme={th}
           onChange={v => { setSpeed(v); engineRef.current?.setSpeed(v); setActivePreset(null); }}
-          size={34} format={pctFmt} />
+          size={28} format={pctFmt} />
         <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }}
-          size={34} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} />
+          size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} />
         <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
-          size={34} format={pctFmt} />
+          size={28} format={pctFmt} />
       </div>
 
       {/* Bypass — Coin Slot */}

@@ -171,7 +171,7 @@ function Knob({ label, value, min = 0, max = 1, defaultValue, onChange, size = 5
         </div>
       </div>
       <span style={{
-        fontSize: 8,
+        fontSize: 6.5,
         color: '#1a1410',
         fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
         fontWeight: 700,
@@ -180,7 +180,7 @@ function Knob({ label, value, min = 0, max = 1, defaultValue, onChange, size = 5
         marginTop: 2,
       }}>{label}</span>
       <span style={{
-        fontSize: 6.5,
+        fontSize: 5.5,
         color: 'rgba(26,20,16,0.55)',
         fontFamily: '"Courier New",monospace',
         fontWeight: 700,
@@ -620,7 +620,7 @@ export default function LA2AOrb({
 
   return (
     <div style={{
-      width: 300,
+      width: 380,
       background: 'linear-gradient(180deg,#e8e0c8 0%,#d8cfb4 100%)',
       borderRadius: 6,
       overflow: 'hidden',
@@ -641,7 +641,7 @@ export default function LA2AOrb({
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
-                fontSize: 13, fontWeight: 900, color: '#1a1410',
+                fontSize: 14, fontWeight: 900, color: '#1a1410',
                 fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
                 letterSpacing: '0.08em',
                 textShadow: '0 1px 0 rgba(255,255,255,0.5)',
@@ -751,7 +751,7 @@ export default function LA2AOrb({
               max={40}
               defaultValue={0}
               onChange={v => { setGain(v); engineRef.current?.setGain(v); setActivePreset(null); }}
-              size={64}
+              size={38}
               format={gnFmt}
             />
             <Knob
@@ -761,7 +761,7 @@ export default function LA2AOrb({
               max={1}
               defaultValue={0.45}
               onChange={v => { setPeakReduction(v); engineRef.current?.setPeakReduction(v); setActivePreset(null); }}
-              size={64}
+              size={38}
               format={prFmt}
             />
           </div>
