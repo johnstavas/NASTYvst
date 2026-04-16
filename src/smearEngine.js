@@ -13,7 +13,7 @@
 //   MIX     — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'smear-v2';
+const PROCESSOR_VERSION = 'smear-v3';
 
 const PROCESSOR_CODE = `
 class SmearProcessor extends AudioWorkletProcessor {
@@ -73,6 +73,20 @@ class SmearProcessor extends AudioWorkletProcessor {
     this.driftWalk   = new Float32Array(6);
     this.driftTarget = new Float32Array(6);
     this.driftCounter = new Int32Array(6);
+
+    // ── Per-comb stereo spread — R channel reads at a fixed offset from L ──
+    // Prime-number offsets (samples) so no two combs share a resonance
+    this.stereoOff = [7, 13, 19, 11, 17, 23];
+
+    // ── Per-comb feedback variance — breaks up uniform decay ────────────────
+    // Each comb decays slightly faster/slower → complex, uneven tail
+    this.fbVar = [0.96, 1.03, 0.98, 1.04, 0.97, 1.02];
+
+    // ── Smooth pitch instability (per-comb random walk) ─────────────────────
+    // Slow random walk sounds like tape flutter; pure Math.random sounds glitchy
+    this.instabWalk   = new Float32Array(6);
+    this.instabTarget = new Float32Array(6);
+    this.instabCounter = new Int32Array(6);
 
     // ── Tilt EQ + degrade LP state ──────────────────────────────────────────
     this.tiltLpL = 0; this.tiltLpR = 0;
@@ -212,16 +226,23 @@ class SmearProcessor extends AudioWorkletProcessor {
         this.driftWalk[c] += (this.driftTarget[c] - this.driftWalk[c]) * 0.0001;
         const lfoVal   = Math.sin(2 * Math.PI * this.driftPhase[c]) * 0.7
                        + this.driftWalk[c] * 0.3;
-        // At high degrade, add extra pitch instability on top of normal drift
-        const instabExtra = pitchInstab > 0
-          ? (Math.random() * 2 - 1) * pitchInstab
-          : 0;
+        // Smooth pitch instability — slow random walk, not pure noise
+        if (pitchInstab > 0) {
+          this.instabCounter[c]++;
+          if (this.instabCounter[c] > sr * 0.12) {   // new target every ~120ms
+            this.instabCounter[c] = 0;
+            this.instabTarget[c] = (Math.random() * 2 - 1);
+          }
+          this.instabWalk[c] += (this.instabTarget[c] - this.instabWalk[c]) * 0.0002;
+        }
+        const instabExtra = this.instabWalk[c] * pitchInstab;
         const modOffset = lfoVal * driftDepth + instabExtra;
 
-        // Read from comb with hermite interpolation
-        const readPos = this.combPos[c] - baseLen + modOffset;
-        let cOutL = this.hermite(this.combBufL[c], readPos, bufSize);
-        let cOutR = this.hermite(this.combBufR[c], readPos, bufSize);
+        // L and R read from slightly different positions → genuine stereo width
+        const readPosL = this.combPos[c] - baseLen + modOffset;
+        const readPosR = readPosL - this.stereoOff[c];
+        let cOutL = this.hermite(this.combBufL[c], readPosL, bufSize);
+        let cOutR = this.hermite(this.combBufR[c], readPosR, bufSize);
 
         // LP damping in feedback path
         this.combLpL[c] = dampCoef * this.combLpL[c] + (1 - dampCoef) * cOutL;
@@ -236,9 +257,12 @@ class SmearProcessor extends AudioWorkletProcessor {
         const xfL = cOutStore[prevC] * crossfeed;
         const xfR = cOutStore[prevC] * crossfeed; // symmetric stereo crossfeed
 
+        // Per-comb feedback variance — capped at 0.93 to prevent runaway
+        const fb = Math.min(0.93, baseFb * this.fbVar[c]);
+
         // Write: diffused input + feedback + crossfeed
-        this.combBufL[c][this.combPos[c]] = diffL + cOutL * baseFb + xfL;
-        this.combBufR[c][this.combPos[c]] = diffR + cOutR * baseFb + xfR;
+        this.combBufL[c][this.combPos[c]] = diffL + cOutL * fb + xfL;
+        this.combBufR[c][this.combPos[c]] = diffR + cOutR * fb + xfR;
 
         this.combPos[c] = (this.combPos[c] + 1) % bufSize;
 
