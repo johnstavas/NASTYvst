@@ -19,7 +19,7 @@
 //   OUTPUT  — gain in dB mapped 0-1 => -18..+18dB
 //   BYPASS
 
-const PROCESSOR_VERSION = 'gravity-v3';
+const PROCESSOR_VERSION = 'gravity-v4';
 
 const PROCESSOR_CODE = `
 class GravityProcessor extends AudioWorkletProcessor {
@@ -54,15 +54,20 @@ class GravityProcessor extends AudioWorkletProcessor {
     this.erBufR = new Float32Array(this.erMaxSamp + 4);
     this.erWritePos = 0;
 
-    // ── FDN: 4x4 Feedback Delay Network ──
-    // Prime-number delay lengths in samples (base, scaled by space)
-    this.fdnBaseLengths = [1031, 1327, 1559, 1877]; // primes
+    // ── FDN: 4x4 Feedback Delay Network — separate L/R for true stereo ──
+    // Prime-number delay lengths (L channel)
+    this.fdnBaseLengths  = [1031, 1327, 1559, 1877];
+    // R channel uses slightly offset lengths — prime offsets create decorrelation
+    // without audible comb filtering (~0.7–1ms offset at 44.1k)
+    this.fdnBaseLengthsR = [1060, 1296, 1596, 1836];
     this.fdnMaxLen = Math.ceil(Math.max(...this.fdnBaseLengths) * 3) + 100;
-    this.fdnBufs = [];
-    this.fdnPos = [];
-    this.fdnLp = [0, 0, 0, 0]; // damping LP state per line
+    this.fdnBufsL = []; this.fdnBufsR = [];
+    this.fdnPos   = [];
+    this.fdnLpL   = [0, 0, 0, 0]; // damping LP state per line — L
+    this.fdnLpR   = [0, 0, 0, 0]; // damping LP state per line — R
     for (let i = 0; i < 4; i++) {
-      this.fdnBufs.push(new Float32Array(this.fdnMaxLen));
+      this.fdnBufsL.push(new Float32Array(this.fdnMaxLen));
+      this.fdnBufsR.push(new Float32Array(this.fdnMaxLen));
       this.fdnPos.push(0);
     }
 
@@ -134,7 +139,8 @@ class GravityProcessor extends AudioWorkletProcessor {
 
     // ── Compute FDN delay lengths (scaled by space) — wider range ──
     const sizeScale = 0.3 + space * 3.2; // 0.3x to 3.5x
-    const fdnLens = this.fdnBaseLengths.map(b => Math.min(this.fdnMaxLen - 2, Math.round(b * sizeScale)));
+    const fdnLens  = this.fdnBaseLengths.map(b  => Math.min(this.fdnMaxLen - 2, Math.round(b * sizeScale)));
+    const fdnLensR = this.fdnBaseLengthsR.map(b => Math.min(this.fdnMaxLen - 2, Math.round(b * sizeScale)));
 
     // ── Gravity => feedback gain. High gravity = shorter denser, low = longer floatier ──
     const baseFeedback = 0.35 + space * 0.55;
@@ -195,56 +201,65 @@ class GravityProcessor extends AudioWorkletProcessor {
       // Stage 2: FDN Core (4x4 Hadamard)
       // ════════════════════════════════════════════════════
 
-      // Read from FDN delay lines
-      const fdnOut = [0, 0, 0, 0];
+      // Read from FDN delay lines — L and R separately
+      const fdnOutL = [0, 0, 0, 0];
+      const fdnOutR = [0, 0, 0, 0];
       for (let i = 0; i < 4; i++) {
-        // Bloom: modulate delay length
         const bloomMod = Math.sin(2 * Math.PI * this.bloomPhases[i]) * bloomDepth;
-        const effLen = Math.max(10, fdnLens[i] + Math.round(bloomMod));
-        let readPos = this.fdnPos[i] - effLen;
-        while (readPos < 0) readPos += this.fdnMaxLen;
 
-        fdnOut[i] = this.fdnBufs[i][readPos % this.fdnMaxLen];
+        // L channel
+        const effLenL = Math.max(10, fdnLens[i]  + Math.round(bloomMod));
+        let rpL = this.fdnPos[i] - effLenL;
+        while (rpL < 0) rpL += this.fdnMaxLen;
+        fdnOutL[i] = this.fdnBufsL[i][rpL % this.fdnMaxLen];
+        this.fdnLpL[i] = dampCoef * this.fdnLpL[i] + (1 - dampCoef) * fdnOutL[i];
+        fdnOutL[i] = this.fdnLpL[i];
 
-        // Damping LP filter per line
-        this.fdnLp[i] = dampCoef * this.fdnLp[i] + (1 - dampCoef) * fdnOut[i];
-        fdnOut[i] = this.fdnLp[i];
+        // R channel (offset lengths = decorrelated tail)
+        const effLenR = Math.max(10, fdnLensR[i] + Math.round(bloomMod));
+        let rpR = this.fdnPos[i] - effLenR;
+        while (rpR < 0) rpR += this.fdnMaxLen;
+        fdnOutR[i] = this.fdnBufsR[i][rpR % this.fdnMaxLen];
+        this.fdnLpR[i] = dampCoef * this.fdnLpR[i] + (1 - dampCoef) * fdnOutR[i];
+        fdnOutR[i] = this.fdnLpR[i];
 
-        // Update bloom phase
         this.bloomPhases[i] += this.bloomRates[i] * (0.5 + bloom) / sr;
         if (this.bloomPhases[i] >= 1) this.bloomPhases[i] -= 1;
       }
 
-      // Hadamard mix
-      const fdnMixed = [0, 0, 0, 0];
+      // Hadamard mix — L and R independently
+      const fdnMixedL = [0, 0, 0, 0];
+      const fdnMixedR = [0, 0, 0, 0];
       for (let i = 0; i < 4; i++) {
         for (let j = 0; j < 4; j++) {
-          fdnMixed[i] += this.hadamard[i][j] * fdnOut[j];
+          fdnMixedL[i] += this.hadamard[i][j] * fdnOutL[j];
+          fdnMixedR[i] += this.hadamard[i][j] * fdnOutR[j];
         }
       }
 
       // Gravity: redistribute energy. High gravity concentrates into first lines
       const gravitySkew = gravity * 1.0;
-      const fdnScaled = [
-        fdnMixed[0] * (1 + gravitySkew),
-        fdnMixed[1] * (1 + gravitySkew * 0.3),
-        fdnMixed[2] * (1 - gravitySkew * 0.3),
-        fdnMixed[3] * (1 - gravitySkew),
+      const fdnScaledL = [
+        fdnMixedL[0] * (1 + gravitySkew),         fdnMixedL[1] * (1 + gravitySkew * 0.3),
+        fdnMixedL[2] * (1 - gravitySkew * 0.3),   fdnMixedL[3] * (1 - gravitySkew),
+      ];
+      const fdnScaledR = [
+        fdnMixedR[0] * (1 + gravitySkew),         fdnMixedR[1] * (1 + gravitySkew * 0.3),
+        fdnMixedR[2] * (1 - gravitySkew * 0.3),   fdnMixedR[3] * (1 - gravitySkew),
       ];
 
-      // Write back to delay lines with feedback + input injection
-      const inputInject = mono * 0.4 + erL * 0.2 + erR * 0.2;
+      // Write back — L fed from dryL+erL, R fed from dryR+erR (true stereo injection)
+      const injL = dryL * 0.4 + erL * 0.35;
+      const injR = dryR * 0.4 + erR * 0.35;
       for (let i = 0; i < 4; i++) {
-        const fb = fdnScaled[i] * feedbackGain;
-        // Soft clip to prevent runaway
-        const val = Math.tanh((inputInject + fb) * 0.8);
-        this.fdnBufs[i][this.fdnPos[i]] = val;
+        this.fdnBufsL[i][this.fdnPos[i]] = Math.tanh((injL + fdnScaledL[i] * feedbackGain) * 0.8);
+        this.fdnBufsR[i][this.fdnPos[i]] = Math.tanh((injR + fdnScaledR[i] * feedbackGain) * 0.8);
         this.fdnPos[i] = (this.fdnPos[i] + 1) % this.fdnMaxLen;
       }
 
-      // Sum FDN outputs to stereo (distribute across L/R)
-      let fdnL = fdnOut[0] * 0.5 + fdnOut[1] * 0.3 + fdnOut[2] * 0.1 + fdnOut[3] * 0.1;
-      let fdnR = fdnOut[0] * 0.1 + fdnOut[1] * 0.1 + fdnOut[2] * 0.3 + fdnOut[3] * 0.5;
+      // Sum FDN — L and R are now genuinely different signals
+      let fdnL = (fdnOutL[0] + fdnOutL[1] + fdnOutL[2] + fdnOutL[3]) * 0.25;
+      let fdnR = (fdnOutR[0] + fdnOutR[1] + fdnOutR[2] + fdnOutR[3]) * 0.25;
 
       // ════════════════════════════════════════════════════
       // Stage 3: Combine ER + FDN
