@@ -474,28 +474,17 @@ const SYNC_DIVS = [
   { label: '1/16', beats: 0.25 },
 ];
 
-function TempoSync({ bpm, onBpmChange, onSync }) {
+function TempoSync({ onSync }) {
   const btnStyle = {
     fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-    padding: '5px 10px', borderRadius: 3, cursor: 'pointer',
+    padding: '5px 12px', borderRadius: 3, cursor: 'pointer',
     background: 'transparent', color: 'rgba(60,180,255,0.6)',
     border: '1px solid rgba(40,120,255,0.22)',
     fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
     transition: 'all 0.12s',
   };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-      <span style={{ fontSize: 9, color: 'rgba(60,160,255,0.45)', fontFamily: 'Georgia, serif', flexShrink: 0 }}>♩=</span>
-      <input
-        type="number" value={bpm} min={40} max={240} step={1}
-        onChange={e => onBpmChange(Math.max(40, Math.min(240, Number(e.target.value) || 120)))}
-        style={{
-          width: 38, fontSize: 10, fontWeight: 700, textAlign: 'center',
-          background: 'rgba(40,120,255,0.06)', border: '1px solid rgba(40,120,255,0.22)',
-          color: 'rgba(100,180,255,0.85)', borderRadius: 3, padding: '4px 3px',
-          outline: 'none', fontFamily: '"Courier New", monospace', flexShrink: 0,
-        }}
-      />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1 }}>
       {SYNC_DIVS.map(d => (
         <button key={d.label} onClick={() => onSync(d.beats)} style={btnStyle}
           onMouseEnter={e => { e.currentTarget.style.color = 'rgba(120,220,255,0.95)'; e.currentTarget.style.background = 'rgba(40,120,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(60,180,255,0.4)'; }}
@@ -674,8 +663,8 @@ export default function OrbitOrb({
         </div>
       </div>
 
-      {/* Hero canvas — fixed height so controls below have room */}
-      <div style={{ position: 'relative', zIndex: 2, height: 168, flexShrink: 0 }}>
+      {/* Hero canvas — fills all remaining space */}
+      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <OrbitCanvas speed={speed} path={path} width={width} depth={depth} peak={peak} outPeak={outPeak} orbX={orbX} orbY={orbY} />
       </div>
 
@@ -697,7 +686,7 @@ export default function OrbitOrb({
           format={v => `${(v * v * 8).toFixed(2)}Hz`}
           onChange={v => { setSpeed(v); engineRef.current?.setSpeed(v); setActivePreset(null); }} />
         <div style={{ width: 1, height: 38, background: 'rgba(40,120,255,0.12)', flexShrink: 0 }} />
-        <TempoSync bpm={bpm} onBpmChange={setBpm} onSync={syncToTempo} />
+        <TempoSync onSync={syncToTempo} />
       </div>
 
       {/* Main knob row — WIDTH DEPTH TONE MIX */}
