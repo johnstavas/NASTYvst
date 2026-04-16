@@ -66,24 +66,41 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       skyG.addColorStop(0,'#5b8fbf'); skyG.addColorStop(0.5,'#87b8d8'); skyG.addColorStop(1,'#a8cce0');
       ctx.fillStyle=skyG; ctx.fillRect(0,0,W,H);
 
-      // CLOUDS (drifting slowly left)
-      var cloudOffX = (ph * 4) % (W + 80);
-      var clouds = [
-        {x: 60,  y: 22, s: 1.0},
-        {x: 180, y: 14, s: 0.75},
-        {x: 290, y: 25, s: 1.1},
-        {x: 420, y: 18, s: 0.85},
+      // CLOUDS — fluffy multi-puff with shadow base, drifting left
+      var cloudOffX = (ph * 3.5) % (W + 110);
+      var cloudDefs = [
+        {x: 50,  y: 20, s: 0.68},
+        {x: 165, y: 12, s: 0.52},
+        {x: 268, y: 21, s: 0.75},
+        {x: 375, y: 14, s: 0.58},
+        {x: 460, y: 22, s: 0.63},
       ];
-      for (var ci2=0; ci2<clouds.length; ci2++) {
-        var cx2 = ((clouds[ci2].x - cloudOffX + W + 80) % (W + 80)) - 30;
-        var cy2 = clouds[ci2].y, cs = clouds[ci2].s;
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.beginPath(); ctx.arc(cx2,      cy2,    10*cs, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx2+14*cs,cy2+2,  13*cs, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx2+28*cs,cy2,    10*cs, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx2+14*cs,cy2-6,  9*cs,  0, Math.PI*2); ctx.fill();
-        // Cloud base fill
-        ctx.fillRect(cx2-1, cy2, 30*cs, 8*cs);
+      for (var ci2=0; ci2<cloudDefs.length; ci2++) {
+        var cfx = ((cloudDefs[ci2].x - cloudOffX + W + 110) % (W + 110)) - 45;
+        var cfy = cloudDefs[ci2].y;
+        var cs  = cloudDefs[ci2].s;
+
+        // Blue-grey shadow puffs (drawn first, slightly lower)
+        var shd = [[cfx+cs*10,cfy+cs*7,cs*10],[cfx+cs*22,cfy+cs*8,cs*12],[cfx+cs*34,cfy+cs*7,cs*10]];
+        for (var si=0;si<shd.length;si++){
+          ctx.fillStyle='rgba(140,180,215,0.28)';
+          ctx.beginPath();ctx.arc(shd[si][0],shd[si][1],shd[si][2],0,Math.PI*2);ctx.fill();
+        }
+
+        // White fluffy puffs (layered, tallest in middle)
+        var pfs = [
+          [cfx,          cfy,        cs*9,  0.80],
+          [cfx+cs*8,     cfy-cs*5,   cs*11, 0.88],
+          [cfx+cs*19,    cfy-cs*8,   cs*13, 0.92],
+          [cfx+cs*31,    cfy-cs*6,   cs*11, 0.88],
+          [cfx+cs*41,    cfy,        cs*9,  0.80],
+          [cfx+cs*13,    cfy+cs*1,   cs*12, 0.94],
+          [cfx+cs*27,    cfy+cs*1,   cs*11, 0.92],
+        ];
+        for (var pi2=0;pi2<pfs.length;pi2++){
+          ctx.fillStyle='rgba(255,255,255,'+pfs[pi2][3]+')';
+          ctx.beginPath();ctx.arc(pfs[pi2][0],pfs[pi2][1],pfs[pi2][2],0,Math.PI*2);ctx.fill();
+        }
       }
 
       // BIRDS (V-shape seagulls, drifting right)
