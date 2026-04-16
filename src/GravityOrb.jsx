@@ -564,24 +564,23 @@ export default function GravityOrb({
     }}>
       {/* Header */}
       <div style={{
-        padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '9px 14px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(120,100,200,0.1)',
         background: 'linear-gradient(180deg, rgba(80,60,160,0.04) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
-            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em',
+            fontSize: 20, fontWeight: 900, letterSpacing: '0.1em',
             background: 'linear-gradient(135deg, #a090e0, #c0b0ff, #8070c0)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(120,100,220,0.3))',
           }}>GRAVITY</span>
           <span style={{
-            fontSize: 6, fontWeight: 700, color: 'rgba(160,140,200,0.35)',
-            letterSpacing: '0.35em', marginTop: 1,
+            fontSize: 6.5, fontWeight: 700, color: 'rgba(160,140,200,0.35)',
+            letterSpacing: '0.35em', marginTop: 2,
           }}>BEHAVIORAL REVERB</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={presetColors} />
           {loading && <span style={{ fontSize: 6, color: 'rgba(140,120,220,0.4)' }}>...</span>}
           {onRemove && <span onClick={onRemove} style={{
             fontSize: 11, cursor: 'pointer', color: 'rgba(255,120,120,0.7)',
@@ -591,6 +590,14 @@ export default function GravityOrb({
             onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,120,120,0.7)'; }}
           >&times;</span>}
         </div>
+      </div>
+
+      {/* Preset row */}
+      <div style={{
+        padding: '3px 14px', display: 'flex', alignItems: 'center',
+        borderBottom: '1px solid rgba(120,100,200,0.08)', flexShrink: 0,
+      }}>
+        <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={presetColors} />
       </div>
 
       {/* Visual */}
@@ -620,13 +627,13 @@ export default function GravityOrb({
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(120,100,200,0.06)', flexShrink: 0,
       }}>
-        <Knob label="SPACE" value={space} min={0} max={1} defaultValue={0.4} size={28}
+        <Knob label="SPACE" value={space} min={0} max={1} defaultValue={0.4} size={32}
           onChange={v => { setSpace(v); engineRef.current?.setSpace(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="GRAVITY" value={gravity} min={0} max={1} defaultValue={0.5} size={28}
+        <Knob label="GRAVITY" value={gravity} min={0} max={1} defaultValue={0.5} size={32}
           onChange={v => { setGravity(v); engineRef.current?.setGravity(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="BLOOM" value={bloom} min={0} max={1} defaultValue={0.3} size={28}
+        <Knob label="BLOOM" value={bloom} min={0} max={1} defaultValue={0.3} size={32}
           onChange={v => { setBloom(v); engineRef.current?.setBloom(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="DENSITY" value={density} min={0} max={1} defaultValue={0.5} size={28}
+        <Knob label="DENSITY" value={density} min={0} max={1} defaultValue={0.5} size={32}
           onChange={v => { setDensity(v); engineRef.current?.setDensity(v); setActivePreset(null); }} format={pctFmt} />
       </div>
 
@@ -635,14 +642,14 @@ export default function GravityOrb({
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(120,100,200,0.06)', flexShrink: 0,
       }}>
-        <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} size={28}
+        <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} size={32}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }}
           format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'NEUTRAL'} />
-        <Knob label="WIDTH" value={width} min={0} max={1} defaultValue={0.6} size={28}
+        <Knob label="WIDTH" value={width} min={0} max={1} defaultValue={0.6} size={32}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.3} size={28}
+        <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.3} size={32}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} format={pctFmt} />
-        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={28}
+        <Knob label="OUTPUT" value={outputLevel} min={0} max={1} defaultValue={0.5} size={32}
           onChange={v => { setOutputLevel(v); engineRef.current?.setOutput(v); setActivePreset(null); }} format={outFmt} />
       </div>
 
@@ -658,7 +665,7 @@ export default function GravityOrb({
         </div>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 8px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(120,100,220,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(180,160,255,0.95)' : 'rgba(120,100,180,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(120,100,220,0.45)' : 'rgba(80,60,140,0.2)'}`,
@@ -667,7 +674,7 @@ export default function GravityOrb({
           }}>{smooth > 0 ? `SMOOTH ${smooth}x` : 'SMOOTH'}</button>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }}
           style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em',
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
             padding: '3px 10px', borderRadius: 3, cursor: 'pointer',
             background: bypassed ? 'rgba(40,35,60,0.5)' : 'rgba(120,100,220,0.1)',
             color: bypassed ? 'rgba(140,130,170,0.3)' : '#b0a0e0',
