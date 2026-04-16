@@ -176,8 +176,12 @@ class ReverbBusProcessor extends AudioWorkletProcessor {
     const dampFreq = dampBase + color * 8000;
     const dampCoef = Math.exp(-6.283185 * dampFreq / sr);
 
-    // ── TUCK → HPF on wet (50Hz → 600Hz) ──────────────────────────────
-    const hpfFreq = 50 + tuck * 550;
+    // ── TUCK → HPF on wet (50Hz → 180Hz — mud removal only)
+    // PHASE FIX: was 50–600Hz. That put the HPF into the midrange at moderate
+    // TUCK values, phase-shifting the wet signal and causing comb filtering
+    // when mixed with the clean dry path. Capping at 180Hz keeps it in the
+    // sub/low-bass range where phase shift is inaudible in a wet/dry blend.
+    const hpfFreq = 50 + tuck * 130;
     const hpfCoef = Math.exp(-6.283185 * hpfFreq / sr);
 
     // ── COLOR → Tilt EQ ────────────────────────────────────────────────
