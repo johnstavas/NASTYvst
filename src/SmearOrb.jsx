@@ -692,13 +692,13 @@ export default function SmearOrb({
         padding: '10px 0 6px', display: 'flex', justifyContent: 'space-evenly', alignItems: 'flex-start',
         borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
-        <Knob label="SMEAR" value={smear} defaultValue={0.4} size={34} format={pctFmt} hue="210,145,155"
+        <Knob label="DECAY" value={smear} defaultValue={0.4} size={34} format={pctFmt} hue="210,145,155"
           onChange={v => { setSmear(v); engineRef.current?.setSmear(v); setActivePreset(null); }} />
-        <Knob label="DRIFT" value={drift} defaultValue={0.2} size={34} format={pctFmt} hue="155,185,145"
+        <Knob label="WARP" value={drift} defaultValue={0.2} size={34} format={pctFmt} hue="155,185,145"
           onChange={v => { setDrift(v); engineRef.current?.setDrift(v); setActivePreset(null); }} />
         <Knob label="DEGRADE" value={degrade} defaultValue={0.15} size={34} format={pctFmt} hue="175,155,195"
           onChange={v => { setDegrade(v); engineRef.current?.setDegrade(v); setActivePreset(null); }} />
-        <Knob label="SIZE" value={size} defaultValue={0.5} size={34} format={pctFmt} hue="215,195,140"
+        <Knob label="SPACE" value={size} defaultValue={0.5} size={34} format={pctFmt} hue="215,195,140"
           onChange={v => { setSize(v); engineRef.current?.setSize(v); setActivePreset(null); }} />
         <Knob label="TONE" value={tone} defaultValue={0.45} size={34} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} hue="180,160,170"
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
