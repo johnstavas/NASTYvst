@@ -13,7 +13,7 @@
 //   MIX    — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'orbit-v3';
+const PROCESSOR_VERSION = 'orbit-v4';
 
 const PROCESSOR_CODE = `
 class OrbitProcessor extends AudioWorkletProcessor {
@@ -134,8 +134,8 @@ class OrbitProcessor extends AudioWorkletProcessor {
     const dampCoef = Math.exp(-2 * Math.PI * dampFreq / sr);
     const apCoef   = 0.5;
 
-    // Orbit LFO rate
-    const orbitHz  = 0.05 + speed * speed * 3.0;
+    // Orbit LFO rate — 0 speed = fully frozen, no movement
+    const orbitHz  = speed * speed * 3.5;
     const orbitInc = orbitHz / sr;
 
     // Tilt EQ — gentle, not dramatic
@@ -144,16 +144,18 @@ class OrbitProcessor extends AudioWorkletProcessor {
     const tiltGainLow  = 1 + (0.5 - tone) * 1.2;
     const tiltGainHigh = 1 + (tone - 0.5) * 1.2;
 
-    // Drift update — speed affects wander rate and jump frequency
-    this.driftTimer += iL.length;
-    if (this.driftTimer > sr * (0.8 - speed * 0.55)) {
-      this.driftTimer = 0;
-      this.driftTargetX = (Math.random() * 2 - 1);
-      this.driftTargetY = (Math.random() * 2 - 1);
+    // Drift update — fully frozen at speed=0
+    if (speed > 0.001) {
+      this.driftTimer += iL.length;
+      if (this.driftTimer > sr * Math.max(0.25, 0.8 - speed * 0.55)) {
+        this.driftTimer = 0;
+        this.driftTargetX = (Math.random() * 2 - 1);
+        this.driftTargetY = (Math.random() * 2 - 1);
+      }
+      const driftSmooth = 0.002 + speed * 0.004;
+      this.driftX += (this.driftTargetX - this.driftX) * driftSmooth;
+      this.driftY += (this.driftTargetY - this.driftY) * driftSmooth;
     }
-    const driftSmooth = 0.002 + speed * 0.004;
-    this.driftX += (this.driftTargetX - this.driftX) * driftSmooth;
-    this.driftY += (this.driftTargetY - this.driftY) * driftSmooth;
 
     // Spiral — speed affects breathing rate
     this.spiralRadius += this.spiralDir * 0.00025 * (0.4 + speed * 1.2);
