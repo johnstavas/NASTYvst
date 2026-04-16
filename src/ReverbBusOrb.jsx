@@ -63,14 +63,53 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
 
       // SKY
       var skyG = ctx.createLinearGradient(0,0,0,H);
-      skyG.addColorStop(0,'#8ea0ae'); skyG.addColorStop(0.6,'#b0c0c8'); skyG.addColorStop(1,'#9aaab4');
+      skyG.addColorStop(0,'#5b8fbf'); skyG.addColorStop(0.5,'#87b8d8'); skyG.addColorStop(1,'#a8cce0');
       ctx.fillStyle=skyG; ctx.fillRect(0,0,W,H);
+
+      // CLOUDS (drifting slowly left)
+      var cloudOffX = (ph * 4) % (W + 80);
+      var clouds = [
+        {x: 60,  y: 22, s: 1.0},
+        {x: 180, y: 14, s: 0.75},
+        {x: 290, y: 25, s: 1.1},
+        {x: 420, y: 18, s: 0.85},
+      ];
+      for (var ci2=0; ci2<clouds.length; ci2++) {
+        var cx2 = ((clouds[ci2].x - cloudOffX + W + 80) % (W + 80)) - 30;
+        var cy2 = clouds[ci2].y, cs = clouds[ci2].s;
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.beginPath(); ctx.arc(cx2,      cy2,    10*cs, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx2+14*cs,cy2+2,  13*cs, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx2+28*cs,cy2,    10*cs, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx2+14*cs,cy2-6,  9*cs,  0, Math.PI*2); ctx.fill();
+        // Cloud base fill
+        ctx.fillRect(cx2-1, cy2, 30*cs, 8*cs);
+      }
+
+      // BIRDS (V-shape seagulls, drifting right)
+      var birdOffX = (ph * 6) % (W + 60);
+      var birdGroups = [{x:100,y:38},{x:240,y:28},{x:330,y:42}];
+      ctx.strokeStyle = 'rgba(30,30,60,0.55)';
+      ctx.lineWidth = 1;
+      for (var bi2=0; bi2<birdGroups.length; bi2++) {
+        var bx = (birdGroups[bi2].x + birdOffX) % (W + 60) - 20;
+        var by = birdGroups[bi2].y;
+        var bFlap = Math.sin(ph * 4 + bi2) * 2.5; // wing flap
+        // Left wing
+        ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx-6,by-bFlap,bx-10,by+1); ctx.stroke();
+        // Right wing
+        ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx+6,by-bFlap,bx+10,by+1); ctx.stroke();
+        // 2 more smaller birds nearby
+        ctx.beginPath(); ctx.moveTo(bx+18,by+5); ctx.quadraticCurveTo(bx+13,by+5-bFlap*0.7,bx+9,by+6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx+18,by+5); ctx.quadraticCurveTo(bx+23,by+5-bFlap*0.7,bx+27,by+6); ctx.stroke();
+      }
+
       // Treeline
-      ctx.fillStyle='rgba(60,80,65,0.28)';
-      for (var ti=0;ti<6;ti++){var tx=25+ti*62,th=22+Math.sin(ti*1.9)*9;ctx.beginPath();ctx.moveTo(tx,H*0.55);ctx.lineTo(tx-11,H*0.55+th);ctx.lineTo(tx+11,H*0.55+th);ctx.closePath();ctx.fill();}
+      ctx.fillStyle='rgba(40,70,45,0.35)';
+      for (var ti=0;ti<6;ti++){var tx=25+ti*62,th=20+Math.sin(ti*1.9)*8;ctx.beginPath();ctx.moveTo(tx,H*0.52);ctx.lineTo(tx-10,H*0.52+th);ctx.lineTo(tx+10,H*0.52+th);ctx.closePath();ctx.fill();}
 
       // ROAD
-      var roadY = H - 36;
+      var roadY = H - 28;
       var roadG = ctx.createLinearGradient(0,roadY,0,H);
       roadG.addColorStop(0,'#4e4e52'); roadG.addColorStop(1,'#3a3a3e');
       ctx.fillStyle=roadG; ctx.fillRect(0,roadY,W,H-roadY);
@@ -83,7 +122,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       for(var pl=0;pl<5;pl++){ctx.beginPath();ctx.moveTo(50+pl*62,roadY+4);ctx.lineTo(50+pl*62,H-2);ctx.stroke();}
 
       // BUS LAYOUT
-      var bY=30+bounce, bL=8, bR=310, bW=bR-bL, bH=roadY-bY;
+      var bY=22+bounce, bL=8, bR=310, bW=bR-bL, bH=roadY-bY;
       var midY=bY+bH*0.6;
       var wR2=22, rWx=bL+60, fWx=bR-48, wCy=roadY-wR2;
 
@@ -210,60 +249,82 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
   return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
-// ─── Console Bypass Button ───────────────────────────────────────────────────
+// ─── Stop Sign Bypass Button ─────────────────────────────────────────────────
 function ConsolBypass({ active, onClick }) {
-  const size = 28;
+  const size = 32;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 2;
+  // Octagon points
+  const pts = Array.from({length: 8}, (_, i) => {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 8;
+    return `${cx + Math.cos(a) * r},${cy + Math.sin(a) * r}`;
+  }).join(' ');
   return (
-    <div onClick={onClick} style={{ cursor: 'pointer', width: size, height: size }} title={active ? 'Active' : 'Bypassed'}>
-      <svg width={size} height={size} viewBox="0 0 28 28">
-        <rect x="5" y="8" width="18" height="12" rx="1.5"
-          fill={active ? 'rgba(220,175,0,0.12)' : 'rgba(50,52,58,0.1)'}
-          stroke={active ? 'rgba(220,175,0,0.4)' : 'rgba(50,52,58,0.2)'}
-          strokeWidth="1" />
-        {/* LED */}
-        <circle cx="14" cy="14" r="2.5"
-          fill={active ? 'rgba(255,210,0,0.85)' : 'rgba(50,52,58,0.3)'}
-        />
-        {active && (
-          <circle cx="14" cy="14" r="4" fill="none"
-            stroke="rgba(255,210,0,0.2)" strokeWidth="1" />
-        )}
-        {/* Label line */}
-        <line x1="8" y1="18" x2="20" y2="18"
-          stroke={active ? 'rgba(220,175,0,0.25)' : 'rgba(50,52,58,0.1)'}
-          strokeWidth="0.5" />
+    <div onClick={onClick} style={{ cursor: 'pointer', width: size, height: size }} title={active ? 'Active — click to bypass' : 'Bypassed — click to activate'}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Octagon body */}
+        <polygon points={pts}
+          fill={active ? 'rgba(210,25,25,0.88)' : 'rgba(80,30,30,0.35)'}
+          stroke={active ? 'rgba(255,255,255,0.7)' : 'rgba(120,60,60,0.3)'}
+          strokeWidth="1.2" />
+        {/* Glow ring when active */}
+        {active && <polygon points={pts} fill="none"
+          stroke="rgba(255,60,60,0.25)" strokeWidth="3" />}
+        {/* STOP text */}
+        <text x={cx} y={cy + 2.5} textAnchor="middle"
+          fontSize="6.5" fontWeight="800" fontFamily="Arial,sans-serif"
+          fill={active ? 'white' : 'rgba(180,100,100,0.5)'} letterSpacing="0.5">
+          {active ? 'ACTIVE' : 'BYPSS'}
+        </text>
       </svg>
     </div>
   );
 }
 
-// ─── Console Knob ────────────────────────────────────────────────────────────
-function ConsoleKnob({ size = 26, norm = 0 }) {
-  const cx = size / 2, cy = size / 2, r = size / 2 - 2;
+// ─── Bus Knob (yellow dome, black notch — school bus dashboard style) ─────────
+function BusKnob({ size = 26, norm = 0 }) {
+  const cx = size / 2, cy = size / 2;
+  const trackR = size / 2 - 1.8;   // arc track sits near edge
+  const knobR  = size / 2 - 4;     // yellow dome body
   const startAngle = Math.PI * 0.75;
   const totalSweep = Math.PI * 1.5;
-  const sweepAngle = startAngle + norm * totalSweep;
-  const x1 = cx + Math.cos(startAngle) * r, y1 = cy + Math.sin(startAngle) * r;
-  const x2 = cx + Math.cos(sweepAngle) * r, y2 = cy + Math.sin(sweepAngle) * r;
+  const angle = startAngle + norm * totalSweep;
   const large = norm * totalSweep > Math.PI ? 1 : 0;
-  const dotX = cx + Math.cos(sweepAngle) * r;
-  const dotY = cy + Math.sin(sweepAngle) * r;
-  const ACCENT_HUE = 50;
+
+  // Track arc (full, dark)
+  const tX1 = cx + Math.cos(startAngle) * trackR, tY1 = cy + Math.sin(startAngle) * trackR;
+  const tX2 = cx + Math.cos(startAngle + totalSweep) * trackR, tY2 = cy + Math.sin(startAngle + totalSweep) * trackR;
+  // Fill arc end
+  const fX2 = cx + Math.cos(angle) * trackR, fY2 = cy + Math.sin(angle) * trackR;
+  // Indicator notch on dome face
+  const iX1 = cx + Math.cos(angle) * (knobR * 0.28), iY1 = cy + Math.sin(angle) * (knobR * 0.28);
+  const iX2 = cx + Math.cos(angle) * (knobR * 0.84), iY2 = cy + Math.sin(angle) * (knobR * 0.84);
+  const gId = `bkg${Math.round(size)}`;
   return (
     <svg width={size} height={size} style={{ display: 'block', pointerEvents: 'none' }}>
-      <circle cx={cx} cy={cy} r={r} fill="rgba(10,14,20,0.9)"
-        stroke="rgba(120,140,180,0.08)" strokeWidth="1.5" />
+      <defs>
+        <radialGradient id={gId} cx="38%" cy="32%" r="65%">
+          <stop offset="0%"   stopColor="#fff5b0" />
+          <stop offset="42%"  stopColor="#FFD800" />
+          <stop offset="100%" stopColor="#b08a00" />
+        </radialGradient>
+      </defs>
+      {/* Dark track */}
+      <path d={`M ${tX1} ${tY1} A ${trackR} ${trackR} 0 1 1 ${tX2} ${tY2}`}
+        fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Yellow fill arc */}
       {norm > 0.005 && (
-        <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`}
-          fill="none"
-          stroke={`hsla(${ACCENT_HUE},65%,55%,0.7)`}
-          strokeWidth="1.8" strokeLinecap="round" />
+        <path d={`M ${tX1} ${tY1} A ${trackR} ${trackR} 0 ${large} 1 ${fX2} ${fY2}`}
+          fill="none" stroke="#FFD800" strokeWidth="2.5" strokeLinecap="round"
+          style={{ filter: 'drop-shadow(0 0 2px rgba(255,216,0,0.7))' }} />
       )}
-      <circle cx={dotX} cy={dotY} r="2.2"
-        fill={`hsla(${ACCENT_HUE},80%,70%,0.9)`} />
-      <circle cx={dotX} cy={dotY} r="4"
-        fill={`hsla(${ACCENT_HUE},80%,70%,0.12)`} />
-      <circle cx={cx} cy={cy} r="1.5" fill="rgba(160,180,220,0.2)" />
+      {/* Yellow dome body */}
+      <circle cx={cx} cy={cy} r={knobR} fill={`url(#${gId})`}
+        stroke="rgba(140,100,0,0.35)" strokeWidth="0.8" />
+      {/* Black indicator notch */}
+      <line x1={iX1} y1={iY1} x2={iX2} y2={iY2}
+        stroke="rgba(0,0,0,0.75)" strokeWidth="2.2" strokeLinecap="round" />
+      {/* Center indent */}
+      <circle cx={cx} cy={cy} r="2.2" fill="rgba(0,0,0,0.28)" />
     </svg>
   );
 }
@@ -283,7 +344,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, userSelect: 'none', width: size + 14, position: 'relative', zIndex: 2 }}>
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
-        <ConsoleKnob size={size} norm={norm} />
+        <BusKnob size={size} norm={norm} />
       </div>
       <span style={{ fontSize: 8.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(220,185,30,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
       <span style={{ fontSize: 7, color: 'rgba(200,165,20,0.45)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
@@ -306,7 +367,7 @@ function GainKnob({ value, onChange, label, defaultValue = 1 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, userSelect: 'none' }}>
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
-        <ConsoleKnob size={size} norm={norm} />
+        <BusKnob size={size} norm={norm} />
       </div>
       <span style={{ fontSize: 5, letterSpacing: '0.1em', color: 'rgba(200,165,20,0.5)', fontWeight: 700, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', marginTop: -1 }}>{label}</span>
     </div>
