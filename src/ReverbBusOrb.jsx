@@ -9,9 +9,9 @@ import PresetSelector from './PresetSelector';
 
 // ─── Monster Truck School Bus Canvas ─────────────────────────────────────────
 // Canvas is drawn at EXACTLY W×H matching the CSS display size to avoid oval circles.
-// Header≈42 + Presets≈26 + Canvas + Modes≈27 + Knobs≈62 + Footer≈46 = ~203px non-canvas
-// Plugin is 500px → canvas gets 500 - 203 = 297px
-const BUS_W = 380, BUS_H = 297;
+// Header≈52 + Presets≈26 + Canvas + Modes≈27 + Knobs≈62 + Footer≈46 = ~213px non-canvas
+// Plugin is 500px → canvas gets 500 - 213 = 287px (use 280 for safety)
+const BUS_W = 380, BUS_H = 280;
 
 function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0, gr = 0, reverbLevel = 0 }) {
   const canvasRef = useRef(null);
@@ -232,115 +232,99 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       ctx.beginPath(); ctx.moveTo(bR,midY); ctx.lineTo(hR,midY+(hTop-bY)*0.9+bounce*0.5);
       ctx.lineTo(hR,bBot+bounce); ctx.lineTo(bR,bBot+bounce); ctx.closePath(); ctx.fill();
 
-      // ── STICKER DECALS on the black stripe ───────────────────────────
-      var stripeH = bBot+bounce - midY;
-      var sCY = midY + stripeH * 0.5; // sticker center y
+      // ── DIRT & GRIME TEXTURES ─────────────────────────────────────────
+      // Paint chips / scratch marks on yellow body
+      ctx.save();
+      ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=0.8;
+      var scratchDefs=[
+        {x:bL+40, y:bY+22, l:14, a:-0.3},  {x:bL+80, y:bY+35, l:9, a:0.15},
+        {x:bL+140,y:bY+18, l:18, a:-0.1},  {x:bL+190,y:bY+42, l:11, a:0.4},
+        {x:bL+230,y:bY+28, l:16, a:-0.25}, {x:bL+260,y:bY+15, l:8,  a:0.1},
+        {x:bL+50, y:bY+55, l:12, a:0.35},  {x:bL+170,y:bY+52, l:10, a:-0.2},
+      ];
+      for(var sci=0;sci<scratchDefs.length;sci++){
+        var sc=scratchDefs[sci];
+        ctx.beginPath();
+        ctx.moveTo(sc.x, sc.y);
+        ctx.lineTo(sc.x+Math.cos(sc.a)*sc.l, sc.y+Math.sin(sc.a)*sc.l);
+        ctx.stroke();
+        // lighter highlight next to scratch
+        ctx.strokeStyle='rgba(255,255,200,0.12)';
+        ctx.beginPath();
+        ctx.moveTo(sc.x+0.8, sc.y+0.8);
+        ctx.lineTo(sc.x+Math.cos(sc.a)*sc.l+0.8, sc.y+Math.sin(sc.a)*sc.l+0.8);
+        ctx.stroke();
+        ctx.strokeStyle='rgba(0,0,0,0.18)';
+      }
+      ctx.restore();
 
-      // helper: draw sticker with white border effect
-      function sticker(fn) { ctx.save(); fn(); ctx.restore(); }
+      // Paint chips — small dark flecks where yellow paint has peeled
+      var chipDefs=[
+        {x:bL+62,y:bY+30,w:5,h:3},{x:bL+115,y:bY+20,w:4,h:2},{x:bL+155,y:bY+48,w:6,h:2},
+        {x:bL+200,y:bY+25,w:3,h:3},{x:bL+242,y:bY+38,w:5,h:2},{x:bL+100,y:bY+58,w:4,h:3},
+        {x:bL+185,y:bY+60,w:3,h:2},{x:bL+65, y:bY+50,w:4,h:2},{x:bL+220,y:bY+18,w:5,h:3},
+      ];
+      for(var chi=0;chi<chipDefs.length;chi++){
+        var ch2=chipDefs[chi];
+        ctx.fillStyle='rgba(30,20,10,0.28)';
+        ctx.beginPath(); ctx.ellipse(ch2.x,ch2.y,ch2.w,ch2.h,ch2.w*0.3,0,Math.PI*2); ctx.fill();
+        // bare metal gleam inside chip
+        ctx.fillStyle='rgba(180,160,100,0.18)';
+        ctx.beginPath(); ctx.ellipse(ch2.x,ch2.y,ch2.w*0.55,ch2.h*0.5,ch2.w*0.3,0,Math.PI*2); ctx.fill();
+      }
 
-      // STICKER 1: eyeball (~x=bL+30)
-      sticker(function(){
-        var ex=bL+34, ey=sCY, er=stripeH*0.38;
-        // white border
-        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(ex,ey,er+1.5,0,Math.PI*2); ctx.fill();
-        // sclera
-        ctx.fillStyle='#f0ece4'; ctx.beginPath(); ctx.arc(ex,ey,er,0,Math.PI*2); ctx.fill();
-        // iris (spins with audio)
-        var iR=er*0.55;
-        ctx.save(); ctx.translate(ex,ey); ctx.rotate(h.wheelAngle*0.3);
-        var iG=ctx.createRadialGradient(0,0,0,0,0,iR);
-        iG.addColorStop(0,'#1a8c2a'); iG.addColorStop(0.5,'#0d5c1a'); iG.addColorStop(1,'#062e0d');
-        ctx.fillStyle=iG; ctx.beginPath(); ctx.arc(0,0,iR,0,Math.PI*2); ctx.fill();
-        // iris detail lines
-        ctx.strokeStyle='rgba(30,180,60,0.35)'; ctx.lineWidth=0.7;
-        for(var il=0;il<8;il++){var ia=(il/8)*Math.PI*2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(ia)*iR,Math.sin(ia)*iR);ctx.stroke();}
-        ctx.restore();
-        // pupil (dilates with signal)
-        var pR=er*0.22*(1+h.sig*0.6);
-        ctx.fillStyle='#050505'; ctx.beginPath(); ctx.arc(ex,ey,pR,0,Math.PI*2); ctx.fill();
-        // pupil shine
-        ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.arc(ex-er*0.12,ey-er*0.14,er*0.09,0,Math.PI*2); ctx.fill();
-        // bloodshot veins at high signal
-        if(h.sig>0.4){
-          ctx.strokeStyle='rgba(220,40,40,'+(h.sig*0.5)+')'; ctx.lineWidth=0.6;
-          var vAngles=[0.3,1.1,2.0,2.8,4.2,5.1];
-          for(var vi=0;vi<vAngles.length;vi++){
-            ctx.beginPath(); ctx.moveTo(ex+Math.cos(vAngles[vi])*pR*1.5,ey+Math.sin(vAngles[vi])*pR*1.5);
-            ctx.quadraticCurveTo(ex+Math.cos(vAngles[vi]+0.4)*er*0.65,ey+Math.sin(vAngles[vi]+0.4)*er*0.65,
-              ex+Math.cos(vAngles[vi]+0.15)*er*0.9,ey+Math.sin(vAngles[vi]+0.15)*er*0.9); ctx.stroke();
-          }
-        }
-      });
+      // Road grime / dirt wash along bottom of body
+      var grimeG=ctx.createLinearGradient(bL,bBot+bounce-18,bL,bBot+bounce);
+      grimeG.addColorStop(0,'rgba(0,0,0,0)');
+      grimeG.addColorStop(0.5,'rgba(40,28,12,0.22)');
+      grimeG.addColorStop(1,'rgba(60,40,15,0.45)');
+      ctx.fillStyle=grimeG; ctx.fillRect(bL, bBot+bounce-18, bW, 18);
 
-      // STICKER 2: cute cyclops monster (~x=bL+90)
-      sticker(function(){
-        var mx=bL+94, my=sCY, mr=stripeH*0.4;
-        // white border
-        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(mx,my,mr+1.5,0,Math.PI*2); ctx.fill();
-        // body
-        ctx.fillStyle='#4caf7a'; ctx.beginPath(); ctx.arc(mx,my,mr,0,Math.PI*2); ctx.fill();
-        // furry top bumps
-        ctx.fillStyle='#3d9c68';
-        for(var fi=0;fi<5;fi++){var fa=-0.6+fi*0.3;ctx.beginPath();ctx.arc(mx+Math.cos(fa-Math.PI/2)*mr,my+Math.sin(fa-Math.PI/2)*mr,mr*0.18,0,Math.PI*2);ctx.fill();}
-        // big eye
-        ctx.fillStyle='white'; ctx.beginPath(); ctx.ellipse(mx,my-mr*0.05,mr*0.42,mr*0.38,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#1a6ee0'; ctx.beginPath(); ctx.arc(mx,my-mr*0.05,mr*0.25,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#050505'; ctx.beginPath(); ctx.arc(mx,my-mr*0.05,mr*0.14,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(mx-mr*0.08,my-mr*0.12,mr*0.07,0,Math.PI*2); ctx.fill();
-        // smile (gets bigger with signal)
-        var smW=mr*(0.45+h.sig*0.25);
-        ctx.strokeStyle='#1a3a12'; ctx.lineWidth=1.5;
-        ctx.beginPath(); ctx.arc(mx,my+mr*0.22,smW,0.1,Math.PI-0.1); ctx.stroke();
-        // tiny teeth
-        ctx.fillStyle='white';
-        for(var ti=0;ti<3;ti++){ctx.fillRect(mx-smW*0.55+ti*smW*0.42,my+mr*0.22,smW*0.28,mr*0.12);}
-      });
+      // Mud splats — organic blobs on lower body + wheels area
+      var mudDefs=[
+        {x:bL+28,  y:bBot+bounce-8,  r:7,  a:0.55},
+        {x:bL+55,  y:bBot+bounce-5,  r:5,  a:0.5},
+        {x:bL+90,  y:bBot+bounce-10, r:9,  a:0.48},
+        {x:bL+130, y:bBot+bounce-6,  r:6,  a:0.45},
+        {x:bL+165, y:bBot+bounce-9,  r:8,  a:0.52},
+        {x:bL+210, y:bBot+bounce-5,  r:5,  a:0.42},
+        {x:bL+250, y:bBot+bounce-11, r:10, a:0.50},
+        {x:bL+280, y:bBot+bounce-7,  r:6,  a:0.46},
+        // bigger road-throw splats near wheel wells
+        {x:rWx-18, y:bBot+bounce-14, r:11, a:0.60},
+        {x:rWx+14, y:bBot+bounce-10, r:8,  a:0.55},
+        {x:fWx-16, y:bBot+bounce-12, r:10, a:0.58},
+        {x:fWx+12, y:bBot+bounce-8,  r:7,  a:0.52},
+      ];
+      for(var mi=0;mi<mudDefs.length;mi++){
+        var md=mudDefs[mi];
+        // main blob
+        ctx.fillStyle='rgba(52,36,14,'+md.a+')';
+        ctx.beginPath(); ctx.arc(md.x, md.y, md.r, 0, Math.PI*2); ctx.fill();
+        // lighter centre highlight (wet mud sheen)
+        ctx.fillStyle='rgba(100,72,30,0.25)';
+        ctx.beginPath(); ctx.arc(md.x-md.r*0.2, md.y-md.r*0.2, md.r*0.45, 0, Math.PI*2); ctx.fill();
+        // small satellite splat
+        ctx.fillStyle='rgba(52,36,14,'+(md.a*0.6)+')';
+        ctx.beginPath(); ctx.arc(md.x+md.r*0.9, md.y-md.r*0.5, md.r*0.3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(md.x-md.r*0.8, md.y+md.r*0.3, md.r*0.25, 0, Math.PI*2); ctx.fill();
+      }
 
-      // STICKER 3: melting smiley (~x=bL+158)
-      sticker(function(){
-        var sx2=bL+160, sy=sCY, sr=stripeH*0.37;
-        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(sx2,sy,sr+1.5,0,Math.PI*2); ctx.fill();
-        // face
-        ctx.fillStyle='#f5c800'; ctx.beginPath(); ctx.arc(sx2,sy,sr,0,Math.PI*2); ctx.fill();
-        // melting drip at bottom
-        ctx.fillStyle='#f5c800';
-        ctx.beginPath(); ctx.moveTo(sx2-sr*0.3,sy+sr*0.8);
-        ctx.quadraticCurveTo(sx2-sr*0.35,sy+sr*1.4,sx2-sr*0.2,sy+sr*(1.5+h.sig*0.5));
-        ctx.quadraticCurveTo(sx2,sy+sr*1.2,sx2+sr*0.15,sy+sr*(1.4+h.sig*0.4));
-        ctx.quadraticCurveTo(sx2+sr*0.3,sy+sr*1.5,sx2+sr*0.2,sy+sr*0.8); ctx.closePath(); ctx.fill();
-        // eyes (X eyes)
-        ctx.strokeStyle='#222'; ctx.lineWidth=1.2;
-        [[sx2-sr*0.3,sy-sr*0.15],[sx2+sr*0.3,sy-sr*0.15]].forEach(function(e){
-          ctx.beginPath(); ctx.moveTo(e[0]-sr*0.1,e[1]-sr*0.1); ctx.lineTo(e[0]+sr*0.1,e[1]+sr*0.1); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(e[0]+sr*0.1,e[1]-sr*0.1); ctx.lineTo(e[0]-sr*0.1,e[1]+sr*0.1); ctx.stroke();
-        });
-        // wobbly smile
-        ctx.beginPath(); ctx.arc(sx2,sy+sr*0.15,sr*0.42,0.15,Math.PI-0.15); ctx.stroke();
-      });
-
-      // STICKER 4: mini skull (~x=bL+222)
-      sticker(function(){
-        var kx=bL+224, ky=sCY, kr=stripeH*0.36;
-        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(kx,ky,kr+1.5,0,Math.PI*2); ctx.fill();
-        // skull bg (purple circle)
-        ctx.fillStyle='#7c3fa0'; ctx.beginPath(); ctx.arc(kx,ky,kr,0,Math.PI*2); ctx.fill();
-        // skull dome
-        ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(kx,ky-kr*0.1,kr*0.52,Math.PI,0); ctx.fill();
-        // jaw
-        ctx.fillStyle='white'; ctx.fillRect(kx-kr*0.35,ky+kr*0.05,kr*0.7,kr*0.32);
-        // eye sockets
-        ctx.fillStyle='#7c3fa0';
-        ctx.beginPath(); ctx.ellipse(kx-kr*0.18,ky-kr*0.12,kr*0.13,kr*0.16,0,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(kx+kr*0.18,ky-kr*0.12,kr*0.13,kr*0.16,0,0,Math.PI*2); ctx.fill();
-        // nose
-        ctx.beginPath(); ctx.moveTo(kx,ky+kr*0.05); ctx.lineTo(kx-kr*0.08,ky+kr*0.2); ctx.lineTo(kx+kr*0.08,ky+kr*0.2); ctx.closePath(); ctx.fill();
-        // teeth
-        ctx.fillStyle='#7c3fa0';
-        for(var ti2=0;ti2<3;ti2++){ctx.fillRect(kx-kr*0.28+ti2*kr*0.2,ky+kr*0.22,kr*0.12,kr*0.16);}
-        // signal-reactive glow
-        if(h.sig>0.2){ctx.strokeStyle='rgba(220,100,255,'+(h.sig*0.7)+')'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(kx,ky,kr+0.5,0,Math.PI*2); ctx.stroke();}
-      });
+      // Rust streaks running down from roof edge
+      var rustDefs=[{x:bL+45,a:0.32},{x:bL+102,a:0.28},{x:bL+168,a:0.35},{x:bL+224,a:0.30},{x:bL+270,a:0.26}];
+      for(var ri2=0;ri2<rustDefs.length;ri2++){
+        var rd=rustDefs[ri2];
+        var rustG2=ctx.createLinearGradient(rd.x,bY+2,rd.x+3,bY+22);
+        rustG2.addColorStop(0,'rgba(140,60,10,'+rd.a+')');
+        rustG2.addColorStop(1,'rgba(140,60,10,0)');
+        ctx.fillStyle=rustG2;
+        ctx.beginPath();
+        ctx.moveTo(rd.x,    bY+2);
+        ctx.lineTo(rd.x+2,  bY+2);
+        ctx.lineTo(rd.x+3,  bY+22);
+        ctx.lineTo(rd.x+1,  bY+22);
+        ctx.closePath(); ctx.fill();
+      }
 
       // ── CHROME REAR BUMPER ────────────────────────────────────────────
       var chromeG=ctx.createLinearGradient(0,bBot+bounce,0,bBot+bounce+7);
