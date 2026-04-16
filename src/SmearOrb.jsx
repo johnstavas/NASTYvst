@@ -196,6 +196,18 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
         var rg = Math.max(0, Math.min(255, Math.floor(baseR * (0.2 * (1 - cosH) + 0.17 * sinH) + baseG * (0.6 + 0.4 * cosH) + baseB * (0.2 * (1 - cosH) - 0.17 * sinH))));
         var rb = Math.max(0, Math.min(255, Math.floor(baseR * (0.2 * (1 - cosH) - 0.35 * sinH) + baseG * (0.2 * (1 - cosH) + 0.17 * sinH) + baseB * (0.6 + 0.4 * cosH))));
 
+        // DEGRADE → desaturate colors toward warm grey
+        if (_degrade > 0.01) {
+          var gray = Math.floor(rr * 0.299 + rg * 0.587 + rb * 0.114);
+          var warmGrayR = Math.floor(gray * 0.95 + 20); // slightly warm
+          var warmGrayG = Math.floor(gray * 0.92 + 10);
+          var warmGrayB = Math.floor(gray * 0.85);
+          var desat = Math.min(1, _degrade * 1.4);
+          rr = Math.floor(rr * (1 - desat) + warmGrayR * desat);
+          rg = Math.floor(rg * (1 - desat) + warmGrayG * desat);
+          rb = Math.floor(rb * (1 - desat) + warmGrayB * desat);
+        }
+
         // Drift: swirl movement
         d.swirlPhase += 0.008 + _drift * 0.03;
         var swirlX = Math.sin(d.swirlPhase) * _drift * 2.5;
@@ -664,7 +676,11 @@ export default function SmearOrb({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '8px 18px 10px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2, flexShrink: 0 }}>
+      <div style={{ padding: '8px 18px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2, flexShrink: 0 }}>
+        <DropletBypass
+          active={!bypassed}
+          onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }}
+        />
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
             fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', padding: '5px 10px', borderRadius: 3, cursor: 'pointer',
@@ -674,10 +690,6 @@ export default function SmearOrb({
             boxShadow: smooth > 0 ? '0 0 8px rgba(210,145,155,0.25)' : 'none',
             fontFamily: 'system-ui, -apple-system, Arial, sans-serif', transition: 'all 0.15s',
           }}>{smooth > 0 ? `SMOOTH ${smooth}x` : 'SMOOTH'}</button>
-        <DropletBypass
-          active={!bypassed}
-          onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }}
-        />
       </div>
     </div>
   );
