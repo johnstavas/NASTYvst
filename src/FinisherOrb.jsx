@@ -30,7 +30,7 @@ function SpectrumAnalyzer({ engineRef, signalLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 80;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -179,7 +179,7 @@ function SpectrumAnalyzer({ engineRef, signalLevel }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 80, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 200, display: 'block' }} />;
 }
 
 // ─── Stepped Attenuator Knob ─────────────────────────────────────────────
@@ -722,7 +722,7 @@ export default function FinisherOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 4, position: 'relative',
+      width: 380, height: 500, borderRadius: 4, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(175deg, #1c1c20 0%, #18181c 25%, #161618 50%, #141416 75%, #18181c 100%)',
       border: '1px solid rgba(180,180,195,0.1)',
       boxShadow: '0 4px 24px rgba(0,0,0,0.6), 0 0 20px rgba(180,180,200,0.05)',

@@ -22,7 +22,7 @@ function SkyCanvas({ air, silk, shine, guard, mix, peakLevel, airLevel, guardAct
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -323,7 +323,7 @@ function SkyCanvas({ air, silk, shine, guard, mix, peakLevel, airLevel, guardAct
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob Component ─────────────────────────────────────────────────────────
@@ -563,7 +563,7 @@ export default function AirliftOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #1a1428 0%, #120e20 30%, #0e0a18 60%, #0a0814 100%)',
       border: '1.5px solid rgba(255,210,100,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 20px rgba(255,210,100,0.08), inset 0 1px 0 rgba(255,230,160,0.06)',

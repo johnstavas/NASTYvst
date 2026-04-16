@@ -21,7 +21,7 @@ function GravityField({ space, gravity, bloom, density, color, width, mix, peakL
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -323,7 +323,7 @@ function GravityField({ space, gravity, bloom, density, color, width, mix, peakL
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob ───────────────────────────────────────────────────────────────────
@@ -554,7 +554,7 @@ export default function GravityOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0e0a20 0%, #08061a 35%, #050312 70%, #030210 100%)',
       border: '1.5px solid rgba(120,100,200,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(80,60,160,0.1), inset 0 1px 0 rgba(160,140,220,0.05)',

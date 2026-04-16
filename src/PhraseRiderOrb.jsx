@@ -33,7 +33,7 @@ function WaveformLane({ speed, smoothness, phraseWord, presComp, peak, waveform,
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -393,7 +393,7 @@ function WaveformLane({ speed, smoothness, phraseWord, presComp, peak, waveform,
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Purple Arc Knob ──────────────────────────────────────────────────────
@@ -708,7 +708,7 @@ export default function PhraseRiderOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #100820 0%, #0c0618 25%, #080412 50%, #06030e 75%, #0a0618 100%)',
       border: '1.5px solid rgba(140,70,220,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(140,60,220,0.05), inset 0 1px 0 rgba(180,100,255,0.04)',

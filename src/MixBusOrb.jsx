@@ -499,7 +499,7 @@ export default function MixBusOrb({
   const WOOD = 'linear-gradient(90deg,#3a2800,#6b4400,#3a2800)';
 
   return (
-    <div style={{ width:MODULE_W, fontFamily:'sans-serif', userSelect:'none',
+    <div style={{ width:MODULE_W, height:500, fontFamily:'sans-serif', userSelect:'none',
       borderRadius:6, overflow:'hidden', background:'#09090f',
       boxShadow:'0 8px 48px rgba(0,0,0,0.9)' }}>
 

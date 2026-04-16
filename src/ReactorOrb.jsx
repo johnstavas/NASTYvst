@@ -22,7 +22,7 @@ function MatrixOscilloscope({ react, speed, depth, shape, reactLevel, engineRef 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -218,7 +218,7 @@ function MatrixOscilloscope({ react, speed, depth, shape, reactLevel, engineRef 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
 }
 
 // ─── Terminal Bypass Toggle ─────────────────────────────────────────────────
@@ -686,7 +686,7 @@ export default function ReactorOrb({
 
   return (
     <div style={{
-      width: 380, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, position: 'relative', overflow: 'hidden',
       background: '#010301',
       /* Corner bracket border via box-shadow + hard border */
       border: '1px solid rgba(0,255,96,0.2)',

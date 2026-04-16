@@ -362,6 +362,8 @@ export default function NastyNeveOrb({
   return (
     <div style={{
       width: 380,
+      height: 500,
+      overflow: 'hidden',
       borderRadius: 12,
       padding: '12px 14px 10px',
       background: PANEL_BG,

@@ -261,6 +261,7 @@ export default function ShagatronOrb({
   return (
     <div style={{
       width: 380,
+      height: 500,
       borderRadius: 6,
       overflow: 'hidden',
       // Black rack frame

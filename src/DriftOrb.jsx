@@ -24,7 +24,7 @@ function AuroraCanvas({ motion, speed, random, stereo, peakLevel = 0, depth, byp
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 390;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -238,7 +238,7 @@ function AuroraCanvas({ motion, speed, random, stereo, peakLevel = 0, depth, byp
   }, []);
 
   return <canvas ref={canvasRef} style={{
-    width: 380, height: 160, display: 'block',
+    width: 380, height: 390, display: 'block',
     position: 'absolute', top: 0, left: 0,
   }} />;
 }
@@ -562,7 +562,7 @@ export default function DriftOrb({
 
   return (
     <div style={{
-      width: 380, position: 'relative',
+      width: 380, height: 500, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #100a10 0%, #0e0810 50%, #0c080e 100%)',
       borderRadius: 0,
       border: 'none',
@@ -587,7 +587,7 @@ export default function DriftOrb({
       `}</style>
 
       {/* ── Full-canvas aurora (behind everything) ── */}
-      <div style={{ position: 'relative', width: 380, height: 160 }}>
+      <div style={{ position: 'relative', width: 380, height: 390 }}>
         <AuroraCanvas
           motion={motion} speed={speed} random={random}
           stereo={stereo} peakLevel={peakLevel} depth={depth}
@@ -595,7 +595,7 @@ export default function DriftOrb({
         />
 
         {/* ── Constellation lines connecting some knob positions ── */}
-        <svg width="380" height="160" style={{
+        <svg width="380" height="390" style={{
           position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 4,
         }}>
           <line x1="190" y1="70" x2="100" y2="100" stroke="rgba(200,120,180,0.08)" strokeWidth="0.5"
@@ -703,7 +703,7 @@ export default function DriftOrb({
         </div>
 
         {/* Extra constellation lines */}
-        <svg width="380" height="160" style={{
+        <svg width="380" height="390" style={{
           position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 3,
         }}>
           <line x1="50" y1="70" x2="190" y2="65" stroke="rgba(200,120,180,0.05)" strokeWidth="0.4" />

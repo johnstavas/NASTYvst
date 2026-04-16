@@ -614,7 +614,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
   return (
     <div style={{
-      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
       // 3D box pedal depth
       background: 'linear-gradient(175deg, #ece4d2 0%, #e6ddc8 20%, #e0d8c2 50%, #dbd3be 80%, #ddd5c0 100%)',
       border: '2px solid rgba(60,50,40,0.35)',

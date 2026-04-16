@@ -33,7 +33,7 @@ function HoloReticle({ lock, presence, body, stability, gainReduction, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -359,7 +359,7 @@ function HoloReticle({ lock, presence, body, stability, gainReduction, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── GR Meter Bar ─────────────────────────────────────────────────────────
@@ -681,7 +681,7 @@ export default function VocalLockOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #081418 0%, #060f14 25%, #040a0e 50%, #030810 75%, #061014 100%)',
       border: '1.5px solid rgba(60,180,180,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(60,200,200,0.06), inset 0 1px 0 rgba(80,220,220,0.04)',

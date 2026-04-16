@@ -21,7 +21,7 @@ function FocusLensCanvas({ focus, wrap, separation, size, tone, mix, peakLevel, 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -393,7 +393,7 @@ function FocusLensCanvas({ focus, wrap, separation, size, tone, mix, peakLevel, 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob ───────────────────────────────────────────────────────────────────
@@ -625,7 +625,7 @@ export default function FocusReverbOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0e1020 0%, #0a0c1a 35%, #060810 70%, #040610 100%)',
       border: '1.5px solid rgba(140,160,210,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 20px rgba(100,130,200,0.06), inset 0 1px 0 rgba(180,200,240,0.04)',

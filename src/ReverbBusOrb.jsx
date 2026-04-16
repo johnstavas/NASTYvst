@@ -20,7 +20,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 340;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -439,7 +439,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
 }
 
 // ─── Console Bypass Button ───────────────────────────────────────────────────
@@ -632,7 +632,7 @@ export default function ReverbBusOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #222428 0%, #1e2024 30%, #1a1c20 60%, #16181c 100%)',
       border: '1.5px solid rgba(140,150,165,0.1)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 10px rgba(40,180,80,0.03), inset 0 1px 0 rgba(255,255,255,0.02)',

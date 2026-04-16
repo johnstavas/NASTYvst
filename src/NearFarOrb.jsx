@@ -19,7 +19,7 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -370,7 +370,7 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
 }
 
 // ─── Simple Arc Knob ─────────────────────────────────────────────────────────
@@ -564,7 +564,7 @@ export default function NearFarOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #14100a 0%, #100c08 35%, #0c0a06 70%, #0a0808 100%)',
       border: '1.5px solid rgba(200,150,70,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(200,140,50,0.08), inset 0 1px 0 rgba(220,180,100,0.05)',

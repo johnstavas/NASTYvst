@@ -243,7 +243,7 @@ export default function PitchShifterOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, overflow: 'hidden',
       background: '#0a0e12',
       border: '1.5px solid rgba(0,221,255,0.15)',
       boxShadow: '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(0,221,255,0.05)',

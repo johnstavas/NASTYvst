@@ -31,7 +31,7 @@ function MicStudio({ micType, proximity, presShape, character, focus, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -354,7 +354,7 @@ function MicStudio({ micType, proximity, presShape, character, focus, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Copper/Gold Arc Knob ─────────────────────────────────────────────────
@@ -634,7 +634,7 @@ export default function VibeMicOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #1a1008 0%, #140c04 25%, #0e0804 50%, #0a0603 75%, #100a06 100%)',
       border: '1.5px solid rgba(200,150,60,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(200,140,40,0.05), inset 0 1px 0 rgba(240,180,60,0.04)',

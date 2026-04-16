@@ -305,6 +305,7 @@ export default function SpringPhysicsOrb({
   return (
     <div style={{
       width: 380,
+      height: 500,
       background: '#0e0e0e',
       borderRadius: 8,
       overflow: 'hidden',

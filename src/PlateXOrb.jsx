@@ -20,7 +20,7 @@ function PlateCanvas({ tension, size, energy, metal, peak = 0, outPeak = 0, ener
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 340;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -379,7 +379,7 @@ function PlateCanvas({ tension, size, energy, metal, peak = 0, outPeak = 0, ener
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
 }
 
 // ─── Rivet Bypass Button ─────────────────────────────────────────────────────
@@ -565,7 +565,7 @@ export default function PlateXOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #222428 0%, #1c1e22 30%, #181a1e 60%, #141618 100%)',
       border: '1.5px solid rgba(180,160,100,0.12)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 15px rgba(180,160,100,0.04), inset 0 1px 0 rgba(200,180,120,0.04)',

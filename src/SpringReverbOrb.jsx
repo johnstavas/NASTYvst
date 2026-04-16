@@ -413,6 +413,7 @@ export default function SpringReverbOrb({
     <>
       <div style={{
         width: W,
+        height: 500,
         fontFamily: 'sans-serif',
         userSelect: 'none',
         borderRadius: 6,

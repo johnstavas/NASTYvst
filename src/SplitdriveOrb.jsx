@@ -21,7 +21,7 @@ function TachometerGauges({ lowDrive, midDrive, highDrive, crossLo, crossHi, pea
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -370,7 +370,7 @@ function TachometerGauges({ lowDrive, midDrive, highDrive, crossLo, crossHi, pea
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 4 }} />;
 }
 
 // ─── Chrome Shift Knob ──────────────────────────────────────────────────────
@@ -804,7 +804,7 @@ export default function SplitdriveOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #1c0e0a 0%, #180a08 25%, #140806 50%, #100604 75%, #140a08 100%)',
       border: '1.5px solid rgba(180,90,40,0.18)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 20px rgba(200,60,20,0.06), inset 0 1px 0 rgba(255,200,150,0.04)',

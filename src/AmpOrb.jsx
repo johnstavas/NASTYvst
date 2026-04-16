@@ -259,7 +259,7 @@ export default function AmpOrb({ instanceId, sharedSource, registerEngine, unreg
 
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden"
-      style={{ width: size, background: `linear-gradient(160deg, ${ac(20, 8, 0.65)}, ${ac(15, 5, 0.85)})`, border: `1px solid ${ac(40, 35, 0.2)}` }}>
+      style={{ width: size, height: 500, overflow: 'hidden', background: `linear-gradient(160deg, ${ac(20, 8, 0.65)}, ${ac(15, 5, 0.85)})`, border: `1px solid ${ac(40, 35, 0.2)}` }}>
 
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 shrink-0"

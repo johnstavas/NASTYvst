@@ -853,7 +853,7 @@ export default function BassmindOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: `
         linear-gradient(180deg, #0c1828 0%, #081420 15%, #060e18 40%, #040a12 60%, #060e18 80%, #081420 100%)
       `,

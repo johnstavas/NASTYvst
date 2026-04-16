@@ -20,7 +20,7 @@ function IceCaveCanvas({ freeze, smear, drift, shape, width, peakLevel = 0, bypa
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -455,7 +455,7 @@ function IceCaveCanvas({ freeze, smear, drift, shape, width, peakLevel = 0, bypa
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
 }
 
 // ─── Hex Crystal Knob ────────────────────────────────────────────────────────
@@ -669,7 +669,7 @@ export default function FreezeFieldOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0a1520 0%, #081018 35%, #060c14 70%, #040810 100%)',
       border: '1.5px solid rgba(80,160,240,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(60,120,200,0.1), inset 0 1px 0 rgba(120,180,255,0.05)',

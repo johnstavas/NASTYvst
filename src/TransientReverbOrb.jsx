@@ -20,7 +20,7 @@ function ShockwaveCanvas({ protect, tail, attackClear, size, peakLevel = 0, bloo
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -228,7 +228,7 @@ function ShockwaveCanvas({ protect, tail, attackClear, size, peakLevel = 0, bloo
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
 }
 
 // ─── Diamond Knob ────────────────────────────────────────────────────────────
@@ -422,7 +422,7 @@ export default function TransientReverbOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #12100a 0%, #0e0c08 35%, #0a0a06 70%, #080808 100%)',
       border: '1.5px solid rgba(220,180,60,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(220,160,40,0.08), inset 0 1px 0 rgba(240,200,100,0.05)',

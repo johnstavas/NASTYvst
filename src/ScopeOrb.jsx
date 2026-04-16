@@ -411,7 +411,7 @@ export default function ScopeOrb({
     <div
       className="text-white rounded-2xl overflow-hidden relative flex flex-col"
       style={{
-        width: W,
+        width: W, height: 500, overflow: 'hidden',
         background: `radial-gradient(ellipse at 30% 20%, ${accentColor(30, 9, 1)}, transparent 55%), radial-gradient(ellipse at 70% 80%, ${accentColor(22, 6, 1)}, transparent 55%), #0a0f0c`,
         border: '1px solid rgba(255,255,255,0.06)',
       }}

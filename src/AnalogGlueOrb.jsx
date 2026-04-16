@@ -495,6 +495,7 @@ export default function AnalogGlueOrb({
   return (
     <div style={{
       width: 380,
+      height: 500,
       background: '#080b10',
       borderRadius: 10,
       overflow: 'hidden',

@@ -207,6 +207,8 @@ export default function Iron1073Orb({
   return (
     <div style={{
       width: 380,
+      height: 500,
+      overflow: 'hidden',
       borderRadius: 12,
       padding: 14,
       background: PANEL_BG,

@@ -427,7 +427,7 @@ export default function FlangerOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: th.panelGrad,
       border: `1.5px solid ${th.borderColor}`,
       boxShadow: th.outerGlow,

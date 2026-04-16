@@ -148,7 +148,7 @@ export default function SimpleReverbOrb({
   };
 
   return (
-    <div style={{ width: size, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)' }}>
+    <div style={{ width: size, height: 500, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)' }}>
       {/* Top wood */}
       <div style={{ height: 8, background: 'linear-gradient(180deg, #0a1628, #050a14)', borderBottom: '1px solid #1a3050' }} />
 

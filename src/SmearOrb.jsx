@@ -22,7 +22,7 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 340;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -368,7 +368,7 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
 }
 
 // ─── Watercolor Bypass Droplet ───────────────────────────────────────────────
@@ -582,7 +582,7 @@ export default function SmearOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #2a2522 0%, #231f1d 30%, #1e1b19 60%, #1a1715 100%)',
       border: '1.5px solid rgba(210,145,155,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(210,145,155,0.05), inset 0 1px 0 rgba(210,145,155,0.06)',

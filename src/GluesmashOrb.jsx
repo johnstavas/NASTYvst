@@ -865,7 +865,7 @@ export default function GluesmashOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 4, position: 'relative',
+      width: 380, height: 500, borderRadius: 4, position: 'relative',
       background: `
         linear-gradient(170deg, #1e2024 0%, #181a1e 20%, #141618 50%, #101214 80%, #141618 100%)
       `,

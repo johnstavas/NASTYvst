@@ -286,7 +286,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden"
       style={{
-        width: size,
+        width: size, height: 500, overflow: 'hidden',
         background: `linear-gradient(160deg, ${accent(20, 8, 0.65)}, ${accent(15, 5, 0.85)})`,
         border: `1px solid ${accent(40, 40, 0.2)}`,
       }}>

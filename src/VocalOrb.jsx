@@ -278,7 +278,7 @@ export default function VocalOrb({
   };
 
   return (
-    <div style={{ width: size, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)' }}>
+    <div style={{ width: size, height: 500, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)' }}>
 
       {/* Top wood */}
       <div style={{ height: 8, background: 'linear-gradient(180deg, #3d2608, #2a1804)', borderBottom: '1px solid #5a380c' }} />

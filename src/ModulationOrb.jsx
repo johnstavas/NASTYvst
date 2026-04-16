@@ -264,7 +264,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden"
       style={{
-        width: size,
+        width: size, height: 500, overflow: 'hidden',
         background: `linear-gradient(160deg, ${ac(20, 8, 0.65)}, ${ac(15, 5, 0.85)})`,
         border: `1px solid ${ac(40, 40, 0.2)}`,
       }}>

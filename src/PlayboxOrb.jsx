@@ -100,7 +100,7 @@ function ChainStageDisplay({ chain, intensity, speed, color, mix, peakLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -564,7 +564,7 @@ function ChainStageDisplay({ chain, intensity, speed, color, mix, peakLevel }) {
     return () => cancelAnimationFrame(raf);
   }, [chain]);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 4 }} />;
 }
 
 // ─── Arcade Button (3D raised circle) ──────────────────────────────────────
@@ -1071,7 +1071,7 @@ export default function PlayboxOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: th.panelGrad,
       border: `1.5px solid ${th.borderColor}`,
       boxShadow: th.outerGlow,

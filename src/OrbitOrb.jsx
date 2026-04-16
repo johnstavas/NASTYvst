@@ -23,7 +23,7 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 340;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -366,7 +366,7 @@ function OrbitCanvas({ speed, path, width, depth, peak = 0, outPeak = 0, orbX = 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
 }
 
 // ─── Orbit Ring Bypass ───────────────────────────────────────────────────────
@@ -572,7 +572,7 @@ export default function OrbitOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0a1020 0%, #060c1a 30%, #040816 60%, #020410 100%)',
       border: '1.5px solid rgba(40,120,255,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(40,120,255,0.06), inset 0 1px 0 rgba(60,160,255,0.06)',

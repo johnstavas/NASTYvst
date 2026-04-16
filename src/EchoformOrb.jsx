@@ -25,7 +25,7 @@ function InfiniteTunnel({ feedback, degrade, motion, fbLevel, time, blur, peak =
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 340;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -329,7 +329,7 @@ function InfiniteTunnel({ feedback, degrade, motion, fbLevel, time, blur, peak =
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
 }
 
 // ─── Portal Ring Bypass Button ────────────────────────────────────────────────
@@ -702,7 +702,7 @@ export default function EchoformOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0e1220 0%, #0b0f1a 20%, #090d16 45%, #080c14 70%, #060a10 100%)',
       border: '1.5px solid rgba(40,140,255,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(40,140,255,0.08), inset 0 1px 0 rgba(60,160,255,0.06)',

@@ -824,7 +824,7 @@ export default function TapeOrb({
       `}</style>
 
       <div style={{
-        width: 380,
+        width: 380, height: 500,
         fontFamily: 'sans-serif',
         userSelect: 'none',
         // rounded-2xl (16 px) like the Space module — soft, atmospheric,

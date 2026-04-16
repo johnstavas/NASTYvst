@@ -74,7 +74,7 @@ function WaterRipplePool({ smooth, focus, width, air, harshLevel, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -317,7 +317,7 @@ function WaterRipplePool({ smooth, focus, width, air, harshLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Harshness Thermometer ─────────────────────────────────────────────────
@@ -714,7 +714,7 @@ export default function SmootherOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #0e0a18 0%, #0a0814 25%, #08060f 50%, #06050c 75%, #0a0814 100%)',
       border: '1.5px solid rgba(130,100,200,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(120,80,200,0.06), inset 0 1px 0 rgba(180,150,240,0.04)',

@@ -23,7 +23,7 @@ function LiquidMorphCanvas({ morph, texture, spaceA, spaceB, peakLevel = 0, bypa
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 160;
+    const W = 380, H = 280;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -340,7 +340,7 @@ function LiquidMorphCanvas({ morph, texture, spaceA, spaceB, peakLevel = 0, bypa
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 160, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
 }
 
 // ─── Liquid Split Knob ────────────────────────────────────────────────────────
@@ -554,7 +554,7 @@ export default function MorphReverbOrb({
 
   return (
     <div style={{
-      width: 380, borderRadius: 6, position: 'relative',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(170deg, #14120a 0%, #0e0e0c 35%, #0a0a08 70%, #08080a 100%)',
       border: '1.5px solid rgba(180,160,80,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(180,150,60,0.08), inset 0 1px 0 rgba(200,180,100,0.05)',

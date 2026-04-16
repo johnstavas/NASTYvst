@@ -621,6 +621,7 @@ export default function LA2AOrb({
   return (
     <div style={{
       width: 380,
+      height: 500,
       background: 'linear-gradient(180deg,#e8e0c8 0%,#d8cfb4 100%)',
       borderRadius: 6,
       overflow: 'hidden',

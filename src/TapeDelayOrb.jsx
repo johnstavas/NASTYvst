@@ -373,6 +373,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
   return (
     <div style={{
       width: 380,
+      height: 500,
       background: '#181814',
       borderRadius: 10,
       overflow: 'hidden',
