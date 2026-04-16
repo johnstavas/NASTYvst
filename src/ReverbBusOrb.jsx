@@ -7,7 +7,7 @@ import PresetSelector from './PresetSelector';
 // Stacked horizontal VU meters, glue compression indicator, tuck ceiling line
 // Professional, utilitarian: dark charcoal, green/amber/red meter, blue bus indicators
 
-// ─── Bus Meter Canvas ────────────────────────────────────────────────────────
+// ─── School Bus Canvas ───────────────────────────────────────────────────────
 function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0, gr = 0, reverbLevel = 0 }) {
   const canvasRef = useRef(null);
   const phaseRef = useRef(0);
@@ -24,408 +24,183 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
-    // Band history for smoothed meters + VU needle positions
+    // School bus history
     if (!bandHistoryRef.current) {
       bandHistoryRef.current = {
-        bands: [0, 0, 0, 0, 0, 0, 0, 0],
-        grSmooth: 0,
-        peakSmooth: 0,
+        winLevels: [0,0,0,0,0,0],
+        wheelAngle: 0,
         reverbSmooth: 0,
-        vuLeft: 0,
-        vuRight: 0,
-        vuVel: 0,
-        faderSmooth: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
-        ledPeaks: [0, 0, 0, 0, 0, 0],
+        peakSmooth: 0,
+        grSmooth: 0,
       };
     }
 
     let raf;
     const draw = () => {
       raf = requestAnimationFrame(draw);
-
-      const { space: _space, tuck: _tuck, glue: _glue, color: _color, width: _width, peak: _peak, outPeak: _outPeak, gr: _gr, reverbLevel: _reverbLevel } = valRef.current;
-
-      phaseRef.current += 0.005;
-      var phase = phaseRef.current;
+      const { peak: _peak, reverbLevel: _rv, gr: _gr } = valRef.current;
+      phaseRef.current += 0.013;
+      var ph = phaseRef.current;
       var hist = bandHistoryRef.current;
-      var peakVal = _peak || 0;
 
-      // Color mode: Dark=blue, Warm=amber, Open=white
-      var colorMode = _color < 0.35 ? 0 : (_color > 0.65 ? 2 : 1);
-      // Accent colors per mode
-      var accentR, accentG, accentB;
-      var ledR, ledG, ledB;
-      var backlightR, backlightG, backlightB;
-      if (colorMode === 0) {
-        // Dark = cool blue LEDs
-        accentR = 40; accentG = 120; accentB = 255;
-        ledR = 30; ledG = 140; ledB = 255;
-        backlightR = 20; backlightG = 40; backlightB = 100;
-      } else if (colorMode === 1) {
-        // Warm = National School Bus Chrome Yellow
-        accentR = 255; accentG = 216; accentB = 0;
-        ledR = 255; ledG = 214; ledB = 0;
-        backlightR = 130; backlightG = 105; backlightB = 0;
-      } else {
-        // Open = white LEDs
-        accentR = 220; accentG = 230; accentB = 255;
-        ledR = 255; ledG = 255; ledB = 240;
-        backlightR = 80; backlightG = 80; backlightB = 90;
+      hist.reverbSmooth = hist.reverbSmooth * 0.87 + (_rv || 0) * 0.13;
+      hist.peakSmooth   = hist.peakSmooth   * 0.82 + (_peak || 0) * 0.18;
+      hist.grSmooth     = hist.grSmooth     * 0.88 + (_gr || 0) * 0.12;
+      hist.wheelAngle  += 0.025 + hist.reverbSmooth * 0.08;
+      for (var wi = 0; wi < 6; wi++) {
+        var wTarget = hist.reverbSmooth * (0.3 + Math.sin(ph * (1.1 + wi * 0.4) + wi * 1.2) * 0.5);
+        hist.winLevels[wi] = hist.winLevels[wi] * 0.84 + Math.max(0, Math.min(1, wTarget)) * 0.16;
+      }
+      var bounce = Math.sin(ph * 4.5) * hist.reverbSmooth * 1.5;
+
+      function rr(x, y, w, h, r) {
+        ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+        ctx.arcTo(x+w,y, x+w,y+r, r); ctx.lineTo(x+w,y+h-r);
+        ctx.arcTo(x+w,y+h, x+w-r,y+h, r); ctx.lineTo(x+r,y+h);
+        ctx.arcTo(x,y+h, x,y+h-r, r); ctx.lineTo(x,y+r);
+        ctx.arcTo(x,y, x+r,y, r); ctx.closePath();
       }
 
-      // === Console background ===
-      ctx.fillStyle = '#18191e';
-      ctx.fillRect(0, 0, W, H);
+      // SKY
+      var skyG = ctx.createLinearGradient(0,0,0,H);
+      skyG.addColorStop(0,'#8ea0ae'); skyG.addColorStop(0.6,'#b0c0c8'); skyG.addColorStop(1,'#9aaab4');
+      ctx.fillStyle=skyG; ctx.fillRect(0,0,W,H);
+      // Treeline
+      ctx.fillStyle='rgba(60,80,65,0.28)';
+      for (var ti=0;ti<6;ti++){var tx=25+ti*62,th=22+Math.sin(ti*1.9)*9;ctx.beginPath();ctx.moveTo(tx,H*0.55);ctx.lineTo(tx-11,H*0.55+th);ctx.lineTo(tx+11,H*0.55+th);ctx.closePath();ctx.fill();}
 
-      // Console panel gradient
-      var bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-      bgGrad.addColorStop(0, '#22242a');
-      bgGrad.addColorStop(0.3, '#1c1e24');
-      bgGrad.addColorStop(0.7, '#181a20');
-      bgGrad.addColorStop(1, '#14161c');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, W, H);
+      // ROAD
+      var roadY = H - 36;
+      var roadG = ctx.createLinearGradient(0,roadY,0,H);
+      roadG.addColorStop(0,'#4e4e52'); roadG.addColorStop(1,'#3a3a3e');
+      ctx.fillStyle=roadG; ctx.fillRect(0,roadY,W,H-roadY);
+      ctx.fillStyle='rgba(255,255,200,0.22)'; ctx.fillRect(0,roadY,W,1.5);
+      ctx.setLineDash([20,14]); ctx.lineDashOffset=-(ph*20%34);
+      ctx.strokeStyle='rgba(255,255,180,0.5)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(0,roadY+(H-roadY)*0.55); ctx.lineTo(W,roadY+(H-roadY)*0.55); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineDashOffset=0;
+      ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
+      for(var pl=0;pl<5;pl++){ctx.beginPath();ctx.moveTo(50+pl*62,roadY+4);ctx.lineTo(50+pl*62,H-2);ctx.stroke();}
 
-      // Warm backlight glow from behind console
-      var blGrad = ctx.createRadialGradient(W / 2, H + 30, 10, W / 2, H + 30, H * 0.9);
-      blGrad.addColorStop(0, 'rgba(' + backlightR + ',' + backlightG + ',' + backlightB + ',0.15)');
-      blGrad.addColorStop(0.5, 'rgba(' + backlightR + ',' + backlightG + ',' + backlightB + ',0.05)');
-      blGrad.addColorStop(1, 'rgba(' + backlightR + ',' + backlightG + ',' + backlightB + ',0)');
-      ctx.fillStyle = blGrad;
-      ctx.fillRect(0, 0, W, H);
+      // BUS LAYOUT
+      var bY=30+bounce, bL=8, bR=310, bW=bR-bL, bH=roadY-bY;
+      var midY=bY+bH*0.6;
+      var wR2=22, rWx=bL+60, fWx=bR-48, wCy=roadY-wR2;
 
-      // Screw holes in console surface
-      var screwPositions = [[8, 8], [W - 8, 8], [8, H - 8], [W - 8, H - 8]];
-      for (var sc = 0; sc < screwPositions.length; sc++) {
-        ctx.beginPath();
-        ctx.arc(screwPositions[sc][0], screwPositions[sc][1], 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(10, 10, 14, 0.5)';
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(screwPositions[sc][0] - 0.5, screwPositions[sc][1] - 0.5, 1, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(60, 62, 70, 0.3)';
-        ctx.fill();
-      }
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.16)';
+      ctx.beginPath(); ctx.ellipse(W*0.41,roadY+5,bW*0.46,6,0,0,Math.PI*2); ctx.fill();
 
-      // Smooth values
-      for (var bi = 0; bi < 8; bi++) {
-        var baseLevel = _reverbLevel * (0.6 + Math.sin(phase * 2.5 + bi * 0.9) * 0.35);
-        var bandBias = bi < 3 ? (1 - _color) * 0.35 : (bi > 4 ? _color * 0.35 : 0);
-        var target = Math.min(1, baseLevel * (0.7 + bandBias + Math.sin(phase * 1.8 + bi * 1.3) * 0.2));
-        hist.bands[bi] = hist.bands[bi] * 0.85 + target * 0.15;
-      }
-      hist.grSmooth = hist.grSmooth * 0.88 + _gr * 0.12;
-      hist.peakSmooth = hist.peakSmooth * 0.88 + peakVal * 0.12;
-      hist.reverbSmooth = hist.reverbSmooth * 0.82 + _reverbLevel * 0.18;
+      // YELLOW BODY
+      ctx.fillStyle='#FFD800';
+      ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.fill();
+      var bShG=ctx.createLinearGradient(bL,bY,bL,bY+bH);
+      bShG.addColorStop(0,'rgba(255,255,180,0.18)'); bShG.addColorStop(0.18,'rgba(255,255,120,0.04)');
+      bShG.addColorStop(0.75,'rgba(0,0,0,0.05)'); bShG.addColorStop(1,'rgba(0,0,0,0.18)');
+      ctx.fillStyle=bShG; ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.fill();
 
-      // === 6 CHANNEL STRIPS (like a mixing console) ===
-      var numChannels = 6;
-      var stripW = 38;
-      var stripGap = 6;
-      var totalStripsW = numChannels * stripW + (numChannels - 1) * stripGap;
-      var stripStartX = (W - totalStripsW) / 2;
-      var stripTop = 10;
-      var stripH = H - 20;
-      var chanLabels = ['CH1', 'CH2', 'CH3', 'CH4', 'AUX', 'BUS'];
+      // HOOD
+      var hL=bR,hR=W-6,hTop=bY+bH*0.27;
+      ctx.fillStyle='#FFD800';
+      ctx.beginPath(); ctx.moveTo(hL,bY); ctx.lineTo(hR-4,hTop); ctx.lineTo(hR,hTop+5); ctx.lineTo(hR,bY+bH); ctx.lineTo(hL,bY+bH); ctx.closePath(); ctx.fill();
+      var hShG=ctx.createLinearGradient(hL,0,hR,0); hShG.addColorStop(0,'rgba(0,0,0,0)'); hShG.addColorStop(1,'rgba(0,0,0,0.13)');
+      ctx.fillStyle=hShG;
+      ctx.beginPath(); ctx.moveTo(hL,bY); ctx.lineTo(hR-4,hTop); ctx.lineTo(hR,hTop+5); ctx.lineTo(hR,bY+bH); ctx.lineTo(hL,bY+bH); ctx.closePath(); ctx.fill();
 
-      // Simulate per-channel fader positions from tuck/glue
-      for (var ci = 0; ci < numChannels; ci++) {
-        var faderTarget = 0.3 + _reverbLevel * 0.4 + Math.sin(phase * 0.8 + ci * 1.1) * 0.1;
-        faderTarget = Math.min(1, faderTarget * (1 - _tuck * 0.3 * (ci < 4 ? 1 : 0.5)));
-        hist.faderSmooth[ci] = hist.faderSmooth[ci] * 0.92 + faderTarget * 0.08;
-      }
+      // ROOF
+      ctx.fillStyle='#e8c200'; ctx.fillRect(bL+3,bY-7,bW-5,7);
+      ctx.fillStyle='rgba(255,255,200,0.18)'; ctx.fillRect(bL+3,bY-7,bW-5,1.5);
 
-      for (var ch = 0; ch < numChannels; ch++) {
-        var sx = stripStartX + ch * (stripW + stripGap);
-        var faderVal = hist.faderSmooth[ch];
+      // BLACK STRIPE
+      ctx.fillStyle='#181818'; ctx.fillRect(bL,midY,bW,bH-(midY-bY)-1);
+      ctx.beginPath(); ctx.moveTo(bR,midY); ctx.lineTo(hR,midY+(hTop-bY)*0.85); ctx.lineTo(hR,bY+bH); ctx.lineTo(bR,bY+bH); ctx.closePath(); ctx.fill();
 
-        // Channel strip background panel
-        var stripGrad = ctx.createLinearGradient(sx, stripTop, sx + stripW, stripTop);
-        stripGrad.addColorStop(0, 'rgba(30, 32, 38, 0.9)');
-        stripGrad.addColorStop(0.5, 'rgba(36, 38, 44, 0.85)');
-        stripGrad.addColorStop(1, 'rgba(28, 30, 36, 0.9)');
-        ctx.fillStyle = stripGrad;
-        ctx.fillRect(sx, stripTop, stripW, stripH);
+      // REVERB BUS TEXT
+      ctx.save(); ctx.font='bold 8px "Arial Narrow","Arial",sans-serif'; ctx.textAlign='center';
+      ctx.fillStyle='rgba(255,216,0,0.88)';
+      ctx.fillText('REVERB  BUS', bL+bW*0.46, midY+(bH-(midY-bY))*0.48+2); ctx.restore();
 
-        // Channel border
-        ctx.strokeStyle = 'rgba(60, 65, 75, 0.35)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(sx, stripTop, stripW, stripH);
-
-        // Channel label at top
-        ctx.font = 'bold 5.5px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',0.6)';
-        ctx.fillText(chanLabels[ch], sx + stripW / 2, stripTop + 9);
-
-        // === Console knobs (2 per channel, top area) ===
-        var knobY1 = stripTop + 17;
-        var knobY2 = stripTop + 30;
-        var knobCx = sx + stripW / 2;
-
-        for (var ki = 0; ki < 2; ki++) {
-          var ky = ki === 0 ? knobY1 : knobY2;
-          var knobR = 5;
-          // Knob body
-          var kGrad = ctx.createRadialGradient(knobCx - 1, ky - 1, 0, knobCx, ky, knobR);
-          kGrad.addColorStop(0, 'rgba(70, 72, 80, 0.8)');
-          kGrad.addColorStop(0.7, 'rgba(40, 42, 48, 0.9)');
-          kGrad.addColorStop(1, 'rgba(25, 27, 32, 0.9)');
-          ctx.beginPath();
-          ctx.arc(knobCx, ky, knobR, 0, Math.PI * 2);
-          ctx.fillStyle = kGrad;
-          ctx.fill();
-          // Knob edge
-          ctx.strokeStyle = 'rgba(90, 95, 105, 0.3)';
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-          // Knob pointer
-          var knobAngle = -2.35 + (ki === 0 ? _space : (ch < 3 ? _tuck : _glue)) * 4.7;
-          ctx.beginPath();
-          ctx.moveTo(knobCx, ky);
-          ctx.lineTo(knobCx + Math.cos(knobAngle) * (knobR - 1), ky + Math.sin(knobAngle) * (knobR - 1));
-          ctx.strokeStyle = 'rgba(' + ledR + ',' + ledG + ',' + ledB + ',0.7)';
-          ctx.lineWidth = 1;
-          ctx.stroke();
+      // 6 WINDOWS
+      var winT=bY+7, winH2=(midY-bY)-11, nW=6;
+      var winW2=(bW-22-(nW-1)*5)/nW, winSX=bL+11;
+      for(var w=0;w<nW;w++){
+        var wx2=winSX+w*(winW2+5), wLvl=hist.winLevels[w];
+        ctx.fillStyle='#111'; ctx.beginPath(); rr(wx2-1.5,winT-1.5,winW2+3,winH2+3,2); ctx.fill();
+        var wGrd=ctx.createLinearGradient(wx2,winT,wx2,winT+winH2);
+        wGrd.addColorStop(0,'rgba(30,45,60,0.96)'); wGrd.addColorStop(0.5,'rgba(22,35,50,0.96)'); wGrd.addColorStop(1,'rgba(18,28,40,0.98)');
+        ctx.fillStyle=wGrd; ctx.beginPath(); rr(wx2,winT,winW2,winH2,1.5); ctx.fill();
+        var nB=5, bW3=(winW2-6)/nB-1;
+        for(var b=0;b<nB;b++){
+          var bN=b/(nB-1), bx3=wx2+3+b*(bW3+1), fullBH=winH2-6;
+          var fillH2=Math.max(1,fullBH*Math.min(1,wLvl*(1.6-bN*0.5)));
+          var bTop3=winT+3+(fullBH-fillH2);
+          var br2,bg2,bb2;
+          if(bN<0.6){br2=30;bg2=200;bb2=80;}else if(bN<0.85){br2=255;bg2=216;bb2=0;}else{br2=240;bg2=50;bb2=40;}
+          ctx.fillStyle='rgba('+br2+','+bg2+','+bb2+',0.07)'; ctx.fillRect(bx3,winT+3,bW3,fullBH);
+          if(wLvl>bN*0.4){ctx.fillStyle='rgba('+br2+','+bg2+','+bb2+',0.88)';ctx.shadowColor='rgba('+br2+','+bg2+','+bb2+',0.3)';ctx.shadowBlur=2;ctx.fillRect(bx3,bTop3,bW3,fillH2);ctx.shadowBlur=0;}
         }
-
-        // === Button (solo/mute style) ===
-        var btnY = stripTop + 40;
-        var btnW = 10;
-        var btnH2 = 5;
-        var isActive = (ch === 0 || ch === numChannels - 1);
-        ctx.fillStyle = isActive
-          ? 'rgba(' + ledR + ',' + ledG + ',' + ledB + ',0.35)'
-          : 'rgba(40, 42, 48, 0.6)';
-        ctx.fillRect(knobCx - btnW / 2, btnY, btnW, btnH2);
-        ctx.strokeStyle = 'rgba(80, 85, 95, 0.3)';
-        ctx.lineWidth = 0.4;
-        ctx.strokeRect(knobCx - btnW / 2, btnY, btnW, btnH2);
-        // Button LED dot
-        if (isActive) {
-          ctx.beginPath();
-          ctx.arc(knobCx, btnY + btnH2 / 2, 1.2, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(' + ledR + ',' + ledG + ',' + ledB + ',0.9)';
-          ctx.fill();
-        }
-
-        // === LED Level Meter (vertical, segmented) ===
-        var meterX = sx + 4;
-        var meterW = 6;
-        var meterTop2 = stripTop + 50;
-        var meterH = stripH - 70;
-        var numLeds = 12;
-        var ledH = (meterH - (numLeds - 1)) / numLeds;
-
-        // Simulate per-channel level
-        var chanLevel = hist.bands[ch % 8] * (0.7 + faderVal * 0.3);
-        // Peak hold
-        if (chanLevel > hist.ledPeaks[ch]) hist.ledPeaks[ch] = chanLevel;
-        else hist.ledPeaks[ch] *= 0.985;
-
-        // Meter background
-        ctx.fillStyle = 'rgba(10, 12, 16, 0.6)';
-        ctx.fillRect(meterX, meterTop2, meterW, meterH);
-
-        // LED segments (bottom to top: green -> amber -> red)
-        for (var led = 0; led < numLeds; led++) {
-          var ledBottom = meterTop2 + meterH - (led + 1) * (ledH + 1);
-          var ledNorm = led / (numLeds - 1); // 0=bottom, 1=top
-          var isLit = chanLevel > ledNorm;
-          var isPeak = Math.abs(hist.ledPeaks[ch] - ledNorm) < (1.0 / numLeds) * 1.5;
-
-          var lr, lg, lb, la;
-          if (ledNorm < 0.6) {
-            lr = 30; lg = 200; lb = 80; // Green
-          } else if (ledNorm < 0.85) {
-            lr = 230; lg = 190; lb = 30; // Amber
-          } else {
-            lr = 240; lg = 50; lb = 40; // Red
-          }
-
-          if (isLit || isPeak) {
-            la = isLit ? 0.85 : 0.6;
-            ctx.fillStyle = 'rgba(' + lr + ',' + lg + ',' + lb + ',' + la.toFixed(2) + ')';
-            // LED glow
-            ctx.shadowColor = 'rgba(' + lr + ',' + lg + ',' + lb + ',0.4)';
-            ctx.shadowBlur = 3;
-          } else {
-            ctx.fillStyle = 'rgba(' + lr + ',' + lg + ',' + lb + ',0.06)';
-            ctx.shadowBlur = 0;
-          }
-          ctx.fillRect(meterX, ledBottom, meterW, ledH);
-          ctx.shadowBlur = 0;
-        }
-
-        // === Fader Track + Fader Cap ===
-        var faderX = sx + stripW - 14;
-        var faderTrackW = 6;
-        var faderTrackTop = meterTop2;
-        var faderTrackH = meterH;
-
-        // Fader track
-        ctx.fillStyle = 'rgba(10, 12, 16, 0.5)';
-        ctx.fillRect(faderX, faderTrackTop, faderTrackW, faderTrackH);
-        // Track center line
-        ctx.strokeStyle = 'rgba(60, 65, 75, 0.3)';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        ctx.moveTo(faderX + faderTrackW / 2, faderTrackTop + 3);
-        ctx.lineTo(faderX + faderTrackW / 2, faderTrackTop + faderTrackH - 3);
-        ctx.stroke();
-
-        // Fader position (tuck pushes faders down, glue compresses range)
-        var faderY = faderTrackTop + faderTrackH * (1 - faderVal);
-        var faderCapH = 8;
-
-        // Fader cap shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillRect(faderX - 1, faderY + 1, faderTrackW + 2, faderCapH);
-
-        // Fader cap
-        var capGrad = ctx.createLinearGradient(faderX, faderY, faderX, faderY + faderCapH);
-        capGrad.addColorStop(0, 'rgba(120, 125, 140, 0.9)');
-        capGrad.addColorStop(0.3, 'rgba(80, 85, 95, 0.85)');
-        capGrad.addColorStop(0.7, 'rgba(60, 65, 75, 0.85)');
-        capGrad.addColorStop(1, 'rgba(90, 95, 105, 0.9)');
-        ctx.fillStyle = capGrad;
-        ctx.fillRect(faderX - 1, faderY, faderTrackW + 2, faderCapH);
-
-        // Fader cap groove
-        ctx.strokeStyle = 'rgba(150, 155, 170, 0.25)';
-        ctx.lineWidth = 0.4;
-        ctx.beginPath();
-        ctx.moveTo(faderX, faderY + faderCapH / 2);
-        ctx.lineTo(faderX + faderTrackW, faderY + faderCapH / 2);
-        ctx.stroke();
-
-        // Channel number at bottom
-        ctx.font = 'bold 5px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(100, 105, 115, 0.45)';
-        ctx.fillText(String(ch + 1), sx + stripW / 2, stripTop + stripH - 4);
-
-        // === GLUE bridges between channels ===
-        if (ch < numChannels - 1 && _glue > 0.1) {
-          var nextSx = stripStartX + (ch + 1) * (stripW + stripGap);
-          var bridgeY = stripTop + 50 + meterH * 0.4;
-          var bridgeAlpha = _glue * 0.5;
-          var bridgeGrad = ctx.createLinearGradient(sx + stripW, bridgeY, nextSx, bridgeY);
-          bridgeGrad.addColorStop(0, 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + bridgeAlpha.toFixed(3) + ')');
-          bridgeGrad.addColorStop(0.5, 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (bridgeAlpha * 1.3).toFixed(3) + ')');
-          bridgeGrad.addColorStop(1, 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + bridgeAlpha.toFixed(3) + ')');
-          ctx.strokeStyle = bridgeGrad;
-          ctx.lineWidth = 1 + _glue * 2;
-          ctx.beginPath();
-          ctx.moveTo(sx + stripW, bridgeY);
-          ctx.lineTo(nextSx, bridgeY);
-          ctx.stroke();
-
-          // Glue glow
-          ctx.shadowColor = 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (_glue * 0.3).toFixed(3) + ')';
-          ctx.shadowBlur = 4 + _glue * 6;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-
-          // Double bridge line at higher glue
-          if (_glue > 0.5) {
-            var bridgeY2b = bridgeY + 12;
-            ctx.strokeStyle = 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (bridgeAlpha * 0.6).toFixed(3) + ')';
-            ctx.lineWidth = 0.8 + (_glue - 0.5) * 2;
-            ctx.beginPath();
-            ctx.moveTo(sx + stripW, bridgeY2b);
-            ctx.lineTo(nextSx, bridgeY2b);
-            ctx.stroke();
-          }
-        }
+        ctx.fillStyle='rgba(255,255,255,0.05)'; ctx.beginPath(); rr(wx2+1,winT+1,winW2*0.4,winH2*0.28,1); ctx.fill();
       }
 
-      // === SPACE: reverb field fog between channels ===
-      if (_space > 0.1) {
-        var fogAlpha = _space * 0.08 + hist.reverbSmooth * _space * 0.1;
-        for (var fi = 0; fi < 4; fi++) {
-          var fogX = stripStartX + Math.sin(phase * 0.3 + fi * 1.5) * totalStripsW * 0.3 + totalStripsW * 0.5;
-          var fogY = stripTop + stripH * 0.3 + Math.cos(phase * 0.25 + fi * 2) * stripH * 0.2;
-          var fogR = 25 + _space * 50;
-          var fogGrad = ctx.createRadialGradient(fogX, fogY, 0, fogX, fogY, fogR);
-          fogGrad.addColorStop(0, 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (fogAlpha * 0.6).toFixed(3) + ')');
-          fogGrad.addColorStop(0.5, 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (fogAlpha * 0.2).toFixed(3) + ')');
-          fogGrad.addColorStop(1, 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',0)');
-          ctx.fillStyle = fogGrad;
-          ctx.fillRect(0, 0, W, H);
-        }
-      }
+      // BODY OUTLINE
+      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1; ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.stroke();
 
-      // === VU Meter (bottom center area) ===
-      var vuCx = W / 2;
-      var vuCy = H - 14;
-      var vuRadius = 22;
-
-      // VU background arc
+      // STOP SIGN
+      var sX=bL+9,sY2=bY+bH*0.22+bounce,sR2=9;
+      var flash=hist.peakSmooth>0.12?Math.min(1,(hist.peakSmooth-0.12)*5):0;
+      ctx.fillStyle=flash>0?'rgba(220,30,30,'+(0.75+flash*0.25)+')':'rgba(185,25,25,0.8)';
+      ctx.shadowColor=flash>0?'rgba(255,40,40,'+(flash*0.65)+')':'transparent'; ctx.shadowBlur=flash>0?flash*10:0;
       ctx.beginPath();
-      ctx.arc(vuCx, vuCy + 6, vuRadius + 3, Math.PI, 0);
-      ctx.fillStyle = 'rgba(15, 16, 20, 0.7)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(80, 85, 95, 0.2)';
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
+      for(var oi=0;oi<8;oi++){var oa=(oi/8)*Math.PI*2-Math.PI/8;oi===0?ctx.moveTo(sX+Math.cos(oa)*sR2,sY2+Math.sin(oa)*sR2):ctx.lineTo(sX+Math.cos(oa)*sR2,sY2+Math.sin(oa)*sR2);}
+      ctx.closePath(); ctx.fill(); ctx.shadowBlur=0;
+      ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=0.7; ctx.stroke();
+      ctx.font='bold 4px Arial'; ctx.textAlign='center'; ctx.fillStyle='white'; ctx.fillText('STOP',sX,sY2+1.5);
 
-      // VU scale markings
-      var vuStart = Math.PI;
-      var vuEnd = 0;
-      for (var vm = 0; vm <= 10; vm++) {
-        var vmAngle = vuStart + (vm / 10) * (vuEnd - vuStart);
-        var vmInner = vuRadius - 3;
-        var vmOuter = vuRadius + 1;
-        ctx.beginPath();
-        ctx.moveTo(vuCx + Math.cos(vmAngle) * vmInner, vuCy + 6 + Math.sin(vmAngle) * vmInner);
-        ctx.lineTo(vuCx + Math.cos(vmAngle) * vmOuter, vuCy + 6 + Math.sin(vmAngle) * vmOuter);
-        ctx.strokeStyle = vm >= 8 ? 'rgba(240, 60, 40, 0.5)' : 'rgba(140, 150, 165, 0.35)';
-        ctx.lineWidth = vm % 5 === 0 ? 1 : 0.4;
-        ctx.stroke();
+      // HEADLIGHT
+      var hlX=hR-3,hlY=hTop+9+bounce;
+      ctx.fillStyle='rgba(255,252,220,'+(0.6+hist.reverbSmooth*0.4)+')';
+      ctx.shadowColor='rgba(255,250,200,'+(hist.reverbSmooth*0.7+0.2)+')'; ctx.shadowBlur=4+hist.reverbSmooth*12;
+      ctx.fillRect(hlX-11,hlY-5,11,10); ctx.shadowBlur=0;
+      if(hist.reverbSmooth>0.04){
+        var blmA=hist.reverbSmooth*0.1;
+        var blmG=ctx.createRadialGradient(hlX,hlY,2,hlX+40,hlY,65);
+        blmG.addColorStop(0,'rgba(255,252,200,'+blmA+')'); blmG.addColorStop(1,'rgba(255,252,200,0)');
+        ctx.fillStyle=blmG; ctx.beginPath(); ctx.moveTo(hlX,hlY-5); ctx.lineTo(hlX+75,hlY-22); ctx.lineTo(hlX+75,hlY+22); ctx.lineTo(hlX,hlY+5); ctx.closePath(); ctx.fill();
       }
 
-      // VU needle — driven by output level with physics
-      var vuTarget = Math.min(1, hist.reverbSmooth * 1.2 + peakVal * 0.5);
-      hist.vuVel += (vuTarget - hist.vuLeft) * 0.15;
-      hist.vuVel *= 0.75; // damping
-      hist.vuLeft += hist.vuVel;
-      hist.vuLeft = Math.max(0, Math.min(1, hist.vuLeft));
+      // TAIL LIGHTS
+      var tlA=0.3+hist.reverbSmooth*0.65;
+      ctx.fillStyle='rgba(200,30,30,'+tlA+')'; ctx.shadowColor='rgba(255,40,40,'+(tlA*0.5)+')'; ctx.shadowBlur=3+hist.reverbSmooth*7;
+      ctx.fillRect(bL,bY+bH*0.4+bounce,5,14); ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,140,0,'+(tlA*0.55)+')'; ctx.fillRect(bL,bY+bH*0.4+bounce+16,5,8);
 
-      var needleAngle = vuStart + hist.vuLeft * (vuEnd - vuStart);
-      // Needle shadow
-      ctx.beginPath();
-      ctx.moveTo(vuCx + 1, vuCy + 7);
-      ctx.lineTo(vuCx + Math.cos(needleAngle) * (vuRadius - 2) + 1, vuCy + 6 + Math.sin(needleAngle) * (vuRadius - 2) + 1);
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Needle
-      ctx.beginPath();
-      ctx.moveTo(vuCx, vuCy + 6);
-      ctx.lineTo(vuCx + Math.cos(needleAngle) * (vuRadius - 2), vuCy + 6 + Math.sin(needleAngle) * (vuRadius - 2));
-      ctx.strokeStyle = 'rgba(240, 200, 80, 0.85)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      // Needle pivot
-      ctx.beginPath();
-      ctx.arc(vuCx, vuCy + 6, 2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(200, 200, 210, 0.6)';
-      ctx.fill();
+      // WHEEL WELLS
+      for(var ww=0;ww<2;ww++){
+        var cwX2=ww===0?rWx:fWx;
+        ctx.fillStyle='#141414'; ctx.beginPath(); ctx.arc(cwX2,roadY,wR2+6,Math.PI,0); ctx.closePath(); ctx.fill();
+      }
 
-      // VU label
-      ctx.font = 'bold 4.5px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',0.4)';
-      ctx.fillText('VU', vuCx, vuCy - 2);
+      // WHEELS
+      for(var ww2=0;ww2<2;ww2++){
+        var cwX3=ww2===0?rWx:fWx, wAng=hist.wheelAngle*(ww2===0?1:1.015);
+        ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cwX3+2,roadY+4,wR2*0.88,4,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#1c1c1c'; ctx.beginPath(); ctx.arc(cwX3,wCy,wR2,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='rgba(45,45,45,0.6)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(cwX3,wCy,wR2-3,0,Math.PI*2); ctx.stroke();
+        var hR3=wR2*0.46, hcG=ctx.createRadialGradient(cwX3-2,wCy-2,0,cwX3,wCy,hR3);
+        hcG.addColorStop(0,'rgba(225,225,232,0.95)'); hcG.addColorStop(0.5,'rgba(162,162,175,0.88)'); hcG.addColorStop(1,'rgba(100,100,115,0.85)');
+        ctx.fillStyle=hcG; ctx.beginPath(); ctx.arc(cwX3,wCy,hR3,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='rgba(70,70,88,0.75)'; ctx.lineWidth=1.2;
+        for(var sp=0;sp<5;sp++){var sa2=wAng+(sp/5)*Math.PI*2;ctx.beginPath();ctx.moveTo(cwX3+Math.cos(sa2)*2.5,wCy+Math.sin(sa2)*2.5);ctx.lineTo(cwX3+Math.cos(sa2)*(hR3-1),wCy+Math.sin(sa2)*(hR3-1));ctx.stroke();}
+        var cG2=ctx.createRadialGradient(cwX3-1,wCy-1,0,cwX3,wCy,3);
+        cG2.addColorStop(0,'rgba(240,240,250,1)'); cG2.addColorStop(1,'rgba(175,175,192,0.9)');
+        ctx.fillStyle=cG2; ctx.beginPath(); ctx.arc(cwX3,wCy,3,0,Math.PI*2); ctx.fill();
+      }
 
-      // === GR readout (compression) ===
-      var grDb = hist.grSmooth > 0.001 ? (hist.grSmooth * 30).toFixed(1) : '0.0';
-      ctx.font = 'bold 6px "Courier New", monospace';
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (0.35 + hist.grSmooth * 2).toFixed(2) + ')';
-      ctx.fillText('GR -' + grDb + 'dB', W - 14, H - 6);
-
+      // GR READOUT
+      var grDb2=hist.grSmooth>0.005?(hist.grSmooth*30).toFixed(1):'0.0';
+      ctx.font='bold 5.5px "Courier New",monospace'; ctx.textAlign='right';
+      ctx.fillStyle='rgba(255,216,0,'+(0.28+hist.grSmooth*3).toFixed(2)+')';
+      ctx.fillText('GR -'+grDb2+'dB',W-6,H-5);
     };
 
     raf = requestAnimationFrame(draw);
