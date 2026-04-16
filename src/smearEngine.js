@@ -13,7 +13,7 @@
 //   MIX     — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'smear-v1';
+const PROCESSOR_VERSION = 'smear-v2';
 
 const PROCESSOR_CODE = `
 class SmearProcessor extends AudioWorkletProcessor {
@@ -34,51 +34,63 @@ class SmearProcessor extends AudioWorkletProcessor {
     super();
     this.sr = sampleRate;
 
-    // Base comb delay lengths at 44.1k, scaled by actual sample rate
     const scale = this.sr / 44100;
-    this.combLens = [
-      Math.round(1091 * scale),
-      Math.round(1327 * scale),
-      Math.round(1559 * scale),
-      Math.round(1733 * scale),
-    ];
 
-    // Allocate comb buffers (L+R per comb)
-    this.combBufL = [];
-    this.combBufR = [];
-    this.combPos  = [];
-    this.combLpL  = [0, 0, 0, 0];
-    this.combLpR  = [0, 0, 0, 0];
-
-    const maxLen = Math.round(2400 * scale) + 64;
+    // ── Allpass diffuser (4 stages, 5–30 ms) ────────────────────────────────
+    this.apBufL = []; this.apBufR = []; this.apPos = [];
+    const apLens = [347, 613, 1061, 1801].map(l => Math.round(l * scale));
     for (let i = 0; i < 4; i++) {
+      this.apBufL.push(new Float32Array(apLens[i] + 4));
+      this.apBufR.push(new Float32Array(apLens[i] + 4));
+      this.apPos.push(0);
+    }
+    this.apLens = apLens;
+
+    // ── 6 comb filters — longer delays (35–270 ms range with SIZE) ──────────
+    // Base lengths at 44.1k: 2837–4799 samples (~64–109 ms)
+    // SIZE 0.5→2.5 scales these to 35 ms min … 270 ms max
+    const combBase = [2837, 3217, 3659, 4073, 4523, 4799];
+    this.combLens = combBase.map(l => Math.round(l * scale));
+
+    this.combBufL = []; this.combBufR = [];
+    this.combPos  = [];
+    this.combLpL  = new Float32Array(6);
+    this.combLpR  = new Float32Array(6);
+
+    // Max buffer must cover SIZE=2.5 × largest base (4799) at max SR ratio
+    const maxLen = Math.round(4799 * scale * 2.6) + 64;
+    for (let i = 0; i < 6; i++) {
       this.combBufL.push(new Float32Array(maxLen));
       this.combBufR.push(new Float32Array(maxLen));
       this.combPos.push(0);
     }
 
-    // Drift LFOs — slow random walk per comb
-    this.driftPhase = [0, 0.25, 0.5, 0.75];
-    this.driftRate  = [0.08, 0.073, 0.061, 0.091];
-    this.driftWalk  = [0, 0, 0, 0];
-    this.driftTarget = [0, 0, 0, 0];
-    this.driftCounter = [0, 0, 0, 0];
+    // ── Drift LFOs — slow sines, 0.05–0.15 Hz ──────────────────────────────
+    // 6 combs, slightly different rates and starting phases
+    this.driftPhase  = [0, 0.17, 0.33, 0.50, 0.67, 0.83];
+    this.driftRate   = [0.05, 0.071, 0.089, 0.107, 0.13, 0.149];
+    // Random-walk layer (same as v1, just extended to 6)
+    this.driftWalk   = new Float32Array(6);
+    this.driftTarget = new Float32Array(6);
+    this.driftCounter = new Int32Array(6);
 
-    // Output tilt EQ state
+    // ── Tilt EQ + degrade LP state ──────────────────────────────────────────
     this.tiltLpL = 0; this.tiltLpR = 0;
     this.tiltHpL = 0; this.tiltHpR = 0;
+    this.degLpL  = 0; this.degLpR  = 0;
 
-    // Metering
+    // ── Metering ────────────────────────────────────────────────────────────
     this._peak = 0;
     this._smearLevel = 0;
 
-    // Smooth LP state
+    // ── Smooth LP state ─────────────────────────────────────────────────────
     this.smoothLpL1 = 0; this.smoothLpR1 = 0;
     this.smoothLpL2 = 0; this.smoothLpR2 = 0;
 
     this.port.postMessage({ ready: true });
   }
 
+  // Hermite cubic interpolation (unchanged from v1)
   hermite(buf, pos, size) {
     let p = pos; while (p < 0) p += size;
     const i = Math.floor(p) % size;
@@ -108,9 +120,9 @@ class SmearProcessor extends AudioWorkletProcessor {
     const tone    = params.tone[0];
     const mix     = params.mix[0];
     const bypass  = params.bypass[0] > 0.5;
-    const sr = this.sr;
+    const sr      = this.sr;
 
-    let peakAccum = 0;
+    let peakAccum  = 0;
     let smearAccum = 0;
 
     if (bypass || mix < 0.001) {
@@ -124,42 +136,74 @@ class SmearProcessor extends AudioWorkletProcessor {
       return true;
     }
 
-    // Comb feedback: 0.6 to 0.97 based on smear
-    const baseFb = 0.6 + smear * 0.28;
-    // Crossfeed amount
-    const crossfeed = smear * 0.10;
-    // Size scaling: 0.6x to 1.5x base delay lengths
-    const sizeScale = 0.6 + size * 0.9;
-    // LP damping cutoff in comb feedback path
-    const dampFreq = 2000 + (1 - smear * 0.5) * 8000;
+    // ── Per-block constants ──────────────────────────────────────────────────
+
+    // Comb feedback: 0.50 (short decay) → 0.90 (very long lush decay)
+    const baseFb = 0.50 + smear * 0.40;
+
+    // Crossfeed between adjacent combs: 0 → 0.15
+    const crossfeed = smear * 0.15;
+
+    // SIZE: 0.5× → 2.5× base delay lengths  (35 ms → ~270 ms)
+    const sizeScale = 0.5 + size * 2.0;
+
+    // LP damping inside comb feedback — darker as smear rises
+    const dampFreq = 3500 - smear * 2000;   // 1500–3500 Hz
     const dampCoef = Math.exp(-2 * Math.PI * dampFreq / sr);
-    // Drift modulation depth (in samples)
-    const driftDepth = drift * 12;
-    // Degrade: bit levels, noise, LP
-    const bitLevels = degrade > 0.01 ? Math.max(8, Math.floor(256 * (1 - degrade * 0.9))) : 0;
-    const noiseAmt = degrade * 0.015;
-    const degradeLpFreq = 16000 - degrade * 12000;
+
+    // Drift depth: ±60 samples at full drift (audible pitch wander)
+    const driftDepth = drift * 60;
+
+    // Degrade settings
+    // Low degrade (0–0.3): gentle bit crush + subtle noise
+    // High degrade (0.3–1.0): heavy bit crush + pitch instability + strong LP
+    const bitLevels = degrade > 0.01 ? Math.max(4, Math.floor(256 * (1 - degrade * 0.94))) : 0;
+    const noiseAmt  = degrade * 0.025;
+    // Pitch instability at high degrade: extra per-sample modulation on reads
+    const pitchInstab = Math.max(0, (degrade - 0.3) / 0.7) * 8; // 0→8 samples extra wobble
+    const degradeLpFreq = 18000 - degrade * 14000;               // 4000–18000 Hz
     const degradeLpCoef = Math.exp(-2 * Math.PI * degradeLpFreq / sr);
-    // Tilt EQ coefficients
-    const tiltFreq = 800;
-    const tiltCoef = Math.exp(-2 * Math.PI * tiltFreq / sr);
-    const tiltGainLow = 1 + (0.5 - tone) * 1.6;
-    const tiltGainHigh = 1 + (tone - 0.5) * 1.6;
+
+    // Tilt EQ: dark(0)=heavy LP at 800 Hz, bright(1)=HP shelf boost — ±1.5×
+    const tiltFreq    = 800;
+    const tiltCoef    = Math.exp(-2 * Math.PI * tiltFreq / sr);
+    const tiltGainLow  = 1 + (0.5 - tone) * 1.5;   // 0.25→1.75
+    const tiltGainHigh = 1 + (tone - 0.5) * 1.5;   // 0.25→1.75
+
+    // Allpass coefficient (fixed)
+    const apCoef = 0.7;
 
     for (let n = 0; n < iL.length; n++) {
       const dryL = iL[n], dryR = iR[n];
+
+      // ── 1. Allpass diffuser — 4 Schroeder stages ──────────────────────────
+      let diffL = dryL, diffR = dryR;
+      for (let a = 0; a < 4; a++) {
+        const len  = this.apLens[a];
+        const bufL = this.apBufL[a], bufR = this.apBufR[a];
+        const pos  = this.apPos[a];
+        const delayedL = bufL[pos], delayedR = bufR[pos];
+        // Standard Schroeder allpass: w = x − g·d;  y = d + g·w
+        const wL = diffL - apCoef * delayedL;
+        const wR = diffR - apCoef * delayedR;
+        bufL[pos] = wL; bufR[pos] = wR;
+        diffL = delayedL + apCoef * wL;
+        diffR = delayedR + apCoef * wR;
+        this.apPos[a] = (pos + 1) % len;
+      }
+      // diffL/diffR is now the early-reflection cloud fed into the combs
+
+      // ── 2. 6 parallel comb filters ────────────────────────────────────────
       let wetL = 0, wetR = 0;
 
-      // Previous comb outputs for crossfeed
-      const prevOutL = [0, 0, 0, 0];
-      const prevOutR = [0, 0, 0, 0];
+      // Store each comb's output for crossfeed into the next
+      const cOutStore = [0, 0, 0, 0, 0, 0];
 
-      // Process 4 parallel comb filters
-      for (let c = 0; c < 4; c++) {
+      for (let c = 0; c < 6; c++) {
         const baseLen = Math.round(this.combLens[c] * sizeScale);
         const bufSize = this.combBufL[c].length;
 
-        // Update drift random walk
+        // Update drift LFO + random walk
         this.driftPhase[c] += this.driftRate[c] / sr;
         if (this.driftPhase[c] > 1) this.driftPhase[c] -= 1;
         this.driftCounter[c]++;
@@ -168,29 +212,35 @@ class SmearProcessor extends AudioWorkletProcessor {
           this.driftTarget[c] = (Math.random() * 2 - 1);
         }
         this.driftWalk[c] += (this.driftTarget[c] - this.driftWalk[c]) * 0.0001;
-        const lfoVal = Math.sin(2 * Math.PI * this.driftPhase[c]) * 0.7 + this.driftWalk[c] * 0.3;
-        const modOffset = lfoVal * driftDepth;
+        const lfoVal   = Math.sin(2 * Math.PI * this.driftPhase[c]) * 0.7
+                       + this.driftWalk[c] * 0.3;
+        // At high degrade, add extra pitch instability on top of normal drift
+        const instabExtra = pitchInstab > 0
+          ? (Math.random() * 2 - 1) * pitchInstab
+          : 0;
+        const modOffset = lfoVal * driftDepth + instabExtra;
 
-        // Read from comb with modulated position
+        // Read from comb with hermite interpolation
         const readPos = this.combPos[c] - baseLen + modOffset;
         let cOutL = this.hermite(this.combBufL[c], readPos, bufSize);
         let cOutR = this.hermite(this.combBufR[c], readPos, bufSize);
 
-        // LP damping in feedback
+        // LP damping in feedback path
         this.combLpL[c] = dampCoef * this.combLpL[c] + (1 - dampCoef) * cOutL;
         this.combLpR[c] = dampCoef * this.combLpR[c] + (1 - dampCoef) * cOutR;
         cOutL = this.combLpL[c];
         cOutR = this.combLpR[c];
 
-        prevOutL[c] = cOutL;
-        prevOutR[c] = cOutR;
+        cOutStore[c] = cOutL; // store for crossfeed (mono proxy)
 
-        // Write to comb: input + feedback + crossfeed from previous comb
-        const prevC = (c + 3) % 4; // previous comb
-        const xfL = c > 0 ? prevOutL[prevC] * crossfeed : 0;
-        const xfR = c > 0 ? prevOutR[prevC] * crossfeed : 0;
-        this.combBufL[c][this.combPos[c]] = dryL + cOutL * baseFb + xfL;
-        this.combBufR[c][this.combPos[c]] = dryR + cOutR * baseFb + xfR;
+        // Crossfeed from the previous comb
+        const prevC = (c + 5) % 6;
+        const xfL = cOutStore[prevC] * crossfeed;
+        const xfR = cOutStore[prevC] * crossfeed; // symmetric stereo crossfeed
+
+        // Write: diffused input + feedback + crossfeed
+        this.combBufL[c][this.combPos[c]] = diffL + cOutL * baseFb + xfL;
+        this.combBufR[c][this.combPos[c]] = diffR + cOutR * baseFb + xfR;
 
         this.combPos[c] = (this.combPos[c] + 1) % bufSize;
 
@@ -198,11 +248,11 @@ class SmearProcessor extends AudioWorkletProcessor {
         wetR += cOutR;
       }
 
-      // Normalize comb sum
-      wetL *= 0.25;
-      wetR *= 0.25;
+      // Normalize 6 comb outputs
+      wetL /= 6;
+      wetR /= 6;
 
-      // Degrade layer
+      // ── 3. Degrade layer ──────────────────────────────────────────────────
       if (degrade > 0.01) {
         // Bit reduction
         if (bitLevels > 0) {
@@ -212,14 +262,15 @@ class SmearProcessor extends AudioWorkletProcessor {
         // Noise injection
         wetL += (Math.random() * 2 - 1) * noiseAmt;
         wetR += (Math.random() * 2 - 1) * noiseAmt;
-        // LP aging (applied in-place via simple 1-pole)
-        this.tiltLpL = degradeLpCoef * this.tiltLpL + (1 - degradeLpCoef) * wetL;
-        this.tiltLpR = degradeLpCoef * this.tiltLpR + (1 - degradeLpCoef) * wetR;
-        wetL = wetL * (1 - degrade * 0.5) + this.tiltLpL * degrade * 0.5;
-        wetR = wetR * (1 - degrade * 0.5) + this.tiltLpR * degrade * 0.5;
+        // LP aging: blend toward low-passed version proportional to degrade
+        this.degLpL = degradeLpCoef * this.degLpL + (1 - degradeLpCoef) * wetL;
+        this.degLpR = degradeLpCoef * this.degLpR + (1 - degradeLpCoef) * wetR;
+        const lpBlend = Math.min(1, degrade * 1.2); // 0→1 across degrade range
+        wetL = wetL * (1 - lpBlend * 0.6) + this.degLpL * lpBlend * 0.6;
+        wetR = wetR * (1 - lpBlend * 0.6) + this.degLpR * lpBlend * 0.6;
       }
 
-      // Tilt EQ post
+      // ── 4. Tilt EQ ────────────────────────────────────────────────────────
       this.tiltHpL = tiltCoef * this.tiltHpL + (1 - tiltCoef) * wetL;
       this.tiltHpR = tiltCoef * this.tiltHpR + (1 - tiltCoef) * wetR;
       const lowL = this.tiltHpL, lowR = this.tiltHpR;
@@ -227,11 +278,11 @@ class SmearProcessor extends AudioWorkletProcessor {
       wetL = lowL * tiltGainLow + highL * tiltGainHigh;
       wetR = lowR * tiltGainLow + highR * tiltGainHigh;
 
-      // Soft clip before smoothing
+      // ── 5. Tanh soft clip ─────────────────────────────────────────────────
       wetL = Math.tanh(wetL);
       wetR = Math.tanh(wetR);
 
-      // Smooth LP filter on wet signal
+      // ── 6. 2-pole smooth LP filter on wet signal ──────────────────────────
       const smooth = params.smooth[0];
       if (smooth > 0.5) {
         const smoothFreq = 6500 - smooth * 900;
@@ -244,7 +295,7 @@ class SmearProcessor extends AudioWorkletProcessor {
         wetR = this.smoothLpR2;
       }
 
-      // Mix
+      // ── 7. Mix ────────────────────────────────────────────────────────────
       oL[n] = dryL * (1 - mix) + wetL * mix;
       oR[n] = dryR * (1 - mix) + wetR * mix;
 

@@ -467,8 +467,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <WashKnob size={size} norm={norm} hue={hue} />
       </div>
-      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: `rgba(${hue},0.7)`, fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5.5, color: `rgba(${hue},0.4)`, fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: `rgba(${hue},0.8)`, fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 7, color: `rgba(${hue},0.5)`, fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -636,7 +636,7 @@ export default function SmearOrb({
       </div>
 
       {/* Hero canvas */}
-      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
+      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0, maxHeight: 280 }}>
         <WatercolorCanvas
           smear={smear} drift={drift} degrade={degrade}
           size={size} tone={tone}
@@ -649,25 +649,25 @@ export default function SmearOrb({
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
-        <Knob label="SMEAR" value={smear} defaultValue={0.4} size={28} format={pctFmt} hue="210,145,155"
+        <Knob label="SMEAR" value={smear} defaultValue={0.4} size={34} format={pctFmt} hue="210,145,155"
           onChange={v => { setSmear(v); engineRef.current?.setSmear(v); setActivePreset(null); }} />
-        <Knob label="DRIFT" value={drift} defaultValue={0.2} size={28} format={pctFmt} hue="155,185,145"
+        <Knob label="DRIFT" value={drift} defaultValue={0.2} size={34} format={pctFmt} hue="155,185,145"
           onChange={v => { setDrift(v); engineRef.current?.setDrift(v); setActivePreset(null); }} />
-        <Knob label="DEGRADE" value={degrade} defaultValue={0.15} size={28} format={pctFmt} hue="175,155,195"
+        <Knob label="DEGRADE" value={degrade} defaultValue={0.15} size={34} format={pctFmt} hue="175,155,195"
           onChange={v => { setDegrade(v); engineRef.current?.setDegrade(v); setActivePreset(null); }} />
-        <Knob label="SIZE" value={size} defaultValue={0.5} size={28} format={pctFmt} hue="215,195,140"
+        <Knob label="SIZE" value={size} defaultValue={0.5} size={34} format={pctFmt} hue="215,195,140"
           onChange={v => { setSize(v); engineRef.current?.setSize(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.45} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} hue="180,160,170"
+        <Knob label="TONE" value={tone} defaultValue={0.45} size={34} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'} hue="180,160,170"
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.3} size={28} format={pctFmt} hue="145,175,175"
+        <Knob label="MIX" value={mix} defaultValue={0.3} size={34} format={pctFmt} hue="145,175,175"
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2, flexShrink: 0 }}>
+      <div style={{ padding: '8px 18px 10px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', padding: '5px 10px', borderRadius: 3, cursor: 'pointer',
             background: smooth > 0 ? 'rgba(210,145,155,0.18)' : 'transparent',
             color: smooth > 0 ? 'rgba(240,180,190,0.95)' : 'rgba(180,130,140,0.4)',
             border: `1px solid ${smooth > 0 ? 'rgba(210,145,155,0.45)' : 'rgba(140,100,110,0.2)'}`,
