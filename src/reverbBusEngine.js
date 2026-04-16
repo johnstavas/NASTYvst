@@ -1,33 +1,51 @@
-// reverbBusEngine.js — REVERB BUS: Stem/Mix Glue Reverb (v2)
+// reverbBusEngine.js — REVERB BUS v3
+// Full spec implementation:
+//   Early Reflections → FDN 8×8 Hadamard → Modulation → Damping
+//   → Color/Saturation → Glue Compression → Ducking → Width → Mix
 //
-// 8 true-stereo comb filters (L/R offset lengths) + 4 allpass diffusers.
-// Subtle pre-delay for room depth. GLUE compressor on reverb return.
-// Dynamic TUCK LP that ducks high-end when input is loud (keeps mix clear).
-// M/S WIDTH on reverb only. COLOR tilt EQ.
-//
-// Controls:
-//   SPACE  — room size / decay (comb fb + delay scale)
-//   TUCK   — dynamic LP that clears reverb on transients
-//   GLUE   — reverb compressor ratio (knits stems together)
-//   COLOR  — tilt EQ dark→warm→open
-//   WIDTH  — M/S width on wet reverb only
-//   MIX    — dry/wet
-//   BYPASS / SMOOTH
+// SPACE  : decay time 0.3 – 12s (RT60-based per-line feedback)
+// TUCK   : pre-delay 0–120ms + sidechain ducking + HPF cutoff
+// GLUE   : gentle wet compression 1.2:1 – 3:1 + soft clip
+// COLOR  : tilt EQ + tape saturation amount
+// WIDTH  : M/S balance
+// MODE   : Room / Plate / Hall / Ambient / Dirty (affects all internals)
 
-const PROCESSOR_VERSION = 'reverbbus-v2';
+const PROCESSOR_VERSION = 'reverbbus-v3';
+
+const HAD_NORM_VAL = (1 / (2 * Math.SQRT2)).toFixed(10);
 
 const PROCESSOR_CODE = `
+// ── Inline constants ───────────────────────────────────────────────────────
+const _HN = ${HAD_NORM_VAL};   // Hadamard normalization: 1/(2√2)
+const _H8 = [                   // 8×8 Hadamard matrix (unnormalized ±1)
+  [ 1, 1, 1, 1, 1, 1, 1, 1],
+  [ 1,-1, 1,-1, 1,-1, 1,-1],
+  [ 1, 1,-1,-1, 1, 1,-1,-1],
+  [ 1,-1,-1, 1, 1,-1,-1, 1],
+  [ 1, 1, 1, 1,-1,-1,-1,-1],
+  [ 1,-1, 1,-1,-1, 1,-1, 1],
+  [ 1, 1,-1,-1,-1,-1, 1, 1],
+  [ 1,-1,-1, 1,-1, 1, 1,-1],
+];
+// Per-mode multipliers  [room, plate, hall, ambient, dirty]
+const _MD = [0.45, 0.55, 0.80, 1.00, 0.65]; // decay multiplier
+const _MM = [2.5,  5.0,  8.0, 14.0,  3.0 ]; // LFO depth (samples)
+const _MF = [4000, 6500, 4500, 3000, 2500]; // damping LP base Hz
+const _ME = [0.70, 0.50, 0.40, 0.20, 0.60]; // early reflection level
+const _MS = [0.04, 0.05, 0.03, 0.05, 0.18]; // saturation amount
+
 class ReverbBusProcessor extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return [
       { name: 'space',  defaultValue: 0.35, minValue: 0, maxValue: 1 },
-      { name: 'tuck',   defaultValue: 0.4,  minValue: 0, maxValue: 1 },
-      { name: 'glue',   defaultValue: 0.3,  minValue: 0, maxValue: 1 },
-      { name: 'color',  defaultValue: 0.5,  minValue: 0, maxValue: 1 },
-      { name: 'width',  defaultValue: 0.5,  minValue: 0, maxValue: 1 },
-      { name: 'mix',    defaultValue: 0.2,  minValue: 0, maxValue: 1 },
+      { name: 'tuck',   defaultValue: 0.40, minValue: 0, maxValue: 1 },
+      { name: 'glue',   defaultValue: 0.30, minValue: 0, maxValue: 1 },
+      { name: 'color',  defaultValue: 0.50, minValue: 0, maxValue: 1 },
+      { name: 'width',  defaultValue: 0.50, minValue: 0, maxValue: 1 },
+      { name: 'mix',    defaultValue: 0.20, minValue: 0, maxValue: 1 },
       { name: 'bypass', defaultValue: 0,    minValue: 0, maxValue: 1 },
       { name: 'smooth', defaultValue: 0,    minValue: 0, maxValue: 5 },
+      { name: 'mode',   defaultValue: 0,    minValue: 0, maxValue: 4 },
     ];
   }
 
@@ -36,49 +54,60 @@ class ReverbBusProcessor extends AudioWorkletProcessor {
     this.sr = sampleRate;
     const sc = this.sr / 44100;
 
-    // 4 allpass diffusers (series, pre-comb)
-    this.apLens = [241, 349, 463, 557].map(l => Math.round(l * sc));
-    this.apBufL = this.apLens.map(l => new Float32Array(l + 16));
-    this.apBufR = this.apLens.map(l => new Float32Array(l + 16));
-    this.apPos  = new Int32Array(4);
+    // ── Pre-delay buffer (0–130ms max) ──────────────────────────────
+    const pdMax = Math.round(0.135 * this.sr) + 8;
+    this.pdBufL = new Float32Array(pdMax);
+    this.pdBufR = new Float32Array(pdMax);
+    this.pdPos  = 0;
 
-    // 8 comb filters — shorter than plate, room character
-    // L and R use offset lengths for stereo decorrelation
-    this.combLensL = [743, 816, 897, 958, 1024, 1091, 1147, 1201].map(l => Math.round(l * sc));
-    this.combLensR = [766, 839, 920, 981, 1047, 1114, 1170, 1224].map(l => Math.round(l * sc));
-    const maxComb  = Math.round(1800 * sc) + 32;
-    this.combBufL  = Array.from({length:8}, () => new Float32Array(maxComb));
-    this.combBufR  = Array.from({length:8}, () => new Float32Array(maxComb));
-    this.combPos   = new Int32Array(8);
-    this.combLpL   = new Float64Array(8);
-    this.combLpR   = new Float64Array(8);
+    // ── Early Reflections: 8 stereo-offset taps (7–77ms) ────────────
+    this.erTapsL = [7,13,20,29,39,51,63,77].map(ms => Math.round(ms * this.sr / 1000));
+    this.erTapsR = [9,16,24,33,44,55,67,82].map(ms => Math.round(ms * this.sr / 1000));
+    this.erGains = [0.68, 0.54, 0.44, 0.36, 0.29, 0.24, 0.19, 0.15];
+    const erMax  = Math.round(0.092 * this.sr) + 8;
+    this.erBufL  = new Float32Array(erMax);
+    this.erBufR  = new Float32Array(erMax);
+    this.erPos   = 0;
 
-    // Temp comb read buffers (avoid GC)
-    this._cL = new Float64Array(8);
-    this._cR = new Float64Array(8);
+    // ── FDN 8×8: L and R with prime-offset lengths ───────────────────
+    this.fdnLensL = [1303,1427,1559,1699,1847,1979,2081,2213].map(l => Math.round(l * sc));
+    this.fdnLensR = [1327,1451,1583,1723,1871,2003,2107,2239].map(l => Math.round(l * sc));
+    const fdnMax  = Math.round(2400 * sc) + 16;
+    this.fdnBufsL = Array.from({length:8}, () => new Float32Array(fdnMax));
+    this.fdnBufsR = Array.from({length:8}, () => new Float32Array(fdnMax));
+    this.fdnPos   = new Int32Array(8);
+    this.fdnLpL   = new Float64Array(8);  // damping LP state L
+    this.fdnLpR   = new Float64Array(8);  // damping LP state R
+    // Pre-allocated mixing buffers (no GC in process loop)
+    this._yL  = new Float64Array(8);  // FDN read outputs L
+    this._yR  = new Float64Array(8);  // FDN read outputs R
+    this._mL  = new Float64Array(8);  // Hadamard mixed L
+    this._mR  = new Float64Array(8);  // Hadamard mixed R
+    this._fb  = new Float64Array(8);  // per-line feedback
 
-    // Pre-delay (~10ms default)
-    this.preDelayLen = Math.round(0.012 * this.sr);
-    this.preDelayBuf = new Float32Array(Math.round(0.1 * this.sr) + 8); // 100ms max
-    this.preDelayBufR = new Float32Array(Math.round(0.1 * this.sr) + 8);
-    this.preDelayPos = 0;
+    // ── Per-line LFO modulation ──────────────────────────────────────
+    this.lfoPhase = new Float64Array(8);
+    this.lfoRates = [0.12, 0.18, 0.08, 0.22, 0.15, 0.10, 0.25, 0.07]; // Hz
+    this._lfoVal  = new Float64Array(8);
 
-    // Compressor (GLUE) — on reverb return
-    this.compEnv = 0;
+    // ── Ducking (sidechain from dry signal) ──────────────────────────
+    this.duckEnv = 0;
 
-    // Input envelope for TUCK
-    this.tuckEnv = 0;
-    this.tuckLpL = 0; this.tuckLpR = 0;
+    // ── Glue compressor ──────────────────────────────────────────────
+    this.glueEnv = 0;
 
-    // Tilt EQ LP state
+    // ── HPF on wet output ────────────────────────────────────────────
+    this.hpfL = 0; this.hpfR = 0;
+
+    // ── Tilt EQ LP state ─────────────────────────────────────────────
     this.tiltLpL = 0; this.tiltLpR = 0;
 
-    // Smooth LP
+    // ── Smooth LP ────────────────────────────────────────────────────
     this.sLpL1 = 0; this.sLpR1 = 0;
     this.sLpL2 = 0; this.sLpR2 = 0;
 
-    // Metering
-    this._peak = 0; this._grLevel = 0; this._reverbLevel = 0;
+    // ── Metering ─────────────────────────────────────────────────────
+    this._peak = 0; this._energy = 0; this._reverbLevel = 0; this._gr = 0;
 
     this.port.postMessage({ ready: true });
   }
@@ -89,7 +118,7 @@ class ReverbBusProcessor extends AudioWorkletProcessor {
 
     const iL = inBufs[0], iR = inBufs[1] || inBufs[0];
     const oL = outBufs[0], oR = outBufs[1] || outBufs[0];
-    const N  = iL.length;
+    const N  = iL.length, sr = this.sr;
 
     const space  = params.space[0];
     const tuck   = params.tuck[0];
@@ -99,9 +128,9 @@ class ReverbBusProcessor extends AudioWorkletProcessor {
     const mix    = params.mix[0];
     const bypass = params.bypass[0] > 0.5;
     const smooth = params.smooth[0];
-    const sr     = this.sr;
+    const mode   = Math.round(Math.max(0, Math.min(4, params.mode[0])));
 
-    let peakAccum = 0, reverbAccum = 0, maxGr = 0;
+    let peakAccum = 0, rvAccum = 0, maxGr = 0;
 
     if (bypass || mix < 0.001) {
       for (let n = 0; n < N; n++) {
@@ -109,153 +138,188 @@ class ReverbBusProcessor extends AudioWorkletProcessor {
         const ap = Math.max(Math.abs(oL[n]), Math.abs(oR[n]));
         if (ap > peakAccum) peakAccum = ap;
       }
-      this._peak = peakAccum; this._grLevel = 0; this._reverbLevel = 0;
-      this.port.postMessage({ peak: peakAccum, gr: 0, reverbLevel: 0 });
+      this._peak = peakAccum; this._energy = 0; this._reverbLevel = 0; this._gr = 0;
+      this.port.postMessage({ peak: peakAccum, energy: 0, reverbLevel: 0, gr: 0 });
       return true;
     }
 
-    // Room size: shorter fb range than plate for room-like decay
-    const combFb   = 0.68 + space * 0.22; // 0.68–0.90
-    const sizeScale = 0.7 + space * 0.6;  // 0.70–1.30
+    // ── Mode parameters ───────────────────────────────────────────────
+    const decayMult = _MD[mode];
+    const modDepth  = _MM[mode];
+    const dampBase  = _MF[mode];
+    const erLvl     = _ME[mode] * (1 - tuck * 0.55);  // TUCK reduces ER
+    const satBase   = _MS[mode];
 
-    // Damping (color)
-    const dampFreq = 2800 + color * 10000;
+    // ── SPACE → Decay time (0.3s to 12s, log scale) ───────────────────
+    const decayTime = 0.3 * Math.pow(40, space) * decayMult;
+
+    // ── RT60 feedback per line: fb = exp(-6.908 * L / (sr * T60)) ──────
+    const fb = this._fb;
+    for (let c = 0; c < 8; c++) {
+      const raw = Math.exp(-6.908 * this.fdnLensL[c] / (sr * decayTime));
+      fb[c] = Math.min(0.97, Math.max(0.05, raw));
+    }
+
+    // ── TUCK → Pre-delay (0–120ms) ─────────────────────────────────────
+    const pdSamples = Math.round(tuck * 0.120 * sr);
+    const pdBs = this.pdBufL.length;
+
+    // ── LFO depth scales with mode + SPACE ────────────────────────────
+    const lfoD = modDepth * (0.4 + space * 0.6);
+    for (let c = 0; c < 8; c++) {
+      this.lfoPhase[c] += this.lfoRates[c] * N / sr;
+      if (this.lfoPhase[c] > 1) this.lfoPhase[c] -= 1;
+      this._lfoVal[c] = Math.sin(this.lfoPhase[c] * 6.283185) * lfoD;
+    }
+
+    // ── COLOR → damping LP inside FDN ─────────────────────────────────
+    const dampFreq = dampBase + color * 8000;
     const dampCoef = Math.exp(-6.283185 * dampFreq / sr);
 
-    // Allpass coeff
-    const apG = 0.5;
+    // ── TUCK → HPF on wet (50Hz → 600Hz) ──────────────────────────────
+    const hpfFreq = 50 + tuck * 550;
+    const hpfCoef = Math.exp(-6.283185 * hpfFreq / sr);
 
-    // Tilt EQ
-    const tiltCoef      = Math.exp(-6.283185 * 800 / sr);
-    const tiltGainLow   = 1 + (0.5 - color) * 1.4;
-    const tiltGainHigh  = 1 + (color - 0.5) * 1.4;
+    // ── COLOR → Tilt EQ ────────────────────────────────────────────────
+    const tiltCoef     = Math.exp(-6.283185 * 800 / sr);
+    const tiltGainLow  = 1 + (0.5 - color) * 1.5;
+    const tiltGainHigh = 1 + (color - 0.5) * 1.5;
 
-    // GLUE compressor on reverb return
-    const threshLin    = Math.pow(10, (-18 - glue * 12) / 20); // -18 to -30dB
-    const ratio        = 2 + glue * 6;   // 2:1 to 8:1
-    const compAtk      = Math.exp(-1 / (sr * 0.008));
-    const compRel      = Math.exp(-1 / (sr * 0.10));
-    const makeupGain   = 1 + glue * 0.5; // up to +50% makeup
+    // ── COLOR + mode → Saturation ─────────────────────────────────────
+    const satAmt   = satBase + color * 0.07;
+    const satDrive = 1 + satAmt * 4;
 
-    // TUCK envelope
-    const tuckAtk  = Math.exp(-1 / (sr * 0.008));
-    const tuckRel  = Math.exp(-1 / (sr * 0.12));
+    // ── GLUE → gentle compression (1.2:1 – 3:1) ──────────────────────
+    const glueThresh  = Math.pow(10, (-20 - glue * 10) / 20); // -20 to -30dB
+    const glueRatio   = 1.2 + glue * 1.8;
+    const glueAtk     = Math.exp(-1 / (sr * 0.008));
+    const glueRel     = Math.exp(-1 / (sr * 0.12));
+    const glueMakeup  = 1 + glue * 0.30;
 
-    // Pre-delay read offset
-    const pdLen = Math.min(this.preDelayLen, this.preDelayBuf.length - 4);
-    const pdBs  = this.preDelayBuf.length;
+    // ── TUCK → Ducking (sidechain from dry) ──────────────────────────
+    const duckAtk   = Math.exp(-1 / (sr * 0.004));
+    const duckRel   = Math.exp(-1 / (sr * (0.08 + tuck * 1.1)));
+    const duckDepth = tuck * 0.80;
 
-    const cL = this._cL, cR = this._cR;
+    // ── WIDTH → M/S balance ───────────────────────────────────────────
+    const widthScale = width * 2; // 0=mono, 1=unity, 2=wide
+
+    const yL = this._yL, yR = this._yR, mL = this._mL, mR = this._mR;
+    const erBs = this.erBufL.length;
 
     for (let n = 0; n < N; n++) {
       const dryL = iL[n], dryR = iR[n];
 
-      // Pre-delay
-      const pdPos = this.preDelayPos;
-      this.preDelayBuf[pdPos]  = dryL;
-      this.preDelayBufR[pdPos] = dryR;
-      const pdRead = (pdPos - pdLen + pdBs) % pdBs;
-      const pdL = this.preDelayBuf[pdRead];
-      const pdR = this.preDelayBufR[pdRead];
-      this.preDelayPos = (pdPos + 1) % pdBs;
+      // ── Pre-delay ─────────────────────────────────────────────────
+      const pdPos = this.pdPos;
+      this.pdBufL[pdPos] = dryL;
+      this.pdBufR[pdPos] = dryR;
+      const pdRd = (pdPos - pdSamples + pdBs) % pdBs;
+      const pdL  = this.pdBufL[pdRd];
+      const pdR  = this.pdBufR[pdRd];
+      this.pdPos = (pdPos + 1) % pdBs;
 
-      // TUCK envelope follower (tracks input energy)
-      const inLvl = Math.max(Math.abs(dryL), Math.abs(dryR));
-      if (inLvl > this.tuckEnv) {
-        this.tuckEnv = tuckAtk * this.tuckEnv + (1 - tuckAtk) * inLvl;
-      } else {
-        this.tuckEnv = tuckRel * this.tuckEnv + (1 - tuckRel) * inLvl;
+      // ── Early Reflections ─────────────────────────────────────────
+      const erPos = this.erPos;
+      this.erBufL[erPos] = pdL;
+      this.erBufR[erPos] = pdR;
+      let erL = 0, erR = 0;
+      for (let t = 0; t < 8; t++) {
+        erL += this.erBufL[(erPos - this.erTapsL[t] + erBs) % erBs] * this.erGains[t];
+        erR += this.erBufR[(erPos - this.erTapsR[t] + erBs) % erBs] * this.erGains[t];
       }
+      this.erPos = (erPos + 1) % erBs;
 
-      // 4 allpass diffusers on pre-delayed signal
-      let diffL = pdL, diffR = pdR;
-      for (let a = 0; a < 4; a++) {
-        const bs  = this.apBufL[a].length;
-        const pos = this.apPos[a];
-        const ri  = (pos - this.apLens[a] + bs) % bs;
-        const dL  = this.apBufL[a][ri], dR = this.apBufR[a][ri];
-        const oaL = -apG * diffL + dL;
-        const oaR = -apG * diffR + dR;
-        this.apBufL[a][pos] = diffL + apG * dL;
-        this.apBufR[a][pos] = diffR + apG * dR;
-        this.apPos[a] = (pos + 1) % bs;
-        diffL = oaL; diffR = oaR;
-      }
-
-      // Read all 8 comb outputs
+      // ── FDN: read outputs with LP damping + LFO ────────────────────
       for (let c = 0; c < 8; c++) {
-        const bs   = this.combBufL[c].length;
-        const pos  = this.combPos[c];
-        const lenL = Math.max(64, Math.min(bs - 8, Math.round(this.combLensL[c] * sizeScale)));
-        const lenR = Math.max(64, Math.min(bs - 8, Math.round(this.combLensR[c] * sizeScale)));
-        const riL  = (pos - lenL + bs) % bs;
-        const riR  = (pos - lenR + bs) % bs;
-        this.combLpL[c] = dampCoef * this.combLpL[c] + (1 - dampCoef) * this.combBufL[c][riL];
-        this.combLpR[c] = dampCoef * this.combLpR[c] + (1 - dampCoef) * this.combBufR[c][riR];
-        cL[c] = this.combLpL[c];
-        cR[c] = this.combLpR[c];
+        const bs   = this.fdnBufsL[c].length;
+        const pos  = this.fdnPos[c];
+        const lvo  = this._lfoVal[c];
+        const lenL = Math.max(64, Math.min(bs-8, Math.round(this.fdnLensL[c] + lvo)));
+        const lenR = Math.max(64, Math.min(bs-8, Math.round(this.fdnLensR[c] + lvo * 0.87)));
+        this.fdnLpL[c] = dampCoef * this.fdnLpL[c] + (1 - dampCoef) * this.fdnBufsL[c][(pos-lenL+bs)%bs];
+        this.fdnLpR[c] = dampCoef * this.fdnLpR[c] + (1 - dampCoef) * this.fdnBufsR[c][(pos-lenR+bs)%bs];
+        yL[c] = this.fdnLpL[c];
+        yR[c] = this.fdnLpR[c];
       }
 
-      // Write combs — inject L into L set, R into R set (true stereo)
-      let reverbL = 0, reverbR = 0;
+      // ── FDN: Hadamard mix (8×8 unrolled) ──────────────────────────
+      for (let i = 0; i < 8; i++) {
+        const h = _H8[i];
+        mL[i] = (h[0]*yL[0]+h[1]*yL[1]+h[2]*yL[2]+h[3]*yL[3]+h[4]*yL[4]+h[5]*yL[5]+h[6]*yL[6]+h[7]*yL[7]) * _HN;
+        mR[i] = (h[0]*yR[0]+h[1]*yR[1]+h[2]*yR[2]+h[3]*yR[3]+h[4]*yR[4]+h[5]*yR[5]+h[6]*yR[6]+h[7]*yR[7]) * _HN;
+      }
+
+      // ── FDN: write back + sum late output ─────────────────────────
+      const fdnInL = pdL * 0.45 + erL * erLvl * 0.30;
+      const fdnInR = pdR * 0.45 + erR * erLvl * 0.30;
+      let lateL = 0, lateR = 0;
       for (let c = 0; c < 8; c++) {
-        const bs  = this.combBufL[c].length;
-        const pos = this.combPos[c];
-        this.combBufL[c][pos] = diffL + cL[c] * combFb;
-        this.combBufR[c][pos] = diffR + cR[c] * combFb;
-        this.combPos[c] = (pos + 1) % bs;
-        reverbL += cL[c];
-        reverbR += cR[c];
+        const bs  = this.fdnBufsL[c].length;
+        const pos = this.fdnPos[c];
+        this.fdnBufsL[c][pos] = fdnInL + fb[c] * mL[c];
+        this.fdnBufsR[c][pos] = fdnInR + fb[c] * mR[c];
+        this.fdnPos[c] = (pos + 1) % bs;
+        lateL += yL[c];
+        lateR += yR[c];
       }
-      reverbL *= 0.125;
-      reverbR *= 0.125;
+      lateL *= 0.125;
+      lateR *= 0.125;
 
-      // Subtle harmonic saturation (glue adds a tiny bit of drive)
-      const satDrive = 0.85 + glue * 0.3;
-      reverbL = Math.tanh(reverbL * satDrive) / satDrive;
-      reverbR = Math.tanh(reverbR * satDrive) / satDrive;
+      // ── Mix Early + Late ──────────────────────────────────────────
+      let wetL = erL * erLvl + lateL;
+      let wetR = erR * erLvl + lateR;
 
-      // TUCK: dynamic LP that clears reverb high-end on loud transients
-      if (tuck > 0.01) {
-        const tuckCutoff = Math.max(800, 16000 - this.tuckEnv * tuck * 14000);
-        const tuckC = Math.exp(-6.283185 * tuckCutoff / sr);
-        this.tuckLpL = tuckC * this.tuckLpL + (1 - tuckC) * reverbL;
-        this.tuckLpR = tuckC * this.tuckLpR + (1 - tuckC) * reverbR;
-        reverbL = reverbL * (1 - tuck * 0.65) + this.tuckLpL * tuck * 0.65;
-        reverbR = reverbR * (1 - tuck * 0.65) + this.tuckLpR * tuck * 0.65;
-      }
+      // ── HPF (TUCK clears mud) ──────────────────────────────────────
+      this.hpfL = hpfCoef * this.hpfL + (1 - hpfCoef) * wetL;
+      this.hpfR = hpfCoef * this.hpfR + (1 - hpfCoef) * wetR;
+      wetL -= this.hpfL;
+      wetR -= this.hpfR;
 
-      // GLUE compressor on reverb return
-      const revLvl = Math.max(Math.abs(reverbL), Math.abs(reverbR));
-      if (revLvl > this.compEnv) {
-        this.compEnv = compAtk * this.compEnv + (1 - compAtk) * revLvl;
+      // ── COLOR: tilt EQ ────────────────────────────────────────────
+      this.tiltLpL = tiltCoef * this.tiltLpL + (1 - tiltCoef) * wetL;
+      this.tiltLpR = tiltCoef * this.tiltLpR + (1 - tiltCoef) * wetR;
+      wetL = this.tiltLpL * tiltGainLow + (wetL - this.tiltLpL) * tiltGainHigh;
+      wetR = this.tiltLpR * tiltGainLow + (wetR - this.tiltLpR) * tiltGainHigh;
+
+      // ── COLOR: tape-style saturation ──────────────────────────────
+      wetL = Math.tanh(wetL * satDrive) / satDrive;
+      wetR = Math.tanh(wetR * satDrive) / satDrive;
+
+      // ── GLUE: gentle compression (1.2:1 – 3:1) ───────────────────
+      const wLvl = Math.max(Math.abs(wetL), Math.abs(wetR));
+      if (wLvl > this.glueEnv) {
+        this.glueEnv = glueAtk * this.glueEnv + (1 - glueAtk) * wLvl;
       } else {
-        this.compEnv = compRel * this.compEnv + (1 - compRel) * revLvl;
+        this.glueEnv = glueRel * this.glueEnv + (1 - glueRel) * wLvl;
       }
       let gr = 1;
-      if (this.compEnv > threshLin) {
-        const overDb   = 20 * Math.log10(this.compEnv / threshLin);
-        const reducDb  = overDb * (1 - 1 / ratio);
+      if (this.glueEnv > glueThresh) {
+        const overDb  = 20 * Math.log10(this.glueEnv / glueThresh);
+        const reducDb = overDb * (1 - 1 / glueRatio);
         gr = Math.pow(10, -reducDb / 20);
       }
       if ((1 - gr) > maxGr) maxGr = 1 - gr;
-      reverbL *= gr * makeupGain;
-      reverbR *= gr * makeupGain;
+      wetL *= gr * glueMakeup;
+      wetR *= gr * glueMakeup;
 
-      // COLOR tilt EQ
-      this.tiltLpL = tiltCoef * this.tiltLpL + (1 - tiltCoef) * reverbL;
-      this.tiltLpR = tiltCoef * this.tiltLpR + (1 - tiltCoef) * reverbR;
-      let wetL = this.tiltLpL * tiltGainLow + (reverbL - this.tiltLpL) * tiltGainHigh;
-      let wetR = this.tiltLpR * tiltGainLow + (reverbR - this.tiltLpR) * tiltGainHigh;
+      // ── TUCK: sidechain ducking ────────────────────────────────────
+      const inLvl = Math.max(Math.abs(dryL), Math.abs(dryR));
+      if (inLvl > this.duckEnv) {
+        this.duckEnv = duckAtk * this.duckEnv + (1 - duckAtk) * inLvl;
+      } else {
+        this.duckEnv = duckRel * this.duckEnv + (1 - duckRel) * inLvl;
+      }
+      wetL *= (1 - this.duckEnv * duckDepth);
+      wetR *= (1 - this.duckEnv * duckDepth);
 
-      // WIDTH: M/S on reverb only
+      // ── WIDTH: M/S ────────────────────────────────────────────────
       const mid  = (wetL + wetR) * 0.5;
       const side = (wetL - wetR) * 0.5;
-      const ws   = width * 2; // 0=mono, 1=normal stereo, 2=wide
-      wetL = mid + side * ws;
-      wetR = mid - side * ws;
+      wetL = mid + side * widthScale;
+      wetR = mid - side * widthScale;
 
-      // Smooth
+      // ── SMOOTH ────────────────────────────────────────────────────
       if (smooth > 0.5) {
         const sCoef = Math.exp(-6.283185 * (6500 - smooth * 900) / sr);
         this.sLpL1 = sCoef * this.sLpL1 + (1 - sCoef) * wetL;
@@ -265,19 +329,21 @@ class ReverbBusProcessor extends AudioWorkletProcessor {
         wetL = this.sLpL2; wetR = this.sLpR2;
       }
 
+      // ── MIX ───────────────────────────────────────────────────────
       oL[n] = dryL * (1 - mix) + wetL * mix;
       oR[n] = dryR * (1 - mix) + wetR * mix;
 
       const rl = Math.max(Math.abs(wetL), Math.abs(wetR));
-      if (rl > reverbAccum) reverbAccum = rl;
+      if (rl > rvAccum) rvAccum = rl;
       const ap = Math.max(Math.abs(oL[n]), Math.abs(oR[n]));
       if (ap > peakAccum) peakAccum = ap;
     }
 
     this._peak = peakAccum;
-    this._grLevel = maxGr;
-    this._reverbLevel = reverbAccum;
-    this.port.postMessage({ peak: peakAccum, gr: maxGr, reverbLevel: reverbAccum });
+    this._energy = this.duckEnv;
+    this._reverbLevel = rvAccum;
+    this._gr = maxGr;
+    this.port.postMessage({ peak: peakAccum, energy: this.duckEnv, reverbLevel: rvAccum, gr: maxGr });
     return true;
   }
 }
@@ -304,11 +370,12 @@ export async function createReverbBusEngine(audioCtx) {
   worklet.connect(analyserOut); analyserOut.connect(outputTrim);
   outputTrim.connect(output); outputTrim.connect(chainOutput);
 
-  let _peak = 0, _gr = 0, _reverbLevel = 0;
+  let _peak = 0, _energy = 0, _rv = 0, _gr = 0;
   worklet.port.onmessage = e => {
-    if (e.data?.peak         !== undefined) _peak        = e.data.peak;
-    if (e.data?.gr           !== undefined) _gr          = e.data.gr;
-    if (e.data?.reverbLevel  !== undefined) _reverbLevel = e.data.reverbLevel;
+    if (e.data?.peak        !== undefined) _peak   = e.data.peak;
+    if (e.data?.energy      !== undefined) _energy = e.data.energy;
+    if (e.data?.reverbLevel !== undefined) _rv     = e.data.reverbLevel;
+    if (e.data?.gr          !== undefined) _gr     = e.data.gr;
   };
 
   const _buf = new Float32Array(2048);
@@ -330,14 +397,16 @@ export async function createReverbBusEngine(audioCtx) {
     setMix:    v => { p('mix').value    = v; },
     setBypass: v => { p('bypass').value = v ? 1 : 0; },
     setSmooth: v => { p('smooth').value = v; },
+    setMode:   v => { p('mode').value   = v; },
 
     getInputPeak:   () => { _peakIn  = Math.max(getPeak(analyserIn),  _peakIn  * DECAY); return _peakIn;  },
     getOutputPeak:  () => { _peakOut = Math.max(getPeak(analyserOut), _peakOut * DECAY); return _peakOut; },
     getInputLevel:  () => getRms(analyserIn),
     getOutputLevel: () => getRms(analyserOut),
     getPeakOutput:  () => _peak,
+    getEnergy:      () => _energy,
+    getReverbLevel: () => _rv,
     getGR:          () => _gr,
-    getReverbLevel: () => _reverbLevel,
 
     destroy() { worklet.disconnect(); input.disconnect(); inputTrim.disconnect(); output.disconnect(); outputTrim.disconnect(); chainOutput.disconnect(); analyserIn.disconnect(); analyserOut.disconnect(); },
     dispose()  { this.destroy(); },

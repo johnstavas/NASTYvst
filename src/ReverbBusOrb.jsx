@@ -381,12 +381,20 @@ function GainKnob({ value, onChange, label, defaultValue = 1 }) {
   );
 }
 
+// MODE labels and indices
+const MODES = ['ROOM', 'PLATE', 'HALL', 'AMBIENT', 'DIRTY'];
+
 const PRESETS = [
-  { name: 'INIT',               space: 0.35, tuck: 0.4, glue: 0.3, color: 0.5, width: 0.5, mix: 0.2, smooth: 0 },
-  { name: 'DRUM BUS GLUE ROOM', space: 0.3, tuck: 0.55, glue: 0.6, color: 0.45, width: 0.4, mix: 0.2, smooth: 0 },
-  { name: 'MIX BED SPACE',      space: 0.45, tuck: 0.3, glue: 0.25, color: 0.55, width: 0.6, mix: 0.15, smooth: 0 },
-  { name: 'VOCAL BUS SUPPORT',  space: 0.4, tuck: 0.45, glue: 0.35, color: 0.5, width: 0.5, mix: 0.25, smooth: 0 },
-  { name: 'STEM TUCK HALL',     space: 0.55, tuck: 0.65, glue: 0.4, color: 0.4, width: 0.55, mix: 0.2, smooth: 0 },
+  { name: 'VOCAL PLATE',     space: 0.38, tuck: 0.50, glue: 0.25, color: 0.55, width: 0.60, mix: 0.28, smooth: 0, mode: 1 },
+  { name: 'DRUM ROOM',       space: 0.30, tuck: 0.60, glue: 0.65, color: 0.40, width: 0.35, mix: 0.18, smooth: 0, mode: 0 },
+  { name: 'SNARE BLOOM',     space: 0.42, tuck: 0.45, glue: 0.45, color: 0.50, width: 0.55, mix: 0.30, smooth: 0, mode: 0 },
+  { name: 'GUITAR CLOUD',    space: 0.58, tuck: 0.30, glue: 0.20, color: 0.62, width: 0.72, mix: 0.35, smooth: 3, mode: 3 },
+  { name: 'WIDE HALL',       space: 0.70, tuck: 0.35, glue: 0.15, color: 0.45, width: 0.85, mix: 0.22, smooth: 3, mode: 2 },
+  { name: 'AMBIENT WASH',    space: 0.85, tuck: 0.20, glue: 0.10, color: 0.70, width: 0.90, mix: 0.40, smooth: 5, mode: 3 },
+  { name: 'DIRTY CHAMBER',   space: 0.45, tuck: 0.55, glue: 0.50, color: 0.80, width: 0.45, mix: 0.32, smooth: 0, mode: 4 },
+  { name: 'MIX BUS GLUE',    space: 0.28, tuck: 0.65, glue: 0.75, color: 0.38, width: 0.40, mix: 0.15, smooth: 0, mode: 0 },
+  { name: 'BACKSEAT VOCAL',  space: 0.50, tuck: 0.42, glue: 0.30, color: 0.58, width: 0.65, mix: 0.25, smooth: 3, mode: 1 },
+  { name: 'CINEMATIC TAIL',  space: 0.92, tuck: 0.25, glue: 0.08, color: 0.60, width: 0.95, mix: 0.38, smooth: 5, mode: 2 },
 ];
 
 const PRESET_COLORS = {
@@ -410,6 +418,7 @@ export default function ReverbBusOrb({
   const [mix,    setMix]    = useState(initialState?.mix    ?? 0.2);
   const [bypassed, setBypassed] = useState(initialState?.bypassed ?? false);
   const [smooth, setSmooth] = useState(initialState?.smooth ?? 0);
+  const [mode, setMode] = useState(initialState?.mode ?? 0);
   const [activePreset, setActivePreset] = useState(initialState?.preset ?? null);
   const [peak, setPeak] = useState(0);
   const [outPeak, setOutPeak] = useState(0);
@@ -417,7 +426,7 @@ export default function ReverbBusOrb({
   const [reverbLevel, setReverbLevel] = useState(0);
 
   const stateRefs = useRef({});
-  stateRefs.current = { inputGain, outputGain, space, tuck, glue, color, width, mix, bypassed, smooth };
+  stateRefs.current = { inputGain, outputGain, space, tuck, glue, color, width, mix, bypassed, smooth, mode };
 
   useEffect(() => {
     if (!sharedSource) return;
@@ -430,6 +439,7 @@ export default function ReverbBusOrb({
       eng.setColor(s.color); eng.setWidth(s.width); eng.setMix(s.mix);
       eng.setBypass(s.bypassed);
       eng.setSmooth(s.smooth);
+      eng.setMode?.(s.mode);
       if (registerEngine) registerEngine(instanceId, eng);
       setLoading(false);
     });
@@ -452,14 +462,15 @@ export default function ReverbBusOrb({
   }, []);
 
   useEffect(() => {
-    if (onStateChange) onStateChange(instanceId, { inputGain, outputGain, space, tuck, glue, color, width, mix, bypassed, smooth, preset: activePreset });
-  }, [inputGain, outputGain, space, tuck, glue, color, width, mix, bypassed, smooth, activePreset]);
+    if (onStateChange) onStateChange(instanceId, { inputGain, outputGain, space, tuck, glue, color, width, mix, bypassed, smooth, mode, preset: activePreset });
+  }, [inputGain, outputGain, space, tuck, glue, color, width, mix, bypassed, smooth, mode, activePreset]);
 
   const loadPreset = useCallback((p) => {
     setSpace(p.space); setTuck(p.tuck); setGlue(p.glue);
     setColor(p.color); setWidth(p.width); setMix(p.mix);
     setActivePreset(p.name);
     if (p.smooth !== undefined) { setSmooth(p.smooth); engineRef.current?.setSmooth(p.smooth); }
+    if (p.mode !== undefined) { setMode(p.mode); engineRef.current?.setMode?.(p.mode); }
     const e = engineRef.current;
     if (e) { e.setSpace(p.space); e.setTuck(p.tuck); e.setGlue(p.glue); e.setColor(p.color); e.setWidth(p.width); e.setMix(p.mix); }
   }, []);
@@ -522,6 +533,29 @@ export default function ReverbBusOrb({
       {/* Hero canvas */}
       <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <BusMeterCanvas space={space} tuck={tuck} glue={glue} color={color} width={width} peak={peak} outPeak={outPeak} gr={gr} reverbLevel={reverbLevel} />
+      </div>
+
+      {/* MODE selector */}
+      <div style={{
+        padding: '5px 14px 4px', display: 'flex', justifyContent: 'center', gap: 5,
+        borderTop: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
+      }}>
+        {MODES.map((m, i) => {
+          const active = mode === i;
+          return (
+            <button key={m} onClick={() => { setMode(i); engineRef.current?.setMode?.(i); setActivePreset(null); }}
+              style={{
+                fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', padding: '3px 7px',
+                borderRadius: 3, cursor: 'pointer', border: 'none', outline: 'none',
+                background: active ? 'rgba(255,216,0,0.22)' : 'rgba(255,255,255,0.03)',
+                color: active ? '#FFD800' : 'rgba(180,145,20,0.45)',
+                boxShadow: active ? '0 0 7px rgba(255,216,0,0.35), inset 0 0 4px rgba(255,216,0,0.08)' : 'none',
+                border: active ? '1px solid rgba(255,216,0,0.4)' : '1px solid rgba(100,80,20,0.18)',
+                transition: 'all 0.13s',
+                fontFamily: '"Courier New", monospace',
+              }}>{m}</button>
+          );
+        })}
       </div>
 
       {/* Knob row */}
