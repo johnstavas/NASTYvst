@@ -207,10 +207,10 @@ export default function Iron1073Orb({
   return (
     <div style={{
       width: 380,
-      height: 500,
+      minHeight: 500,
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      overflow: 'visible',
       borderRadius: 12,
       padding: 14,
       background: PANEL_BG,
@@ -244,7 +244,7 @@ export default function Iron1073Orb({
       </div>
 
       {/* Three-knob row */}
-      <div className="flex items-end justify-around mb-3" style={{ flex: 1, minHeight: 0 }}>
+      <div className="flex items-end justify-around mb-3">
         <IronKnob
           label="DRIVE"
           value={drive}

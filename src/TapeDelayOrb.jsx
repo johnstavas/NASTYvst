@@ -373,12 +373,12 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
   return (
     <div style={{
       width: 380,
-      height: 500,
+      minHeight: 500,
       display: 'flex',
       flexDirection: 'column',
       background: '#181814',
       borderRadius: 10,
-      overflow: 'hidden',
+      overflow: 'visible',
       fontFamily: 'sans-serif',
       userSelect: 'none',
       border: '2px solid #111',
@@ -411,10 +411,10 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
       </div>
 
       {/* ── Body — dark housing with green panel inserts ── */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding:'10px 10px 12px', background:'#1c1c18' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', padding:'10px 10px 12px', background:'#1c1c18' }}>
 
         {/* Meters — green panel */}
-        <div style={{ ...greenPanel, flex: 1, minHeight: 0 }}>
+        <div style={{ ...greenPanel }}>
           {/* Top row: LEVEL label + VU needle meters + gain knobs */}
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             <span style={{ ...secLabel, marginBottom:0 }}>Level</span>

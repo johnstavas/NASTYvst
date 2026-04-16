@@ -362,10 +362,10 @@ export default function NastyNeveOrb({
   return (
     <div style={{
       width: 380,
-      height: 500,
+      minHeight: 500,
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      overflow: 'visible',
       borderRadius: 12,
       padding: '12px 14px 10px',
       background: PANEL_BG,
@@ -450,7 +450,7 @@ export default function NastyNeveOrb({
 
       {/* ── PREAMP section ── */}
       <SectionLabel>PREAMP</SectionLabel>
-      <div className="flex items-end justify-around mb-4" style={{ flex: 1, minHeight: 0 }}>
+      <div className="flex items-end justify-around mb-4">
         <NastyKnob
           label="DRIVE" value={drive} onChange={wDriveS}
           min={0} max={18} defaultValue={0} size={38}

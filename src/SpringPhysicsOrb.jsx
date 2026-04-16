@@ -305,12 +305,12 @@ export default function SpringPhysicsOrb({
   return (
     <div style={{
       width: 380,
-      height: 500,
+      minHeight: 500,
       display: 'flex',
       flexDirection: 'column',
       background: '#0e0e0e',
       borderRadius: 8,
-      overflow: 'hidden',
+      overflow: 'visible',
       fontFamily: 'sans-serif',
       userSelect: 'none',
       boxShadow: `0 6px 40px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.06)`,
@@ -392,7 +392,7 @@ export default function SpringPhysicsOrb({
       </div>
 
       {/* ── Body: knob rows + coil column ── */}
-      <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
 
         {/* Left: both knob rows stacked */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

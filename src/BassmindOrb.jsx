@@ -853,7 +853,7 @@ export default function BassmindOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      width: 380, minHeight: 500, borderRadius: 5, position: 'relative', overflow: 'visible', display: 'flex', flexDirection: 'column',
       background: `
         linear-gradient(180deg, #0c1828 0%, #081420 15%, #060e18 40%, #040a12 60%, #060e18 80%, #081420 100%)
       `,
@@ -952,7 +952,6 @@ export default function BassmindOrb({
 
       {/* ════════ SONAR DISPLAY with Depth Gauge ════════ */}
       <div style={{
-        flex: 1, minHeight: 0,
         display: 'flex', position: 'relative', zIndex: 2,
         background: 'radial-gradient(ellipse at center, rgba(8,14,24,1) 0%, rgba(4,8,16,1) 100%)',
       }}>

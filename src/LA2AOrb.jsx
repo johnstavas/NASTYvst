@@ -621,12 +621,12 @@ export default function LA2AOrb({
   return (
     <div style={{
       width: 380,
-      height: 500,
+      minHeight: 500,
       display: 'flex',
       flexDirection: 'column',
       background: 'linear-gradient(180deg,#e8e0c8 0%,#d8cfb4 100%)',
       borderRadius: 6,
-      overflow: 'hidden',
+      overflow: 'visible',
       fontFamily: 'sans-serif',
       userSelect: 'none',
       border: '2px solid #000',
@@ -720,10 +720,10 @@ export default function LA2AOrb({
       </div>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '7px 10px 9px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '7px 10px 9px', display: 'flex', flexDirection: 'column' }}>
 
         {/* VU meter panel — the hero, centered, mode-switchable */}
-        <div style={{ ...panel, flex: 1, minHeight: 0 }}>
+        <div style={{ ...panel }}>
           <div
             onClick={cycleMeterMode}
             title="Click to cycle: Gain Reduction / Output ×4 / Output ×10"

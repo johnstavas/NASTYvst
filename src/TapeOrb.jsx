@@ -824,13 +824,13 @@ export default function TapeOrb({
       `}</style>
 
       <div style={{
-        width: 380, height: 500,
+        width: 380, minHeight: 500,
         fontFamily: 'sans-serif',
         userSelect: 'none',
         // rounded-2xl (16 px) like the Space module — soft, atmospheric,
         // not the boxy hardware-chassis look of the Neve.
         borderRadius: 16,
-        overflow: 'hidden',
+        overflow: 'visible',
         display: 'flex', flexDirection: 'column',
         // Neutral dark panel — DOES NOT change with drive. The user only
         // sees drive feedback in the VU meters and the spinning reels;
@@ -875,7 +875,7 @@ export default function TapeOrb({
           </div>
         )}
 
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
 
           {/* Header — TASCAM brand row + bypass + remove */}
           <div style={{

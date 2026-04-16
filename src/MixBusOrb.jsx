@@ -499,8 +499,8 @@ export default function MixBusOrb({
   const WOOD = 'linear-gradient(90deg,#3a2800,#6b4400,#3a2800)';
 
   return (
-    <div style={{ width:MODULE_W, height:500, fontFamily:'sans-serif', userSelect:'none',
-      borderRadius:6, overflow:'hidden', background:'#09090f',
+    <div style={{ width:MODULE_W, minHeight:500, fontFamily:'sans-serif', userSelect:'none',
+      borderRadius:6, overflow:'visible', background:'#09090f',
       boxShadow:'0 8px 48px rgba(0,0,0,0.9)',
       display:'flex', flexDirection:'column' }}>
 
@@ -539,7 +539,7 @@ export default function MixBusOrb({
       </div>
 
       {/* EQ Canvas */}
-      <div style={{ flex:1, minHeight:0, borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <canvas ref={canvasRef} width={EQ_W} height={EQ_H}
           style={{ display:'block', touchAction:'none', cursor:'crosshair' }}
           onPointerDown={onPD} onPointerMove={onPM}

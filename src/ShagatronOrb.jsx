@@ -261,11 +261,11 @@ export default function ShagatronOrb({
   return (
     <div style={{
       width: 380,
-      height: 500,
+      minHeight: 500,
       display: 'flex',
       flexDirection: 'column',
       borderRadius: 6,
-      overflow: 'hidden',
+      overflow: 'visible',
       // Black rack frame
       background: '#0a0a10',
       border: '2px solid #1a1a2a',
@@ -278,7 +278,6 @@ export default function ShagatronOrb({
 
       {/* Cream faceplate — the whole inner panel */}
       <div style={{
-        flex: 1, minHeight: 0,
         display: 'flex', flexDirection: 'column',
         margin: '0 6px',
         background: 'linear-gradient(180deg, #f4f0e4 0%, #ede8d8 30%, #e8e2d2 60%, #e2dccc 100%)',
@@ -357,7 +356,7 @@ export default function ShagatronOrb({
         </div>
 
         {/* Main row: SHAG (big) + meters + LEVEL (big) */}
-        <div style={{ ...panel, flex: 1, minHeight: 0, padding: '8px 8px' }}>
+        <div style={{ ...panel, padding: '8px 8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Knob label="SHAG" value={shag} min={0} max={1} defaultValue={0.4}
               onChange={v => { setShag(v); engineRef.current?.setShag(v); setActivePreset(null); }}

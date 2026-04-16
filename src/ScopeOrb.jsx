@@ -409,9 +409,9 @@ export default function ScopeOrb({
 
   return (
     <div
-      className="text-white rounded-2xl overflow-hidden relative flex flex-col"
+      className="text-white rounded-2xl relative flex flex-col"
       style={{
-        width: W, height: 500, overflow: 'hidden',
+        width: W, minHeight: 500, overflow: 'visible',
         display: 'flex', flexDirection: 'column',
         background: `radial-gradient(ellipse at 30% 20%, ${accentColor(30, 9, 1)}, transparent 55%), radial-gradient(ellipse at 70% 80%, ${accentColor(22, 6, 1)}, transparent 55%), #0a0f0c`,
         border: '1px solid rgba(255,255,255,0.06)',
@@ -484,7 +484,7 @@ export default function ScopeOrb({
       </div>
 
       {/* Spectrum + stereo meter strip */}
-      <div className="flex" style={{ flex: 1, minHeight: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <canvas
           ref={specCanvasRef}
           width={SPEC_W * 2} height={SPEC_H * 2}
