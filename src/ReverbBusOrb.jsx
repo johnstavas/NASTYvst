@@ -231,10 +231,116 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       ctx.fillStyle='#141414'; ctx.fillRect(bL, midY, bW, bBot+bounce-midY);
       ctx.beginPath(); ctx.moveTo(bR,midY); ctx.lineTo(hR,midY+(hTop-bY)*0.9+bounce*0.5);
       ctx.lineTo(hR,bBot+bounce); ctx.lineTo(bR,bBot+bounce); ctx.closePath(); ctx.fill();
-      // REVERB BUS stencil text in stripe
-      ctx.save(); ctx.font='bold 7px "Arial Narrow","Arial",sans-serif'; ctx.textAlign='center';
-      ctx.fillStyle='rgba(255,216,0,0.7)'; ctx.letterSpacing='2px';
-      ctx.fillText('REVERB  BUS', bL+bW*0.46, midY+(bBot+bounce-midY)*0.55+2); ctx.restore();
+
+      // ── STICKER DECALS on the black stripe ───────────────────────────
+      var stripeH = bBot+bounce - midY;
+      var sCY = midY + stripeH * 0.5; // sticker center y
+
+      // helper: draw sticker with white border effect
+      function sticker(fn) { ctx.save(); fn(); ctx.restore(); }
+
+      // STICKER 1: eyeball (~x=bL+30)
+      sticker(function(){
+        var ex=bL+34, ey=sCY, er=stripeH*0.38;
+        // white border
+        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(ex,ey,er+1.5,0,Math.PI*2); ctx.fill();
+        // sclera
+        ctx.fillStyle='#f0ece4'; ctx.beginPath(); ctx.arc(ex,ey,er,0,Math.PI*2); ctx.fill();
+        // iris (spins with audio)
+        var iR=er*0.55;
+        ctx.save(); ctx.translate(ex,ey); ctx.rotate(h.wheelAngle*0.3);
+        var iG=ctx.createRadialGradient(0,0,0,0,0,iR);
+        iG.addColorStop(0,'#1a8c2a'); iG.addColorStop(0.5,'#0d5c1a'); iG.addColorStop(1,'#062e0d');
+        ctx.fillStyle=iG; ctx.beginPath(); ctx.arc(0,0,iR,0,Math.PI*2); ctx.fill();
+        // iris detail lines
+        ctx.strokeStyle='rgba(30,180,60,0.35)'; ctx.lineWidth=0.7;
+        for(var il=0;il<8;il++){var ia=(il/8)*Math.PI*2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(ia)*iR,Math.sin(ia)*iR);ctx.stroke();}
+        ctx.restore();
+        // pupil (dilates with signal)
+        var pR=er*0.22*(1+h.sig*0.6);
+        ctx.fillStyle='#050505'; ctx.beginPath(); ctx.arc(ex,ey,pR,0,Math.PI*2); ctx.fill();
+        // pupil shine
+        ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.arc(ex-er*0.12,ey-er*0.14,er*0.09,0,Math.PI*2); ctx.fill();
+        // bloodshot veins at high signal
+        if(h.sig>0.4){
+          ctx.strokeStyle='rgba(220,40,40,'+(h.sig*0.5)+')'; ctx.lineWidth=0.6;
+          var vAngles=[0.3,1.1,2.0,2.8,4.2,5.1];
+          for(var vi=0;vi<vAngles.length;vi++){
+            ctx.beginPath(); ctx.moveTo(ex+Math.cos(vAngles[vi])*pR*1.5,ey+Math.sin(vAngles[vi])*pR*1.5);
+            ctx.quadraticCurveTo(ex+Math.cos(vAngles[vi]+0.4)*er*0.65,ey+Math.sin(vAngles[vi]+0.4)*er*0.65,
+              ex+Math.cos(vAngles[vi]+0.15)*er*0.9,ey+Math.sin(vAngles[vi]+0.15)*er*0.9); ctx.stroke();
+          }
+        }
+      });
+
+      // STICKER 2: cute cyclops monster (~x=bL+90)
+      sticker(function(){
+        var mx=bL+94, my=sCY, mr=stripeH*0.4;
+        // white border
+        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(mx,my,mr+1.5,0,Math.PI*2); ctx.fill();
+        // body
+        ctx.fillStyle='#4caf7a'; ctx.beginPath(); ctx.arc(mx,my,mr,0,Math.PI*2); ctx.fill();
+        // furry top bumps
+        ctx.fillStyle='#3d9c68';
+        for(var fi=0;fi<5;fi++){var fa=-0.6+fi*0.3;ctx.beginPath();ctx.arc(mx+Math.cos(fa-Math.PI/2)*mr,my+Math.sin(fa-Math.PI/2)*mr,mr*0.18,0,Math.PI*2);ctx.fill();}
+        // big eye
+        ctx.fillStyle='white'; ctx.beginPath(); ctx.ellipse(mx,my-mr*0.05,mr*0.42,mr*0.38,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#1a6ee0'; ctx.beginPath(); ctx.arc(mx,my-mr*0.05,mr*0.25,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#050505'; ctx.beginPath(); ctx.arc(mx,my-mr*0.05,mr*0.14,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(mx-mr*0.08,my-mr*0.12,mr*0.07,0,Math.PI*2); ctx.fill();
+        // smile (gets bigger with signal)
+        var smW=mr*(0.45+h.sig*0.25);
+        ctx.strokeStyle='#1a3a12'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(mx,my+mr*0.22,smW,0.1,Math.PI-0.1); ctx.stroke();
+        // tiny teeth
+        ctx.fillStyle='white';
+        for(var ti=0;ti<3;ti++){ctx.fillRect(mx-smW*0.55+ti*smW*0.42,my+mr*0.22,smW*0.28,mr*0.12);}
+      });
+
+      // STICKER 3: melting smiley (~x=bL+158)
+      sticker(function(){
+        var sx2=bL+160, sy=sCY, sr=stripeH*0.37;
+        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(sx2,sy,sr+1.5,0,Math.PI*2); ctx.fill();
+        // face
+        ctx.fillStyle='#f5c800'; ctx.beginPath(); ctx.arc(sx2,sy,sr,0,Math.PI*2); ctx.fill();
+        // melting drip at bottom
+        ctx.fillStyle='#f5c800';
+        ctx.beginPath(); ctx.moveTo(sx2-sr*0.3,sy+sr*0.8);
+        ctx.quadraticCurveTo(sx2-sr*0.35,sy+sr*1.4,sx2-sr*0.2,sy+sr*(1.5+h.sig*0.5));
+        ctx.quadraticCurveTo(sx2,sy+sr*1.2,sx2+sr*0.15,sy+sr*(1.4+h.sig*0.4));
+        ctx.quadraticCurveTo(sx2+sr*0.3,sy+sr*1.5,sx2+sr*0.2,sy+sr*0.8); ctx.closePath(); ctx.fill();
+        // eyes (X eyes)
+        ctx.strokeStyle='#222'; ctx.lineWidth=1.2;
+        [[sx2-sr*0.3,sy-sr*0.15],[sx2+sr*0.3,sy-sr*0.15]].forEach(function(e){
+          ctx.beginPath(); ctx.moveTo(e[0]-sr*0.1,e[1]-sr*0.1); ctx.lineTo(e[0]+sr*0.1,e[1]+sr*0.1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(e[0]+sr*0.1,e[1]-sr*0.1); ctx.lineTo(e[0]-sr*0.1,e[1]+sr*0.1); ctx.stroke();
+        });
+        // wobbly smile
+        ctx.beginPath(); ctx.arc(sx2,sy+sr*0.15,sr*0.42,0.15,Math.PI-0.15); ctx.stroke();
+      });
+
+      // STICKER 4: mini skull (~x=bL+222)
+      sticker(function(){
+        var kx=bL+224, ky=sCY, kr=stripeH*0.36;
+        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(kx,ky,kr+1.5,0,Math.PI*2); ctx.fill();
+        // skull bg (purple circle)
+        ctx.fillStyle='#7c3fa0'; ctx.beginPath(); ctx.arc(kx,ky,kr,0,Math.PI*2); ctx.fill();
+        // skull dome
+        ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(kx,ky-kr*0.1,kr*0.52,Math.PI,0); ctx.fill();
+        // jaw
+        ctx.fillStyle='white'; ctx.fillRect(kx-kr*0.35,ky+kr*0.05,kr*0.7,kr*0.32);
+        // eye sockets
+        ctx.fillStyle='#7c3fa0';
+        ctx.beginPath(); ctx.ellipse(kx-kr*0.18,ky-kr*0.12,kr*0.13,kr*0.16,0,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(kx+kr*0.18,ky-kr*0.12,kr*0.13,kr*0.16,0,0,Math.PI*2); ctx.fill();
+        // nose
+        ctx.beginPath(); ctx.moveTo(kx,ky+kr*0.05); ctx.lineTo(kx-kr*0.08,ky+kr*0.2); ctx.lineTo(kx+kr*0.08,ky+kr*0.2); ctx.closePath(); ctx.fill();
+        // teeth
+        ctx.fillStyle='#7c3fa0';
+        for(var ti2=0;ti2<3;ti2++){ctx.fillRect(kx-kr*0.28+ti2*kr*0.2,ky+kr*0.22,kr*0.12,kr*0.16);}
+        // signal-reactive glow
+        if(h.sig>0.2){ctx.strokeStyle='rgba(220,100,255,'+(h.sig*0.7)+')'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(kx,ky,kr+0.5,0,Math.PI*2); ctx.stroke();}
+      });
 
       // ── CHROME REAR BUMPER ────────────────────────────────────────────
       var chromeG=ctx.createLinearGradient(0,bBot+bounce,0,bBot+bounce+7);
@@ -632,19 +738,28 @@ export default function ReverbBusOrb({
         background: 'linear-gradient(180deg, rgba(255,255,255,0.01) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1, gap: 3 }}>
+          {/* REVERB BUS — stacked two-line logo like a bus destination sign */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 900, letterSpacing: '0.45em',
+              color: 'rgba(180,140,10,0.55)',
+              fontFamily: '"Arial Black", "Arial Bold", Impact, sans-serif',
+              textTransform: 'uppercase', lineHeight: 1,
+            }}>REVERB</span>
+            <span style={{
+              fontSize: 20, fontWeight: 900, letterSpacing: '0.08em',
+              background: 'linear-gradient(180deg, #FFE566 0%, #FFD800 40%, #c9a800 100%)',
+              backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 2px 6px rgba(255,200,0,0.5)) drop-shadow(0 0 14px rgba(255,216,0,0.3))',
+              fontFamily: '"Arial Black", "Arial Bold", Impact, sans-serif',
+              textTransform: 'uppercase', lineHeight: 1,
+            }}>BUS</span>
+          </div>
           <span style={{
-            fontSize: 14, fontWeight: 800, letterSpacing: '0.12em',
-            background: 'linear-gradient(135deg, #FFD800 0%, #e8c200 35%, #FFE040 65%, #d4ae00 100%)',
-            backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 0 7px rgba(255,216,0,0.45))',
-            fontFamily: '"Courier New", monospace',
-          }}>REVERB BUS</span>
-          <span style={{
-            fontSize: 6, fontWeight: 400, color: 'rgba(200,165,20,0.3)',
-            letterSpacing: '0.25em', marginTop: 1.5,
-            fontFamily: '"Courier New", monospace',
-          }}>stem glue reverb</span>
+            fontSize: 5.5, fontWeight: 400, color: 'rgba(200,165,20,0.28)',
+            letterSpacing: '0.3em', fontFamily: 'system-ui, Arial, sans-serif',
+          }}>stem · glue · reverb</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <GainKnob label="OUT" value={outputGain} onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }} />
