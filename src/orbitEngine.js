@@ -13,7 +13,7 @@
 //   MIX    — dry/wet (0-1)
 //   BYPASS
 
-const PROCESSOR_VERSION = 'orbit-v5';
+const PROCESSOR_VERSION = 'orbit-v6';
 
 const PROCESSOR_CODE = `
 class OrbitProcessor extends AudioWorkletProcessor {
@@ -135,7 +135,8 @@ class OrbitProcessor extends AudioWorkletProcessor {
     const apCoef   = 0.5;
 
     // Orbit LFO rate — 0 speed = fully frozen, no movement
-    const orbitHz  = speed * speed * 3.5;
+    // Max 8 Hz so 1/16 note at 120 BPM lands exactly at speed=1
+    const orbitHz  = speed * speed * 8.0;
     const orbitInc = orbitHz / sr;
 
     // Tilt EQ — gentle, not dramatic

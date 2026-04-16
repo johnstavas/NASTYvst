@@ -466,6 +466,46 @@ function GainKnob({ value, onChange, label, defaultValue = 1 }) {
   );
 }
 
+// ─── Tempo Sync ──────────────────────────────────────────────────────────────
+const SYNC_DIVS = [
+  { label: '1/2',  beats: 2    },
+  { label: '1/4',  beats: 1    },
+  { label: '1/8',  beats: 0.5  },
+  { label: '1/16', beats: 0.25 },
+];
+
+function TempoSync({ bpm, onBpmChange, onSync }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      <span style={{ fontSize: 7, color: 'rgba(60,160,255,0.4)', fontFamily: 'Georgia, serif', marginRight: 1 }}>♩=</span>
+      <input
+        type="number" value={bpm} min={40} max={240} step={1}
+        onChange={e => onBpmChange(Math.max(40, Math.min(240, Number(e.target.value) || 120)))}
+        style={{
+          width: 32, fontSize: 7, fontWeight: 700, textAlign: 'center',
+          background: 'rgba(40,120,255,0.06)', border: '1px solid rgba(40,120,255,0.2)',
+          color: 'rgba(100,180,255,0.8)', borderRadius: 2, padding: '2px 2px',
+          outline: 'none', fontFamily: '"Courier New", monospace',
+        }}
+      />
+      {SYNC_DIVS.map(d => (
+        <button key={d.label} onClick={() => onSync(d.beats)} style={{
+          fontSize: 7, fontWeight: 700, letterSpacing: '0.04em',
+          padding: '2px 5px', borderRadius: 2, cursor: 'pointer',
+          background: 'transparent',
+          color: 'rgba(60,180,255,0.55)',
+          border: '1px solid rgba(40,120,255,0.18)',
+          fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
+          transition: 'all 0.12s',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(100,210,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(60,180,255,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(60,180,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(40,120,255,0.18)'; }}
+        >{d.label}</button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Path Selector Buttons ───────────────────────────────────────────────────
 function PathSelector({ value, onChange }) {
   return (
@@ -515,6 +555,7 @@ export default function OrbitOrb({
   const [bypassed, setBypassed] = useState(initialState?.bypassed ?? false);
   const [smooth, setSmooth] = useState(initialState?.smooth ?? 0);
   const [activePreset, setActivePreset] = useState(initialState?.preset ?? null);
+  const [bpm, setBpm] = useState(120);
   const [peak, setPeak] = useState(0);
   const [outPeak, setOutPeak] = useState(0);
   const [orbX, setOrbX] = useState(0);
@@ -567,6 +608,16 @@ export default function OrbitOrb({
     const e = engineRef.current;
     if (e) { e.setSpeed(p.speed); e.setPath(p.path); e.setWidth(p.width); e.setDepth(p.depth); e.setTone(p.tone); e.setMix(p.mix); if (p.smooth !== undefined) e.setSmooth(p.smooth); }
   }, []);
+
+  const syncToTempo = useCallback((beats) => {
+    // Hz = BPM / (60 * beats_per_cycle)
+    const hz = bpm / (60 * beats);
+    // Invert orbitHz = speed² × 8 → speed = sqrt(hz / 8)
+    const newSpeed = Math.min(1, Math.sqrt(hz / 8.0));
+    setSpeed(newSpeed);
+    engineRef.current?.setSpeed(newSpeed);
+    setActivePreset(null);
+  }, [bpm]);
 
   const pctFmt = v => `${Math.round(v * 100)}%`;
 
@@ -628,12 +679,13 @@ export default function OrbitOrb({
         <OrbitCanvas speed={speed} path={path} width={width} depth={depth} peak={peak} outPeak={outPeak} orbX={orbX} orbY={orbY} />
       </div>
 
-      {/* Path selector row */}
+      {/* Path selector + tempo sync row */}
       <div style={{
-        padding: '4px 18px', display: 'flex', justifyContent: 'center',
+        padding: '4px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         borderTop: '1px solid rgba(40,120,255,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <PathSelector value={Math.round(path)} onChange={v => { setPath(v); engineRef.current?.setPath(v); setActivePreset(null); }} />
+        <TempoSync bpm={bpm} onBpmChange={setBpm} onSync={syncToTempo} />
       </div>
 
       {/* Knob row */}
