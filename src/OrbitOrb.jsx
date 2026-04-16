@@ -438,8 +438,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <SpaceKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(60,180,255,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5.5, color: 'rgba(40,140,255,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 8.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(60,180,255,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 7, color: 'rgba(40,140,255,0.5)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -461,7 +461,7 @@ function GainKnob({ value, onChange, label, defaultValue = 1 }) {
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <SpaceKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 5, letterSpacing: '0.1em', color: 'rgba(60,160,255,0.45)', fontWeight: 700, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', marginTop: -1 }}>{label}</span>
+      <span style={{ fontSize: 7, letterSpacing: '0.1em', color: 'rgba(60,160,255,0.55)', fontWeight: 700, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', marginTop: 1 }}>{label}</span>
     </div>
   );
 }
@@ -476,38 +476,32 @@ const SYNC_DIVS = [
 
 function TempoSync({ bpm, onBpmChange, onSync }) {
   const btnStyle = {
-    fontSize: 6.5, fontWeight: 700, letterSpacing: '0.03em',
-    padding: '2px 4px', borderRadius: 2, cursor: 'pointer',
-    background: 'transparent', color: 'rgba(60,180,255,0.55)',
-    border: '1px solid rgba(40,120,255,0.18)',
+    fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+    padding: '5px 10px', borderRadius: 3, cursor: 'pointer',
+    background: 'transparent', color: 'rgba(60,180,255,0.6)',
+    border: '1px solid rgba(40,120,255,0.22)',
     fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
-    transition: 'all 0.12s', lineHeight: 1,
+    transition: 'all 0.12s',
   };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      {/* BPM input */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <span style={{ fontSize: 6.5, color: 'rgba(60,160,255,0.4)', fontFamily: 'Georgia, serif' }}>♩=</span>
-        <input
-          type="number" value={bpm} min={40} max={240} step={1}
-          onChange={e => onBpmChange(Math.max(40, Math.min(240, Number(e.target.value) || 120)))}
-          style={{
-            width: 30, fontSize: 6.5, fontWeight: 700, textAlign: 'center',
-            background: 'rgba(40,120,255,0.06)', border: '1px solid rgba(40,120,255,0.2)',
-            color: 'rgba(100,180,255,0.8)', borderRadius: 2, padding: '1px 2px',
-            outline: 'none', fontFamily: '"Courier New", monospace',
-          }}
-        />
-      </div>
-      {/* Division buttons — 2×2 grid */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, width: 50, justifyContent: 'center' }}>
-        {SYNC_DIVS.map(d => (
-          <button key={d.label} onClick={() => onSync(d.beats)} style={btnStyle}
-            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(100,210,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(60,180,255,0.4)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(60,180,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(40,120,255,0.18)'; }}
-          >{d.label}</button>
-        ))}
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+      <span style={{ fontSize: 9, color: 'rgba(60,160,255,0.45)', fontFamily: 'Georgia, serif', flexShrink: 0 }}>♩=</span>
+      <input
+        type="number" value={bpm} min={40} max={240} step={1}
+        onChange={e => onBpmChange(Math.max(40, Math.min(240, Number(e.target.value) || 120)))}
+        style={{
+          width: 38, fontSize: 10, fontWeight: 700, textAlign: 'center',
+          background: 'rgba(40,120,255,0.06)', border: '1px solid rgba(40,120,255,0.22)',
+          color: 'rgba(100,180,255,0.85)', borderRadius: 3, padding: '4px 3px',
+          outline: 'none', fontFamily: '"Courier New", monospace', flexShrink: 0,
+        }}
+      />
+      {SYNC_DIVS.map(d => (
+        <button key={d.label} onClick={() => onSync(d.beats)} style={btnStyle}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(120,220,255,0.95)'; e.currentTarget.style.background = 'rgba(40,120,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(60,180,255,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(60,180,255,0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(40,120,255,0.22)'; }}
+        >{d.label}</button>
+      ))}
     </div>
   );
 }
@@ -518,8 +512,8 @@ function PathSelector({ value, onChange }) {
     <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
       {PATH_NAMES.map((name, i) => (
         <button key={i} onClick={() => onChange(i)} style={{
-          fontSize: 8, fontWeight: 700, letterSpacing: '0.08em',
-          padding: '3px 8px', borderRadius: 2, cursor: 'pointer',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+          padding: '5px 12px', borderRadius: 3, cursor: 'pointer',
           background: value === i ? 'rgba(60,180,255,0.15)' : 'transparent',
           color: value === i ? 'rgba(100,200,255,0.9)' : 'rgba(60,140,200,0.4)',
           border: `1px solid ${value === i ? 'rgba(60,180,255,0.3)' : 'rgba(40,80,140,0.15)'}`,
@@ -680,44 +674,51 @@ export default function OrbitOrb({
         </div>
       </div>
 
-      {/* Hero canvas */}
-      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
+      {/* Hero canvas — fixed height so controls below have room */}
+      <div style={{ position: 'relative', zIndex: 2, height: 168, flexShrink: 0 }}>
         <OrbitCanvas speed={speed} path={path} width={width} depth={depth} peak={peak} outPeak={outPeak} orbX={orbX} orbY={orbY} />
       </div>
 
       {/* Path selector row */}
       <div style={{
-        padding: '4px 18px', display: 'flex', justifyContent: 'center',
-        borderTop: '1px solid rgba(40,120,255,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
+        padding: '5px 18px', display: 'flex', justifyContent: 'center',
+        borderTop: '1px solid rgba(40,120,255,0.08)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <PathSelector value={Math.round(path)} onChange={v => { setPath(v); engineRef.current?.setPath(v); setActivePreset(null); }} />
       </div>
 
-      {/* Knob row */}
+      {/* Speed + Sync section — dedicated row */}
       <div style={{
-        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '6px 18px 7px', display: 'flex', alignItems: 'center', gap: 10,
+        borderTop: '1px solid rgba(40,120,255,0.08)',
+        background: 'rgba(20,60,180,0.025)', flexShrink: 0,
+      }}>
+        <Knob label="SPEED" value={speed} defaultValue={0.3} size={32}
+          format={v => `${(v * v * 8).toFixed(2)}Hz`}
+          onChange={v => { setSpeed(v); engineRef.current?.setSpeed(v); setActivePreset(null); }} />
+        <div style={{ width: 1, height: 38, background: 'rgba(40,120,255,0.12)', flexShrink: 0 }} />
+        <TempoSync bpm={bpm} onBpmChange={setBpm} onSync={syncToTempo} />
+      </div>
+
+      {/* Main knob row — WIDTH DEPTH TONE MIX */}
+      <div style={{
+        padding: '8px 14px 6px', display: 'flex', justifyContent: 'space-evenly', alignItems: 'flex-start',
         borderTop: '1px solid rgba(40,120,255,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
-        {/* SPEED knob + tempo sync stacked below */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <Knob label="SPEED" value={speed} defaultValue={0.3} size={28} format={v => `${(v * v * 8).toFixed(2)}Hz`}
-            onChange={v => { setSpeed(v); engineRef.current?.setSpeed(v); setActivePreset(null); }} />
-          <TempoSync bpm={bpm} onBpmChange={setBpm} onSync={syncToTempo} />
-        </div>
-        <Knob label="WIDTH" value={width} defaultValue={0.6} size={28} format={pctFmt}
+        <Knob label="WIDTH" value={width} defaultValue={0.6} size={32} format={pctFmt}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
-        <Knob label="DEPTH" value={depth} defaultValue={0.4} size={28} format={pctFmt}
+        <Knob label="DEPTH" value={depth} defaultValue={0.4} size={32} format={pctFmt}
           onChange={v => { setDepth(v); engineRef.current?.setDepth(v); setActivePreset(null); }} />
-        <Knob label="TONE" value={tone} defaultValue={0.5} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
+        <Knob label="TONE" value={tone} defaultValue={0.5} size={32} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'BRIGHT' : 'WARM'}
           onChange={v => { setTone(v); engineRef.current?.setTone(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.3} size={28} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.3} size={32} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2, flexShrink: 0 }}>
+      <div style={{ padding: '5px 18px 6px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2, flexShrink: 0, borderTop: '1px solid rgba(40,120,255,0.06)' }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-          fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', padding: '5px 12px', borderRadius: 3, cursor: 'pointer',
           background: smooth > 0 ? 'rgba(60,180,255,0.18)' : 'transparent',
           color: smooth > 0 ? 'rgba(100,210,255,0.95)' : 'rgba(60,140,200,0.4)',
           border: `1px solid ${smooth > 0 ? 'rgba(60,180,255,0.45)' : 'rgba(40,80,140,0.2)'}`,
