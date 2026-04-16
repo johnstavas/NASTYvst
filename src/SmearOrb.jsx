@@ -367,13 +367,17 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
         ctx.fillRect(0, 0, W, H);
       }
 
-      // Watermark
-      ctx.save();
-      ctx.font = 'bold 38px Georgia, serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(200, 180, 160, 0.03)';
-      ctx.fillText('SMEAR', W / 2, H / 2);
-      ctx.restore();
+      // DEGRADE grain overlay — adds visual texture at high values
+      if (_degrade > 0.35) {
+        var grainAmt = (_degrade - 0.35) / 0.65;
+        var grainCount = Math.floor(grainAmt * 600);
+        for (var gi = 0; gi < grainCount; gi++) {
+          var gx = Math.random() * W, gy = Math.random() * H;
+          var gv = Math.floor(60 + Math.random() * 80);
+          ctx.fillStyle = 'rgba(' + gv + ',' + (gv-10) + ',' + (gv-20) + ',' + (grainAmt * 0.18).toFixed(3) + ')';
+          ctx.fillRect(gx, gy, 1.5, 1.5);
+        }
+      }
     };
 
     raf = requestAnimationFrame(draw);
@@ -522,6 +526,24 @@ const PRESET_COLORS = {
   border: 'rgba(210,145,155,0.12)', hoverBg: 'rgba(210,145,155,0.1)', activeBg: 'rgba(210,145,155,0.06)',
 };
 
+// ─── dB Level Meter ──────────────────────────────────────────────────────────
+function DbMeter({ peak = 0, label }) {
+  const db = peak > 0.001 ? 20 * Math.log10(peak) : -60;
+  const dbClamped = Math.max(-60, Math.min(0, db));
+  const fill = (dbClamped + 60) / 60; // 0 at -60dB, 1 at 0dB
+  const color = db > -6 ? 'rgba(255,140,80,0.9)' : db > -18 ? 'rgba(210,145,155,0.85)' : 'rgba(160,190,155,0.7)';
+  const dbStr = db <= -60 ? '-∞' : `${db >= 0 ? '+' : ''}${db.toFixed(1)}`;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 70 }}>
+      <span style={{ fontSize: 6.5, color: 'rgba(210,145,155,0.5)', letterSpacing: '0.15em', fontFamily: 'system-ui', fontWeight: 700 }}>{label}</span>
+      <div style={{ width: '100%', height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${fill * 100}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.05s' }} />
+      </div>
+      <span style={{ fontSize: 7, color, fontFamily: '"Courier New", monospace', fontWeight: 700 }}>{dbStr} dB</span>
+    </div>
+  );
+}
+
 export default function SmearOrb({
   instanceId, sharedSource, registerEngine, unregisterEngine, onRemove, onStateChange, initialState,
 }) {
@@ -617,11 +639,11 @@ export default function SmearOrb({
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
+            fontSize: 22, fontWeight: 400, letterSpacing: '0.08em',
             background: 'linear-gradient(135deg, #d2919b 0%, #9b9bc3 40%, #9bb98f 70%, #d7c38c 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 0 6px rgba(210,145,155,0.2))',
-            fontFamily: 'Georgia, "Times New Roman", serif',
+            filter: 'drop-shadow(0 0 8px rgba(210,145,155,0.3))',
+            fontFamily: '"Brush Script MT", "Segoe Script", "Comic Sans MS", cursive',
           }}>SMEAR</span>
           <span style={{
             fontSize: 6, fontWeight: 400, color: 'rgba(210,145,155,0.35)',
@@ -675,12 +697,12 @@ export default function SmearOrb({
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
-      {/* Footer */}
-      <div style={{ padding: '8px 18px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2, flexShrink: 0 }}>
-        <DropletBypass
-          active={!bypassed}
-          onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }}
-        />
+      {/* Footer — bypass + dB meters + smooth */}
+      <div style={{ padding: '8px 14px 10px', display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2, flexShrink: 0 }}>
+        <DropletBypass active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
+        <DbMeter peak={peak} label="IN" />
+        <DbMeter peak={outPeak} label="OUT" />
+        <div style={{ flex: 1 }} />
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
             fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', padding: '5px 10px', borderRadius: 3, cursor: 'pointer',

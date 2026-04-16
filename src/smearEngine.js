@@ -160,7 +160,7 @@ class SmearProcessor extends AudioWorkletProcessor {
     const degradeSat   = degrade * 2.2;          // saturation drive 0→2.2
     const degradeLpFreq = 18000 - degrade * 13000; // LP cutoff 18kHz→5kHz
     const degradeLpCoef = Math.exp(-2 * Math.PI * degradeLpFreq / sr);
-    const pitchInstab = Math.max(0, (degrade - 0.3) / 0.7) * 6; // tape wobble at high degrade
+    const pitchInstab = Math.max(0, (degrade - 0.2) / 0.8) * 18; // aggressive tape wobble above 0.2
 
     // Tilt EQ: dark(0)=heavy LP at 800 Hz, bright(1)=HP shelf boost — ±1.5×
     const tiltFreq    = 800;
