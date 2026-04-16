@@ -7,253 +7,385 @@ import PresetSelector from './PresetSelector';
 // Stacked horizontal VU meters, glue compression indicator, tuck ceiling line
 // Professional, utilitarian: dark charcoal, green/amber/red meter, blue bus indicators
 
-// ─── School Bus Canvas ───────────────────────────────────────────────────────
+// ─── Monster Truck School Bus Canvas ─────────────────────────────────────────
+// Canvas is drawn at EXACTLY W×H matching the CSS display size to avoid oval circles.
+// Header≈40 + Presets≈25 + Modes≈26 + Knobs≈63 + Footer≈24 = 178px → canvas gets 322px
+const BUS_W = 380, BUS_H = 322;
+
 function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0, gr = 0, reverbLevel = 0 }) {
   const canvasRef = useRef(null);
-  const phaseRef = useRef(0);
-  const bandHistoryRef = useRef(null);
-  const valRef = useRef({ space: 0, tuck: 0, glue: 0, color: 0, width: 0, peak: 0, outPeak: 0, gr: 0, reverbLevel: 0 });
+  const phaseRef  = useRef(0);
+  const histRef   = useRef(null);
+  const valRef    = useRef({ peak: 0, outPeak: 0, gr: 0, reverbLevel: 0 });
 
-  valRef.current = { space, tuck, glue, color, width, peak, outPeak, gr, reverbLevel };
+  valRef.current = { peak, outPeak, gr, reverbLevel };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 200;
-    canvas.width = W * 2; canvas.height = H * 2;
+    const W = BUS_W, H = BUS_H;
+    // Draw at 2× for retina but CSS size stays W×H exactly — NO aspect distortion
+    canvas.width  = W * 2;
+    canvas.height = H * 2;
     ctx.scale(2, 2);
 
-    // School bus history
-    if (!bandHistoryRef.current) {
-      bandHistoryRef.current = {
-        winLevels: [0,0,0,0,0,0],
-        wheelAngle: 0,
-        reverbSmooth: 0,
-        peakSmooth: 0,
-        grSmooth: 0,
-      };
-    }
+    if (!histRef.current) histRef.current = {
+      winLevels: new Float32Array(6),
+      wheelAngle: 0,
+      sig: 0,      // combined signal level 0–1
+      grSmooth: 0,
+      lightning: 0,
+      boltTimer: 0,
+    };
 
     let raf;
     const draw = () => {
       raf = requestAnimationFrame(draw);
-      const { peak: _peak, reverbLevel: _rv, gr: _gr } = valRef.current;
-      phaseRef.current += 0.013;
-      var ph = phaseRef.current;
-      var hist = bandHistoryRef.current;
+      const { peak: _pk, outPeak: _op, reverbLevel: _rv, gr: _gr } = valRef.current;
+      phaseRef.current += 0.014;
+      var ph  = phaseRef.current;
+      var h   = histRef.current;
 
-      hist.reverbSmooth = hist.reverbSmooth * 0.87 + (_rv || 0) * 0.13;
-      hist.peakSmooth   = hist.peakSmooth   * 0.82 + (_peak || 0) * 0.18;
-      hist.grSmooth     = hist.grSmooth     * 0.88 + (_gr || 0) * 0.12;
-      hist.wheelAngle  += 0.025 + hist.reverbSmooth * 0.08;
+      // ── signal level: drive from BOTH input peak AND reverb level, fast attack
+      var rawSig = Math.max(_pk, _op, _rv);
+      if (rawSig > h.sig) h.sig = h.sig * 0.55 + rawSig * 0.45; // fast attack
+      else                h.sig = h.sig * 0.88 + rawSig * 0.12; // slow decay
+      h.grSmooth = h.grSmooth * 0.86 + (_gr || 0) * 0.14;
+      h.wheelAngle += 0.028 + h.sig * 0.12;
+
+      // ── per-window LED levels: oscillate independently, fully driven by signal
       for (var wi = 0; wi < 6; wi++) {
-        var wTarget = hist.reverbSmooth * (0.3 + Math.sin(ph * (1.1 + wi * 0.4) + wi * 1.2) * 0.5);
-        hist.winLevels[wi] = hist.winLevels[wi] * 0.84 + Math.max(0, Math.min(1, wTarget)) * 0.16;
+        var osc = 0.5 + Math.sin(ph * (1.3 + wi * 0.38) + wi * 1.1) * 0.5; // 0–1
+        var target = h.sig * osc * (1.0 + wi * 0.06); // higher windows = slightly brighter
+        target = Math.min(1, target);
+        if (target > h.winLevels[wi]) h.winLevels[wi] = h.winLevels[wi] * 0.60 + target * 0.40;
+        else                          h.winLevels[wi] = h.winLevels[wi] * 0.88 + target * 0.12;
       }
-      var bounce = Math.sin(ph * 4.5) * hist.reverbSmooth * 1.5;
 
-      function rr(x, y, w, h, r) {
+      // ── lightning bolt (random, more likely at high signal)
+      h.boltTimer--;
+      if (h.boltTimer <= 0) {
+        h.lightning = (Math.random() < 0.008 + h.sig * 0.04) ? 1.0 : 0;
+        h.boltTimer = Math.floor(8 + Math.random() * 40);
+      } else {
+        h.lightning *= 0.72;
+      }
+
+      var bounce = Math.sin(ph * 4.8) * h.sig * 2.5;
+
+      function rr(x, y, w, hh, r) {
+        ctx.beginPath();
         ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
-        ctx.arcTo(x+w,y, x+w,y+r, r); ctx.lineTo(x+w,y+h-r);
-        ctx.arcTo(x+w,y+h, x+w-r,y+h, r); ctx.lineTo(x+r,y+h);
-        ctx.arcTo(x,y+h, x,y+h-r, r); ctx.lineTo(x,y+r);
+        ctx.arcTo(x+w,y, x+w,y+r, r); ctx.lineTo(x+w,hh+y-r);
+        ctx.arcTo(x+w,y+hh, x+w-r,y+hh, r); ctx.lineTo(x+r,y+hh);
+        ctx.arcTo(x,y+hh, x,y+hh-r, r); ctx.lineTo(x,y+r);
         ctx.arcTo(x,y, x+r,y, r); ctx.closePath();
       }
 
-      // SKY
-      var skyG = ctx.createLinearGradient(0,0,0,H);
-      skyG.addColorStop(0,'#5b8fbf'); skyG.addColorStop(0.5,'#87b8d8'); skyG.addColorStop(1,'#a8cce0');
-      ctx.fillStyle=skyG; ctx.fillRect(0,0,W,H);
+      // ════════════════════════════════════════════════════════════════
+      // LAYOUT CONSTANTS — all derived so nothing stretches
+      var roadY = H - 22;           // road surface
+      var wR    = 52;               // MONSTER TRUCK tire radius — true circle in W×H space
+      var wCy   = roadY - wR;       // axle center
+      var lift  = 28;               // suspension clearance above tire tops (lifted!)
+      var bBot  = wCy - wR - lift;  // bottom of bus body
+      var bY    = 16 + bounce;      // top of bus body
+      var bL    = 10;               // bus left edge
+      var hoodW = 55;               // hood sticks out right
+      var bR    = W - 10 - hoodW;   // bus body right edge
+      var bW    = bR - bL;          // body width
+      var bH    = bBot - bY;        // body height
+      var midY  = bY + bH * 0.60;   // belt-line stripe top
+      var rWx   = bL + 72;          // rear axle x
+      var fWx   = bR - 58;          // front axle x
+      var hR    = W - 10;           // hood right edge
+      var hTop  = bY + bH * 0.28;   // hood top junction
 
-      // CLOUDS — fluffy multi-puff with shadow base, drifting left
-      var cloudOffX = (ph * 3.5) % (W + 110);
-      var cloudDefs = [
-        {x: 50,  y: 20, s: 0.68},
-        {x: 165, y: 12, s: 0.52},
-        {x: 268, y: 21, s: 0.75},
-        {x: 375, y: 14, s: 0.58},
-        {x: 460, y: 22, s: 0.63},
-      ];
-      for (var ci2=0; ci2<cloudDefs.length; ci2++) {
-        var cfx = ((cloudDefs[ci2].x - cloudOffX + W + 110) % (W + 110)) - 45;
-        var cfy = cloudDefs[ci2].y;
-        var cs  = cloudDefs[ci2].s;
+      // ── STORMY SKY ──────────────────────────────────────────────────
+      var skyG = ctx.createLinearGradient(0,0,0,H*0.72);
+      skyG.addColorStop(0, '#1a1e2e');
+      skyG.addColorStop(0.4,'#2a3045');
+      skyG.addColorStop(1, '#3d4a5c');
+      ctx.fillStyle = skyG; ctx.fillRect(0,0,W,H);
 
-        // Blue-grey shadow puffs (drawn first, slightly lower)
-        var shd = [[cfx+cs*10,cfy+cs*7,cs*10],[cfx+cs*22,cfy+cs*8,cs*12],[cfx+cs*34,cfy+cs*7,cs*10]];
-        for (var si=0;si<shd.length;si++){
-          ctx.fillStyle='rgba(140,180,215,0.28)';
-          ctx.beginPath();ctx.arc(shd[si][0],shd[si][1],shd[si][2],0,Math.PI*2);ctx.fill();
-        }
+      // Lightning flash overlay
+      if (h.lightning > 0.05) {
+        ctx.fillStyle = 'rgba(200,220,255,' + (h.lightning * 0.18) + ')';
+        ctx.fillRect(0,0,W,H);
+        // Bolt
+        var bltX = 60 + (ph * 77 % (W - 120));
+        ctx.strokeStyle = 'rgba(200,230,255,' + (h.lightning * 0.9) + ')';
+        ctx.lineWidth = 1.5; ctx.beginPath();
+        ctx.moveTo(bltX, 0); ctx.lineTo(bltX+8, 18); ctx.lineTo(bltX+3, 18);
+        ctx.lineTo(bltX+12, 38); ctx.stroke();
+      }
 
-        // White fluffy puffs (layered, tallest in middle)
-        var pfs = [
-          [cfx,          cfy,        cs*9,  0.80],
-          [cfx+cs*8,     cfy-cs*5,   cs*11, 0.88],
-          [cfx+cs*19,    cfy-cs*8,   cs*13, 0.92],
-          [cfx+cs*31,    cfy-cs*6,   cs*11, 0.88],
-          [cfx+cs*41,    cfy,        cs*9,  0.80],
-          [cfx+cs*13,    cfy+cs*1,   cs*12, 0.94],
-          [cfx+cs*27,    cfy+cs*1,   cs*11, 0.92],
-        ];
-        for (var pi2=0;pi2<pfs.length;pi2++){
-          ctx.fillStyle='rgba(255,255,255,'+pfs[pi2][3]+')';
-          ctx.beginPath();ctx.arc(pfs[pi2][0],pfs[pi2][1],pfs[pi2][2],0,Math.PI*2);ctx.fill();
+      // ── STORM CLOUDS ────────────────────────────────────────────────
+      var cOff = (ph * 4) % (W + 120);
+      var cDefs = [{x:40,y:18,s:0.9},{x:160,y:10,s:0.7},{x:270,y:20,s:1.0},{x:380,y:12,s:0.75},{x:480,y:22,s:0.85}];
+      for (var ci=0;ci<cDefs.length;ci++){
+        var cfx=((cDefs[ci].x - cOff + W+120)%(W+120))-50, cfy=cDefs[ci].y, cs=cDefs[ci].s;
+        // dark shadow base
+        var csp=[cfx+cs*8,cfx+cs*20,cfx+cs*33];
+        for(var si=0;si<3;si++){ctx.fillStyle='rgba(30,35,55,0.55)';ctx.beginPath();ctx.arc(csp[si],cfy+cs*9,cs*11,0,Math.PI*2);ctx.fill();}
+        // main cloud puffs (dark grey)
+        var pf=[[cfx,cfy,cs*8,0.65],[cfx+cs*8,cfy-cs*5,cs*10,0.72],[cfx+cs*19,cfy-cs*8,cs*12,0.78],
+                [cfx+cs*30,cfy-cs*6,cs*10,0.72],[cfx+cs*40,cfy,cs*8,0.65],[cfx+cs*13,cfy,cs*11,0.80],[cfx+cs*26,cfy,cs*10,0.76]];
+        for(var pi=0;pi<pf.length;pi++){
+          ctx.fillStyle='rgba(75,85,110,'+pf[pi][3]+')';
+          ctx.beginPath();ctx.arc(pf[pi][0],pf[pi][1],pf[pi][2],0,Math.PI*2);ctx.fill();
         }
       }
 
-      // BIRDS (V-shape seagulls, drifting right)
-      var birdOffX = (ph * 6) % (W + 60);
-      var birdGroups = [{x:100,y:38},{x:240,y:28},{x:330,y:42}];
-      ctx.strokeStyle = 'rgba(30,30,60,0.55)';
-      ctx.lineWidth = 1;
-      for (var bi2=0; bi2<birdGroups.length; bi2++) {
-        var bx = (birdGroups[bi2].x + birdOffX) % (W + 60) - 20;
-        var by = birdGroups[bi2].y;
-        var bFlap = Math.sin(ph * 4 + bi2) * 2.5; // wing flap
-        // Left wing
-        ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx-6,by-bFlap,bx-10,by+1); ctx.stroke();
-        // Right wing
-        ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx+6,by-bFlap,bx+10,by+1); ctx.stroke();
-        // 2 more smaller birds nearby
-        ctx.beginPath(); ctx.moveTo(bx+18,by+5); ctx.quadraticCurveTo(bx+13,by+5-bFlap*0.7,bx+9,by+6); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(bx+18,by+5); ctx.quadraticCurveTo(bx+23,by+5-bFlap*0.7,bx+27,by+6); ctx.stroke();
+      // ── DISTANT CITY SILHOUETTE ──────────────────────────────────────
+      ctx.fillStyle='rgba(20,25,40,0.6)';
+      var skyline=[{x:20,w:12,h:38},{x:40,w:18,h:52},{x:64,w:10,h:30},{x:78,w:22,h:62},{x:106,w:14,h:44},
+                   {x:250,w:20,h:55},{x:276,w:12,h:38},{x:295,w:25,h:70},{x:326,w:16,h:42},{x:348,w:10,h:35}];
+      for(var sk=0;sk<skyline.length;sk++){
+        ctx.fillRect(skyline[sk].x, H*0.62-skyline[sk].h, skyline[sk].w, skyline[sk].h+10);
       }
 
-      // Treeline
-      ctx.fillStyle='rgba(40,70,45,0.35)';
-      for (var ti=0;ti<6;ti++){var tx=25+ti*62,th=18+Math.sin(ti*1.9)*7;ctx.beginPath();ctx.moveTo(tx,H*0.62);ctx.lineTo(tx-10,H*0.62+th);ctx.lineTo(tx+10,H*0.62+th);ctx.closePath();ctx.fill();}
-
-      // ROAD
-      var roadY = H - 32;
+      // ── ROAD ─────────────────────────────────────────────────────────
       var roadG = ctx.createLinearGradient(0,roadY,0,H);
-      roadG.addColorStop(0,'#4e4e52'); roadG.addColorStop(1,'#3a3a3e');
+      roadG.addColorStop(0,'#383840'); roadG.addColorStop(1,'#252528');
       ctx.fillStyle=roadG; ctx.fillRect(0,roadY,W,H-roadY);
-      ctx.fillStyle='rgba(255,255,200,0.22)'; ctx.fillRect(0,roadY,W,1.5);
-      ctx.setLineDash([20,14]); ctx.lineDashOffset=-(ph*20%34);
-      ctx.strokeStyle='rgba(255,255,180,0.5)'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(0,roadY+(H-roadY)*0.55); ctx.lineTo(W,roadY+(H-roadY)*0.55); ctx.stroke();
+      // road edge highlight
+      ctx.fillStyle='rgba(255,220,0,0.35)'; ctx.fillRect(0,roadY,W,2);
+      // dashed center line
+      ctx.setLineDash([22,15]); ctx.lineDashOffset=-(ph*22%37);
+      ctx.strokeStyle='rgba(255,240,100,0.45)'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(0,roadY+(H-roadY)*0.5); ctx.lineTo(W,roadY+(H-roadY)*0.5); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset=0;
-      ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
-      for(var pl=0;pl<5;pl++){ctx.beginPath();ctx.moveTo(50+pl*62,roadY+4);ctx.lineTo(50+pl*62,H-2);ctx.stroke();}
 
-      // BUS LAYOUT — balanced sky/road within 200px canvas
-      var bY=42+bounce, bL=8, bR=315, bW=bR-bL, bH=roadY-bY;
-      var midY=bY+bH*0.63;
-      var wR2=20, rWx=bL+58, fWx=bR-46, wCy=roadY-wR2;
+      // ── BUS SHADOW ───────────────────────────────────────────────────
+      ctx.fillStyle='rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(bL+bW*0.44, roadY+5, bW*0.44, 6, 0, 0, Math.PI*2); ctx.fill();
 
-      // Shadow
-      ctx.fillStyle='rgba(0,0,0,0.16)';
-      ctx.beginPath(); ctx.ellipse(W*0.41,roadY+5,bW*0.46,6,0,0,Math.PI*2); ctx.fill();
-
-      // YELLOW BODY
-      ctx.fillStyle='#FFD800';
-      ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.fill();
-      var bShG=ctx.createLinearGradient(bL,bY,bL,bY+bH);
-      bShG.addColorStop(0,'rgba(255,255,180,0.18)'); bShG.addColorStop(0.18,'rgba(255,255,120,0.04)');
-      bShG.addColorStop(0.75,'rgba(0,0,0,0.05)'); bShG.addColorStop(1,'rgba(0,0,0,0.18)');
-      ctx.fillStyle=bShG; ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.fill();
-
-      // HOOD
-      var hL=bR,hR=W-6,hTop=bY+bH*0.27;
-      ctx.fillStyle='#FFD800';
-      ctx.beginPath(); ctx.moveTo(hL,bY); ctx.lineTo(hR-4,hTop); ctx.lineTo(hR,hTop+5); ctx.lineTo(hR,bY+bH); ctx.lineTo(hL,bY+bH); ctx.closePath(); ctx.fill();
-      var hShG=ctx.createLinearGradient(hL,0,hR,0); hShG.addColorStop(0,'rgba(0,0,0,0)'); hShG.addColorStop(1,'rgba(0,0,0,0.13)');
-      ctx.fillStyle=hShG;
-      ctx.beginPath(); ctx.moveTo(hL,bY); ctx.lineTo(hR-4,hTop); ctx.lineTo(hR,hTop+5); ctx.lineTo(hR,bY+bH); ctx.lineTo(hL,bY+bH); ctx.closePath(); ctx.fill();
-
-      // ROOF
-      ctx.fillStyle='#e8c200'; ctx.fillRect(bL+3,bY-7,bW-5,7);
-      ctx.fillStyle='rgba(255,255,200,0.18)'; ctx.fillRect(bL+3,bY-7,bW-5,1.5);
-
-      // BLACK STRIPE
-      ctx.fillStyle='#181818'; ctx.fillRect(bL,midY,bW,bH-(midY-bY)-1);
-      ctx.beginPath(); ctx.moveTo(bR,midY); ctx.lineTo(hR,midY+(hTop-bY)*0.85); ctx.lineTo(hR,bY+bH); ctx.lineTo(bR,bY+bH); ctx.closePath(); ctx.fill();
-
-      // REVERB BUS TEXT
-      ctx.save(); ctx.font='bold 8px "Arial Narrow","Arial",sans-serif'; ctx.textAlign='center';
-      ctx.fillStyle='rgba(255,216,0,0.88)';
-      ctx.fillText('REVERB  BUS', bL+bW*0.46, midY+(bH-(midY-bY))*0.48+2); ctx.restore();
-
-      // 6 WINDOWS
-      var winT=bY+7, winH2=(midY-bY)-11, nW=6;
-      var winW2=(bW-22-(nW-1)*5)/nW, winSX=bL+11;
-      for(var w=0;w<nW;w++){
-        var wx2=winSX+w*(winW2+5), wLvl=hist.winLevels[w];
-        ctx.fillStyle='#111'; ctx.beginPath(); rr(wx2-1.5,winT-1.5,winW2+3,winH2+3,2); ctx.fill();
-        var wGrd=ctx.createLinearGradient(wx2,winT,wx2,winT+winH2);
-        wGrd.addColorStop(0,'rgba(30,45,60,0.96)'); wGrd.addColorStop(0.5,'rgba(22,35,50,0.96)'); wGrd.addColorStop(1,'rgba(18,28,40,0.98)');
-        ctx.fillStyle=wGrd; ctx.beginPath(); rr(wx2,winT,winW2,winH2,1.5); ctx.fill();
-        var nB=5, bW3=(winW2-6)/nB-1;
-        for(var b=0;b<nB;b++){
-          var bN=b/(nB-1), bx3=wx2+3+b*(bW3+1), fullBH=winH2-6;
-          var fillH2=Math.max(1,fullBH*Math.min(1,wLvl*(1.6-bN*0.5)));
-          var bTop3=winT+3+(fullBH-fillH2);
-          var br2,bg2,bb2;
-          if(bN<0.6){br2=30;bg2=200;bb2=80;}else if(bN<0.85){br2=255;bg2=216;bb2=0;}else{br2=240;bg2=50;bb2=40;}
-          ctx.fillStyle='rgba('+br2+','+bg2+','+bb2+',0.07)'; ctx.fillRect(bx3,winT+3,bW3,fullBH);
-          if(wLvl>bN*0.4){ctx.fillStyle='rgba('+br2+','+bg2+','+bb2+',0.88)';ctx.shadowColor='rgba('+br2+','+bg2+','+bb2+',0.3)';ctx.shadowBlur=2;ctx.fillRect(bx3,bTop3,bW3,fillH2);ctx.shadowBlur=0;}
+      // ── SUSPENSION STRUTS ────────────────────────────────────────────
+      var strutW=8, strutH=bBot+bounce-wCy+wR; // strut from body bottom to above axle
+      [[rWx,0],[fWx,0]].forEach(function(s){
+        var sx=s[0];
+        // coil spring (zigzag)
+        ctx.strokeStyle='rgba(180,180,200,0.7)'; ctx.lineWidth=2;
+        ctx.beginPath();
+        var sy0=bBot+bounce, sy1=wCy-wR+14;
+        var nCoils=5, coilH=(sy1-sy0)/nCoils;
+        ctx.moveTo(sx,sy0);
+        for(var ci2=0;ci2<nCoils;ci2++){
+          ctx.lineTo(sx+(ci2%2===0?strutW:-strutW), sy0+coilH*(ci2+0.5));
+          ctx.lineTo(sx, sy0+coilH*(ci2+1));
         }
-        ctx.fillStyle='rgba(255,255,255,0.05)'; ctx.beginPath(); rr(wx2+1,winT+1,winW2*0.4,winH2*0.28,1); ctx.fill();
+        ctx.stroke();
+        // strut body
+        ctx.fillStyle='rgba(100,100,120,0.55)'; ctx.fillRect(sx-3,sy0,6,sy1-sy0);
+      });
+
+      // ── EXHAUST PIPES (vertical chrome stacks) ────────────────────────
+      var exX = bL + 8;
+      ctx.fillStyle='rgba(160,160,180,0.7)'; ctx.fillRect(exX-3,bY+4+bounce,6,bH*0.45);
+      ctx.fillStyle='rgba(200,200,220,0.5)'; ctx.fillRect(exX-3,bY+4+bounce,6,2); // chrome top rim
+      // smoke puffs from exhaust
+      if (h.sig > 0.05) {
+        for(var sm=0;sm<3;sm++){
+          var smA=h.sig*(0.15-sm*0.04);
+          var smY=bY+4+bounce-(sm*12+ph*8%10);
+          ctx.fillStyle='rgba(80,80,90,'+smA+')';
+          ctx.beginPath(); ctx.arc(exX,smY,4+sm*2,0,Math.PI*2); ctx.fill();
+        }
       }
 
-      // BODY OUTLINE
-      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1; ctx.beginPath(); rr(bL,bY,bW,bH,3); ctx.stroke();
+      // ── YELLOW BUS BODY ───────────────────────────────────────────────
+      ctx.fillStyle='#FFD800';
+      rr(bL, bY, bW, bH, 4); ctx.fill();
+      // body shading gradient
+      var bShG=ctx.createLinearGradient(bL,bY,bL,bY+bH);
+      bShG.addColorStop(0,'rgba(255,255,200,0.22)'); bShG.addColorStop(0.15,'rgba(255,255,120,0.05)');
+      bShG.addColorStop(0.7,'rgba(0,0,0,0.06)');     bShG.addColorStop(1,'rgba(0,0,0,0.22)');
+      ctx.fillStyle=bShG; rr(bL,bY,bW,bH,4); ctx.fill();
 
+      // ── HOOD / NOSE ───────────────────────────────────────────────────
+      ctx.fillStyle='#FFD800';
+      ctx.beginPath();
+      ctx.moveTo(bR,bY); ctx.lineTo(hR-5,hTop); ctx.lineTo(hR,hTop+6);
+      ctx.lineTo(hR,bBot+bounce); ctx.lineTo(bR,bBot+bounce); ctx.closePath(); ctx.fill();
+      var hShG=ctx.createLinearGradient(bR,0,hR,0);
+      hShG.addColorStop(0,'rgba(0,0,0,0)'); hShG.addColorStop(1,'rgba(0,0,0,0.18)');
+      ctx.fillStyle=hShG;
+      ctx.beginPath();
+      ctx.moveTo(bR,bY); ctx.lineTo(hR-5,hTop); ctx.lineTo(hR,hTop+6);
+      ctx.lineTo(hR,bBot+bounce); ctx.lineTo(bR,bBot+bounce); ctx.closePath(); ctx.fill();
 
-      // HEADLIGHT
-      var hlX=hR-3,hlY=hTop+9+bounce;
-      ctx.fillStyle='rgba(255,252,220,'+(0.6+hist.reverbSmooth*0.4)+')';
-      ctx.shadowColor='rgba(255,250,200,'+(hist.reverbSmooth*0.7+0.2)+')'; ctx.shadowBlur=4+hist.reverbSmooth*12;
-      ctx.fillRect(hlX-11,hlY-5,11,10); ctx.shadowBlur=0;
-      if(hist.reverbSmooth>0.04){
-        var blmA=hist.reverbSmooth*0.1;
-        var blmG=ctx.createRadialGradient(hlX,hlY,2,hlX+40,hlY,65);
-        blmG.addColorStop(0,'rgba(255,252,200,'+blmA+')'); blmG.addColorStop(1,'rgba(255,252,200,0)');
-        ctx.fillStyle=blmG; ctx.beginPath(); ctx.moveTo(hlX,hlY-5); ctx.lineTo(hlX+75,hlY-22); ctx.lineTo(hlX+75,hlY+22); ctx.lineTo(hlX,hlY+5); ctx.closePath(); ctx.fill();
+      // ── ROOF RACK ─────────────────────────────────────────────────────
+      ctx.fillStyle='#c8a800'; ctx.fillRect(bL+4, bY-8+bounce, bW-6, 8);
+      ctx.fillStyle='rgba(255,255,180,0.22)'; ctx.fillRect(bL+4,bY-8+bounce,bW-6,1.5);
+      // roof rack spikes (punk)
+      ctx.fillStyle='#888';
+      for(var ri=0;ri<8;ri++){
+        var rx=bL+20+ri*32;
+        ctx.beginPath(); ctx.moveTo(rx-3,bY-8+bounce); ctx.lineTo(rx,bY-16+bounce); ctx.lineTo(rx+3,bY-8+bounce); ctx.closePath(); ctx.fill();
       }
 
-      // TAIL LIGHTS
-      var tlA=0.3+hist.reverbSmooth*0.65;
-      ctx.fillStyle='rgba(200,30,30,'+tlA+')'; ctx.shadowColor='rgba(255,40,40,'+(tlA*0.5)+')'; ctx.shadowBlur=3+hist.reverbSmooth*7;
-      ctx.fillRect(bL,bY+bH*0.4+bounce,5,14); ctx.shadowBlur=0;
-      ctx.fillStyle='rgba(255,140,0,'+(tlA*0.55)+')'; ctx.fillRect(bL,bY+bH*0.4+bounce+16,5,8);
+      // ── BELT-LINE BLACK STRIPE ────────────────────────────────────────
+      ctx.fillStyle='#141414'; ctx.fillRect(bL, midY, bW, bBot+bounce-midY);
+      ctx.beginPath(); ctx.moveTo(bR,midY); ctx.lineTo(hR,midY+(hTop-bY)*0.9+bounce*0.5);
+      ctx.lineTo(hR,bBot+bounce); ctx.lineTo(bR,bBot+bounce); ctx.closePath(); ctx.fill();
+      // REVERB BUS stencil text in stripe
+      ctx.save(); ctx.font='bold 7px "Arial Narrow","Arial",sans-serif'; ctx.textAlign='center';
+      ctx.fillStyle='rgba(255,216,0,0.7)'; ctx.letterSpacing='2px';
+      ctx.fillText('REVERB  BUS', bL+bW*0.46, midY+(bBot+bounce-midY)*0.55+2); ctx.restore();
 
-      // WHEEL WELLS
-      for(var ww=0;ww<2;ww++){
-        var cwX2=ww===0?rWx:fWx;
-        ctx.fillStyle='#141414'; ctx.beginPath(); ctx.arc(cwX2,roadY,wR2+6,Math.PI,0); ctx.closePath(); ctx.fill();
+      // ── CHROME REAR BUMPER ────────────────────────────────────────────
+      var chromeG=ctx.createLinearGradient(0,bBot+bounce,0,bBot+bounce+7);
+      chromeG.addColorStop(0,'rgba(200,200,215,0.9)'); chromeG.addColorStop(0.5,'rgba(255,255,255,0.95)'); chromeG.addColorStop(1,'rgba(140,140,160,0.8)');
+      ctx.fillStyle=chromeG; ctx.fillRect(bL-3, bBot+bounce, bW+6, 7);
+
+      // ── WINDOWS + LED METERS ──────────────────────────────────────────
+      var nW=6, winT=bY+8, winH2=midY-bY-13;
+      var winW2=(bW-24-(nW-1)*5)/nW, winSX=bL+12;
+      for(var w=0;w<nW;w++){
+        var wx2=winSX+w*(winW2+5), wLvl=h.winLevels[w];
+        // black bezel
+        ctx.fillStyle='#0a0a0a'; rr(wx2-2,winT-2,winW2+4,winH2+4,3); ctx.fill();
+        // window tint
+        var wGrd=ctx.createLinearGradient(wx2,winT,wx2,winT+winH2);
+        wGrd.addColorStop(0,'rgba(15,22,38,0.97)'); wGrd.addColorStop(1,'rgba(8,14,26,0.99)');
+        ctx.fillStyle=wGrd; rr(wx2,winT,winW2,winH2,2); ctx.fill();
+        // LED bars (5 vertical bars per window)
+        var nB=5, barW=(winW2-7)/nB-1, barH=winH2-7;
+        for(var b=0;b<nB;b++){
+          var bN=b/(nB-1);
+          var bx3=wx2+3.5+b*(barW+1), bTop3=winT+3.5;
+          // dim track
+          var tr,tg,tb;
+          if(bN<0.55){tr=20;tg=140;tb=50;}else if(bN<0.82){tr=180;tg=150;tb=0;}else{tr=160;tg=25;tb=25;}
+          ctx.fillStyle='rgba('+tr+','+tg+','+tb+',0.09)'; ctx.fillRect(bx3,bTop3,barW,barH);
+          // lit portion — threshold per bar so low bars light first
+          var thresh=bN*0.65; // bar N only lights when level > thresh
+          if(wLvl>thresh){
+            var fillFrac=Math.min(1,(wLvl-thresh)/(1-thresh+0.001));
+            var fillH2=Math.max(2,barH*fillFrac);
+            var bTopLit=bTop3+(barH-fillH2);
+            var lr,lg,lb;
+            if(bN<0.55){lr=30;lg=230;lb=90;}else if(bN<0.82){lr=255;lg=200;lb=0;}else{lr=255;lg=40;lb=30;}
+            ctx.fillStyle='rgba('+lr+','+lg+','+lb+',0.92)';
+            ctx.shadowColor='rgba('+lr+','+lg+','+lb+',0.55)'; ctx.shadowBlur=4;
+            ctx.fillRect(bx3,bTopLit,barW,fillH2);
+            ctx.shadowBlur=0;
+          }
+        }
+        // window glare
+        ctx.fillStyle='rgba(255,255,255,0.04)'; rr(wx2+1.5,winT+1.5,winW2*0.38,winH2*0.32,1.5); ctx.fill();
       }
 
-      // WHEELS
-      for(var ww2=0;ww2<2;ww2++){
-        var cwX3=ww2===0?rWx:fWx, wAng=hist.wheelAngle*(ww2===0?1:1.015);
-        ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cwX3+2,roadY+4,wR2*0.88,4,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#1c1c1c'; ctx.beginPath(); ctx.arc(cwX3,wCy,wR2,0,Math.PI*2); ctx.fill();
-        ctx.strokeStyle='rgba(45,45,45,0.6)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(cwX3,wCy,wR2-3,0,Math.PI*2); ctx.stroke();
-        var hR3=wR2*0.46, hcG=ctx.createRadialGradient(cwX3-2,wCy-2,0,cwX3,wCy,hR3);
-        hcG.addColorStop(0,'rgba(225,225,232,0.95)'); hcG.addColorStop(0.5,'rgba(162,162,175,0.88)'); hcG.addColorStop(1,'rgba(100,100,115,0.85)');
-        ctx.fillStyle=hcG; ctx.beginPath(); ctx.arc(cwX3,wCy,hR3,0,Math.PI*2); ctx.fill();
-        ctx.strokeStyle='rgba(70,70,88,0.75)'; ctx.lineWidth=1.2;
-        for(var sp=0;sp<5;sp++){var sa2=wAng+(sp/5)*Math.PI*2;ctx.beginPath();ctx.moveTo(cwX3+Math.cos(sa2)*2.5,wCy+Math.sin(sa2)*2.5);ctx.lineTo(cwX3+Math.cos(sa2)*(hR3-1),wCy+Math.sin(sa2)*(hR3-1));ctx.stroke();}
-        var cG2=ctx.createRadialGradient(cwX3-1,wCy-1,0,cwX3,wCy,3);
-        cG2.addColorStop(0,'rgba(240,240,250,1)'); cG2.addColorStop(1,'rgba(175,175,192,0.9)');
-        ctx.fillStyle=cG2; ctx.beginPath(); ctx.arc(cwX3,wCy,3,0,Math.PI*2); ctx.fill();
+      // ── BODY OUTLINE ─────────────────────────────────────────────────
+      ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=1.2; rr(bL,bY,bW,bH,4); ctx.stroke();
+
+      // ── TAIL LIGHTS ──────────────────────────────────────────────────
+      var tlA=0.25+h.sig*0.75;
+      ctx.fillStyle='rgba(220,30,30,'+tlA+')';
+      ctx.shadowColor='rgba(255,50,50,'+(tlA*0.6)+')'; ctx.shadowBlur=4+h.sig*10;
+      ctx.fillRect(bL-2, bY+bH*0.35+bounce, 6, 16); ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,130,0,'+(tlA*0.6)+')'; ctx.fillRect(bL-2,bY+bH*0.35+bounce+18,6,9);
+
+      // ── HEADLIGHT + BEAM ─────────────────────────────────────────────
+      var hlX=hR-2, hlY=hTop+10+bounce;
+      ctx.fillStyle='rgba(255,252,220,'+(0.5+h.sig*0.5)+')';
+      ctx.shadowColor='rgba(255,250,200,'+(h.sig*0.8+0.15)+')'; ctx.shadowBlur=5+h.sig*14;
+      ctx.fillRect(hlX-12,hlY-6,12,12); ctx.shadowBlur=0;
+      if(h.sig>0.03){
+        var blmG=ctx.createRadialGradient(hlX,hlY,2,hlX+48,hlY,80);
+        blmG.addColorStop(0,'rgba(255,252,200,'+(h.sig*0.12)+')');
+        blmG.addColorStop(1,'rgba(255,252,200,0)');
+        ctx.fillStyle=blmG;
+        ctx.beginPath(); ctx.moveTo(hlX,hlY-7); ctx.lineTo(hlX+88,hlY-28); ctx.lineTo(hlX+88,hlY+28); ctx.lineTo(hlX,hlY+7); ctx.closePath(); ctx.fill();
       }
 
-      // GR READOUT
-      var grDb2=hist.grSmooth>0.005?(hist.grSmooth*30).toFixed(1):'0.0';
-      ctx.font='bold 5.5px "Courier New",monospace'; ctx.textAlign='right';
-      ctx.fillStyle='rgba(255,216,0,'+(0.28+hist.grSmooth*3).toFixed(2)+')';
-      ctx.fillText('GR -'+grDb2+'dB',W-6,H-5);
+      // ── WHEEL WELLS ──────────────────────────────────────────────────
+      [[rWx],[fWx]].forEach(function(ww){
+        ctx.fillStyle='#0c0c0e';
+        ctx.beginPath(); ctx.arc(ww[0],wCy,wR+10,Math.PI,0); ctx.closePath(); ctx.fill();
+      });
+
+      // ── MONSTER TRUCK WHEELS (true circles in W×H pixel space) ───────
+      [[rWx,1],[fWx,1.018]].forEach(function(ww){
+        var cx2=ww[0], spd=ww[1], wAng=h.wheelAngle*spd;
+
+        // drop shadow
+        ctx.fillStyle='rgba(0,0,0,0.30)';
+        ctx.beginPath(); ctx.ellipse(cx2+3,roadY+5,wR*0.82,5,0,0,Math.PI*2); ctx.fill();
+
+        // KNOBBY TIRE outer ring
+        var tireR=wR, innerR=wR*0.72;
+        ctx.fillStyle='#111114';
+        ctx.beginPath(); ctx.arc(cx2,wCy,tireR,0,Math.PI*2); ctx.fill();
+        // knob lugs (8 around the tire)
+        ctx.fillStyle='#1e1e22';
+        for(var kn=0;kn<10;kn++){
+          var ka=wAng+(kn/10)*Math.PI*2;
+          var kx=cx2+Math.cos(ka)*(tireR-4), ky=wCy+Math.sin(ka)*(tireR-4);
+          ctx.save(); ctx.translate(kx,ky); ctx.rotate(ka+Math.PI/2);
+          ctx.beginPath(); ctx.roundRect(-3,-5,6,10,1); ctx.fill();
+          ctx.restore();
+        }
+        // tire sidewall (outer ring)
+        ctx.strokeStyle='rgba(40,40,50,0.7)'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(cx2,wCy,tireR-2,0,Math.PI*2); ctx.stroke();
+
+        // RIM — chrome multi-ring
+        var rimR=innerR;
+        var rimG=ctx.createRadialGradient(cx2-rimR*0.3,wCy-rimR*0.3,rimR*0.1,cx2,wCy,rimR);
+        rimG.addColorStop(0,'rgba(240,240,255,0.97)'); rimG.addColorStop(0.35,'rgba(180,180,200,0.92)');
+        rimG.addColorStop(0.7,'rgba(110,110,135,0.9)'); rimG.addColorStop(1,'rgba(60,60,80,0.85)');
+        ctx.fillStyle=rimG; ctx.beginPath(); ctx.arc(cx2,wCy,rimR,0,Math.PI*2); ctx.fill();
+
+        // 6 chrome spokes
+        ctx.strokeStyle='rgba(200,200,220,0.85)'; ctx.lineWidth=3;
+        for(var sp=0;sp<6;sp++){
+          var sa=wAng+(sp/6)*Math.PI*2;
+          ctx.beginPath();
+          ctx.moveTo(cx2+Math.cos(sa)*4,   wCy+Math.sin(sa)*4);
+          ctx.lineTo(cx2+Math.cos(sa)*(rimR-3),wCy+Math.sin(sa)*(rimR-3));
+          ctx.stroke();
+        }
+        // spoke shadow
+        ctx.strokeStyle='rgba(60,60,80,0.4)'; ctx.lineWidth=1;
+        for(var sp2=0;sp2<6;sp2++){
+          var sa2=wAng+(sp2/6)*Math.PI*2+0.08;
+          ctx.beginPath();
+          ctx.moveTo(cx2+Math.cos(sa2)*4,    wCy+Math.sin(sa2)*4);
+          ctx.lineTo(cx2+Math.cos(sa2)*(rimR-3),wCy+Math.sin(sa2)*(rimR-3));
+          ctx.stroke();
+        }
+
+        // lug nuts ring
+        ctx.fillStyle='rgba(60,65,80,0.88)';
+        for(var ln=0;ln<6;ln++){
+          var la=wAng+(ln/6)*Math.PI*2;
+          ctx.beginPath(); ctx.arc(cx2+Math.cos(la)*(rimR*0.62),wCy+Math.sin(la)*(rimR*0.62),2.2,0,Math.PI*2); ctx.fill();
+        }
+
+        // center cap
+        var ccG=ctx.createRadialGradient(cx2-2,wCy-2,0,cx2,wCy,7);
+        ccG.addColorStop(0,'rgba(255,255,255,1)'); ccG.addColorStop(1,'rgba(160,160,185,0.9)');
+        ctx.fillStyle=ccG; ctx.beginPath(); ctx.arc(cx2,wCy,7,0,Math.PI*2); ctx.fill();
+        // center Y emblem
+        ctx.fillStyle='rgba(255,216,0,0.9)'; ctx.font='bold 6px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('Y',cx2,wCy+0.5); ctx.textBaseline='alphabetic';
+      });
+
+      // ── GR READOUT ───────────────────────────────────────────────────
+      var grDb=h.grSmooth>0.005?(h.grSmooth*30).toFixed(1):'0.0';
+      ctx.font='bold 6px "Courier New",monospace'; ctx.textAlign='right';
+      ctx.fillStyle='rgba(255,216,0,'+(0.22+Math.min(1,h.grSmooth*4)).toFixed(2)+')';
+      ctx.fillText('GR -'+grDb+'dB', W-6, H-5);
     };
 
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: BUS_W+'px', height: BUS_H+'px', display: 'block' }} />;
 }
 
 // ─── Stop Sign Bypass Button ─────────────────────────────────────────────────
@@ -530,8 +662,8 @@ export default function ReverbBusOrb({
         </div>
       </div>
 
-      {/* Hero canvas */}
-      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
+      {/* Hero canvas — fixed pixel size matching drawn W×H so circles stay round */}
+      <div style={{ position: 'relative', zIndex: 2, height: BUS_H, flexShrink: 0, overflow: 'hidden' }}>
         <BusMeterCanvas space={space} tuck={tuck} glue={glue} color={color} width={width} peak={peak} outPeak={outPeak} gr={gr} reverbLevel={reverbLevel} />
       </div>
 
