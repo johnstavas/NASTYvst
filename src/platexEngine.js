@@ -1,20 +1,21 @@
-// platexEngine.js — PLATEX: Modern Dynamic Plate Reverb
+// platexEngine.js — PLATEX: Modern Dynamic Plate Reverb (v2)
 //
-// Classic plate character with living, responsive behavior.
-// 4 allpass diffusers in series -> 2 parallel combs with crossfeed.
-// Tension modulates allpass coefficients. Energy envelope follower
-// drives dynamic feedback. Metal character adds resonant peaks.
+// 8 parallel comb filters (Freeverb-style density) with per-comb LFO modulation
+// for the characteristic plate shimmer/flutter. True stereo via L/R offset delay
+// lengths. 4 series allpass diffusers before combs + 2 post-diffusion allpasses.
+// Tension shifts plate modal frequencies. Energy envelope drives dynamic feedback.
+// Metal adds resonant biquad peaks at harmonically-related plate modes.
 //
 // Controls:
-//   TENSION — allpass coeff / tightness (0-1)
-//   SIZE    — comb delay / ring time (0-1)
-//   ENERGY  — input-driven dynamic response (0-1)
-//   METAL   — metallic character / resonance (0-1)
-//   TONE    — tilt EQ (0-1)
-//   MIX     — dry/wet (0-1)
-//   BYPASS
+//   TENSION — allpass coeff + modal freq (plate tightness)
+//   SIZE    — comb delay scale / ring time
+//   ENERGY  — transient-driven dynamic feedback boost
+//   METAL   — resonant peak character + crossfeed
+//   TONE    — tilt EQ (dark→bright)
+//   MIX     — dry/wet
+//   BYPASS / SMOOTH
 
-const PROCESSOR_VERSION = 'platex-v1';
+const PROCESSOR_VERSION = 'platex-v2';
 
 const PROCESSOR_CODE = `
 class PlatexProcessor extends AudioWorkletProcessor {
@@ -34,89 +35,78 @@ class PlatexProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.sr = sampleRate;
-    const scale = this.sr / 44100;
+    const sc = this.sr / 44100;
 
-    // 4 allpass diffusers (series)
-    this.apLens = [
-      Math.round(113 * scale),
-      Math.round(337 * scale),
-      Math.round(509 * scale),
-      Math.round(677 * scale),
-    ];
-    this.apBufL = []; this.apBufR = [];
-    this.apPos = [];
-    const maxAp = Math.round(800 * scale) + 16;
-    for (let i = 0; i < 4; i++) {
-      this.apBufL.push(new Float32Array(maxAp));
-      this.apBufR.push(new Float32Array(maxAp));
-      this.apPos.push(0);
-    }
+    // 4 allpass diffusers (series, pre-comb)
+    this.apLens = [556, 441, 341, 225].map(l => Math.round(l * sc));
+    this.apBufL = this.apLens.map(l => new Float32Array(l + 16));
+    this.apBufR = this.apLens.map(l => new Float32Array(l + 16));
+    this.apPos  = new Int32Array(4);
 
-    // 2 parallel comb filters with crossfeed
-    this.combLens = [
-      Math.round(1559 * scale),
-      Math.round(1907 * scale),
-    ];
-    this.combBufL = []; this.combBufR = [];
-    this.combPos = [];
-    this.combLpL = [0, 0]; this.combLpR = [0, 0];
-    const maxComb = Math.round(2500 * scale) + 16;
-    for (let i = 0; i < 2; i++) {
-      this.combBufL.push(new Float32Array(maxComb));
-      this.combBufR.push(new Float32Array(maxComb));
-      this.combPos.push(0);
-    }
+    // 2 post-diffusion allpasses (smooth the tail)
+    this.apPostLens = [89, 61].map(l => Math.round(l * sc));
+    this.apPostBufL = this.apPostLens.map(l => new Float32Array(l + 16));
+    this.apPostBufR = this.apPostLens.map(l => new Float32Array(l + 16));
+    this.apPostPos  = new Int32Array(2);
 
-    // Envelope follower for energy
+    // 8 comb filters — L and R have offset lengths for stereo decorrelation
+    this.combLensL = [1116,1188,1277,1356,1422,1491,1557,1617].map(l => Math.round(l * sc));
+    this.combLensR = [1139,1211,1300,1379,1445,1514,1580,1640].map(l => Math.round(l * sc));
+    const maxComb  = Math.round(2300 * sc) + 32;
+    this.combBufL  = Array.from({length:8}, () => new Float32Array(maxComb));
+    this.combBufR  = Array.from({length:8}, () => new Float32Array(maxComb));
+    this.combPos   = new Int32Array(8);
+    this.combLpL   = new Float64Array(8);
+    this.combLpR   = new Float64Array(8);
+
+    // Per-comb LFO (updated once per block — no per-sample Math.sin)
+    this.lfoPhase = new Float64Array(8);
+    this.lfoRates = [0.23, 0.31, 0.17, 0.37, 0.21, 0.29, 0.13, 0.41];
+    this.lfoVal   = new Float64Array(8);
+
+    // Temp output buffers (avoid GC allocation in process loop)
+    this._cL = new Float64Array(8);
+    this._cR = new Float64Array(8);
+
+    // Envelope follower
     this.envLevel = 0;
 
-    // Resonant peak filter state (2 biquad bandpasses for metal character)
-    // Modal frequencies roughly: 2400Hz and 4800Hz (plate modes)
-    this.bp1L = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    this.bp1R = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    this.bp2L = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    this.bp2R = { x1: 0, x2: 0, y1: 0, y2: 0 };
+    // Metallic resonant biquad BPs (2 per channel)
+    this.bp1L = {x1:0,x2:0,y1:0,y2:0};
+    this.bp1R = {x1:0,x2:0,y1:0,y2:0};
+    this.bp2L = {x1:0,x2:0,y1:0,y2:0};
+    this.bp2R = {x1:0,x2:0,y1:0,y2:0};
 
-    // Tilt EQ
+    // Tilt EQ LP state
     this.tiltLpL = 0; this.tiltLpR = 0;
 
-    // Mid-side width
-    this.prevMid = 0; this.prevSide = 0;
+    // Smooth LP state
+    this.sLpL1 = 0; this.sLpR1 = 0;
+    this.sLpL2 = 0; this.sLpR2 = 0;
 
     // Metering
-    this._peak = 0;
-    this._energy = 0;
-    this._plateLevel = 0;
-
-    // Smooth LP state
-    this.smoothLpL1 = 0; this.smoothLpR1 = 0;
-    this.smoothLpL2 = 0; this.smoothLpR2 = 0;
+    this._peak = 0; this._energy = 0; this._plateLevel = 0;
 
     this.port.postMessage({ ready: true });
   }
 
-  biquadBP(state, x, freq, q) {
-    const sr = this.sr;
-    const w0 = 2 * Math.PI * freq / sr;
-    const alpha = Math.sin(w0) / (2 * q);
-    const b0 = alpha;
-    const b1 = 0;
-    const b2 = -alpha;
-    const a0 = 1 + alpha;
-    const a1 = -2 * Math.cos(w0);
-    const a2 = 1 - alpha;
-    const y = (b0 * x + b1 * state.x1 + b2 * state.x2 - a1 * state.y1 - a2 * state.y2) / a0;
-    state.x2 = state.x1; state.x1 = x;
-    state.y2 = state.y1; state.y1 = y;
+  biquadBP(s, x, freq, q) {
+    const w0 = 2 * Math.PI * freq / this.sr;
+    const sinw = Math.sin(w0), cosw = Math.cos(w0);
+    const alpha = sinw / (2 * q);
+    const b0 = alpha, b2 = -alpha, a0 = 1 + alpha, a1 = -2*cosw, a2 = 1 - alpha;
+    const y = (b0*x + b2*s.x2 - a1*s.y1 - a2*s.y2) / a0;
+    s.x2 = s.x1; s.x1 = x; s.y2 = s.y1; s.y1 = y;
     return y;
   }
 
   process(inputs, outputs, params) {
-    const inBufs = inputs[0]; const outBufs = outputs[0];
+    const inBufs = inputs[0], outBufs = outputs[0];
     if (!inBufs?.length || !inBufs[0] || !outBufs[0]) return true;
 
     const iL = inBufs[0], iR = inBufs[1] || inBufs[0];
     const oL = outBufs[0], oR = outBufs[1] || outBufs[0];
+    const N  = iL.length;
 
     const tension = params.tension[0];
     const size    = params.size[0];
@@ -125,13 +115,13 @@ class PlatexProcessor extends AudioWorkletProcessor {
     const tone    = params.tone[0];
     const mix     = params.mix[0];
     const bypass  = params.bypass[0] > 0.5;
-    const sr = this.sr;
+    const smooth  = params.smooth[0];
+    const sr      = this.sr;
 
-    let peakAccum = 0;
-    let plateAccum = 0;
+    let peakAccum = 0, plateAccum = 0;
 
     if (bypass || mix < 0.001) {
-      for (let n = 0; n < iL.length; n++) {
+      for (let n = 0; n < N; n++) {
         oL[n] = iL[n]; oR[n] = iR[n];
         const ap = Math.max(Math.abs(oL[n]), Math.abs(oR[n]));
         if (ap > peakAccum) peakAccum = ap;
@@ -141,146 +131,157 @@ class PlatexProcessor extends AudioWorkletProcessor {
       return true;
     }
 
-    // Allpass coefficient: tension controls tightness
-    const baseApG = 0.28 + tension * 0.38;
+    // Allpass coeff — tension controls diffusion tightness
+    const baseApG = 0.30 + tension * 0.35; // 0.30–0.65
 
-    // Comb feedback: size controls ring time — capped lower to prevent blowup
-    const baseCombFb = 0.60 + size * 0.18; // max 0.78 before energy mod
+    // Comb feedback — size controls decay ring time
+    const baseCombFb = 0.72 + size * 0.18; // 0.72–0.90
 
-    // Size also scales comb delay
-    const sizeScale = 0.7 + size * 0.6;
+    // Size also scales all comb delay lengths
+    const sizeScale = 0.65 + size * 0.70; // 0.65–1.35
 
-    // Damping
-    const dampFreq = 3000 + tone * 10000;
-    const dampCoef = Math.exp(-2 * Math.PI * dampFreq / sr);
+    // LFO depth — looser plate (low tension) flutters more
+    const lfoDepth = 3 + (1 - tension) * 9; // 3–12 samples
 
-    // Crossfeed between combs — reduced so fb+crossfeed stays well below 1.0
-    const crossfeed = 0.06 + metal * 0.05;
+    // Update per-comb LFO values once per block (8 Math.sin calls total)
+    for (let c = 0; c < 8; c++) {
+      this.lfoPhase[c] += this.lfoRates[c] * N / sr;
+      if (this.lfoPhase[c] > 1) this.lfoPhase[c] -= 1;
+      this.lfoVal[c] = Math.sin(this.lfoPhase[c] * 6.283185) * lfoDepth;
+    }
 
-    // Tilt EQ
-    const tiltFreq = 800;
-    const tiltCoef = Math.exp(-2 * Math.PI * tiltFreq / sr);
-    const tiltGainLow = 1 + (0.5 - tone) * 1.4;
-    const tiltGainHigh = 1 + (tone - 0.5) * 1.4;
+    // LP damping — tone sweeps from dark to bright
+    const dampFreq = 2500 + tone * 12000;
+    const dampCoef = Math.exp(-6.283185 * dampFreq / sr);
 
-    // Metal resonant peak frequencies
-    const metalFreq1 = 2400 + metal * 800;
-    const metalFreq2 = 4800 + metal * 1200;
-    const metalQ = 2 + metal * 8;
+    // Tilt EQ coefficients
+    const tiltCoef      = Math.exp(-6.283185 * 800 / sr);
+    const tiltGainLow   = 1 + (0.5 - tone) * 1.5;
+    const tiltGainHigh  = 1 + (tone - 0.5) * 1.5;
 
-    // Envelope follower time constants
-    const envAttack = Math.exp(-1 / (sr * 0.005));
-    const envRelease = Math.exp(-1 / (sr * 0.15));
+    // Metallic resonant peak frequencies — tension shifts plate modes
+    const mFreq1 = 1800 + tension * 1400 + metal * 800;
+    const mFreq2 = 3600 + tension * 2800 + metal * 1200;
+    const mQ     = 1.5 + metal * 10;
 
-    for (let n = 0; n < iL.length; n++) {
+    // Envelope timing
+    const envAtk = Math.exp(-1 / (sr * 0.004));
+    const envRel = Math.exp(-1 / (sr * 0.12));
+
+    // L→R crossfeed inside combs (metal increases coupling, adds shimmer)
+    const crossfeed = 0.03 + metal * 0.07;
+
+    const cL = this._cL;
+    const cR = this._cR;
+    const maxBuf = this.combBufL[0].length;
+
+    for (let n = 0; n < N; n++) {
       const dryL = iL[n], dryR = iR[n];
 
       // Envelope follower
-      const inLevel = Math.max(Math.abs(dryL), Math.abs(dryR));
-      if (inLevel > this.envLevel) {
-        this.envLevel = envAttack * this.envLevel + (1 - envAttack) * inLevel;
+      const inLvl = Math.max(Math.abs(dryL), Math.abs(dryR));
+      if (inLvl > this.envLevel) {
+        this.envLevel = envAtk * this.envLevel + (1 - envAtk) * inLvl;
       } else {
-        this.envLevel = envRelease * this.envLevel + (1 - envRelease) * inLevel;
+        this.envLevel = envRel * this.envLevel + (1 - envRel) * inLvl;
       }
 
-      // Energy modulation: increase feedback on loud hits
-      const energyMod = this.envLevel * energy * 0.08;
-      const dynCombFb = Math.min(0.88, baseCombFb + energyMod);
-      const dynApG = Math.min(0.72, baseApG + energyMod * 0.2);
+      // Dynamic feedback boost on loud transients (ENERGY knob)
+      const eMod   = this.envLevel * energy * 0.07;
+      const dynFb  = Math.min(0.92, baseCombFb + eMod);
+      const dynApG = Math.min(0.68, baseApG + this.envLevel * energy * 0.08);
 
-      // 4 allpass diffusers in series
+      // ── 4 allpass diffusers (series) ──────────────────────────────────────
       let diffL = dryL, diffR = dryR;
       for (let a = 0; a < 4; a++) {
-        const len = this.apLens[a];
-        const bs = this.apBufL[a].length;
+        const bs  = this.apBufL[a].length;
         const pos = this.apPos[a];
-        const readIdx = (pos - len + bs) % bs;
-        const delL = this.apBufL[a][readIdx];
-        const delR = this.apBufR[a][readIdx];
-
-        const outL = -dynApG * diffL + delL;
-        const outR = -dynApG * diffR + delR;
-        this.apBufL[a][pos] = diffL + dynApG * delL;
-        this.apBufR[a][pos] = diffR + dynApG * delR;
+        const ri  = (pos - this.apLens[a] + bs) % bs;
+        const dL  = this.apBufL[a][ri], dR = this.apBufR[a][ri];
+        const oaL = -dynApG * diffL + dL;
+        const oaR = -dynApG * diffR + dR;
+        this.apBufL[a][pos] = diffL + dynApG * dL;
+        this.apBufR[a][pos] = diffR + dynApG * dR;
         this.apPos[a] = (pos + 1) % bs;
-
-        diffL = outL;
-        diffR = outR;
+        diffL = oaL; diffR = oaR;
       }
 
-      // 2 parallel comb filters with crossfeed
+      // ── Read all 8 comb outputs ───────────────────────────────────────────
+      for (let c = 0; c < 8; c++) {
+        const bs  = this.combBufL[c].length;
+        const pos = this.combPos[c];
+        const lfoV = this.lfoVal[c];
+        const lenL = Math.max(64, Math.min(bs - 8, Math.round(this.combLensL[c] * sizeScale + lfoV)));
+        const lenR = Math.max(64, Math.min(bs - 8, Math.round(this.combLensR[c] * sizeScale + lfoV * 0.87)));
+        const riL  = (pos - lenL + bs) % bs;
+        const riR  = (pos - lenR + bs) % bs;
+        // LP damping inside feedback loop
+        this.combLpL[c] = dampCoef * this.combLpL[c] + (1 - dampCoef) * this.combBufL[c][riL];
+        this.combLpR[c] = dampCoef * this.combLpR[c] + (1 - dampCoef) * this.combBufR[c][riR];
+        cL[c] = this.combLpL[c];
+        cR[c] = this.combLpR[c];
+      }
+
+      // ── Write all 8 combs (adjacent-pair crossfeed for metallic coupling) ─
       let plateL = 0, plateR = 0;
-      const combOuts = [{ l: 0, r: 0 }, { l: 0, r: 0 }];
-
-      for (let c = 0; c < 2; c++) {
-        const len = Math.round(this.combLens[c] * sizeScale);
-        const bs = this.combBufL[c].length;
-        const pos = this.combPos[c];
-        const readIdx = (pos - len + bs) % bs;
-        let cL = this.combBufL[c][readIdx];
-        let cR = this.combBufR[c][readIdx];
-
-        // LP damping
-        this.combLpL[c] = dampCoef * this.combLpL[c] + (1 - dampCoef) * cL;
-        this.combLpR[c] = dampCoef * this.combLpR[c] + (1 - dampCoef) * cR;
-        cL = this.combLpL[c];
-        cR = this.combLpR[c];
-
-        combOuts[c].l = cL;
-        combOuts[c].r = cR;
-      }
-
-      // Write with crossfeed
-      for (let c = 0; c < 2; c++) {
-        const otherC = 1 - c;
-        const len = Math.round(this.combLens[c] * sizeScale);
-        const bs = this.combBufL[c].length;
-        const pos = this.combPos[c];
-
-        this.combBufL[c][pos] = diffL + combOuts[c].l * dynCombFb + combOuts[otherC].l * crossfeed;
-        this.combBufR[c][pos] = diffR + combOuts[c].r * dynCombFb + combOuts[otherC].r * crossfeed;
+      for (let c = 0; c < 8; c++) {
+        const bs   = this.combBufL[c].length;
+        const pos  = this.combPos[c];
+        const xc   = (c % 2 === 0) ? (c + 1) : (c - 1); // adjacent partner
+        this.combBufL[c][pos] = diffL + cL[c] * dynFb + cL[xc] * crossfeed;
+        this.combBufR[c][pos] = diffR + cR[c] * dynFb + cR[xc] * crossfeed;
         this.combPos[c] = (pos + 1) % bs;
-
-        plateL += combOuts[c].l;
-        plateR += combOuts[c].r;
+        plateL += cL[c];
+        plateR += cR[c];
       }
 
-      plateL *= 0.5;
-      plateR *= 0.5;
+      // Normalize 8 combs
+      plateL *= 0.125;
+      plateR *= 0.125;
 
-      // Metal character: add resonant peaks
+      // ── 2 post-diffusion allpasses (smooth the tail) ──────────────────────
+      for (let a = 0; a < 2; a++) {
+        const bs  = this.apPostBufL[a].length;
+        const pos = this.apPostPos[a];
+        const ri  = (pos - this.apPostLens[a] + bs) % bs;
+        const dL  = this.apPostBufL[a][ri], dR = this.apPostBufR[a][ri];
+        const g   = 0.5;
+        const oaL = -g * plateL + dL;
+        const oaR = -g * plateR + dR;
+        this.apPostBufL[a][pos] = plateL + g * dL;
+        this.apPostBufR[a][pos] = plateR + g * dR;
+        this.apPostPos[a] = (pos + 1) % bs;
+        plateL = oaL; plateR = oaR;
+      }
+
+      // ── Metal character: resonant biquad peaks at plate mode freqs ────────
       if (metal > 0.05) {
-        const res1L = this.biquadBP(this.bp1L, plateL, metalFreq1, metalQ);
-        const res1R = this.biquadBP(this.bp1R, plateR, metalFreq1, metalQ);
-        const res2L = this.biquadBP(this.bp2L, plateL, metalFreq2, metalQ);
-        const res2R = this.biquadBP(this.bp2R, plateR, metalFreq2, metalQ);
-        plateL += (res1L + res2L) * metal * 0.3;
-        plateR += (res1R + res2R) * metal * 0.3;
+        const r1L = this.biquadBP(this.bp1L, plateL, mFreq1, mQ);
+        const r1R = this.biquadBP(this.bp1R, plateR, mFreq1, mQ);
+        const r2L = this.biquadBP(this.bp2L, plateL, mFreq2, mQ);
+        const r2R = this.biquadBP(this.bp2R, plateR, mFreq2, mQ);
+        plateL += (r1L + r2L) * metal * 0.25;
+        plateR += (r1R + r2R) * metal * 0.25;
       }
 
-      // Tilt EQ
+      // ── Tilt EQ ───────────────────────────────────────────────────────────
       this.tiltLpL = tiltCoef * this.tiltLpL + (1 - tiltCoef) * plateL;
       this.tiltLpR = tiltCoef * this.tiltLpR + (1 - tiltCoef) * plateR;
-      const lowL = this.tiltLpL, lowR = this.tiltLpR;
-      const highL = plateL - lowL, highR = plateR - lowR;
-      let wetL = lowL * tiltGainLow + highL * tiltGainHigh;
-      let wetR = lowR * tiltGainLow + highR * tiltGainHigh;
+      let wetL = this.tiltLpL * tiltGainLow + (plateL - this.tiltLpL) * tiltGainHigh;
+      let wetR = this.tiltLpR * tiltGainLow + (plateR - this.tiltLpR) * tiltGainHigh;
 
-      // Soft limit wet before mix — safety net against any remaining runaway
-      wetL = Math.tanh(wetL * 0.85) * 1.1;
-      wetR = Math.tanh(wetR * 0.85) * 1.1;
+      // Soft limiting
+      wetL = Math.tanh(wetL * 0.85) * 1.15;
+      wetR = Math.tanh(wetR * 0.85) * 1.15;
 
-      // Smooth LP filter on wet signal
-      const smooth = params.smooth[0];
+      // ── Smooth LP ─────────────────────────────────────────────────────────
       if (smooth > 0.5) {
-        const smoothFreq = 6500 - smooth * 900;
-        const smoothCoef = Math.exp(-2 * Math.PI * smoothFreq / sr);
-        this.smoothLpL1 = smoothCoef * this.smoothLpL1 + (1 - smoothCoef) * wetL;
-        this.smoothLpR1 = smoothCoef * this.smoothLpR1 + (1 - smoothCoef) * wetR;
-        this.smoothLpL2 = smoothCoef * this.smoothLpL2 + (1 - smoothCoef) * this.smoothLpL1;
-        this.smoothLpR2 = smoothCoef * this.smoothLpR2 + (1 - smoothCoef) * this.smoothLpR1;
-        wetL = this.smoothLpL2;
-        wetR = this.smoothLpR2;
+        const sCoef = Math.exp(-6.283185 * (6500 - smooth * 900) / sr);
+        this.sLpL1 = sCoef * this.sLpL1 + (1 - sCoef) * wetL;
+        this.sLpR1 = sCoef * this.sLpR1 + (1 - sCoef) * wetR;
+        this.sLpL2 = sCoef * this.sLpL2 + (1 - sCoef) * this.sLpL1;
+        this.sLpR2 = sCoef * this.sLpR2 + (1 - sCoef) * this.sLpR1;
+        wetL = this.sLpL2; wetR = this.sLpR2;
       }
 
       // Mix
@@ -300,7 +301,6 @@ class PlatexProcessor extends AudioWorkletProcessor {
     return true;
   }
 }
-
 registerProcessor('${PROCESSOR_VERSION}', PlatexProcessor);
 `;
 
@@ -317,7 +317,7 @@ export async function createPlatexEngine(audioCtx) {
     numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit',
   });
 
-  const analyserIn = audioCtx.createAnalyser(); analyserIn.fftSize = 2048;
+  const analyserIn  = audioCtx.createAnalyser(); analyserIn.fftSize  = 2048;
   const analyserOut = audioCtx.createAnalyser(); analyserOut.fftSize = 2048;
 
   input.connect(inputTrim); inputTrim.connect(analyserIn); analyserIn.connect(worklet);
@@ -326,13 +326,13 @@ export async function createPlatexEngine(audioCtx) {
 
   let _peak = 0, _energy = 0, _plateLevel = 0;
   worklet.port.onmessage = e => {
-    if (e.data?.peak !== undefined) _peak = e.data.peak;
-    if (e.data?.energy !== undefined) _energy = e.data.energy;
-    if (e.data?.plateLevel !== undefined) _plateLevel = e.data.plateLevel;
+    if (e.data?.peak        !== undefined) _peak        = e.data.peak;
+    if (e.data?.energy      !== undefined) _energy      = e.data.energy;
+    if (e.data?.plateLevel  !== undefined) _plateLevel  = e.data.plateLevel;
   };
 
   const _buf = new Float32Array(2048);
-  function getRms(an) { an.getFloatTimeDomainData(_buf); let s=0; for(let i=0;i<_buf.length;i++) s+=_buf[i]*_buf[i]; return Math.sqrt(s/_buf.length); }
+  function getRms(an)  { an.getFloatTimeDomainData(_buf); let s=0; for(let i=0;i<_buf.length;i++) s+=_buf[i]*_buf[i]; return Math.sqrt(s/_buf.length); }
   function getPeak(an) { an.getFloatTimeDomainData(_buf); let m=0; for(let i=0;i<_buf.length;i++){const a=Math.abs(_buf[i]);if(a>m)m=a;} return m; }
 
   const p = name => worklet.parameters.get(name);
@@ -340,7 +340,7 @@ export async function createPlatexEngine(audioCtx) {
 
   return {
     input, output, chainOutput,
-    setInputGain: v => { inputTrim.gain.value = v; },
+    setInputGain:  v => { inputTrim.gain.value  = v; },
     setOutputGain: v => { outputTrim.gain.value = v; },
     setTension: v => { p('tension').value = v; },
     setSize:    v => { p('size').value    = v; },
@@ -351,15 +351,15 @@ export async function createPlatexEngine(audioCtx) {
     setBypass:  v => { p('bypass').value  = v ? 1 : 0; },
     setSmooth:  v => { p('smooth').value  = v; },
 
-    getInputPeak:  () => { _peakIn  = Math.max(getPeak(analyserIn),  _peakIn  * DECAY); return _peakIn; },
-    getOutputPeak: () => { _peakOut = Math.max(getPeak(analyserOut), _peakOut * DECAY); return _peakOut; },
-    getInputLevel: () => getRms(analyserIn),
+    getInputPeak:   () => { _peakIn  = Math.max(getPeak(analyserIn),  _peakIn  * DECAY); return _peakIn;  },
+    getOutputPeak:  () => { _peakOut = Math.max(getPeak(analyserOut), _peakOut * DECAY); return _peakOut; },
+    getInputLevel:  () => getRms(analyserIn),
     getOutputLevel: () => getRms(analyserOut),
-    getPeakOutput: () => _peak,
-    getEnergy: () => _energy,
-    getPlateLevel: () => _plateLevel,
+    getPeakOutput:  () => _peak,
+    getEnergy:      () => _energy,
+    getPlateLevel:  () => _plateLevel,
 
     destroy() { worklet.disconnect(); input.disconnect(); inputTrim.disconnect(); output.disconnect(); outputTrim.disconnect(); chainOutput.disconnect(); analyserIn.disconnect(); analyserOut.disconnect(); },
-    dispose() { this.destroy(); },
+    dispose()  { this.destroy(); },
   };
 }
