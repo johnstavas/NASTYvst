@@ -445,7 +445,7 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
 }
 
 function GainKnob({ value, onChange, label, defaultValue = 1 }) {
-  const size = 20;
+  const size = 24;
   const [dragging, setDragging] = useState(false);
   const ref = useRef({ y: 0, v: 0 });
   const norm = Math.min(1, value / 2);
@@ -472,8 +472,8 @@ function PathSelector({ value, onChange }) {
     <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
       {PATH_NAMES.map((name, i) => (
         <button key={i} onClick={() => onChange(i)} style={{
-          fontSize: 5.5, fontWeight: 700, letterSpacing: '0.08em',
-          padding: '2px 5px', borderRadius: 2, cursor: 'pointer',
+          fontSize: 8, fontWeight: 700, letterSpacing: '0.08em',
+          padding: '3px 8px', borderRadius: 2, cursor: 'pointer',
           background: value === i ? 'rgba(60,180,255,0.15)' : 'transparent',
           color: value === i ? 'rgba(100,200,255,0.9)' : 'rgba(60,140,200,0.4)',
           border: `1px solid ${value === i ? 'rgba(60,180,255,0.3)' : 'rgba(40,80,140,0.15)'}`,
@@ -594,7 +594,7 @@ export default function OrbitOrb({
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
-            fontSize: 14, fontWeight: 800, letterSpacing: '0.15em',
+            fontSize: 20, fontWeight: 800, letterSpacing: '0.15em',
             background: 'linear-gradient(135deg, #3090ff 0%, #40c0e0 50%, #80d0ff 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 0 8px rgba(40,140,255,0.3))',
@@ -619,7 +619,7 @@ export default function OrbitOrb({
         <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={PRESET_COLORS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {loading && <span style={{ fontSize: 6, color: 'rgba(40,140,255,0.4)' }}>...</span>}
-          {onRemove && <span onClick={onRemove} style={{ fontSize: 11, cursor: 'pointer', color: 'rgba(255,120,120,0.6)', fontWeight: 700, lineHeight: 1, padding: '0 2px', borderRadius: 2, transition: 'all 0.12s' }} title="Remove" onMouseEnter={e => { e.currentTarget.style.color = '#ff4040'; e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,120,120,0.6)'; e.currentTarget.style.background = 'transparent'; }}>x</span>}
+          {onRemove && <span onClick={onRemove} style={{ fontSize: 11, cursor: 'pointer', color: 'rgba(255,120,120,0.6)', fontWeight: 700, lineHeight: 1, padding: '0 2px', borderRadius: 2, transition: 'all 0.12s' }} title="Remove" onMouseEnter={e => { e.currentTarget.style.color = '#ff4040'; e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,120,120,0.6)'; e.currentTarget.style.background = 'transparent'; }}>&times;</span>}
         </div>
       </div>
 
@@ -656,7 +656,7 @@ export default function OrbitOrb({
       {/* Footer */}
       <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-          fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+          fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
           background: smooth > 0 ? 'rgba(60,180,255,0.18)' : 'transparent',
           color: smooth > 0 ? 'rgba(100,210,255,0.95)' : 'rgba(60,140,200,0.4)',
           border: `1px solid ${smooth > 0 ? 'rgba(60,180,255,0.45)' : 'rgba(40,80,140,0.2)'}`,
