@@ -20,7 +20,7 @@ function IceCaveCanvas({ freeze, smear, drift, shape, width, peakLevel = 0, bypa
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -455,7 +455,7 @@ function IceCaveCanvas({ freeze, smear, drift, shape, width, peakLevel = 0, bypa
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Hex Crystal Knob ────────────────────────────────────────────────────────
@@ -670,6 +670,7 @@ export default function FreezeFieldOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #0a1520 0%, #081018 35%, #060c14 70%, #040810 100%)',
       border: '1.5px solid rgba(80,160,240,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(60,120,200,0.1), inset 0 1px 0 rgba(120,180,255,0.05)',
@@ -680,7 +681,7 @@ export default function FreezeFieldOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(80,160,240,0.1)',
-        background: 'linear-gradient(180deg, rgba(60,120,200,0.04) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(60,120,200,0.04) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -708,14 +709,14 @@ export default function FreezeFieldOrb({
       </div>
 
       {/* Visual */}
-      <div style={{ borderBottom: '1px solid rgba(80,160,240,0.08)' }}>
+      <div style={{ borderBottom: '1px solid rgba(80,160,240,0.08)', flex: 1, minHeight: 0 }}>
         <IceCaveCanvas freeze={freeze} smear={smear} drift={drift} shape={shape} width={width} peakLevel={peakLevel} bypassed={bypassed} />
       </div>
 
       {/* Freeze Button + I/O */}
       <div style={{
         padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(80,160,240,0.08)',
+        borderBottom: '1px solid rgba(80,160,240,0.08)', flexShrink: 0,
       }}>
         <FreezeButton frozen={freeze > 0.5} onClick={() => {
           const n = freeze > 0.5 ? 0 : 1;
@@ -732,7 +733,7 @@ export default function FreezeFieldOrb({
       {/* Knobs Row 1: SMEAR, DRIFT, SHAPE */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(80,160,240,0.06)',
+        borderBottom: '1px solid rgba(80,160,240,0.06)', flexShrink: 0,
       }}>
         <Knob label="SMEAR" value={smear} defaultValue={0.3} format={pctFmt}
           onChange={v => { setSmear(v); engineRef.current?.setSmear(v); setActivePreset(null); }} />
@@ -746,7 +747,7 @@ export default function FreezeFieldOrb({
       {/* Knobs Row 2: WIDTH, MIX */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(80,160,240,0.06)',
+        borderBottom: '1px solid rgba(80,160,240,0.06)', flexShrink: 0,
       }}>
         <Knob label="WIDTH" value={width} defaultValue={0.6} format={pctFmt}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
@@ -756,7 +757,7 @@ export default function FreezeFieldOrb({
 
       {/* Bypass footer */}
       <div style={{
-        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
       }}>
         <BypassDot active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

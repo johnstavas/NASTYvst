@@ -148,12 +148,13 @@ export default function SimpleReverbOrb({
   };
 
   return (
-    <div style={{ width: size, height: 500, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)' }}>
+    <div style={{ width: size, height: 500, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column' }}>
       {/* Top wood */}
-      <div style={{ height: 8, background: 'linear-gradient(180deg, #0a1628, #050a14)', borderBottom: '1px solid #1a3050' }} />
+      <div style={{ flexShrink: 0, height: 8, background: 'linear-gradient(180deg, #0a1628, #050a14)', borderBottom: '1px solid #1a3050' }} />
 
       {/* Header */}
       <div style={{
+        flexShrink: 0,
         display: 'grid', gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center', padding: '5px 10px',
         background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
@@ -175,7 +176,7 @@ export default function SimpleReverbOrb({
       </div>
 
       {/* XY Pad */}
-      <div ref={wrapRef} style={{ position: 'relative', width: size, height: size, cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+      <div ref={wrapRef} style={{ position: 'relative', width: size, flex: 1, minHeight: 0, aspectRatio: '1/1', maxWidth: '100%', margin: '0 auto', cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
         onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU} onPointerCancel={onPU}>
 
         {/* Background */}
@@ -253,6 +254,7 @@ export default function SimpleReverbOrb({
 
       {/* BOTTOM CONTROLS */}
       <div style={{
+        flexShrink: 0,
         background: 'linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%)',
         borderTop: '1px solid #1e1e1e',
       }}>
@@ -314,7 +316,7 @@ export default function SimpleReverbOrb({
       )}
 
       {/* Bottom wood */}
-      <div style={{ height: 8, background: 'linear-gradient(180deg, #050a14, #0a1628)', borderTop: '1px solid #1a3050' }} />
+      <div style={{ flexShrink: 0, height: 8, background: 'linear-gradient(180deg, #050a14, #0a1628)', borderTop: '1px solid #1a3050' }} />
     </div>
   );
 }

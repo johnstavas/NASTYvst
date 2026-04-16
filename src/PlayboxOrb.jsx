@@ -100,7 +100,7 @@ function ChainStageDisplay({ chain, intensity, speed, color, mix, peakLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -564,7 +564,7 @@ function ChainStageDisplay({ chain, intensity, speed, color, mix, peakLevel }) {
     return () => cancelAnimationFrame(raf);
   }, [chain]);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 4 }} />;
 }
 
 // ─── Arcade Button (3D raised circle) ──────────────────────────────────────
@@ -1071,7 +1071,7 @@ export default function PlayboxOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: th.panelGrad,
       border: `1.5px solid ${th.borderColor}`,
       boxShadow: th.outerGlow,
@@ -1107,7 +1107,7 @@ export default function PlayboxOrb({
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: `1px solid ${th.borderColor}`,
         position: 'relative', zIndex: 10,
-        background: th.headerGrad,
+        background: th.headerGrad, flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           {/* PLAYBOX title — each letter different color */}
@@ -1149,7 +1149,7 @@ export default function PlayboxOrb({
       <div style={{
         padding: '8px 8px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         borderBottom: `1px solid ${th.accentVdim}`,
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         {CHAIN_NAMES.map((name, i) => (
           <ArcadeButton key={name} label={name} active={chain === i}
@@ -1159,7 +1159,7 @@ export default function PlayboxOrb({
       </div>
 
       {/* Stage Visual with score overlay */}
-      <div style={{ borderBottom: `1px solid ${th.accentVdim}`, position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: `1px solid ${th.accentVdim}`, position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <ChainStageDisplay chain={chain} intensity={intensity} speed={speed} color={color} mix={mix} peakLevel={peakLevel} />
         {/* Score counter overlay */}
         <div style={{
@@ -1172,7 +1172,7 @@ export default function PlayboxOrb({
       {/* Meters + gain sliders */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: `1px solid ${th.accentVdim}`, position: 'relative', zIndex: 2,
+        borderBottom: `1px solid ${th.accentVdim}`, position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} theme={th}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
@@ -1188,7 +1188,7 @@ export default function PlayboxOrb({
       {/* Knobs: INTENSITY / SPEED / COLOR / MIX */}
       <div style={{
         padding: '7px 4px 6px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: `1px solid ${th.accentVdim}`, position: 'relative', zIndex: 2,
+        borderBottom: `1px solid ${th.accentVdim}`, position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="INTENSITY" value={intensity} min={0} max={1} defaultValue={0.4} theme={th}
           onChange={v => { setIntensity(v); engineRef.current?.setIntensity(v); setActivePreset(null); }}
@@ -1207,7 +1207,7 @@ export default function PlayboxOrb({
       {/* Bypass — Coin Slot */}
       <div style={{
         padding: '5px 12px', display: 'flex', justifyContent: 'flex-end',
-        alignItems: 'center', position: 'relative', zIndex: 2,
+        alignItems: 'center', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <CoinSlotBypass bypassed={bypassed} theme={th}
           onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />

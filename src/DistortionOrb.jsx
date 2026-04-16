@@ -287,6 +287,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
     <div className="flex flex-col rounded-2xl overflow-hidden"
       style={{
         width: size, height: 500, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
         background: `linear-gradient(160deg, ${accent(20, 8, 0.65)}, ${accent(15, 5, 0.85)})`,
         border: `1px solid ${accent(40, 40, 0.2)}`,
       }}>
@@ -308,7 +309,7 @@ export default function DistortionOrb({ instanceId, sharedSource, registerEngine
 
       {/* ===== ORB PAD ===== */}
       <div ref={wrapRef} className="relative select-none"
-        style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}
+        style={{ width: size, flex: 1, minHeight: 0, aspectRatio: '1/1', maxWidth: '100%', margin: '0 auto', cursor: dragging ? 'grabbing' : 'grab' }}
         onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
         onMouseUp={() => setDragging(false)} onMouseLeave={() => setDragging(false)}
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => setDragging(false)}

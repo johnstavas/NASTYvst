@@ -30,7 +30,7 @@ function SpectrumAnalyzer({ engineRef, signalLevel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 200;
+    const W = 380, H = 120;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -179,7 +179,7 @@ function SpectrumAnalyzer({ engineRef, signalLevel }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 200, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Stepped Attenuator Knob ─────────────────────────────────────────────
@@ -722,7 +722,7 @@ export default function FinisherOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 4, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 4, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(175deg, #1c1c20 0%, #18181c 25%, #161618 50%, #141416 75%, #18181c 100%)',
       border: '1px solid rgba(180,180,195,0.1)',
       boxShadow: '0 4px 24px rgba(0,0,0,0.6), 0 0 20px rgba(180,180,200,0.05)',
@@ -741,7 +741,7 @@ export default function FinisherOrb({
       <div style={{
         padding: '7px 12px 5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(180,180,195,0.06)',
-        position: 'relative', zIndex: 10,
+        position: 'relative', zIndex: 10, flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -770,7 +770,7 @@ export default function FinisherOrb({
       {/* ── "MASTERING GRADE" label + LUFS readout ── */}
       <div style={{
         padding: '4px 12px 2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <span style={{
           fontSize: 4, fontWeight: 300, letterSpacing: '0.35em',
@@ -782,19 +782,19 @@ export default function FinisherOrb({
 
       {/* ── Spectrum Analyzer (hero visual) ── */}
       <div style={{
-        padding: '2px 10px 4px', position: 'relative', zIndex: 2,
+        padding: '2px 10px 4px', position: 'relative', zIndex: 2, flex: 1, minHeight: 0,
       }}>
         <div style={{
           border: '1px solid rgba(180,180,195,0.06)',
           borderRadius: 2,
-          overflow: 'hidden',
+          overflow: 'hidden', height: '100%', boxSizing: 'border-box',
         }}>
           <SpectrumAnalyzer engineRef={engineRef} signalLevel={outputLevel} />
         </div>
       </div>
 
       {/* ── Wide horizontal LED meter bar ── */}
-      <div style={{ padding: '2px 10px 4px', position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '2px 10px 4px', position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <HLedMeterDom meterRef={outMeterRef} />
       </div>
 
@@ -803,7 +803,7 @@ export default function FinisherOrb({
         padding: '6px 0 4px', display: 'flex', flexDirection: 'column', gap: 6,
         borderTop: '1px solid rgba(180,180,195,0.05)',
         borderBottom: '1px solid rgba(180,180,195,0.05)',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <ConsoleFader label="FINISH" value={finish} defaultValue={0.3} format={pctFmt}
           onChange={v => { setFinish(v); engineRef.current?.setFinish(v); setActivePreset(null); }} />
@@ -817,7 +817,7 @@ export default function FinisherOrb({
       <div style={{
         padding: '6px 12px', display: 'flex', justifyContent: 'space-around',
         borderBottom: '1px solid rgba(180,180,195,0.05)',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="TONE" value={tone} defaultValue={0.5} size={28}
           format={v => v < 0.35 ? 'WARM' : v > 0.65 ? 'BRIGHT' : 'NEUTRAL'}
@@ -831,7 +831,7 @@ export default function FinisherOrb({
       {/* ── Bottom bar: IN/OUT knobs + toggle switch + phase meter + scope ── */}
       <div style={{
         padding: '5px 10px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="IN" value={inputGain} min={0} max={2} defaultValue={1} size={28}
           format={dbFmt} sensitivity={120}

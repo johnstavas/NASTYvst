@@ -414,6 +414,8 @@ export default function SpringReverbOrb({
       <div style={{
         width: W,
         height: 500,
+        display: 'flex',
+        flexDirection: 'column',
         fontFamily: 'sans-serif',
         userSelect: 'none',
         borderRadius: 6,
@@ -424,6 +426,7 @@ export default function SpringReverbOrb({
 
         {/* Header */}
         <div style={{
+          flexShrink: 0,
           display: 'grid', gridTemplateColumns: '1fr auto 1fr',
           alignItems: 'center',
           padding: '6px 10px 5px',
@@ -462,7 +465,7 @@ export default function SpringReverbOrb({
         {/* Tank window — the main interactive area */}
         <div style={{
           position: 'relative',
-          height: TANK_H,
+          flex: 1, minHeight: 0,
           background: 'radial-gradient(ellipse at 50% 0%, rgba(100,200,150,0.04) 0%, rgba(0,0,0,0) 70%)',
           borderBottom: '1px solid rgba(255,255,255,0.04)',
           overflow: 'hidden',
@@ -509,6 +512,7 @@ export default function SpringReverbOrb({
 
         {/* Knob row — IN / TONE / OUT */}
         <div style={{
+          flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'space-around',
           padding: '10px 14px 9px',
           borderBottom: '1px solid rgba(255,255,255,0.04)',

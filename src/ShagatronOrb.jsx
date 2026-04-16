@@ -262,6 +262,8 @@ export default function ShagatronOrb({
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       borderRadius: 6,
       overflow: 'hidden',
       // Black rack frame
@@ -272,10 +274,12 @@ export default function ShagatronOrb({
       userSelect: 'none',
     }}>
       {/* Top rack ear */}
-      <div style={{ height: 8, background: 'linear-gradient(180deg, #1a1a22 0%, #0e0e14 100%)', borderBottom: '1px solid rgba(255,255,255,0.04)' }} />
+      <div style={{ flexShrink: 0, height: 8, background: 'linear-gradient(180deg, #1a1a22 0%, #0e0e14 100%)', borderBottom: '1px solid rgba(255,255,255,0.04)' }} />
 
       {/* Cream faceplate — the whole inner panel */}
       <div style={{
+        flex: 1, minHeight: 0,
+        display: 'flex', flexDirection: 'column',
         margin: '0 6px',
         background: 'linear-gradient(180deg, #f4f0e4 0%, #ede8d8 30%, #e8e2d2 60%, #e2dccc 100%)',
         borderLeft: '1px solid rgba(0,0,0,0.12)',
@@ -298,6 +302,7 @@ export default function ShagatronOrb({
         {/* Header */}
         <div style={{
           ...panel,
+          flexShrink: 0,
           padding: '8px 12px 6px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: '1.5px solid rgba(30,30,50,0.12)',
@@ -347,12 +352,12 @@ export default function ShagatronOrb({
         </div>
 
         {/* Mode selector */}
-        <div style={{ ...panel, display: 'flex', justifyContent: 'center', padding: '5px 10px' }}>
+        <div style={{ ...panel, flexShrink: 0, display: 'flex', justifyContent: 'center', padding: '5px 10px' }}>
           <ModeSwitch mode={mode} onChange={m => { setMode(m); engineRef.current?.setMode(m); setActivePreset(null); }} />
         </div>
 
         {/* Main row: SHAG (big) + meters + LEVEL (big) */}
-        <div style={{ ...panel, padding: '8px 8px' }}>
+        <div style={{ ...panel, flex: 1, minHeight: 0, padding: '8px 8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Knob label="SHAG" value={shag} min={0} max={1} defaultValue={0.4}
               onChange={v => { setShag(v); engineRef.current?.setShag(v); setActivePreset(null); }}
@@ -371,7 +376,7 @@ export default function ShagatronOrb({
         </div>
 
         {/* Tone knobs row: WEIGHT · BITE · TIGHT · HAIR */}
-        <div style={{ ...panel, padding: '6px 4px' }}>
+        <div style={{ ...panel, flexShrink: 0, padding: '6px 4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start' }}>
             <Knob label="WEIGHT" value={weight} min={0} max={1} defaultValue={0.3}
               onChange={v => { setWeight(v); engineRef.current?.setWeight(v); setActivePreset(null); }}
@@ -395,7 +400,7 @@ export default function ShagatronOrb({
         </div>
 
         {/* Bottom row: MIX + BYPASS */}
-        <div style={{ ...panel, padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none' }}>
+        <div style={{ ...panel, flexShrink: 0, padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none' }}>
           <Knob label="MIX" value={mix} min={0} max={1} defaultValue={1}
             onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
             size={28} format={pctFmt} />
@@ -415,7 +420,7 @@ export default function ShagatronOrb({
       </div>
 
       {/* Bottom rack ear */}
-      <div style={{ height: 8, background: 'linear-gradient(180deg, #0e0e14 0%, #1a1a22 100%)', borderTop: '1px solid rgba(255,255,255,0.04)' }} />
+      <div style={{ flexShrink: 0, height: 8, background: 'linear-gradient(180deg, #0e0e14 0%, #1a1a22 100%)', borderTop: '1px solid rgba(255,255,255,0.04)' }} />
     </div>
   );
 }

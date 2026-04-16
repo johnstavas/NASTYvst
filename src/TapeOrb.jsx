@@ -831,6 +831,7 @@ export default function TapeOrb({
         // not the boxy hardware-chassis look of the Neve.
         borderRadius: 16,
         overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
         // Neutral dark panel — DOES NOT change with drive. The user only
         // sees drive feedback in the VU meters and the spinning reels;
         // the panel itself stays calm and consistent so the colored knob
@@ -874,10 +875,11 @@ export default function TapeOrb({
           </div>
         )}
 
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
           {/* Header — TASCAM brand row + bypass + remove */}
           <div style={{
+            flexShrink: 0,
             position: 'relative', zIndex: 1,
             display: 'grid', gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
@@ -982,6 +984,7 @@ export default function TapeOrb({
               out". The 244 had four meters because it was a four-track
               recorder; we have one stereo channel so we have two meters. */}
           <div style={{
+            flexShrink: 0,
             position: 'relative', zIndex: 1,
             display: 'grid', gridTemplateColumns: '1fr 1fr',
             gap: 8,
@@ -996,6 +999,7 @@ export default function TapeOrb({
               All four are evenly distributed across the panel width to mimic
               the 244's neat horizontal control layout. */}
           <div style={{
+            flexShrink: 0,
             position: 'relative', zIndex: 1,
             display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
             padding: '14px 10px 10px',
@@ -1047,6 +1051,7 @@ export default function TapeOrb({
               we expose them here so they can dial in as much or as little
               of the cassette wobble + hiss as they want. */}
           <div style={{
+            flexShrink: 0,
             position: 'relative', zIndex: 1,
             padding: '6px 12px 8px',
             display: 'flex', flexDirection: 'column', gap: 4,
@@ -1068,7 +1073,9 @@ export default function TapeOrb({
           </div>
         </div>
 
-        <ClipMeter inRms={inLevel} inPeak={inPeak} outRms={outLevel} outPeak={outPeak} />
+        <div style={{ flexShrink: 0 }}>
+          <ClipMeter inRms={inLevel} inPeak={inPeak} outRms={outLevel} outPeak={outPeak} />
+        </div>
       </div>
     </>
   );

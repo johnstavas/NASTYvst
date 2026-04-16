@@ -363,6 +363,8 @@ export default function NastyNeveOrb({
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       overflow: 'hidden',
       borderRadius: 12,
       padding: '12px 14px 10px',
@@ -374,7 +376,7 @@ export default function NastyNeveOrb({
     }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3" style={{ flexShrink: 0 }}>
         <div>
           <div className="font-black tracking-[0.10em]" style={{ fontSize: 14,
             color: STEEL_H,
@@ -448,7 +450,7 @@ export default function NastyNeveOrb({
 
       {/* ── PREAMP section ── */}
       <SectionLabel>PREAMP</SectionLabel>
-      <div className="flex items-end justify-around mb-4">
+      <div className="flex items-end justify-around mb-4" style={{ flex: 1, minHeight: 0 }}>
         <NastyKnob
           label="DRIVE" value={drive} onChange={wDriveS}
           min={0} max={18} defaultValue={0} size={38}
@@ -487,6 +489,7 @@ export default function NastyNeveOrb({
       <div
         className="flex items-start mb-3"
         style={{
+          flexShrink: 0,
           gap: 6,
           opacity: eqlOn ? 1 : 0.42,
           transition: 'opacity 0.2s',

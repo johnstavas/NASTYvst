@@ -19,7 +19,7 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -370,7 +370,7 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
     return function() { cancelAnimationFrame(raf); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Simple Arc Knob ─────────────────────────────────────────────────────────
@@ -565,6 +565,7 @@ export default function NearFarOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #14100a 0%, #100c08 35%, #0c0a06 70%, #0a0808 100%)',
       border: '1.5px solid rgba(200,150,70,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(200,140,50,0.08), inset 0 1px 0 rgba(220,180,100,0.05)',
@@ -575,7 +576,7 @@ export default function NearFarOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(200,150,70,0.1)',
-        background: 'linear-gradient(180deg, rgba(200,140,50,0.04) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(200,140,50,0.04) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -603,14 +604,14 @@ export default function NearFarOrb({
       </div>
 
       {/* Visual */}
-      <div style={{ borderBottom: '1px solid rgba(200,150,70,0.08)' }}>
+      <div style={{ borderBottom: '1px solid rgba(200,150,70,0.08)', flex: 1, minHeight: 0 }}>
         <DistanceLandscape distance={distance} room={room} focus={focus} airLoss={airLoss} tail={tail} peakLevel={peakLevel} bypassed={bypassed} />
       </div>
 
       {/* I/O */}
       <div style={{
         padding: '6px 12px', display: 'flex', gap: 12,
-        borderBottom: '1px solid rgba(200,150,70,0.08)',
+        borderBottom: '1px solid rgba(200,150,70,0.08)', flexShrink: 0,
       }}>
         <div style={{ flex: 1 }}>
           <HSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} format={dbFmt}
@@ -625,7 +626,7 @@ export default function NearFarOrb({
       {/* Knobs Row 1: DISTANCE (big), ROOM, FOCUS */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
-        borderBottom: '1px solid rgba(200,150,70,0.06)',
+        borderBottom: '1px solid rgba(200,150,70,0.06)', flexShrink: 0,
       }}>
         <Knob label="DISTANCE" value={distance} defaultValue={0.3} size={28}
           format={v => v < 0.25 ? 'NEAR' : v > 0.75 ? 'FAR' : 'MID'}
@@ -639,7 +640,7 @@ export default function NearFarOrb({
       {/* Knobs Row 2: AIR LOSS, TAIL, MIX */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
-        borderBottom: '1px solid rgba(200,150,70,0.06)',
+        borderBottom: '1px solid rgba(200,150,70,0.06)', flexShrink: 0,
       }}>
         <Knob label="AIR LOSS" value={airLoss} defaultValue={0.5} size={28} format={pctFmt}
           onChange={v => { setAirLoss(v); engineRef.current?.setAirLoss(v); setActivePreset(null); }} />
@@ -651,7 +652,7 @@ export default function NearFarOrb({
 
       {/* Bypass footer */}
       <div style={{
-        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
       }}>
         <BypassDot active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

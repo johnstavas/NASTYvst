@@ -412,6 +412,7 @@ export default function ScopeOrb({
       className="text-white rounded-2xl overflow-hidden relative flex flex-col"
       style={{
         width: W, height: 500, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
         background: `radial-gradient(ellipse at 30% 20%, ${accentColor(30, 9, 1)}, transparent 55%), radial-gradient(ellipse at 70% 80%, ${accentColor(22, 6, 1)}, transparent 55%), #0a0f0c`,
         border: '1px solid rgba(255,255,255,0.06)',
       }}
@@ -419,7 +420,7 @@ export default function ScopeOrb({
       {/* Header */}
       <div
         className="grid items-center px-3 py-2"
-        style={{ gridTemplateColumns: '1fr auto 1fr', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ flexShrink: 0, gridTemplateColumns: '1fr auto 1fr', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
         <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', color: accentColor(50, 60, 0.5) }}>Scope</span>
         <div
@@ -443,6 +444,7 @@ export default function ScopeOrb({
       <div
         className="grid items-center px-3 py-2"
         style={{
+          flexShrink: 0,
           gridTemplateColumns: '1fr 1fr',
           columnGap: 10,
           borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -482,7 +484,7 @@ export default function ScopeOrb({
       </div>
 
       {/* Spectrum + stereo meter strip */}
-      <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex" style={{ flex: 1, minHeight: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <canvas
           ref={specCanvasRef}
           width={SPEC_W * 2} height={SPEC_H * 2}
@@ -499,11 +501,11 @@ export default function ScopeOrb({
       <canvas
         ref={scopeCanvasRef}
         width={W * 2} height={SCOPE_H * 2}
-        style={{ width: W, height: SCOPE_H, display: 'block', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ flexShrink: 0, width: W, height: SCOPE_H, display: 'block', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       />
 
       {/* Goniometer + correlation readout */}
-      <div className="flex">
+      <div className="flex" style={{ flexShrink: 0 }}>
         <canvas
           ref={gonioCanvasRef}
           width={GONIO_SIZE * 2} height={GONIO_SIZE * 2}
@@ -560,7 +562,7 @@ export default function ScopeOrb({
       </div>
 
       {/* Settings — always visible */}
-      <div className="px-3 pb-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+      <div className="px-3 pb-3" style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
         <span className="text-[8px] uppercase tracking-[0.3em]" style={{ color: accentColor(40, 45, 0.35), display: 'block', marginBottom: 8 }}>Settings</span>
         <div className="flex flex-col gap-1.5">
           <SliderRow label="Input"  value={inputGain}  set={setInputGain}  min={0} max={2} fmt={v => `${Math.round(v*100)}%`} />

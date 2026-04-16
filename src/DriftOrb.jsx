@@ -24,7 +24,7 @@ function AuroraCanvas({ motion, speed, random, stereo, peakLevel = 0, depth, byp
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 390;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -238,7 +238,7 @@ function AuroraCanvas({ motion, speed, random, stereo, peakLevel = 0, depth, byp
   }, []);
 
   return <canvas ref={canvasRef} style={{
-    width: 380, height: 390, display: 'block',
+    width: '100%', height: '100%', display: 'block',
     position: 'absolute', top: 0, left: 0,
   }} />;
 }
@@ -562,7 +562,7 @@ export default function DriftOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #100a10 0%, #0e0810 50%, #0c080e 100%)',
       borderRadius: 0,
       border: 'none',
@@ -587,7 +587,7 @@ export default function DriftOrb({
       `}</style>
 
       {/* ── Full-canvas aurora (behind everything) ── */}
-      <div style={{ position: 'relative', width: 380, height: 390 }}>
+      <div style={{ position: 'relative', width: 380, flex: 1, minHeight: 0 }}>
         <AuroraCanvas
           motion={motion} speed={speed} random={random}
           stereo={stereo} peakLevel={peakLevel} depth={depth}
@@ -715,7 +715,7 @@ export default function DriftOrb({
       {/* ── "..." drawer toggle ── */}
       <div style={{
         display: 'flex', justifyContent: 'center', padding: '3px 0',
-        background: 'rgba(16,10,16,0.6)',
+        background: 'rgba(16,10,16,0.6)', flexShrink: 0,
         backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
       }}>
         <span
@@ -735,7 +735,7 @@ export default function DriftOrb({
         maxHeight: drawerOpen ? 200 : 0,
         overflow: 'hidden',
         transition: 'max-height 0.3s ease',
-        background: 'rgba(12,8,14,0.9)',
+        background: 'rgba(12,8,14,0.9)', flexShrink: 0,
         backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
       }}>
         <div style={{ padding: '6px 12px 8px', display: 'flex', flexDirection: 'column', gap: 5 }}>

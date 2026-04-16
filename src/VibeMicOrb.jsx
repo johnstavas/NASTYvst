@@ -31,7 +31,7 @@ function MicStudio({ micType, proximity, presShape, character, focus, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -354,7 +354,7 @@ function MicStudio({ micType, proximity, presShape, character, focus, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Copper/Gold Arc Knob ─────────────────────────────────────────────────
@@ -634,7 +634,7 @@ export default function VibeMicOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #1a1008 0%, #140c04 25%, #0e0804 50%, #0a0603 75%, #100a06 100%)',
       border: '1.5px solid rgba(200,150,60,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(200,140,40,0.05), inset 0 1px 0 rgba(240,180,60,0.04)',
@@ -644,7 +644,7 @@ export default function VibeMicOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(200,150,60,0.06)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(200,150,60,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(200,150,60,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -672,19 +672,19 @@ export default function VibeMicOrb({
       </div>
 
       {/* Mic Studio (Hero) */}
-      <div style={{ borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <MicStudio micType={micType} proximity={proximity} presShape={presShape} character={character} focus={focus} peak={peak} />
       </div>
 
       {/* Mic Type Selector */}
-      <div style={{ padding: '5px 0', borderBottom: '1px solid rgba(200,150,60,0.05)' }}>
+      <div style={{ padding: '5px 0', borderBottom: '1px solid rgba(200,150,60,0.05)', flexShrink: 0 }}>
         <MicTypeSelector value={micType} onChange={v => { setMicType(v); engineRef.current?.setMicType(v); setActivePreset(null); }} />
       </div>
 
       {/* Meters */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
         <LedMeterDom meterRef={inMeterRef} />
@@ -698,7 +698,7 @@ export default function VibeMicOrb({
       {/* Knobs row 1: PROXIMITY, PRESENCE, CHARACTER */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="PROXIMITY" value={proximity} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setProximity(v); engineRef.current?.setProximity(v); setActivePreset(null); }} />
         <Knob label="PRESENCE" value={presShape} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setPresShape(v); engineRef.current?.setPresShape(v); setActivePreset(null); }} />
@@ -708,7 +708,7 @@ export default function VibeMicOrb({
       {/* Knobs row 2: FOCUS, MIX, OUTPUT */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(200,150,60,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="FOCUS" value={focus} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} />
         <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
@@ -717,7 +717,7 @@ export default function VibeMicOrb({
 
       {/* Bypass */}
       <div style={{
-        padding: '6px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', zIndex: 2,
+        padding: '6px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} style={{
           width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',

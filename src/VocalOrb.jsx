@@ -278,13 +278,14 @@ export default function VocalOrb({
   };
 
   return (
-    <div style={{ width: size, height: 500, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)' }}>
+    <div style={{ width: size, height: 500, fontFamily: 'sans-serif', userSelect: 'none', borderRadius: 6, overflow: 'hidden', boxShadow: '0 6px 40px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column' }}>
 
       {/* Top wood */}
-      <div style={{ height: 8, background: 'linear-gradient(180deg, #3d2608, #2a1804)', borderBottom: '1px solid #5a380c' }} />
+      <div style={{ flexShrink: 0, height: 8, background: 'linear-gradient(180deg, #3d2608, #2a1804)', borderBottom: '1px solid #5a380c' }} />
 
       {/* Header */}
       <div style={{
+        flexShrink: 0,
         display: 'grid', gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center', padding: '5px 10px',
         background: 'linear-gradient(180deg, #161616 0%, #0f0f0f 100%)',
@@ -313,7 +314,7 @@ export default function VocalOrb({
       </div>
 
       {/* XY Pad */}
-      <div ref={wrapRef} style={{ position: 'relative', width: size, height: size, cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+      <div ref={wrapRef} style={{ position: 'relative', width: size, flex: 1, minHeight: 0, aspectRatio: '1/1', maxWidth: '100%', margin: '0 auto', cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
         onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU} onPointerCancel={onPU}>
 
         {/* Background */}
@@ -439,6 +440,7 @@ export default function VocalOrb({
 
       {/* ── BOTTOM CONTROLS ── */}
       <div style={{
+        flexShrink: 0,
         background: 'linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%)',
         borderTop: '1px solid #1e1e1e',
       }}>
@@ -579,7 +581,7 @@ export default function VocalOrb({
       )}
 
       {/* Bottom wood */}
-      <div style={{ height: 8, background: 'linear-gradient(180deg, #2a1804, #3d2608)', borderTop: '1px solid #5a380c' }} />
+      <div style={{ flexShrink: 0, height: 8, background: 'linear-gradient(180deg, #2a1804, #3d2608)', borderTop: '1px solid #5a380c' }} />
     </div>
   );
 }

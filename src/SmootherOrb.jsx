@@ -74,7 +74,7 @@ function WaterRipplePool({ smooth, focus, width, air, harshLevel, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -317,7 +317,7 @@ function WaterRipplePool({ smooth, focus, width, air, harshLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Harshness Thermometer ─────────────────────────────────────────────────
@@ -714,7 +714,7 @@ export default function SmootherOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #0e0a18 0%, #0a0814 25%, #08060f 50%, #06050c 75%, #0a0814 100%)',
       border: '1.5px solid rgba(130,100,200,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(120,80,200,0.06), inset 0 1px 0 rgba(180,150,240,0.04)',
@@ -727,7 +727,7 @@ export default function SmootherOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(130,100,200,0.06)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(120,80,200,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(120,80,200,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           {/* Water-reflected title */}
@@ -772,19 +772,19 @@ export default function SmootherOrb({
       </div>
 
       {/* Water Ripple Pool (Hero Visual) */}
-      <div style={{ borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <WaterRipplePool smooth={smooth} focus={focus} width={width} air={air} harshLevel={harshLevel} peak={peak} />
       </div>
 
       {/* Harshness Thermometer */}
-      <div style={{ borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <HarshThermometer harshLevel={harshLevel} />
       </div>
 
       {/* Meters + gain sliders */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
         <LedMeterDom meterRef={inMeterRef} />
@@ -798,7 +798,7 @@ export default function SmootherOrb({
       {/* Knobs row 1: SMOOTH, FOCUS, WIDTH */}
       <div style={{
         padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="SMOOTH" value={smooth} defaultValue={0.4} size={28} format={pctFmt} onChange={v => { setSmooth(v); engineRef.current?.setSmooth(v); setActivePreset(null); }} />
         <Knob label="FOCUS" value={focus} defaultValue={0.5} size={28} format={freqFmt} onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} />
@@ -808,7 +808,7 @@ export default function SmootherOrb({
       {/* Knobs row 2: AIR, BODY, MIX */}
       <div style={{
         padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(130,100,200,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="AIR" value={air} defaultValue={0.3} size={28} format={pctFmt} onChange={v => { setAir(v); engineRef.current?.setAir(v); setActivePreset(null); }} />
         <Knob label="BODY" value={body} defaultValue={0.5} size={28} format={pctFmt} onChange={v => { setBody(v); engineRef.current?.setBody(v); setActivePreset(null); }} />
@@ -818,7 +818,7 @@ export default function SmootherOrb({
       {/* Bypass — Zen Breathing Circle */}
       <div style={{
         padding: '6px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} style={{
           width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',

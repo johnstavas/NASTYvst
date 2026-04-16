@@ -496,6 +496,8 @@ export default function AnalogGlueOrb({
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       background: '#080b10',
       borderRadius: 10,
       overflow: 'hidden',
@@ -506,7 +508,7 @@ export default function AnalogGlueOrb({
     }}>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div style={{ background: facePlate, padding:'10px 12px 9px', borderBottom:`1px solid rgba(180,216,236,0.2)` }}>
+      <div style={{ flexShrink: 0, background: facePlate, padding:'10px 12px 9px', borderBottom:`1px solid rgba(180,216,236,0.2)` }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
             <span style={{ fontSize:14, fontWeight:700, letterSpacing:'0.04em', color:'#e8ecf0', fontFamily:"Georgia,'Times New Roman',serif", fontStyle:'italic', textShadow:'0 1px 2px rgba(0,0,0,0.8)' }}>Nasty Glue Comp</span>
@@ -529,10 +531,10 @@ export default function AnalogGlueOrb({
       </div>
 
       {/* ── Body ────────────────────────────────────────────────────── */}
-      <div style={{ padding:'6px 8px 8px' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding:'6px 8px 8px' }}>
 
         {/* Meters panel — LED bars + In/Out gain knobs */}
-        <div style={panel}>
+        <div style={{ ...panel, flexShrink: 0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ flex:1, display:'flex', flexDirection:'column', gap:3 }}>
               <LedMeter level={inPeak}  label="IN"  />
@@ -544,7 +546,7 @@ export default function AnalogGlueOrb({
         </div>
 
         {/* Gain reduction panel — SSL VU hero + scrolling I/O scope */}
-        <div style={panel}>
+        <div style={{ ...panel, flex: 1, minHeight: 0 }}>
           <div style={{ display:'flex', justifyContent:'center' }}>
             <GRNeedle grDb={grDb} />
           </div>
@@ -554,7 +556,7 @@ export default function AnalogGlueOrb({
         </div>
 
         {/* Main knobs — threshold/makeup/mix + knee/analog */}
-        <div style={panel}>
+        <div style={{ ...panel, flexShrink: 0 }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
             <Knob label="Threshold" value={threshold} onChange={v=>{setThreshold(v); engineRef.current?.setThreshold(v); clearPreset();}}
               min={-60} max={0} defaultValue={-12} size={28} format={v=>`${v.toFixed(1)}dB`} />
@@ -578,7 +580,7 @@ export default function AnalogGlueOrb({
         </div>
 
         {/* Attack & Release panel */}
-        <div style={panel}>
+        <div style={{ ...panel, flexShrink: 0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
             <span style={{ ...secLabel, marginBottom:0, width:36 }}>Atk</span>
             <div style={{ display:'flex', gap:2, flex:1 }}>
@@ -604,7 +606,7 @@ export default function AnalogGlueOrb({
         </div>
 
         {/* Sidechain HP + stereo link + lookahead panel */}
-        <div style={panel}>
+        <div style={{ ...panel, flexShrink: 0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
             <span style={{ ...secLabel, marginBottom:0, width:36 }}>S/C HP</span>
             <div style={{ display:'flex', gap:2, flex:1 }}>

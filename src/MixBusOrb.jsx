@@ -501,13 +501,14 @@ export default function MixBusOrb({
   return (
     <div style={{ width:MODULE_W, height:500, fontFamily:'sans-serif', userSelect:'none',
       borderRadius:6, overflow:'hidden', background:'#09090f',
-      boxShadow:'0 8px 48px rgba(0,0,0,0.9)' }}>
+      boxShadow:'0 8px 48px rgba(0,0,0,0.9)',
+      display:'flex', flexDirection:'column' }}>
 
       {/* Wood top */}
-      <div style={{ height:6, background:WOOD }} />
+      <div style={{ flexShrink:0, height:6, background:WOOD }} />
 
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+      <div style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'5px 10px',
         borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <span style={{ fontSize:14, fontWeight:700, letterSpacing:'0.04em',
@@ -538,7 +539,7 @@ export default function MixBusOrb({
       </div>
 
       {/* EQ Canvas */}
-      <div style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ flex:1, minHeight:0, borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <canvas ref={canvasRef} width={EQ_W} height={EQ_H}
           style={{ display:'block', touchAction:'none', cursor:'crosshair' }}
           onPointerDown={onPD} onPointerMove={onPM}
@@ -546,7 +547,7 @@ export default function MixBusOrb({
       </div>
 
       {/* Compressor row */}
-      <div style={{ padding:'8px 12px 6px', borderTop:'1px solid rgba(255,255,255,0.06)',
+      <div style={{ flexShrink:0, padding:'8px 12px 6px', borderTop:'1px solid rgba(255,255,255,0.06)',
         opacity: compEnabled ? 1 : 0.45, transition:'opacity 0.15s' }}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
           <div style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
@@ -571,7 +572,7 @@ export default function MixBusOrb({
       </div>
 
       {/* Limiter row */}
-      <div style={{ padding:'6px 12px 8px', borderTop:'1px solid rgba(255,255,255,0.06)',
+      <div style={{ flexShrink:0, padding:'6px 12px 8px', borderTop:'1px solid rgba(255,255,255,0.06)',
         opacity: limiterEnabled ? 1 : 0.45, transition:'opacity 0.15s',
         display:'flex', alignItems:'center', gap:10 }}>
         <div style={{ flex:1 }}>
@@ -583,13 +584,13 @@ export default function MixBusOrb({
       </div>
 
       {/* VU meter */}
-      <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ flexShrink:0, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
         <VUMeter leftRms={leftRms} rightRms={rightRms}
                  leftPeak={leftPeak} rightPeak={rightPeak} />
       </div>
 
       {/* Output gain */}
-      <div style={{ padding:'6px 12px 8px', borderTop:'1px solid rgba(255,255,255,0.06)',
+      <div style={{ flexShrink:0, padding:'6px 12px 8px', borderTop:'1px solid rgba(255,255,255,0.06)',
         display:'flex', alignItems:'center', gap:8 }}>
         <span style={{ fontSize:7, letterSpacing:'0.18em', textTransform:'uppercase',
           color:'rgba(255,255,255,0.25)', width:28, flexShrink:0 }}>OUT</span>
@@ -603,7 +604,7 @@ export default function MixBusOrb({
       </div>
 
       {/* Wood bottom */}
-      <div style={{ height:6, background:WOOD }} />
+      <div style={{ flexShrink:0, height:6, background:WOOD }} />
     </div>
   );
 }

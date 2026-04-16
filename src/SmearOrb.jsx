@@ -22,7 +22,7 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 340;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -368,7 +368,7 @@ function WatercolorCanvas({ smear, drift, degrade, size, tone, peak = 0, outPeak
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Watercolor Bypass Droplet ───────────────────────────────────────────────
@@ -583,6 +583,7 @@ export default function SmearOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #2a2522 0%, #231f1d 30%, #1e1b19 60%, #1a1715 100%)',
       border: '1.5px solid rgba(210,145,155,0.15)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 20px rgba(210,145,155,0.05), inset 0 1px 0 rgba(210,145,155,0.06)',
@@ -597,7 +598,7 @@ export default function SmearOrb({
       {/* Header */}
       <div style={{
         padding: '8px 18px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(210,145,155,0.08)', position: 'relative', zIndex: 10,
+        borderBottom: '1px solid rgba(210,145,155,0.08)', position: 'relative', zIndex: 10, flexShrink: 0,
         background: 'linear-gradient(180deg, rgba(210,145,155,0.02) 0%, transparent 100%)',
       }}>
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
@@ -625,7 +626,7 @@ export default function SmearOrb({
       {/* Preset row */}
       <div style={{
         padding: '3px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 10,
+        borderBottom: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 10, flexShrink: 0,
       }}>
         <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={PRESET_COLORS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -635,7 +636,7 @@ export default function SmearOrb({
       </div>
 
       {/* Hero canvas */}
-      <div style={{ position: 'relative', zIndex: 2 }}>
+      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <WatercolorCanvas
           smear={smear} drift={drift} degrade={degrade}
           size={size} tone={tone}
@@ -645,8 +646,8 @@ export default function SmearOrb({
 
       {/* Knob row */}
       <div style={{
-        padding: '6px 10px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2,
+        padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        borderTop: '1px solid rgba(210,145,155,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="SMEAR" value={smear} defaultValue={0.4} size={28} format={pctFmt} hue="210,145,155"
           onChange={v => { setSmear(v); engineRef.current?.setSmear(v); setActivePreset(null); }} />
@@ -663,7 +664,7 @@ export default function SmearOrb({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
             fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',

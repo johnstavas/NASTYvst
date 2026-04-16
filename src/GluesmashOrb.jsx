@@ -342,7 +342,7 @@ function PressureGauge({ macro, gr, smash, punch, peak, outPeak }) {
 
   return (
     <canvas ref={canvasRef} style={{
-      width: 260, height: 260, display: 'block',
+      width: '100%', height: '100%', display: 'block',
     }} />
   );
 }
@@ -865,7 +865,7 @@ export default function GluesmashOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 4, position: 'relative',
+      width: 380, height: 500, borderRadius: 4, position: 'relative', display: 'flex', flexDirection: 'column',
       background: `
         linear-gradient(170deg, #1e2024 0%, #181a1e 20%, #141618 50%, #101214 80%, #141618 100%)
       `,
@@ -908,6 +908,7 @@ export default function GluesmashOrb({
 
       {/* ═══ HEADER ═══ */}
       <div style={{
+        flexShrink: 0,
         padding: '8px 22px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'relative', zIndex: 10,
       }}>
@@ -943,6 +944,7 @@ export default function GluesmashOrb({
 
       {/* ═══ GIANT PRESSURE GAUGE ═══ */}
       <div style={{
+        flex: 1, minHeight: 0,
         display: 'flex', justifyContent: 'center', padding: '4px 0',
         background: 'radial-gradient(ellipse at center, rgba(20,22,26,1) 0%, rgba(16,18,20,1) 100%)',
         position: 'relative', zIndex: 2,
@@ -954,6 +956,7 @@ export default function GluesmashOrb({
 
       {/* ═══ MAIN CONTROL ZONE: left knobs | MACRO slider | right knobs ═══ */}
       <div style={{
+        flexShrink: 0,
         position: 'relative',
       }}>
         <div style={{
@@ -998,6 +1001,7 @@ export default function GluesmashOrb({
 
       {/* ═══ dB READOUTS ═══ */}
       <div style={{
+        flexShrink: 0,
         display: 'flex', justifyContent: 'space-around', padding: '5px 22px',
         position: 'relative', zIndex: 2,
       }}>
@@ -1007,6 +1011,7 @@ export default function GluesmashOrb({
 
       {/* ═══ HORIZONTAL IN/OUT SLIDERS ═══ */}
       <div style={{
+        flexShrink: 0,
         display: 'flex', gap: 12, padding: '6px 22px',
         position: 'relative', zIndex: 2,
       }}>
@@ -1020,6 +1025,7 @@ export default function GluesmashOrb({
 
       {/* ═══ BOTTOM BAR: Emergency Stop + status ═══ */}
       <div style={{
+        flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '6px 22px 8px',
         position: 'relative', zIndex: 10,

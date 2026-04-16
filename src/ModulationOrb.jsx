@@ -265,6 +265,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
     <div className="flex flex-col rounded-2xl overflow-hidden"
       style={{
         width: size, height: 500, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
         background: `linear-gradient(160deg, ${ac(20, 8, 0.65)}, ${ac(15, 5, 0.85)})`,
         border: `1px solid ${ac(40, 40, 0.2)}`,
       }}>
@@ -315,7 +316,7 @@ export default function ModulationOrb({ instanceId, sharedSource, registerEngine
 
       {/* ===== ORB PAD ===== */}
       <div ref={wrapRef} className="relative select-none"
-        style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}
+        style={{ width: size, flex: 1, minHeight: 0, aspectRatio: '1/1', maxWidth: '100%', margin: '0 auto', cursor: dragging ? 'grabbing' : 'grab' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

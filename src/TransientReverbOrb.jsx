@@ -20,7 +20,7 @@ function ShockwaveCanvas({ protect, tail, attackClear, size, peakLevel = 0, bloo
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -228,7 +228,7 @@ function ShockwaveCanvas({ protect, tail, attackClear, size, peakLevel = 0, bloo
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Diamond Knob ────────────────────────────────────────────────────────────
@@ -423,6 +423,7 @@ export default function TransientReverbOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #12100a 0%, #0e0c08 35%, #0a0a06 70%, #080808 100%)',
       border: '1.5px solid rgba(220,180,60,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(220,160,40,0.08), inset 0 1px 0 rgba(240,200,100,0.05)',
@@ -433,7 +434,7 @@ export default function TransientReverbOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(220,180,60,0.1)',
-        background: 'linear-gradient(180deg, rgba(220,160,40,0.04) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(220,160,40,0.04) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -461,7 +462,7 @@ export default function TransientReverbOrb({
       </div>
 
       {/* Visual */}
-      <div style={{ borderBottom: '1px solid rgba(220,180,60,0.08)' }}>
+      <div style={{ borderBottom: '1px solid rgba(220,180,60,0.08)', flex: 1, minHeight: 0 }}>
         <ShockwaveCanvas protect={protect} tail={tail} attackClear={attackClear} size={size}
           peakLevel={peakLevel} bloom={bloom} transient={transientAmt} bypassed={bypassed} />
       </div>
@@ -469,7 +470,7 @@ export default function TransientReverbOrb({
       {/* I/O */}
       <div style={{
         padding: '6px 12px', display: 'flex', gap: 12,
-        borderBottom: '1px solid rgba(220,180,60,0.08)',
+        borderBottom: '1px solid rgba(220,180,60,0.08)', flexShrink: 0,
       }}>
         <div style={{ flex: 1 }}>
           <HSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} format={dbFmt}
@@ -484,7 +485,7 @@ export default function TransientReverbOrb({
       {/* Knobs Row 1: PROTECT, TAIL, ATK CLEAR */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(220,180,60,0.06)',
+        borderBottom: '1px solid rgba(220,180,60,0.06)', flexShrink: 0,
       }}>
         <Knob label="PROTECT" value={protect} defaultValue={0.6} size={28} format={pctFmt}
           onChange={v => { setProtect(v); engineRef.current?.setProtect(v); setActivePreset(null); }} />
@@ -497,7 +498,7 @@ export default function TransientReverbOrb({
       {/* Knobs Row 2: SIZE, TONE, MIX */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(220,180,60,0.06)',
+        borderBottom: '1px solid rgba(220,180,60,0.06)', flexShrink: 0,
       }}>
         <Knob label="SIZE" value={size} defaultValue={0.4}
           format={v => v < 0.25 ? 'TIGHT' : v > 0.75 ? 'LARGE' : 'MED'}
@@ -511,7 +512,7 @@ export default function TransientReverbOrb({
 
       {/* Bypass footer */}
       <div style={{
-        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
       }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{

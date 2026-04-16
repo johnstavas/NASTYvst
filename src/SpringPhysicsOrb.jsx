@@ -306,6 +306,8 @@ export default function SpringPhysicsOrb({
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       background: '#0e0e0e',
       borderRadius: 8,
       overflow: 'hidden',
@@ -316,6 +318,7 @@ export default function SpringPhysicsOrb({
 
       {/* ── Header ── */}
       <div style={{
+        flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 14px 9px',
         borderBottom: `1px solid ${accentDim}44`,
@@ -379,6 +382,7 @@ export default function SpringPhysicsOrb({
 
       {/* ── LED Meters (like Selector) ── */}
       <div style={{
+        flexShrink: 0,
         padding: '8px 12px 6px',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         display: 'flex', flexDirection: 'column', gap: 4,
@@ -388,7 +392,7 @@ export default function SpringPhysicsOrb({
       </div>
 
       {/* ── Body: knob rows + coil column ── */}
-      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
 
         {/* Left: both knob rows stacked */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

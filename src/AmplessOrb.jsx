@@ -260,7 +260,7 @@ function VacuumTubeGlow({ drive, body, bite, sag, inputLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 150, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Chicken Head Knob (SVG) ─────────────────────────────────────────────
@@ -614,7 +614,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       // 3D box pedal depth
       background: 'linear-gradient(175deg, #ece4d2 0%, #e6ddc8 20%, #e0d8c2 50%, #dbd3be 80%, #ddd5c0 100%)',
       border: '2px solid rgba(60,50,40,0.35)',
@@ -649,6 +649,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── HEADER: Brand Badge + Preset + IN/OUT + Level LED ── */}
       <div style={{
+        flexShrink: 0,
         padding: '10px 10px 7px', position: 'relative', zIndex: 10,
         borderBottom: '1px solid rgba(60,50,40,0.12)',
         background: 'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 100%)',
@@ -701,6 +702,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── 1/4" Jack Left + VACUUM TUBE CANVAS + 1/4" Jack Right ── */}
       <div style={{
+        flex: 1, minHeight: 0,
         position: 'relative', zIndex: 2,
         borderBottom: '1px solid rgba(60,50,40,0.12)',
         background: '#0c0808',
@@ -717,6 +719,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── DRIVE: THE BIG RED CHICKEN HEAD ── */}
       <div style={{
+        flexShrink: 0,
         padding: '10px 0 4px', display: 'flex', justifyContent: 'center',
         position: 'relative', zIndex: 2,
       }}>
@@ -727,6 +730,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── BODY + BITE: Medium BLACK chicken heads ── */}
       <div style={{
+        flexShrink: 0,
         padding: '4px 16px', display: 'flex', justifyContent: 'space-around',
         position: 'relative', zIndex: 2,
       }}>
@@ -740,6 +744,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── SAG + TONE: Smaller cream chicken heads ── */}
       <div style={{
+        flexShrink: 0,
         padding: '4px 26px', display: 'flex', justifyContent: 'space-around',
         position: 'relative', zIndex: 2,
       }}>
@@ -754,6 +759,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── GATE + MIX: Tiny cream chicken heads ── */}
       <div style={{
+        flexShrink: 0,
         padding: '4px 36px 6px', display: 'flex', justifyContent: 'space-around',
         position: 'relative', zIndex: 2,
       }}>
@@ -774,6 +780,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── JEWEL LED + STOMP FOOTSWITCH ── */}
       <div style={{
+        flexShrink: 0,
         padding: '10px 0 10px', display: 'flex', flexDirection: 'column',
         alignItems: 'center', gap: 8, position: 'relative', zIndex: 2,
       }}>
@@ -793,6 +800,7 @@ export default function AmplessOrb({ instanceId, sharedSource, registerEngine, u
 
       {/* ── HAND WIRED + Battery screw detail ── */}
       <div style={{
+        flexShrink: 0,
         padding: '0 0 6px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12,
         position: 'relative', zIndex: 2,
       }}>

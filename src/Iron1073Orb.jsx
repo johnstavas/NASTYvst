@@ -208,6 +208,8 @@ export default function Iron1073Orb({
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       overflow: 'hidden',
       borderRadius: 12,
       padding: 14,
@@ -218,7 +220,7 @@ export default function Iron1073Orb({
       fontFamily: '"Inter", system-ui, sans-serif',
     }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
         <div>
           <div className="font-bold tracking-wider" style={{ color: COPPER_H, fontSize: 14 }}>
             IRON 1073
@@ -242,7 +244,7 @@ export default function Iron1073Orb({
       </div>
 
       {/* Three-knob row */}
-      <div className="flex items-end justify-around mb-3">
+      <div className="flex items-end justify-around mb-3" style={{ flex: 1, minHeight: 0 }}>
         <IronKnob
           label="DRIVE"
           value={drive}
@@ -273,7 +275,7 @@ export default function Iron1073Orb({
       </div>
 
       {/* Mix slider — secondary control */}
-      <div className="flex items-center gap-2 mb-2 px-1">
+      <div className="flex items-center gap-2 mb-2 px-1" style={{ flexShrink: 0 }}>
         <span className="text-[8px] tracking-[0.18em] font-semibold" style={{ color: 'rgba(255,200,140,0.5)' }}>
           MIX
         </span>

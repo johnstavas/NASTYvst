@@ -21,7 +21,7 @@ function TachometerGauges({ lowDrive, midDrive, highDrive, crossLo, crossHi, pea
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -370,7 +370,7 @@ function TachometerGauges({ lowDrive, midDrive, highDrive, crossLo, crossHi, pea
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 4 }} />;
 }
 
 // ─── Chrome Shift Knob ──────────────────────────────────────────────────────
@@ -804,7 +804,7 @@ export default function SplitdriveOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #1c0e0a 0%, #180a08 25%, #140806 50%, #100604 75%, #140a08 100%)',
       border: '1.5px solid rgba(180,90,40,0.18)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 20px rgba(200,60,20,0.06), inset 0 1px 0 rgba(255,200,150,0.04)',
@@ -825,7 +825,7 @@ export default function SplitdriveOrb({
       <div style={{
         padding: '8px 12px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(180,90,40,0.08)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(200,100,40,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(200,100,40,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -858,7 +858,7 @@ export default function SplitdriveOrb({
 
       {/* Tachometer gauges — the hero visual */}
       <div style={{
-        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2, flex: 1, minHeight: 0,
         background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.15) 100%)',
       }}>
         <TachometerGauges lowDrive={lowDrive} midDrive={midDrive} highDrive={highDrive} crossLo={crossLo} crossHi={crossHi} peak={peak} />
@@ -867,7 +867,7 @@ export default function SplitdriveOrb({
       {/* Meters + gain + speedometer */}
       <div style={{
         padding: '5px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
         <LedMeterDom meterRef={inMeterRef} />
@@ -880,14 +880,14 @@ export default function SplitdriveOrb({
 
       {/* Chrome trim separator */}
       <div style={{
-        height: 1, margin: '0 15px',
+        height: 1, margin: '0 15px', flexShrink: 0,
         background: 'linear-gradient(90deg, transparent, rgba(200,200,200,0.12), rgba(255,255,255,0.18), rgba(200,200,200,0.12), transparent)',
       }} />
 
       {/* Knobs row 1: LOW, MID, HIGH drive — chrome shifter knobs */}
       <div style={{
         padding: '7px 6px 3px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="LOW" value={lowDrive} defaultValue={0.2} size={28} format={pctFmt}
           onChange={v => { setLowDrive(v); engineRef.current?.setLowDrive(v); setActivePreset(null); }} />
@@ -900,7 +900,7 @@ export default function SplitdriveOrb({
       {/* Knobs row 2: GEAR 1 (crossLo), GEAR 2 (crossHi), TONE (elongated), MIX */}
       <div style={{
         padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start',
-        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(180,90,40,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="GEAR 1" value={crossLo} defaultValue={0.3} size={28} format={crossLoFmt}
           onChange={v => { setCrossLo(v); engineRef.current?.setCrossLo(v); setActivePreset(null); }} />
@@ -916,7 +916,7 @@ export default function SplitdriveOrb({
       {/* Bottom: Ignition switch bypass */}
       <div style={{
         padding: '5px 12px 8px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
-        position: 'relative', zIndex: 2, gap: 10,
+        position: 'relative', zIndex: 2, gap: 10, flexShrink: 0,
       }}>
         <IgnitionSwitch
           bypassed={bypassed}

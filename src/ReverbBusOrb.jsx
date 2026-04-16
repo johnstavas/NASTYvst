@@ -20,7 +20,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 340;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -439,7 +439,7 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Console Bypass Button ───────────────────────────────────────────────────
@@ -633,6 +633,7 @@ export default function ReverbBusOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #222428 0%, #1e2024 30%, #1a1c20 60%, #16181c 100%)',
       border: '1.5px solid rgba(140,150,165,0.1)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 10px rgba(40,180,80,0.03), inset 0 1px 0 rgba(255,255,255,0.02)',
@@ -648,7 +649,7 @@ export default function ReverbBusOrb({
       <div style={{
         padding: '8px 18px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(140,150,165,0.06)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.01) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.01) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
@@ -672,7 +673,7 @@ export default function ReverbBusOrb({
       {/* Preset row */}
       <div style={{
         padding: '3px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 10,
+        borderBottom: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 10, flexShrink: 0,
       }}>
         <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={PRESET_COLORS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -682,14 +683,14 @@ export default function ReverbBusOrb({
       </div>
 
       {/* Hero canvas */}
-      <div style={{ position: 'relative', zIndex: 2 }}>
+      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <BusMeterCanvas space={space} tuck={tuck} glue={glue} color={color} width={width} peak={peak} outPeak={outPeak} gr={gr} reverbLevel={reverbLevel} />
       </div>
 
       {/* Knob row */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        borderTop: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 2,
+        borderTop: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="SPACE" value={space} defaultValue={0.35} size={28} format={pctFmt}
           onChange={v => { setSpace(v); engineRef.current?.setSpace(v); setActivePreset(null); }} />
@@ -706,7 +707,7 @@ export default function ReverbBusOrb({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
             fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',

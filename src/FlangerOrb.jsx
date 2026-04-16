@@ -427,7 +427,7 @@ export default function FlangerOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: th.panelGrad,
       border: `1.5px solid ${th.borderColor}`,
       boxShadow: th.outerGlow,
@@ -443,7 +443,7 @@ export default function FlangerOrb({
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: `1px solid ${th.dividerStrong}`,
         position: 'relative', zIndex: 10,
-        background: th.headerGrad,
+        background: th.headerGrad, flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span key={engine} style={{
@@ -465,7 +465,7 @@ export default function FlangerOrb({
       <div style={{
         padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6,
         borderBottom: `1px solid ${th.divider}`,
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flex: 1, minHeight: 0,
       }}>
         <div style={{ display: 'flex', gap: 3 }}>
           <ModeButton label="MX" active={engine === 0} onClick={() => switchEngine(0)} theme={th} />
@@ -482,7 +482,7 @@ export default function FlangerOrb({
       {/* Meters + gain sliders */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2,
+        borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} theme={th}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }}
@@ -498,7 +498,7 @@ export default function FlangerOrb({
       </div>
 
       {/* Knobs row 1: MANUAL, RATE, DEPTH, REGEN */}
-      <div style={{ padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around', borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '7px 4px 3px', display: 'flex', justifyContent: 'space-around', borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <Knob label="MANUAL" value={manual} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setManual(v); engineRef.current?.setManual(v); setActivePreset(null); }}
           size={28} format={pctFmt} />
@@ -517,7 +517,7 @@ export default function FlangerOrb({
       </div>
 
       {/* Knobs row 2: MIX, WIDTH, COLOR, DRIVE */}
-      <div style={{ padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around', borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '4px 4px 6px', display: 'flex', justifyContent: 'space-around', borderBottom: `1px solid ${th.divider}`, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <Knob label="MIX" value={mix} min={0} max={1} defaultValue={0.5} theme={th}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }}
           size={28} format={pctFmt} />
@@ -533,7 +533,7 @@ export default function FlangerOrb({
       </div>
 
       {/* Bypass */}
-      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} style={{
           fontSize: 7, fontWeight: 800, fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
           letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 2,

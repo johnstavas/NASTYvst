@@ -33,7 +33,7 @@ function HoloReticle({ lock, presence, body, stability, gainReduction, peak }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -359,7 +359,7 @@ function HoloReticle({ lock, presence, body, stability, gainReduction, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── GR Meter Bar ─────────────────────────────────────────────────────────
@@ -681,7 +681,7 @@ export default function VocalLockOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #081418 0%, #060f14 25%, #040a0e 50%, #030810 75%, #061014 100%)',
       border: '1.5px solid rgba(60,180,180,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(60,200,200,0.06), inset 0 1px 0 rgba(80,220,220,0.04)',
@@ -691,7 +691,7 @@ export default function VocalLockOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(60,180,180,0.06)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(60,180,180,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(60,180,180,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -719,19 +719,19 @@ export default function VocalLockOrb({
       </div>
 
       {/* Holographic Reticle (Hero) */}
-      <div style={{ borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <HoloReticle lock={lock} presence={presence} body={body} stability={stability} gainReduction={gainReduction} peak={peak} />
       </div>
 
       {/* GR Meter */}
-      <div style={{ borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <GrMeter gainReduction={gainReduction} />
       </div>
 
       {/* Meters + gain sliders */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
         <LedMeterDom meterRef={inMeterRef} />
@@ -745,7 +745,7 @@ export default function VocalLockOrb({
       {/* Knobs row 1: LOCK, PRESENCE, BODY */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="LOCK" value={lock} defaultValue={0.45} size={28} format={pctFmt} onChange={v => { setLock(v); engineRef.current?.setLock(v); setActivePreset(null); }} />
         <Knob label="PRESENCE" value={presence} defaultValue={0.40} size={28} format={pctFmt} onChange={v => { setPresence(v); engineRef.current?.setPresence(v); setActivePreset(null); }} />
@@ -755,7 +755,7 @@ export default function VocalLockOrb({
       {/* Knobs row 2: STABILITY, MIX, OUTPUT */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(60,180,180,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="STABILITY" value={stability} defaultValue={0.50} size={28} format={pctFmt} onChange={v => { setStability(v); engineRef.current?.setStability(v); setActivePreset(null); }} />
         <Knob label="MIX" value={mix} defaultValue={1} size={28} format={pctFmt} onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
@@ -765,7 +765,7 @@ export default function VocalLockOrb({
       {/* Bypass */}
       <div style={{
         padding: '6px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} style={{
           width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',

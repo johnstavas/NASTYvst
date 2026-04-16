@@ -243,7 +243,7 @@ export default function PitchShifterOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 6, overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: '#0a0e12',
       border: '1.5px solid rgba(0,221,255,0.15)',
       boxShadow: '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(0,221,255,0.05)',
@@ -253,7 +253,7 @@ export default function PitchShifterOrb({
       {/* Header */}
       <div style={{
         padding: '8px 12px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(0,221,255,0.1)',
+        borderBottom: '1px solid rgba(0,221,255,0.1)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{ fontSize: 14, fontWeight: 900, color: '#00ddff', letterSpacing: '0.06em' }}>Poly Pitch</span>
@@ -267,7 +267,7 @@ export default function PitchShifterOrb({
       </div>
 
       {/* PITCH knob + meters + gain sliders */}
-      <div style={{ padding: '8px 8px 6px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, borderBottom: '1px solid rgba(0,221,255,0.07)' }}>
+      <div style={{ padding: '8px 8px 6px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, borderBottom: '1px solid rgba(0,221,255,0.07)', flex: 1, minHeight: 0 }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }}
           format={v => { const db = v > 0.001 ? 20 * Math.log10(v) : -Infinity; return db > -60 ? `${db >= 0 ? '+' : ''}${db.toFixed(1)}` : '-∞'; }} />
@@ -282,7 +282,7 @@ export default function PitchShifterOrb({
       </div>
 
       {/* Knobs row */}
-      <div style={{ padding: '6px 4px', display: 'flex', justifyContent: 'space-around', borderBottom: '1px solid rgba(0,221,255,0.07)' }}>
+      <div style={{ padding: '6px 4px', display: 'flex', justifyContent: 'space-around', borderBottom: '1px solid rgba(0,221,255,0.07)', flexShrink: 0 }}>
         <Knob label="GRAIN" value={grain} min={0} max={1} defaultValue={0.5}
           onChange={v => { setGrain(v); engineRef.current?.setGrain(v); setActivePreset(null); }}
           size={28} format={pctFmt} />
@@ -304,7 +304,7 @@ export default function PitchShifterOrb({
       </div>
 
       {/* Bypass */}
-      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} style={{
           fontSize: 7, fontWeight: 800, fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
           letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 2,

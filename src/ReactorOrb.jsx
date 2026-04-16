@@ -22,7 +22,7 @@ function MatrixOscilloscope({ react, speed, depth, shape, reactLevel, engineRef 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -218,7 +218,7 @@ function MatrixOscilloscope({ react, speed, depth, shape, reactLevel, engineRef 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Terminal Bypass Toggle ─────────────────────────────────────────────────
@@ -686,7 +686,7 @@ export default function ReactorOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: '#010301',
       /* Corner bracket border via box-shadow + hard border */
       border: '1px solid rgba(0,255,96,0.2)',
@@ -716,7 +716,7 @@ export default function ReactorOrb({
       <div style={{
         padding: '7px 10px 5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(0,255,96,0.08)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(0,255,96,0.02) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(0,255,96,0.02) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -745,8 +745,8 @@ export default function ReactorOrb({
       </div>
 
       {/* Matrix + Oscilloscope display */}
-      <div style={{ borderBottom: '1px solid rgba(0,255,96,0.06)', position: 'relative', zIndex: 2, background: '#010301' }}>
-        <div style={{ border: '1px solid rgba(0,255,96,0.05)', margin: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(0,255,96,0.06)', position: 'relative', zIndex: 2, background: '#010301', flex: 1, minHeight: 0 }}>
+        <div style={{ border: '1px solid rgba(0,255,96,0.05)', margin: 2, height: '100%', boxSizing: 'border-box' }}>
           <MatrixOscilloscope react={react} speed={speed} depth={depth} shape={shape} reactLevel={reactLevel} engineRef={engineRef} />
         </div>
         {/* ACCESS GRANTED badge overlay */}
@@ -760,7 +760,7 @@ export default function ReactorOrb({
       {/* Status bar — CPU + Sample Counter */}
       <div style={{
         padding: '2px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderBottom: '1px solid rgba(0,255,96,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(0,255,96,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <CpuIndicator />
         <SampleCounter />
@@ -769,7 +769,7 @@ export default function ReactorOrb({
       {/* REACT/DEPTH as LED bar graphs + SPEED/SHAPE as data dials */}
       <div style={{
         padding: '5px 10px 4px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 8,
-        borderBottom: '1px solid rgba(0,255,96,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(0,255,96,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <LedBarGraph label="REACT" value={react} min={0} max={1} defaultValue={0.4} height={62}
           onChange={v => { setReact(v); engineRef.current?.setReact(v); setActivePreset(null); }} format={pctFmt} />
@@ -787,7 +787,7 @@ export default function ReactorOrb({
       {/* FILTER, STEREO, MIX — data dial row */}
       <div style={{
         padding: '3px 10px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(0,255,96,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(0,255,96,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <DataDial label="FILTER" value={filter} defaultValue={0.5} size={32}
           format={v => { const f = 200 * Math.pow(90, v); return f < 1000 ? `${Math.round(f)}` : `${(f / 1000).toFixed(1)}k`; }}
@@ -801,7 +801,7 @@ export default function ReactorOrb({
       {/* Bottom: IN/OUT dials + meters + terminal bypass */}
       <div style={{
         padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'relative', zIndex: 2,
+        position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         {/* IN/OUT meters + gain */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>

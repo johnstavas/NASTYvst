@@ -33,7 +33,7 @@ function WaveformLane({ speed, smoothness, phraseWord, presComp, peak, waveform,
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -393,7 +393,7 @@ function WaveformLane({ speed, smoothness, phraseWord, presComp, peak, waveform,
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 6 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 6 }} />;
 }
 
 // ─── Purple Arc Knob ──────────────────────────────────────────────────────
@@ -708,7 +708,7 @@ export default function PhraseRiderOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 8, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #100820 0%, #0c0618 25%, #080412 50%, #06030e 75%, #0a0618 100%)',
       border: '1.5px solid rgba(140,70,220,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 30px rgba(140,60,220,0.05), inset 0 1px 0 rgba(180,100,255,0.04)',
@@ -718,7 +718,7 @@ export default function PhraseRiderOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(140,70,220,0.06)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(140,70,220,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(140,70,220,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -746,20 +746,20 @@ export default function PhraseRiderOrb({
       </div>
 
       {/* Waveform Automation Lane (Hero) */}
-      <div style={{ borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2 }}>
+      <div style={{ borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <WaveformLane speed={speed} smoothness={smoothness} phraseWord={phraseWord} presComp={presComp}
           peak={peak} waveform={waveform} gainCurve={gainCurve} waveformIdx={waveformIdx} currentGainDb={currentGainDb} />
       </div>
 
       {/* Speed Slider */}
-      <div style={{ padding: '6px 0', borderBottom: '1px solid rgba(140,70,220,0.05)' }}>
+      <div style={{ padding: '6px 0', borderBottom: '1px solid rgba(140,70,220,0.05)', flexShrink: 0 }}>
         <SpeedSlider value={speed} onChange={v => { setSpeed(v); engineRef.current?.setSpeed(v); setActivePreset(null); }} />
       </div>
 
       {/* Meters */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
         <LedMeterDom meterRef={inMeterRef} />
@@ -773,7 +773,7 @@ export default function PhraseRiderOrb({
       {/* Knobs row 1: SMOOTHNESS, PHRASE<>WORD, PRES COMP */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="SMOOTH" value={smoothness} defaultValue={0.60} size={28} format={pctFmt} onChange={v => { setSmoothness(v); engineRef.current?.setSmoothness(v); setActivePreset(null); }} />
         <Knob label="PH\u2194WD" value={phraseWord} defaultValue={0.50} size={28} format={biasFmt} onChange={v => { setPhraseWord(v); engineRef.current?.setPhraseWord(v); setActivePreset(null); }} />
@@ -783,14 +783,14 @@ export default function PhraseRiderOrb({
       {/* Knobs row 2: OUTPUT */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'center',
-        borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2,
+        borderBottom: '1px solid rgba(140,70,220,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="OUTPUT" value={outputDb} min={-18} max={18} defaultValue={0} size={28} format={outDbFmt} sensitivity={120} onChange={v => { setOutputDb(v); engineRef.current?.setOutputDb(v); setActivePreset(null); }} />
       </div>
 
       {/* Bypass */}
       <div style={{
-        padding: '6px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', zIndex: 2,
+        padding: '6px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <button onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} style={{
           width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',

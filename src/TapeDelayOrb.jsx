@@ -374,6 +374,8 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       background: '#181814',
       borderRadius: 10,
       overflow: 'hidden',
@@ -384,7 +386,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
     }}>
 
       {/* ── Header — silver faceplate ── */}
-      <div style={{ background: facePlate, padding:'9px 12px 8px', borderBottom:'2px solid #888' }}>
+      <div style={{ flexShrink: 0, background: facePlate, padding:'9px 12px 8px', borderBottom:'2px solid #888' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
             <span style={{ fontSize:14, fontWeight:900, letterSpacing:'0.12em', color:'#1a1a10', fontFamily:'serif', textShadow:'0 1px 0 rgba(255,255,255,0.4)' }}>SPACE ECHO</span>
@@ -409,10 +411,10 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
       </div>
 
       {/* ── Body — dark housing with green panel inserts ── */}
-      <div style={{ padding:'10px 10px 12px', background:'#1c1c18' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding:'10px 10px 12px', background:'#1c1c18' }}>
 
         {/* Meters — green panel */}
-        <div style={greenPanel}>
+        <div style={{ ...greenPanel, flex: 1, minHeight: 0 }}>
           {/* Top row: LEVEL label + VU needle meters + gain knobs */}
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             <span style={{ ...secLabel, marginBottom:0 }}>Level</span>
@@ -439,7 +441,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
         </div>
 
         {/* Echo Heads — green panel */}
-        <div style={greenPanel}>
+        <div style={{ ...greenPanel, flexShrink: 0 }}>
           <span style={secLabel}>Echo Heads</span>
           <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
             {/* Head on/off buttons */}
@@ -471,7 +473,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
         </div>
 
         {/* Main Controls — green panel */}
-        <div style={greenPanel}>
+        <div style={{ ...greenPanel, flexShrink: 0 }}>
           <span style={secLabel}>Controls</span>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
             <Knob label="Rate"      value={repeatRate} onChange={v=>setRepeatRate(v)}                  defaultValue={0.5}  size={28} format={fmtRate} />
@@ -488,7 +490,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
         </div>
 
         {/* Analog Tone — green panel */}
-        <div style={{ ...greenPanel, marginBottom:0 }}>
+        <div style={{ ...greenPanel, marginBottom:0, flexShrink: 0 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
             <span style={secLabel}>Analog Tone</span>
             <span style={{ fontSize:6.5, color: analogMix > 0.01 ? '#c8e888' : 'rgba(180,220,140,0.3)', fontWeight:700, letterSpacing:'0.14em' }}>{Math.round(analogMix*100)}%</span>
@@ -504,7 +506,7 @@ export default function TapeDelayOrb({ instanceId, sharedSource, registerEngine,
         </div>
 
         {/* ── Presets — green panel */}
-        <div style={{ ...greenPanel, marginBottom:0, marginTop:8 }}>
+        <div style={{ ...greenPanel, marginBottom:0, marginTop:8, flexShrink: 0 }}>
           <span style={secLabel}>Presets</span>
 
           {/* Save row */}

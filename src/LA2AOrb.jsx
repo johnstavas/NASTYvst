@@ -622,6 +622,8 @@ export default function LA2AOrb({
     <div style={{
       width: 380,
       height: 500,
+      display: 'flex',
+      flexDirection: 'column',
       background: 'linear-gradient(180deg,#e8e0c8 0%,#d8cfb4 100%)',
       borderRadius: 6,
       overflow: 'hidden',
@@ -633,6 +635,7 @@ export default function LA2AOrb({
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div style={{
+        flexShrink: 0,
         background: 'linear-gradient(180deg,#f4eed8 0%,#e8e0c8 100%)',
         padding: '9px 12px 8px',
         borderBottom: '1px solid rgba(26,20,16,0.35)',
@@ -717,10 +720,10 @@ export default function LA2AOrb({
       </div>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '7px 10px 9px' }}>
+      <div style={{ padding: '7px 10px 9px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
         {/* VU meter panel — the hero, centered, mode-switchable */}
-        <div style={panel}>
+        <div style={{ ...panel, flex: 1, minHeight: 0 }}>
           <div
             onClick={cycleMeterMode}
             title="Click to cycle: Gain Reduction / Output ×4 / Output ×10"
@@ -743,7 +746,7 @@ export default function LA2AOrb({
         </div>
 
         {/* Big knobs panel — GAIN + PEAK REDUCTION side by side */}
-        <div style={{ ...panel, padding: '10px 10px 6px' }}>
+        <div style={{ ...panel, padding: '10px 10px 6px', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start' }}>
             <Knob
               label="GAIN"
@@ -769,7 +772,7 @@ export default function LA2AOrb({
         </div>
 
         {/* Mode row — LIMIT/COMPRESS toggle + HF button + POWER toggle */}
-        <div style={panel}>
+        <div style={{ ...panel, flexShrink: 0 }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-around',
@@ -820,6 +823,7 @@ export default function LA2AOrb({
 
         {/* Bottom vent strip — a nod to the rack aesthetic */}
         <div style={{
+          flexShrink: 0,
           marginTop: 2,
           height: 4,
           background: `repeating-linear-gradient(

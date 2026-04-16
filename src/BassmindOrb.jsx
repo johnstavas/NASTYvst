@@ -269,7 +269,7 @@ function SonarDisplay({ weight, tight, focus, growl, subLevel, peak }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 300, height: 300, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Bubble Particles Layer ───────────────────────────────────────────────
@@ -853,7 +853,7 @@ export default function BassmindOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: `
         linear-gradient(180deg, #0c1828 0%, #081420 15%, #060e18 40%, #040a12 60%, #060e18 80%, #081420 100%)
       `,
@@ -887,6 +887,7 @@ export default function BassmindOrb({
 
       {/* ════════ HEADER: Title flanked by IN/OUT valve knobs ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '8px 10px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: 'linear-gradient(180deg, rgba(0,200,220,0.04) 0%, transparent 100%)',
         position: 'relative', zIndex: 2,
@@ -924,6 +925,7 @@ export default function BassmindOrb({
 
       {/* ════════ VU BARS + HULL PRESSURE ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '5px 14px', display: 'flex', flexDirection: 'column', gap: 4,
         position: 'relative', zIndex: 2,
       }}>
@@ -938,6 +940,7 @@ export default function BassmindOrb({
 
       {/* ════════ PRESET ROW ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '4px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', zIndex: 2,
       }}>
@@ -949,6 +952,7 @@ export default function BassmindOrb({
 
       {/* ════════ SONAR DISPLAY with Depth Gauge ════════ */}
       <div style={{
+        flex: 1, minHeight: 0,
         display: 'flex', position: 'relative', zIndex: 2,
         background: 'radial-gradient(ellipse at center, rgba(8,14,24,1) 0%, rgba(4,8,16,1) 100%)',
       }}>
@@ -969,6 +973,7 @@ export default function BassmindOrb({
 
       {/* ════════ HEAVY SLIDERS: WEIGHT, TIGHT, FOCUS ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '8px 16px 4px', display: 'flex', flexDirection: 'column', gap: 6,
         position: 'relative', zIndex: 2,
       }}>
@@ -984,6 +989,7 @@ export default function BassmindOrb({
 
       {/* ════════ GROWL: large centered valve wheel (6 spokes) ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '8px 0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center',
         position: 'relative', zIndex: 2,
       }}>
@@ -996,6 +1002,7 @@ export default function BassmindOrb({
 
       {/* ════════ TONE / AIR ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '6px 16px', display: 'flex', gap: 12,
         position: 'relative', zIndex: 2,
       }}>
@@ -1009,6 +1016,7 @@ export default function BassmindOrb({
 
       {/* ════════ FOOTER: MIX valve + DIVE toggle + X button ════════ */}
       <div style={{
+        flexShrink: 0,
         padding: '6px 14px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'relative', zIndex: 2,
       }}>

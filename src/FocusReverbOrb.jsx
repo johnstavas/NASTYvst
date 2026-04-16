@@ -21,7 +21,7 @@ function FocusLensCanvas({ focus, wrap, separation, size, tone, mix, peakLevel, 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -393,7 +393,7 @@ function FocusLensCanvas({ focus, wrap, separation, size, tone, mix, peakLevel, 
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob ───────────────────────────────────────────────────────────────────
@@ -626,6 +626,7 @@ export default function FocusReverbOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #0e1020 0%, #0a0c1a 35%, #060810 70%, #040610 100%)',
       border: '1.5px solid rgba(140,160,210,0.12)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 20px rgba(100,130,200,0.06), inset 0 1px 0 rgba(180,200,240,0.04)',
@@ -636,7 +637,7 @@ export default function FocusReverbOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(140,160,210,0.08)',
-        background: 'linear-gradient(180deg, rgba(100,130,200,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(100,130,200,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
@@ -670,7 +671,7 @@ export default function FocusReverbOrb({
       </div>
 
       {/* Visual */}
-      <div style={{ borderBottom: '1px solid rgba(140,160,210,0.06)' }}>
+      <div style={{ borderBottom: '1px solid rgba(140,160,210,0.06)', flex: 1, minHeight: 0 }}>
         <FocusLensCanvas focus={focus} wrap={wrap} separation={separation} size={size}
           tone={tone} mix={mix} peakLevel={peakLevel} srcActivity={srcActivity} reverbLevel={reverbLevel} />
       </div>
@@ -678,7 +679,7 @@ export default function FocusReverbOrb({
       {/* Meters */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(140,160,210,0.06)',
+        borderBottom: '1px solid rgba(140,160,210,0.06)', flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
@@ -694,7 +695,7 @@ export default function FocusReverbOrb({
       {/* Knobs Row 1: FOCUS, WRAP, SEPARATION */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(140,160,210,0.05)',
+        borderBottom: '1px solid rgba(140,160,210,0.05)', flexShrink: 0,
       }}>
         <Knob label="FOCUS" value={focus} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setFocus(v); engineRef.current?.setFocus(v); setActivePreset(null); }} format={pctFmt} />
@@ -707,7 +708,7 @@ export default function FocusReverbOrb({
       {/* Knobs Row 2: SIZE, TONE, MIX, OUTPUT */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(140,160,210,0.05)',
+        borderBottom: '1px solid rgba(140,160,210,0.05)', flexShrink: 0,
       }}>
         <Knob label="SIZE" value={size} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setSize(v); engineRef.current?.setSize(v); setActivePreset(null); }} format={pctFmt} />
@@ -721,7 +722,7 @@ export default function FocusReverbOrb({
       </div>
 
       {/* Bypass + status */}
-      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Source activity indicator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>

@@ -20,7 +20,7 @@ function PlateCanvas({ tension, size, energy, metal, peak = 0, outPeak = 0, ener
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 340;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -379,7 +379,7 @@ function PlateCanvas({ tension, size, energy, metal, peak = 0, outPeak = 0, ener
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 340, display: 'block' }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
 }
 
 // ─── Rivet Bypass Button ─────────────────────────────────────────────────────
@@ -566,6 +566,7 @@ export default function PlateXOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #222428 0%, #1c1e22 30%, #181a1e 60%, #141618 100%)',
       border: '1.5px solid rgba(180,160,100,0.12)',
       boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 15px rgba(180,160,100,0.04), inset 0 1px 0 rgba(200,180,120,0.04)',
@@ -581,7 +582,7 @@ export default function PlateXOrb({
       <div style={{
         padding: '8px 18px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(180,160,100,0.08)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(200,180,120,0.015) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(200,180,120,0.015) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <GainKnob label="IN" value={inputGain} onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
@@ -606,7 +607,7 @@ export default function PlateXOrb({
       {/* Preset row */}
       <div style={{
         padding: '3px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(180,160,100,0.06)', position: 'relative', zIndex: 10,
+        borderBottom: '1px solid rgba(180,160,100,0.06)', position: 'relative', zIndex: 10, flexShrink: 0,
       }}>
         <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={PRESET_COLORS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -616,14 +617,14 @@ export default function PlateXOrb({
       </div>
 
       {/* Hero canvas */}
-      <div style={{ position: 'relative', zIndex: 2 }}>
+      <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0 }}>
         <PlateCanvas tension={tension} size={size} energy={energy} metal={metal} peak={peak} outPeak={outPeak} energyLevel={energyLevel} plateLevel={plateLevel} />
       </div>
 
       {/* Knob row */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        borderTop: '1px solid rgba(180,160,100,0.06)', position: 'relative', zIndex: 2,
+        borderTop: '1px solid rgba(180,160,100,0.06)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="TENSION" value={tension} defaultValue={0.5} size={28} format={pctFmt}
           onChange={v => { setTension(v); engineRef.current?.setTension(v); setActivePreset(null); }} />
@@ -640,7 +641,7 @@ export default function PlateXOrb({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
           fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
           background: smooth > 0 ? 'rgba(200,180,120,0.18)' : 'transparent',

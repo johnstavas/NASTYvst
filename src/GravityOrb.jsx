@@ -21,7 +21,7 @@ function GravityField({ space, gravity, bloom, density, color, width, mix, peakL
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -323,7 +323,7 @@ function GravityField({ space, gravity, bloom, density, color, width, mix, peakL
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob ───────────────────────────────────────────────────────────────────
@@ -555,6 +555,7 @@ export default function GravityOrb({
   return (
     <div style={{
       width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #0e0a20 0%, #08061a 35%, #050312 70%, #030210 100%)',
       border: '1.5px solid rgba(120,100,200,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.9), 0 0 25px rgba(80,60,160,0.1), inset 0 1px 0 rgba(160,140,220,0.05)',
@@ -565,7 +566,7 @@ export default function GravityOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(120,100,200,0.1)',
-        background: 'linear-gradient(180deg, rgba(80,60,160,0.04) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(80,60,160,0.04) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -593,7 +594,7 @@ export default function GravityOrb({
       </div>
 
       {/* Visual */}
-      <div style={{ borderBottom: '1px solid rgba(120,100,200,0.08)' }}>
+      <div style={{ borderBottom: '1px solid rgba(120,100,200,0.08)', flex: 1, minHeight: 0 }}>
         <GravityField space={space} gravity={gravity} bloom={bloom} density={density}
           color={color} width={width} mix={mix} peakLevel={peakLevel} reverbLevel={reverbLevel} />
       </div>
@@ -601,7 +602,7 @@ export default function GravityOrb({
       {/* Meters */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(120,100,200,0.08)',
+        borderBottom: '1px solid rgba(120,100,200,0.08)', flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
@@ -617,7 +618,7 @@ export default function GravityOrb({
       {/* Knobs Row 1: SPACE, GRAVITY, BLOOM, DENSITY */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(120,100,200,0.06)',
+        borderBottom: '1px solid rgba(120,100,200,0.06)', flexShrink: 0,
       }}>
         <Knob label="SPACE" value={space} min={0} max={1} defaultValue={0.4} size={28}
           onChange={v => { setSpace(v); engineRef.current?.setSpace(v); setActivePreset(null); }} format={pctFmt} />
@@ -632,7 +633,7 @@ export default function GravityOrb({
       {/* Knobs Row 2: COLOR, WIDTH, MIX, OUTPUT */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(120,100,200,0.06)',
+        borderBottom: '1px solid rgba(120,100,200,0.06)', flexShrink: 0,
       }}>
         <Knob label="COLOR" value={color} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }}
@@ -646,7 +647,7 @@ export default function GravityOrb({
       </div>
 
       {/* Bypass */}
-      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
           <div style={{
             width: 4, height: 4, borderRadius: '50%',

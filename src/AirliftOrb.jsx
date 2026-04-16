@@ -22,7 +22,7 @@ function SkyCanvas({ air, silk, shine, guard, mix, peakLevel, airLevel, guardAct
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 380, H = 280;
+    const W = 380, H = 200;
     canvas.width = W * 2; canvas.height = H * 2;
     ctx.scale(2, 2);
 
@@ -323,7 +323,7 @@ function SkyCanvas({ air, silk, shine, guard, mix, peakLevel, airLevel, guardAct
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return <canvas ref={canvasRef} style={{ width: 380, height: 280, display: 'block', borderRadius: 2 }} />;
+  return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', borderRadius: 2 }} />;
 }
 
 // ─── Knob Component ─────────────────────────────────────────────────────────
@@ -563,7 +563,7 @@ export default function AirliftOrb({
 
   return (
     <div style={{
-      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden',
+      width: 380, height: 500, borderRadius: 6, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #1a1428 0%, #120e20 30%, #0e0a18 60%, #0a0814 100%)',
       border: '1.5px solid rgba(255,210,100,0.15)',
       boxShadow: '0 4px 30px rgba(0,0,0,0.85), 0 0 20px rgba(255,210,100,0.08), inset 0 1px 0 rgba(255,230,160,0.06)',
@@ -574,7 +574,7 @@ export default function AirliftOrb({
       <div style={{
         padding: '9px 12px 7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid rgba(255,210,100,0.1)',
-        background: 'linear-gradient(180deg, rgba(255,210,100,0.03) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(255,210,100,0.03) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
           <span style={{
@@ -602,7 +602,7 @@ export default function AirliftOrb({
       </div>
 
       {/* Visual */}
-      <div style={{ borderBottom: '1px solid rgba(255,210,100,0.08)' }}>
+      <div style={{ borderBottom: '1px solid rgba(255,210,100,0.08)', flex: 1, minHeight: 0 }}>
         <SkyCanvas air={air} silk={silk} shine={shine} guard={guard} mix={mix}
           peakLevel={peakLevel} airLevel={airLevel} guardActive={guardActive} />
       </div>
@@ -610,7 +610,7 @@ export default function AirliftOrb({
       {/* Meters + gain sliders */}
       <div style={{
         padding: '6px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5,
-        borderBottom: '1px solid rgba(255,210,100,0.08)',
+        borderBottom: '1px solid rgba(255,210,100,0.08)', flexShrink: 0,
       }}>
         <VSlider label="IN" value={inputGain} min={0} max={2} defaultValue={1}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} format={dbFmt} />
@@ -626,7 +626,7 @@ export default function AirliftOrb({
       {/* Main knobs row 1: AIR, SILK, SHINE */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(255,210,100,0.06)',
+        borderBottom: '1px solid rgba(255,210,100,0.06)', flexShrink: 0,
       }}>
         <Knob label="AIR" value={air} min={0} max={1} defaultValue={0.4} size={28}
           onChange={v => { setAir(v); engineRef.current?.setAir(v); setActivePreset(null); }} format={pctFmt} />
@@ -639,7 +639,7 @@ export default function AirliftOrb({
       {/* Main knobs row 2: GUARD, MIX, OUTPUT */}
       <div style={{
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-around',
-        borderBottom: '1px solid rgba(255,210,100,0.06)',
+        borderBottom: '1px solid rgba(255,210,100,0.06)', flexShrink: 0,
       }}>
         <Knob label="GUARD" value={guard} min={0} max={1} defaultValue={0.5} size={28}
           onChange={v => { setGuard(v); engineRef.current?.setGuard(v); setActivePreset(null); }} format={pctFmt} />
@@ -651,7 +651,7 @@ export default function AirliftOrb({
 
       {/* Bypass */}
       <div style={{
-        padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6,
+        padding: '5px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, flexShrink: 0,
       }}>
         {/* Guard active indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginRight: 'auto' }}>
