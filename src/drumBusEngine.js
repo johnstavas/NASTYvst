@@ -3,7 +3,7 @@
 //   Drive+Crunch saturation → Boom low-end → Damp hi rolloff
 //   → Transients shaping → Glue compressor → Width M/S → Trim + Mix
 
-const PROCESSOR_VERSION = 'drumbusv2';
+const PROCESSOR_VERSION = 'drumbusv3';
 
 const PROCESSOR_CODE = `
 class DrumBusProcessor extends AudioWorkletProcessor {
@@ -32,7 +32,13 @@ class DrumBusProcessor extends AudioWorkletProcessor {
     // hi-freq LP for crunch (3 kHz one-pole) — L + R
     this.hiLPL = 0; this.hiLPR = 0;
 
-    // boom LP — L + R
+    // ── Low-End Generator (dynamic sine oscillator system) ───────────
+    // Detect low-freq transient energy → trigger envelope → drive sine
+    this.boomDetLP  = 0;        // LP for low-band energy detection
+    this.boomEnvState = 0;      // triggered envelope (0–1)
+    this.boomPhase  = 0;        // sine oscillator phase (0–1)
+    this.boomWasLow = true;     // rising-edge detector for phase sync
+    // Static LP for body feel (blended under the sine)
     this.boomLPL = 0; this.boomLPR = 0;
 
     // damp LP — L + R
@@ -81,9 +87,14 @@ class DrumBusProcessor extends AudioWorkletProcessor {
     // ── Pre-compute coefficients ──────────────────────────────────────
     const hiLPCoeff = Math.exp(-2 * Math.PI * 3000 / sr);
 
-    const boomFreqHz = 40 + freq * 160;
-    const boomCoeff  = Math.exp(-2 * Math.PI * boomFreqHz / sr);
-    const boomGain   = boom * 0.7;
+    // Low-End Generator coefficients
+    const boomFreqHz   = 20 + freq * 100;                              // 20–120Hz oscillator freq
+    const boomDetCoeff = 1 - Math.exp(-2 * Math.PI * boomFreqHz * 1.5 / sr); // detection LP (tracks low band)
+    const boomEnvAtk   = Math.exp(-1 / (sr * 0.002));                 // 2ms attack — snappy
+    const boomEnvRel   = Math.exp(-1 / (sr * (0.04 + decay * 0.46))); // 40ms–500ms release (DECAY knob)
+    // Static body layer (gentle LP shelf under the sine)
+    const boomBodyCoeff = 1 - Math.exp(-2 * Math.PI * 120 / sr);
+    const boomBodyGain  = boom * 0.18;
 
     const dampFreqHz = 2000 + damp * 18000;
     const dampCoeff  = Math.exp(-2 * Math.PI * dampFreqHz / sr);
@@ -156,16 +167,58 @@ class DrumBusProcessor extends AudioWorkletProcessor {
         xR = xR + (Math.tanh(hiR * csc) - hiR) * crunch * 0.6;
       }
 
-      // ── 2. Boom (low-end enhancement) ────────────────────────────────
-      this.boomLPL += (1 - boomCoeff) * (xL - this.boomLPL);
-      this.boomLPR += (1 - boomCoeff) * (xR - this.boomLPR);
+      // ── 2. Low-End Generator (dynamic triggered sine oscillator) ─────
+      // Step A: detect low-frequency transient energy
+      this.boomDetLP += boomDetCoeff * ((Math.abs(xL) + Math.abs(xR)) * 0.5 - this.boomDetLP);
+      const boomEnvIn = this.boomDetLP;
 
-      if (boom > 0.0001) {
-        xL += this.boomLPL * boomGain + this.boomLPL * Math.abs(this.boomLPL) * boom * 0.08;
-        xR += this.boomLPR * boomGain + this.boomLPR * Math.abs(this.boomLPR) * boom * 0.08;
+      // Step B: envelope follower — fast attack, DECAY-controlled release
+      if (boomEnvIn > this.boomEnvState) {
+        this.boomEnvState = boomEnvAtk * this.boomEnvState + (1 - boomEnvAtk) * boomEnvIn;
+      } else {
+        this.boomEnvState = boomEnvRel * this.boomEnvState + (1 - boomEnvRel) * boomEnvIn;
       }
 
-      const bassNow = Math.max(Math.abs(this.boomLPL), Math.abs(this.boomLPR));
+      // Step C: rising-edge phase sync — when a new kick transient arrives,
+      // reset oscillator phase so the sine always starts at the same point
+      // (phase alignment: sine begins at -π/2 → rises cleanly on attack)
+      const trigThresh = 0.04;
+      const isHigh = this.boomEnvState > trigThresh;
+      if (this.boomWasLow && isHigh) {
+        this.boomPhase = 0.75; // sin(0.75*2π) = -1 → rises to peak = clean punch shape
+      }
+      this.boomWasLow = !isHigh;
+
+      // Step D: advance oscillator
+      this.boomPhase += boomFreqHz / sr;
+      if (this.boomPhase >= 1) this.boomPhase -= 1;
+      const boomAngle = this.boomPhase * 6.283185;
+
+      // Step E: sine + harmonics
+      let boomSine = Math.sin(boomAngle);                          // fundamental
+      boomSine    += Math.sin(boomAngle * 2) * 0.28;              // 2nd harmonic — warmth
+      boomSine    += Math.sin(boomAngle * 3) * 0.09;              // 3rd harmonic — subtle grit
+
+      // Step F: amplitude = envelope × boom knob; soft-clip limiter
+      const boomAmp = this.boomEnvState * boom * 0.75;
+      let boomOut   = boomSine * boomAmp;
+      boomOut       = Math.tanh(boomOut * 1.8) * 0.6; // soft clip — prevents buildup
+
+      // Step G: add generated bass to signal (mono sub — summed equally to L+R)
+      if (boom > 0.0001) {
+        xL += boomOut;
+        xR += boomOut;
+      }
+
+      // Step H: static LP body layer (thin — just fills the static low shelf)
+      this.boomLPL += boomBodyCoeff * (xL - this.boomLPL);
+      this.boomLPR += boomBodyCoeff * (xR - this.boomLPR);
+      if (boom > 0.0001) {
+        xL += this.boomLPL * boomBodyGain;
+        xR += this.boomLPR * boomBodyGain;
+      }
+
+      const bassNow = Math.max(Math.abs(boomOut), Math.abs(this.boomLPL));
       if (bassNow > bassLevel) bassLevel = bassNow;
 
       // ── 3. Damp (high-freq rolloff) ──────────────────────────────────
@@ -246,7 +299,7 @@ class DrumBusProcessor extends AudioWorkletProcessor {
     return true;
   }
 }
-registerProcessor('drumbusv2', DrumBusProcessor);
+registerProcessor('drumbusv3', DrumBusProcessor);
 `;
 
 export async function createDrumBusEngine(audioCtx) {
