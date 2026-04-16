@@ -62,10 +62,10 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
         ledR = 30; ledG = 140; ledB = 255;
         backlightR = 20; backlightG = 40; backlightB = 100;
       } else if (colorMode === 1) {
-        // Warm = amber LEDs
-        accentR = 255; accentG = 180; accentB = 40;
-        ledR = 255; ledG = 160; ledB = 30;
-        backlightR = 100; backlightG = 60; backlightB = 15;
+        // Warm = National School Bus Chrome Yellow
+        accentR = 255; accentG = 216; accentB = 0;
+        ledR = 255; ledG = 214; ledB = 0;
+        backlightR = 130; backlightG = 105; backlightB = 0;
       } else {
         // Open = white LEDs
         accentR = 220; accentG = 230; accentB = 255;
@@ -426,13 +426,6 @@ function BusMeterCanvas({ space, tuck, glue, color, width, peak = 0, outPeak = 0
       ctx.fillStyle = 'rgba(' + accentR + ',' + accentG + ',' + accentB + ',' + (0.35 + hist.grSmooth * 2).toFixed(2) + ')';
       ctx.fillText('GR -' + grDb + 'dB', W - 14, H - 6);
 
-      // Watermark
-      ctx.save();
-      ctx.font = 'bold 20px "Courier New", monospace';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.015)';
-      ctx.fillText('REVERB BUS', W / 2, H / 2);
-      ctx.restore();
     };
 
     raf = requestAnimationFrame(draw);
@@ -449,20 +442,20 @@ function ConsolBypass({ active, onClick }) {
     <div onClick={onClick} style={{ cursor: 'pointer', width: size, height: size }} title={active ? 'Active' : 'Bypassed'}>
       <svg width={size} height={size} viewBox="0 0 28 28">
         <rect x="5" y="8" width="18" height="12" rx="1.5"
-          fill={active ? 'rgba(40,180,80,0.12)' : 'rgba(50,52,58,0.1)'}
-          stroke={active ? 'rgba(40,180,80,0.4)' : 'rgba(50,52,58,0.2)'}
+          fill={active ? 'rgba(220,175,0,0.12)' : 'rgba(50,52,58,0.1)'}
+          stroke={active ? 'rgba(220,175,0,0.4)' : 'rgba(50,52,58,0.2)'}
           strokeWidth="1" />
         {/* LED */}
         <circle cx="14" cy="14" r="2.5"
-          fill={active ? 'rgba(40,200,80,0.8)' : 'rgba(50,52,58,0.3)'}
+          fill={active ? 'rgba(255,210,0,0.85)' : 'rgba(50,52,58,0.3)'}
         />
         {active && (
           <circle cx="14" cy="14" r="4" fill="none"
-            stroke="rgba(40,200,80,0.2)" strokeWidth="1" />
+            stroke="rgba(255,210,0,0.2)" strokeWidth="1" />
         )}
         {/* Label line */}
         <line x1="8" y1="18" x2="20" y2="18"
-          stroke={active ? 'rgba(40,180,80,0.25)' : 'rgba(50,52,58,0.1)'}
+          stroke={active ? 'rgba(220,175,0,0.25)' : 'rgba(50,52,58,0.1)'}
           strokeWidth="0.5" />
       </svg>
     </div>
@@ -480,7 +473,7 @@ function ConsoleKnob({ size = 26, norm = 0 }) {
   const large = norm * totalSweep > Math.PI ? 1 : 0;
   const dotX = cx + Math.cos(sweepAngle) * r;
   const dotY = cy + Math.sin(sweepAngle) * r;
-  const ACCENT_HUE = 140;
+  const ACCENT_HUE = 50;
   return (
     <svg width={size} height={size} style={{ display: 'block', pointerEvents: 'none' }}>
       <circle cx={cx} cy={cy} r={r} fill="rgba(10,14,20,0.9)"
@@ -517,8 +510,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue ?? (min + max) / 2)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <ConsoleKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(140,150,165,0.7)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 5.5, color: 'rgba(120,130,145,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 8.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(220,185,30,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, -apple-system, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 7, color: 'rgba(200,165,20,0.45)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -540,7 +533,7 @@ function GainKnob({ value, onChange, label, defaultValue = 1 }) {
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <ConsoleKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 5, letterSpacing: '0.1em', color: 'rgba(120,130,145,0.45)', fontWeight: 700, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', marginTop: -1 }}>{label}</span>
+      <span style={{ fontSize: 5, letterSpacing: '0.1em', color: 'rgba(200,165,20,0.5)', fontWeight: 700, fontFamily: 'system-ui, -apple-system, Arial, sans-serif', marginTop: -1 }}>{label}</span>
     </div>
   );
 }
@@ -554,8 +547,8 @@ const PRESETS = [
 ];
 
 const PRESET_COLORS = {
-  bg: '#1a1c20', text: '#8c96a5', textDim: 'rgba(140,150,165,0.5)',
-  border: 'rgba(140,150,165,0.12)', hoverBg: 'rgba(140,150,165,0.08)', activeBg: 'rgba(140,150,165,0.05)',
+  bg: '#1a1c20', text: '#d4aa18', textDim: 'rgba(212,170,24,0.5)',
+  border: 'rgba(212,170,24,0.15)', hoverBg: 'rgba(212,170,24,0.08)', activeBg: 'rgba(212,170,24,0.05)',
 };
 
 export default function ReverbBusOrb({
@@ -635,8 +628,8 @@ export default function ReverbBusOrb({
       width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
       background: 'linear-gradient(170deg, #222428 0%, #1e2024 30%, #1a1c20 60%, #16181c 100%)',
-      border: '1.5px solid rgba(140,150,165,0.1)',
-      boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 10px rgba(40,180,80,0.03), inset 0 1px 0 rgba(255,255,255,0.02)',
+      border: '1.5px solid rgba(212,170,24,0.18)',
+      boxShadow: '0 6px 40px rgba(0,0,0,0.9), 0 0 14px rgba(220,180,0,0.06), inset 0 1px 0 rgba(255,220,0,0.03)',
       fontFamily: 'system-ui, -apple-system, Arial, sans-serif', userSelect: 'none',
     }}>
       <div style={{
@@ -655,12 +648,13 @@ export default function ReverbBusOrb({
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
           <span style={{
             fontSize: 14, fontWeight: 800, letterSpacing: '0.12em',
-            color: 'rgba(160, 170, 185, 0.85)',
-            textShadow: '0 0 8px rgba(40,180,80,0.15)',
+            background: 'linear-gradient(135deg, #FFD800 0%, #e8c200 35%, #FFE040 65%, #d4ae00 100%)',
+            backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 0 7px rgba(255,216,0,0.45))',
             fontFamily: '"Courier New", monospace',
           }}>REVERB BUS</span>
           <span style={{
-            fontSize: 6, fontWeight: 400, color: 'rgba(140,150,165,0.3)',
+            fontSize: 6, fontWeight: 400, color: 'rgba(200,165,20,0.3)',
             letterSpacing: '0.25em', marginTop: 1.5,
             fontFamily: '"Courier New", monospace',
           }}>stem glue reverb</span>
@@ -692,17 +686,17 @@ export default function ReverbBusOrb({
         padding: '8px 14px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         borderTop: '1px solid rgba(140,150,165,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
-        <Knob label="SPACE" value={space} defaultValue={0.35} size={28} format={pctFmt}
+        <Knob label="SPACE" value={space} defaultValue={0.35} size={32} format={pctFmt}
           onChange={v => { setSpace(v); engineRef.current?.setSpace(v); setActivePreset(null); }} />
-        <Knob label="TUCK" value={tuck} defaultValue={0.4} size={28} format={pctFmt}
+        <Knob label="TUCK" value={tuck} defaultValue={0.4} size={32} format={pctFmt}
           onChange={v => { setTuck(v); engineRef.current?.setTuck(v); setActivePreset(null); }} />
-        <Knob label="GLUE" value={glue} defaultValue={0.3} size={28} format={pctFmt}
+        <Knob label="GLUE" value={glue} defaultValue={0.3} size={32} format={pctFmt}
           onChange={v => { setGlue(v); engineRef.current?.setGlue(v); setActivePreset(null); }} />
-        <Knob label="COLOR" value={color} defaultValue={0.5} size={28} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'OPEN' : 'WARM'}
+        <Knob label="COLOR" value={color} defaultValue={0.5} size={32} format={v => v < 0.35 ? 'DARK' : v > 0.65 ? 'OPEN' : 'WARM'}
           onChange={v => { setColor(v); engineRef.current?.setColor(v); setActivePreset(null); }} />
-        <Knob label="WIDTH" value={width} defaultValue={0.5} size={28} format={pctFmt}
+        <Knob label="WIDTH" value={width} defaultValue={0.5} size={32} format={pctFmt}
           onChange={v => { setWidth(v); engineRef.current?.setWidth(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={0.2} size={28} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.2} size={32} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
@@ -710,11 +704,11 @@ export default function ReverbBusOrb({
       <div style={{ padding: '4px 18px 5px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2, flexShrink: 0 }}>
         <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }}
           style={{
-            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
-            background: smooth > 0 ? 'rgba(40,180,80,0.18)' : 'transparent',
-            color: smooth > 0 ? 'rgba(80,220,120,0.95)' : 'rgba(100,130,110,0.4)',
-            border: `1px solid ${smooth > 0 ? 'rgba(40,180,80,0.45)' : 'rgba(60,90,70,0.2)'}`,
-            boxShadow: smooth > 0 ? '0 0 8px rgba(40,180,80,0.25)' : 'none',
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
+            background: smooth > 0 ? 'rgba(220,175,0,0.18)' : 'transparent',
+            color: smooth > 0 ? 'rgba(255,215,30,0.95)' : 'rgba(160,130,30,0.4)',
+            border: `1px solid ${smooth > 0 ? 'rgba(220,175,0,0.45)' : 'rgba(100,80,20,0.2)'}`,
+            boxShadow: smooth > 0 ? '0 0 8px rgba(220,175,0,0.3)' : 'none',
             fontFamily: 'system-ui, -apple-system, Arial, sans-serif', transition: 'all 0.15s',
           }}>{smooth > 0 ? `SMOOTH ${smooth}x` : 'SMOOTH'}</button>
         <ConsolBypass active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
