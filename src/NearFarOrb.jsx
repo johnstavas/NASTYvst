@@ -357,14 +357,6 @@ function DistanceLandscape({ distance, room, focus, airLoss, tail, peakLevel = 0
         ctx.fill();
       }
 
-      // ── Title ──
-      ctx.save();
-      ctx.font = '600 8px system-ui, -apple-system, Arial, sans-serif';
-      ctx.textAlign = 'center';
-      var titleHue = 30 + _dist * 180;
-      ctx.fillStyle = 'hsla(' + titleHue + ', 60%, 70%, ' + (0.6 * dimFactor) + ')';
-      ctx.fillText('NEARFAR', W / 2, 16);
-      ctx.restore();
     };
     raf = requestAnimationFrame(draw);
     return function() { cancelAnimationFrame(raf); };
@@ -469,22 +461,30 @@ function HSlider({ value, onChange, label, min = 0, max = 1, defaultValue, forma
   );
 }
 
-function BypassDot({ active, onClick }) {
+function BypassToggle({ active, onClick }) {
   return (
-    <div onClick={onClick} title={active ? 'Active' : 'Bypassed'}
-      style={{ cursor: 'pointer', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{
-        width: 8, height: 8, borderRadius: '50%',
-        background: active ? 'radial-gradient(circle at 35% 35%, rgba(240,200,130,0.9), rgba(200,140,60,0.6))' : 'rgba(50,40,25,0.3)',
-        boxShadow: active ? '0 0 8px rgba(220,160,60,0.4)' : 'none',
-        transition: 'all 0.3s ease',
-      }} />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <button onClick={onClick} style={{
+        height: 26, fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+        padding: '0 11px', borderRadius: 4, cursor: 'pointer',
+        background: active ? 'rgba(200,150,60,0.14)' : 'rgba(10,8,5,0.9)',
+        color: active ? 'rgba(240,200,110,0.95)' : 'rgba(160,120,55,0.4)',
+        border: `1.5px solid ${active ? 'rgba(200,150,60,0.45)' : 'rgba(120,90,40,0.22)'}`,
+        boxShadow: active ? '0 0 10px rgba(200,150,60,0.25), inset 0 1px 0 rgba(255,255,255,0.06)' : 'inset 0 3px 7px rgba(0,0,0,0.7)',
+        fontFamily: 'system-ui',
+      }}>
+        {active ? 'ACTIVE' : 'BYPASS'}
+      </button>
+      <span style={{
+        fontSize: 7, letterSpacing: '0.18em', fontFamily: 'system-ui', fontWeight: 700,
+        color: active ? 'rgba(240,200,110,0.6)' : 'rgba(160,120,55,0.35)',
+      }}>{active ? 'ON' : 'OFF'}</span>
     </div>
   );
 }
 
 const PRESETS = [
-  { name: 'INIT',             distance: 0.3, room: 0.4, focus: 0.6, airLoss: 0.5, tail: 0.4, mix: 1.0, smooth: 0 },
+  { name: 'INIT',             distance: 0.3, room: 0.4, focus: 0.6, airLoss: 0.5, tail: 0.4, mix: 0.6, smooth: 0 },
   { name: 'PUSH BACK VOCAL', distance: 0.45, room: 0.35, focus: 0.7, airLoss: 0.4, tail: 0.35, mix: 0.8, smooth: 0 },
   { name: 'FRONT MID SNARE', distance: 0.2, room: 0.5, focus: 0.8, airLoss: 0.3, tail: 0.3, mix: 0.7, smooth: 0 },
   { name: 'BACKGROUND DEPTH', distance: 0.75, room: 0.6, focus: 0.3, airLoss: 0.7, tail: 0.6, mix: 1.0, smooth: 0 },
@@ -501,7 +501,6 @@ export default function NearFarOrb({
 }) {
   const engineRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [inputGain, setInputGain] = useState(initialState?.inputGain ?? 1);
   const [outputGain, setOutputGain] = useState(initialState?.outputGain ?? 1);
@@ -510,7 +509,7 @@ export default function NearFarOrb({
   const [focus, setFocus] = useState(initialState?.focus ?? 0.6);
   const [airLoss, setAirLoss] = useState(initialState?.airLoss ?? 0.5);
   const [tail, setTail] = useState(initialState?.tail ?? 0.4);
-  const [mix, setMix] = useState(initialState?.mix ?? 1.0);
+  const [mix, setMix] = useState(initialState?.mix ?? 0.6);
   const [bypassed, setBypassed] = useState(initialState?.bypassed ?? false);
   const [smooth, setSmooth] = useState(initialState?.smooth ?? 0);
   const [activePreset, setActivePreset] = useState(initialState?.preset ?? null);
@@ -646,29 +645,28 @@ export default function NearFarOrb({
           onChange={v => { setAirLoss(v); engineRef.current?.setAirLoss(v); setActivePreset(null); }} />
         <Knob label="TAIL" value={tail} defaultValue={0.4} size={28} format={pctFmt}
           onChange={v => { setTail(v); engineRef.current?.setTail(v); setActivePreset(null); }} />
-        <Knob label="MIX" value={mix} defaultValue={1.0} size={28} format={pctFmt}
+        <Knob label="MIX" value={mix} defaultValue={0.6} size={28} format={pctFmt}
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
       </div>
 
-      {/* Bypass footer */}
+      {/* Footer */}
       <div style={{
-        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
+        padding: '5px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0,
       }}>
-        <BypassDot active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <BypassToggle active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           <button onClick={() => { const n = smooth === 0 ? 3 : smooth === 3 ? 5 : 0; setSmooth(n); engineRef.current?.setSmooth(n); }} style={{
-            fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', padding: '3px 7px', borderRadius: 3, cursor: 'pointer',
-            background: smooth > 0 ? 'rgba(200,150,70,0.18)' : 'transparent',
+            height: 26, fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', padding: '0 11px', borderRadius: 4, cursor: 'pointer',
+            background: smooth > 0 ? 'rgba(200,150,70,0.14)' : 'rgba(10,8,5,0.9)',
             color: smooth > 0 ? 'rgba(240,200,120,0.95)' : 'rgba(160,120,60,0.4)',
-            border: `1px solid ${smooth > 0 ? 'rgba(200,150,70,0.45)' : 'rgba(120,90,40,0.2)'}`,
-            boxShadow: smooth > 0 ? '0 0 8px rgba(200,150,70,0.25)' : 'none',
-            fontFamily: 'system-ui, -apple-system, Arial, sans-serif', transition: 'all 0.15s',
+            border: `1.5px solid ${smooth > 0 ? 'rgba(200,150,70,0.45)' : 'rgba(120,90,40,0.22)'}`,
+            boxShadow: smooth > 0 ? '0 0 10px rgba(200,150,70,0.25), inset 0 1px 0 rgba(255,255,255,0.06)' : 'inset 0 3px 7px rgba(0,0,0,0.7)',
+            fontFamily: 'system-ui',
           }}>{smooth > 0 ? `SMOOTH ${smooth}x` : 'SMOOTH'}</button>
           <span style={{
-            fontSize: 7, fontWeight: 700, letterSpacing: '0.15em',
-            color: bypassed ? 'rgba(200,120,40,0.5)' : 'rgba(120,200,140,0.5)',
-            fontFamily: 'system-ui',
-          }}>{bypassed ? 'BYPASSED' : 'ACTIVE'}</span>
+            fontSize: 7, letterSpacing: '0.18em', fontFamily: 'system-ui', fontWeight: 700,
+            color: smooth > 0 ? 'rgba(240,200,120,0.6)' : 'rgba(160,120,60,0.35)',
+          }}>{smooth > 0 ? `${smooth}X ON` : 'OFF'}</span>
         </div>
       </div>
     </div>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Panther Buss — FxEngine test</title>
+<style>
+  body { margin:0; background:#050a06; color:#eaeaea;
+    font-family: system-ui, sans-serif; padding: 32px; }
+  h1 { font-size:14px; letter-spacing:.3em; color:#9fff8f; margin:0 0 20px; }
+  .row { display:flex; gap:16px; margin-bottom:20px; align-items:center; flex-wrap:wrap; }
+  .knob { display:flex; flex-direction:column; gap:6px; width:140px; }
+  .knob label { font-size:10px; letter-spacing:.25em; color:#bbb; }
+  .knob input { width:100%; }
+  .knob .val { font-family:monospace; font-size:10px; color:#888; }
+  button, input[type=file] { background:#111; color:#ddd; border:1px solid #333;
+    padding:8px 12px; border-radius:6px; font-family:inherit; cursor:pointer; }
+  #status { font-size:10px; color:#888; letter-spacing:.2em; margin-left:auto; }
+
+  .scopes { display:flex; gap:18px; margin-top:8px; flex-wrap:wrap; }
+  .scope-wrap { background:#0a120c; border:1px solid #1b2a1f; border-radius:8px;
+    padding:10px 12px; width:440px; }
+  .scope-wrap .head { display:flex; justify-content:space-between; align-items:center;
+    font-size:10px; letter-spacing:.3em; margin-bottom:6px; }
+  .scope-wrap .head .tag { color:#9fff8f; }
+  .scope-wrap canvas { display:block; width:100%; height:140px;
+    background:#050a06; border-radius:4px; }
+  .meter { display:flex; align-items:center; gap:8px; margin-top:6px;
+    font-family: monospace; font-size:10px; color:#888; }
+  .bar { flex:1; height:8px; background:#0f1a12; border-radius:2px; overflow:hidden; }
+  .bar > i { display:block; height:100%; width:0%; background:#7fff8f;
+    transition: width 40ms linear; }
+  .clip { width:10px; height:10px; border-radius:50%; background:#222;
+    border:1px solid #333; }
+  .clip.hot { background:#ff4040; border-color:#ff6060;
+    box-shadow:0 0 8px rgba(255,64,64,0.8); }
+</style>
+</head>
+<body>
+<h1>PANTHER BUSS · FX ENGINE TEST</h1>
+
+<div class="row">
+  <input type="file" id="file" accept="audio/*" />
+  <button id="play">Play</button>
+  <button id="stop">Stop</button>
+  <button id="bypass">Bypass: off</button>
+  <span id="status">IDLE</span>
+</div>
+
+<div class="row" id="knobs"></div>
+
+<div class="scopes">
+  <div class="scope-wrap">
+    <div class="head"><span>INPUT</span><span class="tag">PRE</span></div>
+    <canvas id="scopeIn" width="880" height="280"></canvas>
+    <div class="meter">
+      <span>PEAK</span>
+      <div class="bar"><i id="barIn"></i></div>
+      <span id="numIn">-inf dB</span>
+      <div class="clip" id="clipIn" title="clip"></div>
+    </div>
+  </div>
+  <div class="scope-wrap">
+    <div class="head"><span>OUTPUT</span><span class="tag">POST</span></div>
+    <canvas id="scopeOut" width="880" height="280"></canvas>
+    <div class="meter">
+      <span>PEAK</span>
+      <div class="bar"><i id="barOut"></i></div>
+      <span id="numOut">-inf dB</span>
+      <div class="clip" id="clipOut" title="clip"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { createPantherBussEngine } from '/src/pantherBussEngine.js';
+
+  const MACROS = [
+    { key:'drive',  label:'DRIVE',  setter:'setDrive',  def:0.30, bi:false },
+    { key:'glue',   label:'GLUE',   setter:'setGlue',   def:0.40, bi:false },
+    { key:'tone',   label:'TONE',   setter:'setTone',   def:0.50, bi:true  },
+    { key:'output', label:'OUTPUT', setter:'setOutput', def:0.50, bi:true  },
+    { key:'mix',    label:'MIX',    setter:'setMix',    def:1.00, bi:false },
+  ];
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const status = document.getElementById('status');
+  status.textContent = 'LOADING ENGINE…';
+  const engine = await createPantherBussEngine(ctx);
+
+  // ── Analyzer taps ──────────────────────────────────────────────────────
+  // Visual-only. Analyser.connect to a gain with gain=0 keeps them "live"
+  // without affecting the audio path; here we just fan-out via connect().
+  //
+  // Graph:
+  //   src ─► preAnalyser ─► engine.input ─► engine.output ─► postAnalyser ─► ctx.destination
+  const preAn  = ctx.createAnalyser();
+  const postAn = ctx.createAnalyser();
+  preAn.fftSize  = 2048; preAn.smoothingTimeConstant  = 0;
+  postAn.fftSize = 2048; postAn.smoothingTimeConstant = 0;
+
+  // Pre-tap: just before engine.input. The source connects to preAn AND to
+  // engine.input — the analyser is a silent fan-out. Web Audio only pulls
+  // samples through nodes that reach ctx.destination, so route preAn through
+  // a zero-gain node into destination. Silent, but keeps the graph "live".
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  preAn.connect(silent);
+  silent.connect(ctx.destination);
+
+  // Post-tap: engine.output fans out to postAn and to destination.
+  engine.output.connect(postAn);
+  engine.output.connect(ctx.destination);
+
+  status.textContent = 'READY';
+
+  // Knobs
+  const knobs = document.getElementById('knobs');
+  for (const m of MACROS) {
+    const wrap = document.createElement('div'); wrap.className = 'knob';
+    wrap.innerHTML = `
+      <label>${m.label}</label>
+      <input type="range" min="0" max="1" step="0.001" value="${m.def}">
+      <div class="val"></div>`;
+    const input = wrap.querySelector('input'), val = wrap.querySelector('.val');
+    const render = v => val.textContent = m.bi ? ((v-0.5)*2).toFixed(2) : v.toFixed(2);
+    input.addEventListener('input', () => {
+      const v = parseFloat(input.value);
+      engine[m.setter](v); render(v);
+    });
+    engine[m.setter](m.def); render(m.def);
+    knobs.appendChild(wrap);
+  }
+
+  // Audio source
+  let src = null, buffer = null;
+  document.getElementById('file').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const ab = await f.arrayBuffer();
+    buffer = await ctx.decodeAudioData(ab);
+    status.textContent = `LOADED · ${f.name}`;
+  });
+  document.getElementById('play').addEventListener('click', async () => {
+    if (ctx.state === 'suspended') await ctx.resume();
+    if (!buffer) { status.textContent = 'NO FILE'; return; }
+    if (src) try { src.stop(); } catch {}
+    src = ctx.createBufferSource();
+    src.buffer = buffer; src.loop = true;
+    src.connect(preAn);                 // pre-tap
+    src.connect(engine.input);          // dry path into plugin
+    src.start();
+    status.textContent = 'PLAYING';
+  });
+  document.getElementById('stop').addEventListener('click', () => {
+    if (src) try { src.stop(); } catch {}
+    src = null; status.textContent = 'STOPPED';
+  });
+
+  // Bypass
+  let bypassed = false;
+  const bBtn = document.getElementById('bypass');
+  bBtn.addEventListener('click', () => {
+    bypassed = !bypassed;
+    engine.setBypass(bypassed);
+    bBtn.textContent = `Bypass: ${bypassed ? 'on' : 'off'}`;
+  });
+
+  // ── Scope + meter draw loop ───────────────────────────────────────────
+  const cIn  = document.getElementById('scopeIn').getContext('2d');
+  const cOut = document.getElementById('scopeOut').getContext('2d');
+  const bufIn  = new Float32Array(preAn.fftSize);
+  const bufOut = new Float32Array(postAn.fftSize);
+  const barIn  = document.getElementById('barIn');
+  const barOut = document.getElementById('barOut');
+  const numIn  = document.getElementById('numIn');
+  const numOut = document.getElementById('numOut');
+  const clipIn = document.getElementById('clipIn');
+  const clipOut= document.getElementById('clipOut');
+  let clipInUntil = 0, clipOutUntil = 0;
+
+  function drawScope(c, buf, w, h, color) {
+    c.fillStyle = '#050a06';
+    c.fillRect(0, 0, w, h);
+    // center line
+    c.strokeStyle = '#102018'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, h/2); c.lineTo(w, h/2); c.stroke();
+    // waveform
+    c.strokeStyle = color; c.lineWidth = 1.5;
+    c.beginPath();
+    const step = buf.length / w;
+    for (let x = 0; x < w; x++) {
+      const v = buf[(x * step) | 0] || 0;
+      const y = (1 - v) * 0.5 * h;
+      if (x === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    }
+    c.stroke();
+  }
+
+  function peakOf(buf) {
+    let m = 0;
+    for (let i = 0; i < buf.length; i++) { const a = Math.abs(buf[i]); if (a > m) m = a; }
+    return m;
+  }
+
+  function updateMeter(peak, bar, num, clipEl, clipUntilVar) {
+    const pct = Math.min(100, peak * 100);
+    bar.style.width = pct + '%';
+    const db = peak > 1e-6 ? (20 * Math.log10(peak)).toFixed(1) : '-inf';
+    num.textContent = `${db} dB`;
+    if (peak >= 0.999) return performance.now() + 250;  // hold clip 250 ms
+    return clipUntilVar;
+  }
+
+  function tick() {
+    requestAnimationFrame(tick);
+    preAn.getFloatTimeDomainData(bufIn);
+    postAn.getFloatTimeDomainData(bufOut);
+    drawScope(cIn,  bufIn,  880, 280, '#7fbfff');
+    drawScope(cOut, bufOut, 880, 280, '#9fff8f');
+
+    const pi = peakOf(bufIn), po = peakOf(bufOut);
+    clipInUntil  = updateMeter(pi, barIn,  numIn,  clipIn,  clipInUntil);
+    clipOutUntil = updateMeter(po, barOut, numOut, clipOut, clipOutUntil);
+    const now = performance.now();
+    clipIn.classList.toggle('hot',  now < clipInUntil);
+    clipOut.classList.toggle('hot', now < clipOutUntil);
+  }
+  tick();
+</script>
+</body>
+</html>

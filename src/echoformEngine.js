@@ -26,6 +26,8 @@ class EchoformProcessor extends AudioWorkletProcessor {
       { name: 'blur',     defaultValue: 0,   minValue: 0, maxValue: 1 },
       { name: 'tone',     defaultValue: 0.5, minValue: 0, maxValue: 1 },
       { name: 'mix',      defaultValue: 0.35,minValue: 0, maxValue: 1 },
+      { name: 'width',    defaultValue: 1.0, minValue: 0, maxValue: 2 },
+      { name: 'smooth',   defaultValue: 0,   minValue: 0, maxValue: 5 },
       { name: 'bypass',   defaultValue: 0,   minValue: 0, maxValue: 1 },
     ];
   }
@@ -53,6 +55,10 @@ class EchoformProcessor extends AudioWorkletProcessor {
 
     // Output tone filter
     this.outLpL = 0; this.outLpR = 0;
+
+    // Smooth LP filter state (2-pole)
+    this.smoothLpL1 = 0; this.smoothLpR1 = 0;
+    this.smoothLpL2 = 0; this.smoothLpR2 = 0;
 
     // Metering
     this._peakOut = 0;
@@ -90,6 +96,8 @@ class EchoformProcessor extends AudioWorkletProcessor {
     const blur     = params.blur[0];
     const tone     = params.tone[0];
     const mix      = params.mix[0];
+    const width    = params.width[0];
+    const smooth   = params.smooth[0];
     const bypass   = params.bypass[0] > 0.5;
     const sr = this.sr;
 
@@ -104,6 +112,7 @@ class EchoformProcessor extends AudioWorkletProcessor {
       }
       this.fbLpL = 0; this.fbLpR = 0; this.fbHpL = 0; this.fbHpR = 0;
       this.outLpL = 0; this.outLpR = 0;
+      this.smoothLpL1 = 0; this.smoothLpR1 = 0; this.smoothLpL2 = 0; this.smoothLpR2 = 0;
       this.bufL.fill(0); this.bufR.fill(0);
       this.blurBufL.fill(0); this.blurBufR.fill(0);
       this.lfoPhase += (2 / sr) * iL.length;
@@ -149,9 +158,13 @@ class EchoformProcessor extends AudioWorkletProcessor {
       const lfo = Math.sin(2 * Math.PI * this.lfoPhase) * motionDepth;
       const lfoR = Math.sin(2 * Math.PI * (this.lfoPhase + 0.25)) * motionDepth;
 
-      // Read from delay with motion wobble
+      // WIDTH: L reads normally, R reads from a different time offset.
+      // This creates genuine stereo from any source — even mono input.
+      // 0=collapsed mono, 1=8ms spread, 2=18ms spread + ping-pong
+      const stereoOffsetSamp = (width / 2) * 0.018 * sr; // 0→~18ms at 44.1kHz
+
       const readPosL = this.writePos - delaySamp + lfo;
-      const readPosR = this.writePos - delaySamp + lfoR;
+      const readPosR = this.writePos - delaySamp - stereoOffsetSamp + lfoR;
       let wetL = this.hermite(this.bufL, readPosL, bs);
       let wetR = this.hermite(this.bufR, readPosR, bs);
 
@@ -189,19 +202,40 @@ class EchoformProcessor extends AudioWorkletProcessor {
         this.blurPos = (bpos + 1) % 512;
       }
 
+      // ── WIDTH below 1: collapse toward mono ──
+      if (width < 0.99) {
+        const monoWet = (wetL + wetR) * 0.5;
+        wetL = monoWet + (wetL - monoWet) * width;
+        wetR = monoWet + (wetR - monoWet) * width;
+      }
+
       // Track feedback level
       const fl = Math.max(Math.abs(wetL), Math.abs(wetR));
       if (fl > fbAccum) fbAccum = fl;
 
-      // Write to delay buffer
-      this.bufL[this.writePos] = dryL + wetL * fbAmt;
-      this.bufR[this.writePos] = dryR + wetR * fbAmt;
+      // ── WIDTH above 1: cross-feedback ping-pong in write path ──
+      // At WIDTH=2: 50% of each channel feeds back into the other → classic ping-pong
+      const crossFb = Math.max(0, (width - 1.0) * 0.5);
+      this.bufL[this.writePos] = dryL + (wetL * (1 - crossFb) + wetR * crossFb) * fbAmt;
+      this.bufR[this.writePos] = dryR + (wetR * (1 - crossFb) + wetL * crossFb) * fbAmt;
 
       // Output tone filter
       this.outLpL = toneCoef * this.outLpL + (1 - toneCoef) * wetL;
       this.outLpR = toneCoef * this.outLpR + (1 - toneCoef) * wetR;
       let outWetL = tone < 0.8 ? this.outLpL : wetL;
       let outWetR = tone < 0.8 ? this.outLpR : wetR;
+
+      // Smooth: 2-pole LP on wet output (3x ≈ 3800Hz, 5x ≈ 2000Hz)
+      if (smooth > 0.5) {
+        const smoothFreq = 6500 - smooth * 900;
+        const smoothCoef = Math.exp(-2 * Math.PI * smoothFreq / sr);
+        this.smoothLpL1 = smoothCoef * this.smoothLpL1 + (1 - smoothCoef) * outWetL;
+        this.smoothLpR1 = smoothCoef * this.smoothLpR1 + (1 - smoothCoef) * outWetR;
+        this.smoothLpL2 = smoothCoef * this.smoothLpL2 + (1 - smoothCoef) * this.smoothLpL1;
+        this.smoothLpR2 = smoothCoef * this.smoothLpR2 + (1 - smoothCoef) * this.smoothLpR1;
+        outWetL = this.smoothLpL2;
+        outWetR = this.smoothLpR2;
+      }
 
       // Mix
       oL[n] = dryL * (1 - mix) + outWetL * mix;
@@ -265,6 +299,8 @@ export async function createEchoformEngine(audioCtx) {
     setBlur:     v => { p('blur').value     = v; },
     setTone:     v => { p('tone').value     = v; },
     setMix:      v => { p('mix').value      = v; },
+    setWidth:    v => { p('width').value    = v; },
+    setSmooth:   v => { p('smooth').value   = v; },
     setBypass:   v => { p('bypass').value   = v ? 1 : 0; },
 
     getInputPeak:  () => { _peakIn  = Math.max(getPeak(analyserIn),  _peakIn  * DECAY); return _peakIn; },

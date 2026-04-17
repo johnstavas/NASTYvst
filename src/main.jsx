@@ -23,6 +23,7 @@ import LA2AOrb from './LA2AOrb';
 import ShagatronOrb from './ShagatronOrb';
 import PitchShifterOrb from './PitchShifterOrb';
 import FlangerOrb from './FlangerOrb';
+import PhaserOrb from './PhaserOrb';
 import GluesmashOrb from './GluesmashOrb';
 import BassmindOrb from './BassmindOrb';
 import EchoformOrb from './EchoformOrb';
@@ -41,7 +42,6 @@ import AirliftOrb from './AirliftOrb';
 import CharacterOrb from './CharacterOrb';
 import GravityOrb from './GravityOrb';
 import FocusReverbOrb from './FocusReverbOrb';
-import FreezeFieldOrb from './FreezeFieldOrb';
 import NearFarOrb from './NearFarOrb';
 import MorphReverbOrb from './MorphReverbOrb';
 import TransientReverbOrb from './TransientReverbOrb';
@@ -50,6 +50,7 @@ import OrbitOrb from './OrbitOrb';
 import PlateXOrb from './PlateXOrb';
 import ReverbBusOrb from './ReverbBusOrb';
 import DrumBusOrb from './DrumBusOrb';
+import PantherBussOrb from './PantherBussOrb';
 import { createSharedSource } from './audioEngine';
 
 // ─── Categorized Add Menu ───────────────────────────────────────────────────
@@ -73,6 +74,7 @@ const PLUGIN_CATEGORIES = [
     ['mixbus', 'Mix Bus'],
     ['gluesmash', 'GlueSmash'],
     ['smoother', 'Smoother'],
+    ['drumbus', 'Panther Buss'],
   ]},
   { name: 'Modulation', color: '#4da8ff', items: [
     ['modulation', 'Modulation'],
@@ -80,6 +82,7 @@ const PLUGIN_CATEGORIES = [
     ['pitchshift', 'Poly Pitch'],
     ['drift', 'Drift'],
     ['reactor', 'Reactor'],
+    ['phaser', 'Phase Orbit'],
   ]},
   { name: 'Time', color: '#c78fff', items: [
     ['space', 'Space'],
@@ -101,7 +104,6 @@ const PLUGIN_CATEGORIES = [
   { name: 'Reverb', color: '#22d3ee', items: [
     ['gravity', 'Gravity'],
     ['focusreverb', 'Focus Reverb'],
-    ['freezefield', 'FreezeField'],
     ['nearfar', 'Near/Far'],
     ['morphreverb', 'MorphReverb'],
     ['transientreverb', 'TransientVerb'],
@@ -109,7 +111,6 @@ const PLUGIN_CATEGORIES = [
     ['orbit', 'Orbit'],
     ['platex', 'Plate-X'],
     ['reverbbus', 'ReverbBus'],
-    ['drumbus', 'DrumBus'],
   ]},
   { name: 'Creative', color: '#ff80b0', items: [
     ['vocal', 'Vocal'],
@@ -556,7 +557,7 @@ function App() {
             const insertBefore = insertAfterIndex === idx - 1;
             const insertAfter  = insertAfterIndex === idx;
             const isBypassed = !!pillBypasses[inst.id];
-            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'freezefield' ? 'Freeze' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'DrumBus' : 'Space';
+            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : 'Space';
             return (
               <div key={inst.id} className="flex items-center">
                 {/* Insert-before line */}
@@ -829,6 +830,17 @@ function App() {
             onStateChange={handleStateChange}
             initialState={initialStates[inst.id]}
           />
+        ) : inst.type === 'phaser' ? (
+          <PhaserOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+          />
         ) : inst.type === 'pitchshift' ? (
           <PitchShifterOrb
             key={inst.id}
@@ -1049,18 +1061,7 @@ function App() {
             onStateChange={handleStateChange}
             initialState={initialStates[inst.id]}
           />
-        ) : inst.type === 'freezefield' ? (
-          <FreezeFieldOrb
-            key={inst.id}
-            instanceId={inst.id}
-            sharedSource={sharedSource}
-            registerEngine={registerEngine}
-            unregisterEngine={unregisterEngine}
-            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
-            onStateChange={handleStateChange}
-            initialState={initialStates[inst.id]}
-          />
-        ) : inst.type === 'nearfar' ? (
+        ) :inst.type === 'nearfar' ? (
           <NearFarOrb
             key={inst.id}
             instanceId={inst.id}
@@ -1138,7 +1139,7 @@ function App() {
             initialState={initialStates[inst.id]}
           />
         ) : inst.type === 'drumbus' ? (
-          <DrumBusOrb
+          <PantherBussOrb
             key={inst.id}
             instanceId={inst.id}
             sharedSource={sharedSource}

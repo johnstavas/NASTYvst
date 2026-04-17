@@ -107,11 +107,11 @@ class DrumBusProcessor extends AudioWorkletProcessor {
     const transAmt = (transients - 0.5) * 2;
     const decayAmt = (decay - 0.5) * 2;
 
-    // glue compressor
-    const glueAtk    = Math.exp(-1 / (sr * 0.010));
-    const glueRel    = Math.exp(-1 / (sr * 0.150));
-    const glueThresh = 0.4;
-    const glueRatio  = 3.0;
+    // glue compressor — threshold -20dBFS, 4:1, auto makeup
+    const glueAtk    = Math.exp(-1 / (sr * 0.008));  // 8ms attack
+    const glueRel    = Math.exp(-1 / (sr * 0.180));  // 180ms release
+    const glueThresh = 0.100;   // -20dBFS — catches programme material
+    const glueRatio  = 4.0;     // 4:1 — noticeable glue without squashing
     const useGlue    = comp > 0.5;
 
     // width — side HPF above 150Hz
@@ -269,12 +269,16 @@ class DrumBusProcessor extends AudioWorkletProcessor {
         } else {
           this.glueGain = glueRel * this.glueGain + (1 - glueRel) * targetGain;
         }
-        xL *= this.glueGain;
-        xR *= this.glueGain;
+        // Auto makeup: compensate for gain reduction so level-matched vs bypass.
+        // At full ratio/threshold engagement, makeup of ~+4dB keeps things even.
+        const makeupDb  = (1 - this.glueGain) * 14; // scales with actual GR
+        const makeupLin = Math.pow(10, makeupDb / 20);
+        xL *= this.glueGain * makeupLin;
+        xR *= this.glueGain * makeupLin;
         const gr = 1 - this.glueGain;
         if (gr > grAmount) grAmount = gr;
       } else {
-        // still decay glueGain toward 1 smoothly when toggled off
+        // decay glueGain toward 1 smoothly when toggled off
         this.glueGain = glueRel * this.glueGain + (1 - glueRel) * 1.0;
       }
 

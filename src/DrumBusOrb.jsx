@@ -2,16 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createDrumBusEngine } from './drumBusEngine';
 import PresetSelector from './PresetSelector';
 
-// ─── DRUM BUS — HYPER RACE CAR ────────────────────────────────────────────────
-// Visual concept: sleek black panther energy, F1/hypercar side-profile,
-// dark night circuit, amber/orange neon, exhaust flame scales with signal.
+// ─── DRUM BUS — HYPER PANTHER ─────────────────────────────────────────────────
+// Visual concept: hyper-realistic black panther face, jaw opens with signal,
+// rainbow teeth glow, eyes burn gold, whiskers sway, fur texture reacts to audio.
 //
 // Layout:  Header(52) + Presets(26) + Canvas(280) + DriveMode(27) + Knobs(62) + Footer(53) = 500px
 
 const CAR_W = 380, CAR_H = 280;
+const PANTHER_W = 380, PANTHER_H = 280;
 
 // ─── Race Knob ────────────────────────────────────────────────────────────────
-// Carbon-fiber dark body, orange indicator + arc
+// Carbon-fiber dark body, teal indicator + arc
 function RaceKnob({ size = 26, norm = 0 }) {
   const cx = size / 2, cy = size / 2;
   const trackR = size / 2 - 1.8;
@@ -32,9 +33,9 @@ function RaceKnob({ size = 26, norm = 0 }) {
     <svg width={size} height={size} style={{ display: 'block', pointerEvents: 'none' }}>
       <defs>
         <radialGradient id={gId} cx="38%" cy="32%" r="65%">
-          <stop offset="0%"   stopColor="#2a2830" />
-          <stop offset="50%"  stopColor="#1a1820" />
-          <stop offset="100%" stopColor="#0e0c12" />
+          <stop offset="0%"   stopColor="#0e2428" />
+          <stop offset="50%"  stopColor="#081418" />
+          <stop offset="100%" stopColor="#060e12" />
         </radialGradient>
       </defs>
       {/* Outer dark ring */}
@@ -45,8 +46,8 @@ function RaceKnob({ size = 26, norm = 0 }) {
       {/* Orange fill arc */}
       {norm > 0.005 && (
         <path d={`M ${tX1} ${tY1} A ${trackR} ${trackR} 0 ${large} 1 ${fX2} ${fY2}`}
-          fill="none" stroke="#FF8C00" strokeWidth="2.5" strokeLinecap="round"
-          style={{ filter: 'drop-shadow(0 0 2px rgba(255,140,0,0.8))' }} />
+          fill="none" stroke="#00d4c0" strokeWidth="2.5" strokeLinecap="round"
+          style={{ filter: 'drop-shadow(0 0 2px rgba(0,212,192,0.8))' }} />
       )}
       {/* Carbon body */}
       <circle cx={cx} cy={cy} r={knobR} fill={`url(#${gId})`}
@@ -56,10 +57,10 @@ function RaceKnob({ size = 26, norm = 0 }) {
       <circle cx={cx} cy={cy} r={knobR * 0.50} fill="none" stroke="rgba(255,255,255,0.02)"  strokeWidth="0.5" />
       {/* Orange indicator line */}
       <line x1={iX1} y1={iY1} x2={iX2} y2={iY2}
-        stroke="#FF8C00" strokeWidth="2.0" strokeLinecap="round"
-        style={{ filter: 'drop-shadow(0 0 1px rgba(255,140,0,0.6))' }} />
+        stroke="#00d4c0" strokeWidth="2.0" strokeLinecap="round"
+        style={{ filter: 'drop-shadow(0 0 1px rgba(0,212,192,0.6))' }} />
       {/* Center dot */}
-      <circle cx={cx} cy={cy} r="2.2" fill="rgba(255,140,0,0.3)" />
+      <circle cx={cx} cy={cy} r="2.2" fill="rgba(0,212,192,0.3)" />
     </svg>
   );
 }
@@ -83,8 +84,8 @@ function Knob({ label, value, onChange, min = 0, max = 1, defaultValue, size = 2
         style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <RaceKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,160,50,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, Arial, sans-serif' }}>{label}</span>
-      <span style={{ fontSize: 7, color: 'rgba(255,140,0,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
+      <span style={{ fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,220,200,0.75)', fontWeight: 700, textAlign: 'center', width: '100%', lineHeight: 1, fontFamily: 'system-ui, Arial, sans-serif' }}>{label}</span>
+      <span style={{ fontSize: 7, color: 'rgba(0,212,192,0.4)', fontFamily: '"Courier New",monospace', fontWeight: 700, textAlign: 'center', width: '100%' }}>{display}</span>
     </div>
   );
 }
@@ -107,7 +108,7 @@ function GainKnob({ value, onChange, label, defaultValue = 1 }) {
       <div onPointerDown={onDown} onDoubleClick={() => onChange(defaultValue)} style={{ width: size, height: size, cursor: dragging ? 'grabbing' : 'grab' }}>
         <RaceKnob size={size} norm={norm} />
       </div>
-      <span style={{ fontSize: 5, letterSpacing: '0.1em', color: 'rgba(255,140,0,0.5)', fontWeight: 700, fontFamily: 'system-ui, Arial, sans-serif', marginTop: -1 }}>{label}</span>
+      <span style={{ fontSize: 5, letterSpacing: '0.1em', color: 'rgba(0,212,192,0.5)', fontWeight: 700, fontFamily: 'system-ui, Arial, sans-serif', marginTop: -1 }}>{label}</span>
     </div>
   );
 }
@@ -117,10 +118,10 @@ function CompToggle({ active, onClick }) {
   return (
     <div onClick={onClick} style={{
       cursor: 'pointer', padding: '3px 9px', borderRadius: 3,
-      background: active ? 'rgba(255,140,0,0.22)' : 'rgba(255,255,255,0.03)',
-      color: active ? '#FF8C00' : 'rgba(160,90,10,0.45)',
-      border: `1px solid ${active ? 'rgba(255,140,0,0.5)' : 'rgba(100,60,10,0.2)'}`,
-      boxShadow: active ? '0 0 8px rgba(255,140,0,0.4), inset 0 0 4px rgba(255,140,0,0.08)' : 'none',
+      background: active ? 'rgba(0,212,192,0.22)' : 'rgba(255,255,255,0.03)',
+      color: active ? '#00d4c0' : 'rgba(0,130,120,0.45)',
+      border: `1px solid ${active ? 'rgba(0,212,192,0.5)' : 'rgba(0,80,75,0.2)'}`,
+      boxShadow: active ? '0 0 8px rgba(0,212,192,0.4), inset 0 0 4px rgba(0,212,192,0.08)' : 'none',
       fontSize: 8, fontWeight: 700, letterSpacing: '0.12em',
       fontFamily: '"Courier New", monospace',
       userSelect: 'none', transition: 'all 0.13s',
@@ -154,474 +155,357 @@ function RaceBypass({ active, onClick }) {
   );
 }
 
-// ─── Race Car Canvas ──────────────────────────────────────────────────────────
-function RaceCarCanvas({ peakIn = 0, peakOut = 0, gr = 0, bassLevel = 0, transient = 0 }) {
-  const canvasRef  = useRef(null);
-  const histRef    = useRef(null);
-  const valRef     = useRef({ peakIn: 0, peakOut: 0, gr: 0, bassLevel: 0, transient: 0 });
+// ─── Panther Graphic ──────────────────────────────────────────────────────────
+// Reactive glow system. All glow layers sit BELOW the SVG (Z1).
+// SVG artwork (Z2) always paints on top — glow enhances, never covers.
+//
+// Demo mode: when all audio inputs are idle (drive=0, boom=0, transient=0)
+// a slow 0.25 Hz sine oscillator drives the glow so behaviour is visible
+// without a live audio source.
+function PantherCanvas({ drive = 0, crunch = 0, boom = 0, decay = 0, damp = 0.75, transient = 0, engineActive = false }) {
+  const [markup, setMarkup] = useState('');
 
-  valRef.current = { peakIn, peakOut, gr, bassLevel, transient };
+  // ── SVG load — colour mapping + material gradient pass
+  useEffect(() => {
+    fetch('/panther-v2.svg')
+      .then(r => r.text())
+      .then(rawSvg => {
+
+        // ── Step 1: global colour remapping ──────────────────────────────
+        let svg = rawSvg
+          .replaceAll('fill="#1a1816"',   'fill="#0d0b09"')
+          .replaceAll('fill="#e0f8ff"',   'fill="#0d0b09"')   // mislabeled group — render as black fur
+          .replaceAll('fill="#f2e7d1"',   'fill="#ddd8cc"')   // ivory + teeth (pre-gradient base)
+          .replaceAll('fill="#efc88d"',   'fill="#d4b27e"')
+          .replaceAll('fill="#de3c40"',   'fill="#c02828"')
+          .replaceAll('stroke="#868074"', 'stroke="#2a2520"')
+          .replaceAll('stroke="#7c2a2b"', 'stroke="#2a2520"')
+          .replaceAll('stroke="#857052"', 'stroke="#2a2520"')
+          .replaceAll('stroke="#e89289"', 'stroke="#2a2520"')
+          .replaceAll('stroke="#f1d8af"', 'stroke="#c8b890"')
+          .replace('id="linework">', 'id="linework" opacity="0.5">');
+
+        // ── Step 2: per-group gradient application ────────────────────────
+        // Scan line-by-line so we only replace fills inside the target group.
+        // No path geometry is touched; only fill="..." attribute values change.
+        function applyToGroup(text, groupId, lineTransform) {
+          let inside = false;
+          return text.split('\n').map(line => {
+            if (line.includes(`id="${groupId}"`))    { inside = true;  return line; }
+            if (inside && line.includes('</g>'))     { inside = false; return line; }
+            return inside ? lineTransform(line) : line;
+          }).join('\n');
+        }
+
+        // ivory_shapes — directional: top-left cool light, bottom warm shadow
+        svg = applyToGroup(svg, 'ivory_shapes', l =>
+          l.replace(/fill="#ddd8cc"/g, 'fill="url(#mat_ivory)"'));
+
+        // teeth — tip-to-base: cool bright tip, neutral mid, warm root
+        svg = applyToGroup(svg, 'teeth', l =>
+          l.replace(/fill="#ddd8cc"/g, 'fill="url(#mat_teeth)"'));
+
+        // #eyes group is mislabeled nose-area marks — no gradient, stays as black fur
+
+        // ── Step 3: inject <defs> immediately after opening <svg> tag ────
+        //    gradientUnits="userSpaceOnUse" coords match the SVG viewBox
+        //    (-313 2 2400 1769). All values are deliberately understated.
+        const defs = [
+          '  <defs>',
+          '    <!-- Ivory material: warm top highlight, neutral centre, warm lower shadow — no cyan -->',
+          '    <linearGradient id="mat_ivory" x1="-100" y1="0" x2="1800" y2="1600"',
+          '        gradientUnits="userSpaceOnUse">',
+          '      <stop offset="0%"   stop-color="#ede8df"/>',
+          '      <stop offset="40%"  stop-color="#ddd8cc"/>',
+          '      <stop offset="100%" stop-color="#c8bba6"/>',
+          '    </linearGradient>',
+          '    <!-- Teeth material: bright warm-white tips, high contrast to warm root -->',
+          '    <linearGradient id="mat_teeth" x1="886" y1="1050" x2="886" y2="1570"',
+          '        gradientUnits="userSpaceOnUse">',
+          '      <stop offset="0%"   stop-color="#f0eeea"/>',
+          '      <stop offset="40%"  stop-color="#ddd8cc"/>',
+          '      <stop offset="100%" stop-color="#b8a888"/>',
+          '    </linearGradient>',
+          '    <!-- Eyes material: bright inner highlight, dark outer iris rim -->',
+          '    <radialGradient id="mat_eyes" cx="50%" cy="38%" r="52%"',
+          '        gradientUnits="objectBoundingBox">',
+          '      <stop offset="0%"   stop-color="#f4fcff"/>',
+          '      <stop offset="55%"  stop-color="#dff7ff"/>',
+          '      <stop offset="100%" stop-color="#7aacbe"/>',
+          '    </radialGradient>',
+          '  </defs>',
+        ].join('\n');
+
+        svg = svg.replace(/(<svg[^>]*>)/, `$1\n${defs}`);
+
+        // Let CSS drop-shadows bleed outside the SVG viewport boundary
+        svg = svg.replace(
+          'style="background:transparent;display:block;"',
+          'style="background:transparent;display:block;overflow:visible;"'
+        );
+
+        setMarkup(svg);
+      });
+  }, []);
+
+  // ── Glow state — aura/rim/rage/pulse go through React (drive div renders).
+  //    Eye + mouth filters applied directly on SVG groups via RAF DOM mutation.
+  const [glow, setGlow] = useState({ aura: 0.10, rim1: 0.45, rim2: 0.28, rage: 0, pulse: 0 });
+
+  // Ref to the div that contains the dangerouslySetInnerHTML SVG
+  const svgRef = useRef(null);
+
+  const vRef = useRef({ drive, crunch, boom, decay, damp, transient, engineActive });
+  vRef.current = { drive, crunch, boom, decay, damp, transient, engineActive };
+
+  const S = useRef({ energy: 0, boomSm: 0, transSm: 0, t: 0, frame: 0 });
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = CAR_W, H = CAR_H;
-    canvas.width  = W * 2;
-    canvas.height = H * 2;
-    ctx.scale(2, 2);
-
-    if (!histRef.current) {
-      histRef.current = {
-        wheelAngle:  0,
-        sig:         0,
-        grSmooth:    0,
-        transSmooth: 0,
-        flameLen:    0,
-        phase:       0,
-      };
-    }
-
     let raf;
-    const draw = () => {
-      raf = requestAnimationFrame(draw);
-      const { peakIn: _pi, peakOut: _po, gr: _gr, bassLevel: _bl, transient: _tr } = valRef.current;
-      const h = histRef.current;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const v = vRef.current;
+      const s = S.current;
+      s.t     += 1 / 60;
+      s.frame += 1;
 
-      h.phase += 0.016;
-      const ph = h.phase;
+      // Demo breath when no engine connected
+      const demoBreath = Math.sin(s.t * 0.25 * Math.PI * 2) * 0.5 + 0.5;
+      const demo       = v.engineActive ? 0 : demoBreath;
 
-      // signal level — very fast attack for drums
-      const rawSig = Math.max(_pi, _po);
-      if (rawSig > h.sig) h.sig = h.sig * 0.45 + rawSig * 0.55;
-      else                h.sig = h.sig * 0.92 + rawSig * 0.08;
+      // Combined drive+crunch+boom rage — 0 to 1, primary visual fuel
+      const driveI = Math.min(1.0, v.drive * 0.35 + v.crunch * 0.35 + v.boom * 0.30);
 
-      h.grSmooth    = h.grSmooth    * 0.88 + (_gr || 0) * 0.12;
-      h.transSmooth = h.transSmooth * 0.60 + (_tr || 0) * 0.40;
-      const bounce  = h.transSmooth * 4;   // strong shake on transient hits
+      // Energy — all three heavy hitters feed it
+      const rawE = 0.12 + v.drive * 0.36 + v.crunch * 0.30 + v.boom * 0.24 + v.transient * 0.06;
+      s.energy = s.energy + (Math.max(rawE, demo) - s.energy) * 0.18;
 
-      // wheel speed proportional to signal
-      h.wheelAngle += 0.022 + h.sig * 0.18;
+      if (v.boom > s.boomSm) s.boomSm = s.boomSm * 0.05 + v.boom * 0.95;
+      else                   s.boomSm = s.boomSm * 0.88 + v.boom * 0.12;
+      const boomV = Math.max(s.boomSm, demo * 0.8);
 
-      // flame length
-      const targetFlame = h.sig * 38 + (_bl || 0) * 15;
-      h.flameLen = h.flameLen * 0.75 + targetFlame * 0.25;
+      if (v.transient > s.transSm) s.transSm = s.transSm * 0.02 + v.transient * 0.98;
+      else                         s.transSm = s.transSm * 0.78 + v.transient * 0.22;
+      const tranFlash = v.engineActive && s.transSm > 0.3
+        ? (s.transSm - 0.3) / 0.7 : 0;
 
-      // ── Layout constants ────────────────────────────────────────────
-      const roadY = H - 18;
-      const carY  = roadY - 45 - bounce * 0.5;  // car top, bounces slightly
-      const carH2 = 30;                           // car body height (low profile)
-      const carL  = 20;                           // car left (rear)
-      const carR  = 330;                          // car right (nose)
-      const carW2 = carR - carL;
-      const diffY = roadY - 8;                    // diffuser/undertray
+      const e = s.energy;
 
-      // wheel positions
-      const rWx = carL + 55;   // rear wheel center x
-      const fWx = carR - 55;   // front wheel center x
-      const wR  = 14;          // wheel radius
-      const wCy = roadY - wR;  // wheel center y
+      // ── Pulse — smooth laser throb, no high-freq strobe ─────────────────
+      // slowBeat: 1.5→8 Hz — deep power surge rhythm
+      // midSwell: 4→14 Hz  — subtle mid texture (was 50 Hz fastFlick, killed)
+      const slowBeat = Math.sin(s.t * (1.5 + driveI * 6.5) * Math.PI * 2) * 0.5 + 0.5;
+      const midSwell = Math.sin(s.t * (4.0 + driveI * 10.0) * Math.PI * 2) * 0.5 + 0.5;
+      const rawPulse = driveI * (slowBeat * 1.2 + midSwell * 0.4); // 0–1.6
 
-      // ── Clear / background ──────────────────────────────────────────
-      const bgG = ctx.createLinearGradient(0, 0, 0, H);
-      bgG.addColorStop(0,   '#0e0c10');
-      bgG.addColorStop(0.4, '#12101a');
-      bgG.addColorStop(1,   '#0a0810');
-      ctx.fillStyle = bgG;
-      ctx.fillRect(0, 0, W, H);
+      // Lerp smoothing — kills residual flicker, preserves slow throb shape
+      if (!s.pulseSm) s.pulseSm = 0;
+      s.pulseSm = s.pulseSm + (rawPulse - s.pulseSm) * 0.08;
+      const pulseMod = s.pulseSm;
 
-      // ── Night sky stars ─────────────────────────────────────────────
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      const stars = [
-        [18,12],[60,8],[95,18],[140,5],[190,15],[240,6],[285,20],[320,9],[355,14],[370,4],
-        [42,30],[115,25],[175,32],[230,22],[305,28],[348,38],[30,45],[160,40],[270,35],[340,48],
-      ];
-      for (const [sx, sy] of stars) {
-        ctx.beginPath();
-        ctx.arc(sx, sy, 0.6 + Math.sin(ph + sx * 0.3) * 0.3, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      // Aura pulse value — full 0–1 swing
+      const pulseVal = slowBeat * 0.70 + midSwell * 0.30;
 
-      // ── Track surface ───────────────────────────────────────────────
-      const roadG = ctx.createLinearGradient(0, roadY, 0, H);
-      roadG.addColorStop(0, '#1a1818');
-      roadG.addColorStop(1, '#0e0c0c');
-      ctx.fillStyle = roadG;
-      ctx.fillRect(0, roadY, W, H - roadY);
+      // ── Rage — hits blood red FAST ────────────────────────────────────────
+      // Any drive+crunch above 10% starts bleeding red. Full red at 60%.
+      const rage = Math.min(1.0, Math.pow(Math.max(0, driveI - 0.08) / 0.55, 0.7));
 
-      // Neon orange track stripe lines
-      ctx.strokeStyle = 'rgba(255,140,0,0.35)';
-      ctx.lineWidth   = 1.5;
-      ctx.beginPath(); ctx.moveTo(0, roadY + 4);  ctx.lineTo(W, roadY + 4);  ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, roadY + 9);  ctx.lineTo(W, roadY + 9);  ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,140,0,0.1)';
-      ctx.lineWidth   = 0.5;
-      ctx.beginPath(); ctx.moveTo(0, roadY + 14); ctx.lineTo(W, roadY + 14); ctx.stroke();
+      // Eye tight core:  amber(255,185,30) → blood(255,0,0)
+      const eR1 = 255, eG1 = Math.round(185 * (1 - rage)), eB1 = Math.round(30 * (1 - rage));
+      // Eye outer bloom: orange(255,110,0) → dark blood(150,0,0)
+      const eR2 = Math.round(255 - 105 * rage), eG2 = Math.round(110 * (1 - rage)), eB2 = 0;
 
-      // ── Speed lines (motion blur behind car) ────────────────────────
-      const speedLineCount = 8;
-      for (let sl = 0; sl < speedLineCount; sl++) {
-        const slY   = carY + 8 + sl * (carH2 / speedLineCount);
-        const slLen = (20 + h.sig * 80 + Math.sin(ph * 2.2 + sl) * 8) * (0.5 + sl * 0.06);
-        const slX   = carL - slLen - (ph * 18 % 30);
-        const slA   = (0.06 - sl * 0.006) * h.sig;
-        ctx.strokeStyle = `rgba(255,140,0,${slA})`;
-        ctx.lineWidth   = 0.8 + sl * 0.1;
-        ctx.beginPath();
-        ctx.moveTo(Math.max(0, slX), slY);
-        ctx.lineTo(Math.max(0, slX) + slLen * 0.7, slY);
-        ctx.stroke();
-      }
+      // ── Direct DOM filter updates ─────────────────────────────────────────
+      const svgEl = svgRef.current?.querySelector('svg');
+      if (svgEl) {
+        const eyeE   = Math.min(1.0, 0.20 + e * 1.2 + pulseMod * 0.8 + tranFlash * 0.8);
+        const mouthE = Math.min(1.0, 0.18 + e * 1.2 + pulseMod * 0.6 + boomV * 1.1);
 
-      // ── Motion trail afterimages ─────────────────────────────────────
-      for (let tr = 1; tr <= 3; tr++) {
-        const trOff = tr * (8 + h.sig * 6);
-        const trA   = 0.04 - tr * 0.012;
-        if (trA <= 0) continue;
-        ctx.fillStyle = `rgba(12,10,14,${1 - trA})`;
-        // draw ghost car body at offset
-        ctx.save();
-        ctx.globalAlpha = trA;
-        ctx.fillStyle = '#0a0a0e';
-        ctx.beginPath();
-        ctx.moveTo(carL - trOff, carY);
-        ctx.lineTo(carR - trOff - 12, carY);
-        ctx.lineTo(carR - trOff, carY + carH2 * 0.3);
-        ctx.lineTo(carR - trOff, carY + carH2);
-        ctx.lineTo(carL - trOff, carY + carH2);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
+        const eyeGroup = svgEl.querySelector('#ear_inner');
+        if (eyeGroup) {
+          // FULLY UNCLAMPED — pulse peaks far above 1.0 = laser overexposure
+          // boom now feeds directly into the eye blast radius
+          const boomBlast = v.boom * 2.8;
+          const eyeRaw = 0.20 + e * 2.8 + pulseMod * 3.5 + boomBlast + tranFlash * 2.5;
 
-      // ── Ground effect glow under diffuser ───────────────────────────
-      if (h.sig > 0.02 || h.flameLen > 2) {
-        const gGlow = ctx.createRadialGradient(
-          (carL + carR) / 2, diffY + 4, 0,
-          (carL + carR) / 2, diffY + 4, carW2 * 0.55
-        );
-        const gA = (h.sig * 0.4 + h.flameLen * 0.008).toFixed(3);
-        gGlow.addColorStop(0, `rgba(255,140,0,${gA})`);
-        gGlow.addColorStop(1, 'rgba(255,80,0,0)');
-        ctx.fillStyle = gGlow;
-        ctx.fillRect(carL, diffY, carW2, 14);
-      }
+          // White-hot core: pure white → searing red-white at rage
+          const wcR = 255, wcG = Math.round(240 * (1 - rage * 0.85)), wcB = Math.round(240 * (1 - rage));
 
-      // ── Car shadow ───────────────────────────────────────────────────
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath();
-      ctx.ellipse((carL + carR) / 2, roadY + 4, carW2 * 0.42, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
+          // Layer 0 — white-hot searing pinpoint
+          const r0 = (1.5 + eyeRaw * 8).toFixed(1);
+          const a0 = Math.min(0.99, eyeRaw * 0.99).toFixed(3);
+          // Layer 1 — tight blood core
+          const r1 = (3.0 + eyeRaw * 28).toFixed(1);
+          const a1 = Math.min(0.99, 0.30 + eyeRaw * 0.69).toFixed(3);
+          // Layer 2 — wide searing bloom (7× r1)
+          const r2 = (parseFloat(r1) * 7).toFixed(1);
+          const a2 = Math.min(0.99, eyeRaw * 0.88).toFixed(3);
+          // Layer 3 — MASSIVE deep corona — paints the entire upper half
+          const r3 = (40 + eyeRaw * 320).toFixed(1);
+          const a3 = Math.min(0.92, eyeRaw * 0.75).toFixed(3);
 
-      // ── Rear wing ───────────────────────────────────────────────────
-      const rwgX = carL + 8;
-      const rwgBotY = carY - 2;
-      const rwgTopY = carY - 28;
-      ctx.fillStyle = '#0c0c12';
-      ctx.fillRect(rwgX - 2, rwgTopY, 5, rwgBotY - rwgTopY);
-      ctx.fillStyle = '#161620';
-      ctx.fillRect(rwgX - 10, rwgTopY, 20, 5);
-      ctx.fillRect(rwgX - 8,  rwgTopY + 8, 16, 4);
-      // orange DRS indicator stripe
-      ctx.fillStyle = `rgba(255,140,0,${0.3 + h.sig * 0.5})`;
-      ctx.fillRect(rwgX - 10, rwgTopY + 1, 20, 2);
+          eyeGroup.style.filter = [
+            `drop-shadow(0 0 ${r0}px rgba(${wcR},${wcG},${wcB},${a0}))`,
+            `drop-shadow(0 0 ${r1}px rgba(${eR1},${eG1},${eB1},${a1}))`,
+            `drop-shadow(0 0 ${r2}px rgba(${eR2},${eG2},${eB2},${a2}))`,
+            `drop-shadow(0 0 ${r3}px rgba(${Math.round(eR2 * 0.55)},0,0,${a3}))`,
+          ].join(' ');
+        }
 
-      // ── Car body (sleek low hypercar) ────────────────────────────────
-      // Main body silhouette
-      ctx.fillStyle = '#0a0a0e';
-      ctx.beginPath();
-      // rear (left) to nose (right), top edge
-      ctx.moveTo(carL,      carY + carH2 * 0.35);    // rear top
-      ctx.lineTo(carL + 18, carY);                    // rear top shoulder
-      ctx.lineTo(carR - 20, carY);                    // cockpit top line
-      ctx.lineTo(carR - 6,  carY + carH2 * 0.4);     // nose slope
-      ctx.lineTo(carR,      carY + carH2 * 0.55);     // nose tip
-      ctx.lineTo(carR,      carY + carH2);             // nose bottom
-      ctx.lineTo(carL,      carY + carH2);             // body bottom
-      ctx.closePath();
-      ctx.fill();
-
-      // Car body gradient highlight (top specular)
-      const bodyHL = ctx.createLinearGradient(carL, carY, carL, carY + carH2);
-      bodyHL.addColorStop(0,    'rgba(60,55,80,0.18)');
-      bodyHL.addColorStop(0.12, 'rgba(40,35,60,0.06)');
-      bodyHL.addColorStop(0.5,  'rgba(0,0,0,0.0)');
-      bodyHL.addColorStop(1,    'rgba(0,0,0,0.25)');
-      ctx.fillStyle = bodyHL;
-      ctx.beginPath();
-      ctx.moveTo(carL,      carY + carH2 * 0.35);
-      ctx.lineTo(carL + 18, carY);
-      ctx.lineTo(carR - 20, carY);
-      ctx.lineTo(carR - 6,  carY + carH2 * 0.4);
-      ctx.lineTo(carR,      carY + carH2 * 0.55);
-      ctx.lineTo(carR,      carY + carH2);
-      ctx.lineTo(carL,      carY + carH2);
-      ctx.closePath();
-      ctx.fill();
-
-      // ── Livery: amber/orange stripe lines along body ─────────────────
-      const stripeY1 = carY + carH2 * 0.58;
-      const stripeY2 = carY + carH2 * 0.65;
-      const stripeY3 = carY + carH2 * 0.72;
-      const liveryA = 0.5 + h.sig * 0.3;
-      ctx.strokeStyle = `rgba(255,140,0,${liveryA})`;
-      ctx.lineWidth   = 1.2;
-      ctx.beginPath(); ctx.moveTo(carL + 20, stripeY1); ctx.lineTo(carR - 10, stripeY1); ctx.stroke();
-      ctx.strokeStyle = `rgba(255,160,50,${liveryA * 0.6})`;
-      ctx.lineWidth   = 0.8;
-      ctx.beginPath(); ctx.moveTo(carL + 20, stripeY2); ctx.lineTo(carR - 10, stripeY2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(carL + 20, stripeY3); ctx.lineTo(carR - 14, stripeY3); ctx.stroke();
-
-      // ── Cockpit canopy ───────────────────────────────────────────────
-      const cockpitCX   = (carL + carR) * 0.45;
-      const cockpitW    = carW2 * 0.28;
-      const cockpitBotY = carY + 1;
-      const cockpitTopY = carY - 12;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(cockpitCX - cockpitW * 0.5, cockpitBotY);
-      ctx.bezierCurveTo(
-        cockpitCX - cockpitW * 0.4, cockpitTopY,
-        cockpitCX + cockpitW * 0.4, cockpitTopY,
-        cockpitCX + cockpitW * 0.5, cockpitBotY
-      );
-      ctx.closePath();
-      const canopyG = ctx.createLinearGradient(cockpitCX - cockpitW * 0.5, cockpitTopY, cockpitCX + cockpitW * 0.5, cockpitBotY);
-      canopyG.addColorStop(0, 'rgba(20,16,30,0.88)');
-      canopyG.addColorStop(1, 'rgba(30,22,40,0.82)');
-      ctx.fillStyle = canopyG;
-      ctx.fill();
-      // orange tint from hot dashboard
-      if (h.sig > 0.05) {
-        ctx.fillStyle = `rgba(255,120,0,${h.sig * 0.12})`;
-        ctx.fill();
-      }
-      // canopy glare
-      ctx.fillStyle = 'rgba(255,240,200,0.06)';
-      ctx.beginPath();
-      ctx.moveTo(cockpitCX - cockpitW * 0.25, cockpitBotY);
-      ctx.bezierCurveTo(
-        cockpitCX - cockpitW * 0.2, cockpitTopY + 3,
-        cockpitCX - cockpitW * 0.05, cockpitTopY + 2,
-        cockpitCX + cockpitW * 0.05, cockpitBotY
-      );
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      // ── Front wing ───────────────────────────────────────────────────
-      const fwgX    = carR - 4;
-      const fwgTopY = carY + carH2 * 0.5;
-      ctx.fillStyle = '#0d0d14';
-      ctx.fillRect(fwgX - 18, fwgTopY + 4, 22, 4);
-      ctx.fillRect(fwgX - 12, fwgTopY,     16, 4);
-      ctx.fillStyle = `rgba(255,140,0,${0.25 + h.sig * 0.4})`;
-      ctx.fillRect(fwgX - 18, fwgTopY + 4, 22, 1);
-
-      // ── Undertray / diffuser ─────────────────────────────────────────
-      ctx.fillStyle = '#080810';
-      ctx.fillRect(carL, diffY, carW2, roadY - diffY);
-      // diffuser strakes
-      ctx.strokeStyle = 'rgba(255,100,0,0.2)';
-      ctx.lineWidth   = 0.5;
-      for (let ds = 0; ds < 6; ds++) {
-        const dsx = carL + 20 + ds * (carW2 - 40) / 5;
-        ctx.beginPath(); ctx.moveTo(dsx, diffY); ctx.lineTo(dsx, roadY); ctx.stroke();
-      }
-
-      // ── LED meter strips on car body ─────────────────────────────────
-      // 3 thin strips at different heights, 8 LEDs each
-      const strips = [
-        { y: carY + carH2 * 0.20, driven: h.sig },
-        { y: carY + carH2 * 0.40, driven: Math.min(1, h.sig * 1.1 + _bl * 0.3) },
-        { y: carY + carH2 * 0.60, driven: Math.min(1, rawSig * 1.2) },
-      ];
-      const ledW = 50, ledH = 6, nLeds = 8;
-      const ledStartX = carL + 40;
-
-      for (const strip of strips) {
-        const segW = (ledW - (nLeds - 1)) / nLeds;
-        for (let li = 0; li < nLeds; li++) {
-          const lx  = ledStartX + li * (segW + 1);
-          const lN  = li / (nLeds - 1);
-          const lit = strip.driven > lN * 0.75;
-          let lr, lg, lb;
-          if      (lN < 0.5)  { lr = 30;  lg = 220; lb = 80; }
-          else if (lN < 0.75) { lr = 255; lg = 180; lb = 0; }
-          else                { lr = 255; lg = 40;  lb = 20; }
-          // dim track
-          ctx.fillStyle = `rgba(${lr},${lg},${lb},0.08)`;
-          ctx.fillRect(lx, strip.y, segW, ledH);
-          if (lit) {
-            ctx.fillStyle = `rgba(${lr},${lg},${lb},0.9)`;
-            ctx.shadowColor = `rgba(${lr},${lg},${lb},0.6)`;
-            ctx.shadowBlur  = 3;
-            ctx.fillRect(lx, strip.y, segW, ledH);
-            ctx.shadowBlur  = 0;
-          }
+        const mouthGroup = svgEl.querySelector('#mouth_red');
+        if (mouthGroup) {
+          const mouthRaw = 0.18 + e * 2.2 + pulseMod * 2.0 + boomV * 2.5;
+          const r1 = (3 + mouthRaw * 35 + driveI * 18).toFixed(1);
+          const a1 = Math.min(0.99, 0.25 + mouthRaw * 0.74).toFixed(3);
+          const r2 = (parseFloat(r1) * 4).toFixed(1);
+          const a2 = Math.min(0.95, mouthRaw * 0.80).toFixed(3);
+          const r3 = (parseFloat(r1) * 10).toFixed(1);
+          const a3 = Math.min(0.70, mouthRaw * 0.55).toFixed(3);
+          mouthGroup.style.filter =
+            `drop-shadow(0 0 ${r1}px rgba(255,20,0,${a1})) ` +
+            `drop-shadow(0 0 ${r2}px rgba(200,0,0,${a2})) ` +
+            `drop-shadow(0 0 ${r3}px rgba(120,0,0,${a3}))`;
         }
       }
 
-      // ── Exhaust / rocket boost flame (rear left) ─────────────────────
-      const exX  = carL - 2;
-      const exY  = carY + carH2 * 0.7;
-      const fLen = h.flameLen;
-      if (fLen > 1) {
-        // outer flame (orange)
-        const fGo = ctx.createRadialGradient(exX - fLen * 0.5, exY, 0, exX - fLen * 0.5, exY, fLen * 0.7);
-        fGo.addColorStop(0,   `rgba(255,220,0,${Math.min(0.9, h.sig * 1.2)})`);
-        fGo.addColorStop(0.4, `rgba(255,100,0,${Math.min(0.7, h.sig)})`);
-        fGo.addColorStop(1,   'rgba(200,40,0,0)');
-        ctx.fillStyle = fGo;
-        ctx.beginPath();
-        ctx.moveTo(exX,          exY - 5);
-        ctx.lineTo(exX - fLen,   exY + Math.sin(ph * 5.3) * 3);
-        ctx.lineTo(exX - fLen * 0.7, exY + 7);
-        ctx.lineTo(exX,          exY + 5);
-        ctx.closePath();
-        ctx.fill();
+      const rim1 = Math.min(0.99, 0.38 + e * 0.61 + pulseMod * 0.25);
+      const rim2 = Math.min(0.99, 0.22 + e * 0.77 + pulseMod * 0.20);
+      const aura = Math.min(0.99, 0.12 + e * 0.65 + driveI * 0.55 + boomV * 0.45 + pulseMod * 0.35);
 
-        // inner core (white-yellow)
-        const fGi = ctx.createLinearGradient(exX, exY, exX - fLen * 0.6, exY);
-        fGi.addColorStop(0, `rgba(255,255,220,${Math.min(1, h.sig * 1.5)})`);
-        fGi.addColorStop(1, 'rgba(255,200,0,0)');
-        ctx.fillStyle = fGi;
-        ctx.beginPath();
-        ctx.moveTo(exX, exY - 2.5);
-        ctx.lineTo(exX - fLen * 0.5, exY + Math.sin(ph * 8) * 1.5);
-        ctx.lineTo(exX, exY + 2.5);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      // ── Neon headlight beam ──────────────────────────────────────────
-      const hlX = carR + 1;
-      const hlY = carY + carH2 * 0.45;
-      // headlight lens
-      ctx.fillStyle = `rgba(255,230,180,${0.5 + h.sig * 0.45})`;
-      ctx.shadowColor = `rgba(255,200,80,${0.3 + h.sig * 0.6})`;
-      ctx.shadowBlur  = 4 + h.sig * 10;
-      ctx.fillRect(hlX - 8, hlY - 4, 8, 8);
-      ctx.shadowBlur  = 0;
-
-      // beam cone
-      if (h.sig > 0.02) {
-        const blmG = ctx.createRadialGradient(hlX, hlY, 1, hlX + 55, hlY, 85);
-        blmG.addColorStop(0, `rgba(255,230,180,${h.sig * 0.14})`);
-        blmG.addColorStop(1, 'rgba(255,180,60,0)');
-        ctx.fillStyle = blmG;
-        ctx.beginPath();
-        ctx.moveTo(hlX, hlY - 5);
-        ctx.lineTo(hlX + 95, hlY - 30);
-        ctx.lineTo(hlX + 95, hlY + 30);
-        ctx.lineTo(hlX, hlY + 5);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      // ── Tail light ───────────────────────────────────────────────────
-      const tlA = 0.3 + h.sig * 0.7;
-      ctx.fillStyle   = `rgba(220,20,20,${tlA})`;
-      ctx.shadowColor = `rgba(255,40,40,${tlA * 0.7})`;
-      ctx.shadowBlur  = 3 + h.sig * 8;
-      ctx.fillRect(carL - 2, carY + carH2 * 0.32, 5, 10);
-      ctx.shadowBlur  = 0;
-
-      // ── Wheels ───────────────────────────────────────────────────────
-      const wheelDefs = [
-        { cx2: rWx, speed: 1.0 },
-        { cx2: fWx, speed: 1.02 },
-      ];
-      for (const wd of wheelDefs) {
-        const cx2  = wd.cx2;
-        const wAng = h.wheelAngle * wd.speed;
-
-        // wheel well arch (black)
-        ctx.fillStyle = '#08080d';
-        ctx.beginPath();
-        ctx.arc(cx2, wCy, wR + 5, Math.PI, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // drop shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath();
-        ctx.ellipse(cx2 + 2, roadY + 3, wR * 0.9, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // tire
-        ctx.fillStyle = '#0d0d10';
-        ctx.beginPath();
-        ctx.arc(cx2, wCy, wR, 0, Math.PI * 2);
-        ctx.fill();
-
-        // tire sidewall ring
-        ctx.strokeStyle = 'rgba(30,28,40,0.8)';
-        ctx.lineWidth   = 2.5;
-        ctx.beginPath();
-        ctx.arc(cx2, wCy, wR - 1.5, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // brake glow (orange when signal is high)
-        if (h.sig > 0.3) {
-          const brakeA = (h.sig - 0.3) * 1.4;
-          ctx.fillStyle = `rgba(255,80,0,${brakeA * 0.25})`;
-          ctx.beginPath();
-          ctx.arc(cx2, wCy, wR - 4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        // rim (dark with orange accent)
-        const rimR = wR - 4;
-        const rimG = ctx.createRadialGradient(cx2 - 2, wCy - 2, 0, cx2, wCy, rimR);
-        rimG.addColorStop(0, 'rgba(60,55,75,0.95)');
-        rimG.addColorStop(0.5, 'rgba(35,30,50,0.92)');
-        rimG.addColorStop(1, 'rgba(20,16,30,0.9)');
-        ctx.fillStyle = rimG;
-        ctx.beginPath();
-        ctx.arc(cx2, wCy, rimR, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 5 spokes
-        ctx.strokeStyle = 'rgba(80,70,100,0.85)';
-        ctx.lineWidth   = 1.5;
-        for (let sp = 0; sp < 5; sp++) {
-          const sa = wAng + (sp / 5) * Math.PI * 2;
-          ctx.beginPath();
-          ctx.moveTo(cx2 + Math.cos(sa) * 2,           wCy + Math.sin(sa) * 2);
-          ctx.lineTo(cx2 + Math.cos(sa) * (rimR - 2),  wCy + Math.sin(sa) * (rimR - 2));
-          ctx.stroke();
-        }
-
-        // center cap with orange accent
-        const ccG = ctx.createRadialGradient(cx2 - 1, wCy - 1, 0, cx2, wCy, 4);
-        ccG.addColorStop(0, 'rgba(255,140,0,0.8)');
-        ccG.addColorStop(1, 'rgba(180,80,0,0.6)');
-        ctx.fillStyle = ccG;
-        ctx.beginPath();
-        ctx.arc(cx2, wCy, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // ── GR readout ────────────────────────────────────────────────────
-      if (h.grSmooth > 0.004) {
-        const grDb = (h.grSmooth * 30).toFixed(1);
-        ctx.font      = 'bold 6px "Courier New",monospace';
-        ctx.textAlign = 'right';
-        ctx.fillStyle = `rgba(255,140,0,${(0.2 + Math.min(1, h.grSmooth * 5)).toFixed(2)})`;
-        ctx.fillText('GR -' + grDb + 'dB', W - 6, H - 5);
+      if (s.frame % 2 === 0) {
+        setGlow({ aura, rim1, rim2, rage, pulse: pulseVal });
       }
     };
 
-    raf = requestAnimationFrame(draw);
+    raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: CAR_W + 'px', height: CAR_H + 'px', display: 'block' }}
-    />
+    <div style={{
+      width: PANTHER_W, height: PANTHER_H,
+      background: 'transparent',
+      overflow: 'visible', position: 'relative',
+    }}>
+
+      {/* ── Z1: Aura — cyan at idle, BLOOD RED FLOOD at max rage, throbs with pulse ── */}
+      {(() => {
+        const r  = glow.rage;
+        const p  = glow.pulse;
+        // Color: cyan → deep blood red
+        const aR = Math.round(r * 210);
+        const aG = Math.round(30  * (1 - r));
+        const aB = Math.round(255 * (1 - r));
+        // Opacity throbs: base aura × (1 + pulse × rage) — booms now push it further
+        const op = Math.min(1.0, glow.aura * (1 + p * r * 3.5));
+        // Blur expands massively at high rage — flood the whole face
+        const bl = 45 + r * 140;
+        return (
+          <div style={{
+            position: 'absolute', inset: -(60 + r * 200),
+            zIndex: 1, pointerEvents: 'none',
+            opacity: op,
+            background: `radial-gradient(ellipse 92% 85% at 50% 52%,
+              rgba(${aR},${aG},${aB},1) 0%,
+              rgba(${Math.round(aR*0.80)},0,${Math.round(aB*0.35)},0.65) 35%,
+              transparent 68%)`,
+            filter: `blur(${bl.toFixed(0)}px)`,
+          }} />
+        );
+      })()}
+
+      {/* ── Z2: SVG — rim shifts cyan → red with rage ── */}
+      {(() => {
+        const r  = glow.rage;
+        // Rim color: cyan → blood red
+        const rR = Math.round(r * 255);
+        const rG = Math.round(210 * (1 - r));
+        const rB = Math.round(255 * (1 - r));
+        const c  = `${rR},${rG},${rB}`;
+        return (
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 2,
+        filter: [
+          `drop-shadow(0 0 5px  rgba(${c},${glow.rim1.toFixed(3)}))`,
+          `drop-shadow(0 0 18px rgba(${c},${glow.rim2.toFixed(3)}))`,
+          `drop-shadow(0 0 55px rgba(${c},${(glow.rim2 * 0.70).toFixed(3)}))`,
+          `drop-shadow(0 0 110px rgba(${c},${(glow.rim2 * 0.40).toFixed(3)}))`,
+        ].join(' '),
+      }}>
+        <div ref={svgRef} dangerouslySetInnerHTML={{ __html: markup }} />
+      </div>
+        );
+      })()}
+
+    </div>
+  );
+}
+
+// ─── Vertical Level Meter ────────────────────────────────────────────────────
+// Overlays on the left or right edge of the panther canvas.
+// Fills bottom→top. Cyan→yellow→orange-red color zones.
+function VerticalMeter({ peak, label, side }) {
+  const db = peak > 0.00001 ? 20 * Math.log10(peak) : -Infinity;
+  const dbClamped = isFinite(db) ? Math.max(-48, Math.min(3, db)) : -48;
+  const fill = (dbClamped + 48) / 51;
+  const dbStr = !isFinite(db) || db < -47.9 ? '-∞' : (db >= 0 ? '+' : '') + db.toFixed(1);
+
+  const segs = 20;
+  // Yellow: above -6dBFS  (fill > 0.824)
+  // Red:    above -3dBFS  (fill > 0.882)
+  const isHotFill  = fill > 0.882;
+  const isWarmFill = fill > 0.824;
+  const color = isHotFill ? '#ff6020' : isWarmFill ? '#ffd040' : '#00d4c0';
+  const glow  = isHotFill ? 'rgba(255,80,0,0.55)' : isWarmFill ? 'rgba(255,200,0,0.5)' : 'rgba(0,212,192,0.4)';
+
+  return (
+    <div style={{
+      position: 'absolute', top: 0, bottom: 0, [side]: 0,
+      width: 18, zIndex: 6, pointerEvents: 'none',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      paddingTop: 12, paddingBottom: 6,
+      background: side === 'left'
+        ? 'linear-gradient(90deg, rgba(4,10,12,0.86) 0%, rgba(4,10,12,0.25) 100%)'
+        : 'linear-gradient(270deg, rgba(4,10,12,0.86) 0%, rgba(4,10,12,0.25) 100%)',
+      borderRight: side === 'left'  ? '1px solid rgba(0,212,192,0.10)' : 'none',
+      borderLeft:  side === 'right' ? '1px solid rgba(0,212,192,0.10)' : 'none',
+    }}>
+      {/* LED segments — column-reverse so i=0 is at bottom, fills upward */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column-reverse',
+        alignItems: 'center', gap: 1.5, width: '100%',
+      }}>
+        {Array.from({ length: segs }, (_, i) => {
+          const lit    = fill >= (i / segs) + 0.001;
+          const isHot  = i >= 18; // top 2 segs  → above -3dBFS
+          const isWarm = i >= 16; // segs 16-17  → -6 to -3dBFS
+          return (
+            <div key={i} style={{
+              flex: 1, width: 8, borderRadius: 1, minHeight: 2,
+              background: lit
+                ? (isHot ? '#ff5010' : isWarm ? '#ffd040' : '#00d4c0')
+                : (isHot ? 'rgba(255,80,16,0.07)' : isWarm ? 'rgba(255,208,0,0.07)' : 'rgba(0,212,192,0.07)'),
+              boxShadow: lit
+                ? (isHot ? '0 0 4px rgba(255,80,0,0.9)' : isWarm ? '0 0 3px rgba(255,200,0,0.8)' : '0 0 3px rgba(0,212,192,0.7)')
+                : 'none',
+            }} />
+          );
+        })}
+      </div>
+      {/* dB — vertical text, reads bottom-to-top */}
+      <span style={{
+        marginTop: 4,
+        fontSize: 5.5, fontFamily: '"Courier New", monospace', fontWeight: 700,
+        color, textShadow: `0 0 4px ${glow}`,
+        letterSpacing: '0.04em', lineHeight: 1,
+        writingMode: 'vertical-rl', transform: 'rotate(180deg)',
+      }}>{dbStr}</span>
+      {/* Label */}
+      <span style={{
+        marginTop: 3, fontSize: 7, fontWeight: 800, letterSpacing: '0.12em',
+        color: 'rgba(0,212,192,0.58)', fontFamily: 'system-ui', lineHeight: 1,
+      }}>{label}</span>
+    </div>
   );
 }
 
@@ -638,8 +522,8 @@ const PRESETS = [
 ];
 
 const PRESET_COLORS = {
-  bg: '#0e0c10', text: '#e08020', textDim: 'rgba(224,128,32,0.5)',
-  border: 'rgba(255,140,0,0.15)', hoverBg: 'rgba(255,140,0,0.08)', activeBg: 'rgba(255,140,0,0.05)',
+  bg: '#060e10', text: '#00c8b8', textDim: 'rgba(0,200,185,0.5)',
+  border: 'rgba(0,212,192,0.15)', hoverBg: 'rgba(0,212,192,0.08)', activeBg: 'rgba(0,212,192,0.05)',
 };
 
 const DRIVE_MODES = ['SOFT', 'MEDIUM', 'HARD'];
@@ -676,6 +560,15 @@ export default function DrumBusOrb({
 
   const stateRefs = useRef({});
   stateRefs.current = { inputGain, outputGain, drive, crunch, boom, freq, damp, transients, decay, comp, driveMode, mix, trim, bypassed };
+
+  // ── Inject button pulse keyframes once ──────────────────────────────────
+  useEffect(() => {
+    if (document.getElementById('drivemode-kf')) return;
+    const s = document.createElement('style');
+    s.id = 'drivemode-kf';
+    s.textContent = '@keyframes drivePulse { 0%,100%{filter:brightness(1) opacity(1)} 50%{filter:brightness(2.6) opacity(0.88)} }';
+    document.head.appendChild(s);
+  }, []);
 
   // Engine init
   useEffect(() => {
@@ -757,9 +650,9 @@ export default function DrumBusOrb({
     <div style={{
       width: 380, height: 500, borderRadius: 5, position: 'relative', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
-      background: 'linear-gradient(170deg, #0e0c10 0%, #12101a 40%, #0a0810 100%)',
-      border: '1.5px solid rgba(255,140,0,0.25)',
-      boxShadow: '0 6px 40px rgba(0,0,0,0.95), 0 0 14px rgba(255,140,0,0.06), inset 0 1px 0 rgba(255,140,0,0.03)',
+      background: 'linear-gradient(170deg, #060e10 0%, #081418 40%, #040c0e 100%)',
+      border: '1.5px solid rgba(0,212,192,0.25)',
+      boxShadow: '0 6px 40px rgba(0,0,0,0.95), 0 0 14px rgba(0,212,192,0.06), inset 0 1px 0 rgba(0,212,192,0.03)',
       fontFamily: 'system-ui, -apple-system, Arial, sans-serif', userSelect: 'none',
     }}>
       {/* Vignette overlay */}
@@ -772,48 +665,48 @@ export default function DrumBusOrb({
       {/* ── Header: IN | Logo | OUT ── */}
       <div style={{
         padding: '8px 18px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(255,140,0,0.06)', position: 'relative', zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(255,140,0,0.01) 0%, transparent 100%)', flexShrink: 0,
+        borderBottom: '1px solid rgba(0,212,192,0.06)', position: 'relative', zIndex: 10,
+        background: 'linear-gradient(180deg, rgba(0,212,192,0.01) 0%, transparent 100%)', flexShrink: 0,
       }}>
         <GainKnob label="IN" value={inputGain} defaultValue={1}
           onChange={v => { setInputGain(v); engineRef.current?.setInputGain(v); }} />
 
-        {/* DRUM BUS stacked logo */}
+        {/* PANTHER BUSS logo */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <span style={{
-            fontSize: 9, fontWeight: 900, letterSpacing: '0.45em',
-            color: 'rgba(200,100,10,0.55)',
-            fontFamily: '"Arial Black", "Arial Bold", Impact, sans-serif',
-            textTransform: 'uppercase', lineHeight: 1,
-          }}>DRUM</span>
-          <span style={{
-            fontSize: 20, fontWeight: 900, letterSpacing: '0.08em',
-            background: 'linear-gradient(180deg, #FFA040 0%, #FF8C00 40%, #c05000 100%)',
+            fontSize: 20, fontWeight: 900, letterSpacing: '0.12em',
+            background: 'linear-gradient(180deg, #ff6020 0%, #ff3800 45%, #cc1800 100%)',
             backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 2px 6px rgba(255,140,0,0.55)) drop-shadow(0 0 14px rgba(255,100,0,0.3))',
+            filter: 'drop-shadow(0 2px 8px rgba(255,40,0,0.65)) drop-shadow(0 0 18px rgba(220,20,0,0.35))',
             fontFamily: '"Arial Black", "Arial Bold", Impact, sans-serif',
             textTransform: 'uppercase', lineHeight: 1,
-          }}>BUS</span>
+          }}>PANTHER</span>
           <span style={{
-            fontSize: 5.5, fontWeight: 400, color: 'rgba(255,140,0,0.28)',
+            fontSize: 13, fontWeight: 900, letterSpacing: '0.55em',
+            background: 'linear-gradient(180deg, #d4b27e 0%, #a07840 60%, #7a5520 100%)',
+            backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 1px 4px rgba(180,120,20,0.5))',
+            fontFamily: '"Arial Black", "Arial Bold", Impact, sans-serif',
+            textTransform: 'uppercase', lineHeight: 1,
+          }}>BUSS</span>
+          <span style={{
+            fontSize: 5.5, fontWeight: 400, color: 'rgba(212,178,126,0.35)',
             letterSpacing: '0.3em', fontFamily: 'system-ui, Arial, sans-serif',
-          }}>punch · body · drive</span>
+          }}>drive · crunch · slam</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <GainKnob label="OUT" value={outputGain} defaultValue={1}
-            onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }} />
-        </div>
+        <GainKnob label="OUT" value={outputGain} defaultValue={1}
+          onChange={v => { setOutputGain(v); engineRef.current?.setOutputGain(v); }} />
       </div>
 
       {/* ── Preset row ── */}
       <div style={{
         padding: '3px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(255,140,0,0.04)', position: 'relative', zIndex: 10, flexShrink: 0,
+        borderBottom: '1px solid rgba(0,212,192,0.04)', position: 'relative', zIndex: 10, flexShrink: 0,
       }}>
         <PresetSelector presets={PRESETS} activePreset={activePreset} onSelect={loadPreset} colors={PRESET_COLORS} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {loading && <span style={{ fontSize: 6, color: 'rgba(255,140,0,0.4)' }}>...</span>}
+          {loading && <span style={{ fontSize: 6, color: 'rgba(0,212,192,0.4)' }}>...</span>}
           {onRemove && (
             <span onClick={onRemove}
               style={{ fontSize: 11, cursor: 'pointer', color: 'rgba(255,120,120,0.6)', fontWeight: 700, lineHeight: 1, padding: '0 2px', borderRadius: 2 }}
@@ -825,35 +718,51 @@ export default function DrumBusOrb({
       </div>
 
       {/* ── Canvas ── */}
-      <div style={{ position: 'relative', zIndex: 2, height: CAR_H, flexShrink: 0, overflow: 'hidden' }}>
-        <RaceCarCanvas
-          peakIn={peakIn} peakOut={peakOut} gr={gr} bassLevel={bassLevel} transient={transient}
+      <div style={{ position: 'relative', zIndex: 2, height: PANTHER_H, flexShrink: 0, overflow: 'visible' }}>
+        <PantherCanvas
+          drive={drive} crunch={crunch} boom={boom}
+          decay={decay} damp={damp} transient={transient}
+          engineActive={!!engineRef.current}
         />
+        {/* IN meter — left edge of panther */}
+        <VerticalMeter peak={peakIn}  label="IN"  side="left" />
+        {/* OUT meter — right edge of panther */}
+        <VerticalMeter peak={peakOut} label="OUT" side="right" />
       </div>
 
       {/* ── DriveMode row + COMP toggle ── */}
       <div style={{
         padding: '4px 14px 3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderTop: '1px solid rgba(255,140,0,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
+        borderTop: '1px solid rgba(0,212,192,0.05)', position: 'relative', zIndex: 2, flexShrink: 0,
         gap: 6,
       }}>
         <div style={{ display: 'flex', gap: 4 }}>
-          {DRIVE_MODES.map((m, i) => {
-            const active = driveMode === i;
-            return (
-              <button key={m} onClick={() => { setDriveMode(i); engineRef.current?.setDriveMode(i); setActivePreset(null); }}
-                style={{
-                  fontSize: 7.5, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px',
-                  borderRadius: 3, cursor: 'pointer', border: 'none', outline: 'none',
-                  background: active ? 'rgba(255,140,0,0.2)' : 'rgba(255,255,255,0.03)',
-                  color: active ? 'white' : 'rgba(160,90,10,0.45)',
-                  boxShadow: active ? '0 0 7px rgba(255,140,0,0.4), inset 0 0 4px rgba(255,140,0,0.08)' : 'none',
-                  border: active ? '1px solid rgba(255,140,0,0.5)' : '1px solid rgba(100,60,10,0.18)',
-                  transition: 'all 0.13s',
-                  fontFamily: '"Courier New", monospace',
-                }}>{m}</button>
-            );
-          })}
+          {(() => {
+            const driveI = Math.min(1, drive * 0.5 + crunch * 0.5);
+            const rage   = Math.min(1, Math.pow(Math.max(0, driveI - 0.08) / 0.55, 0.7));
+            const cR = Math.round(rage * 255);
+            const cG = Math.round(212 * (1 - rage));
+            const cB = Math.round(192 * (1 - rage));
+            // Pulse speed: 0.75s idle → 0.10s at max
+            const spd = Math.max(0.10, 0.75 - driveI * 0.65).toFixed(2) + 's';
+            return DRIVE_MODES.map((m, i) => {
+              const active = driveMode === i;
+              return (
+                <button key={m}
+                  onClick={() => { setDriveMode(i); engineRef.current?.setDriveMode(i); setActivePreset(null); }}
+                  style={{
+                    fontSize: 7.5, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px',
+                    borderRadius: 3, cursor: 'pointer', outline: 'none',
+                    fontFamily: '"Courier New", monospace',
+                    background:  active ? `rgba(${cR},${cG},${cB},0.16)` : 'rgba(255,255,255,0.02)',
+                    color:       active ? `rgb(255,${Math.round(225*(1-rage*0.9))},${Math.round(225*(1-rage))})` : `rgba(${cR},${cG},${cB},0.30)`,
+                    border:      `1px solid rgba(${cR},${cG},${cB},${active ? 0.65 : 0.14})`,
+                    boxShadow:   active ? `0 0 10px rgba(${cR},${cG},${cB},0.70), inset 0 0 6px rgba(${cR},${cG},${cB},0.18)` : 'none',
+                    animation:       active ? `drivePulse ${spd} ease-in-out infinite` : 'none',
+                  }}>{m}</button>
+              );
+            });
+          })()}
         </div>
         <CompToggle
           active={comp > 0.5}
@@ -869,7 +778,7 @@ export default function DrumBusOrb({
       {/* ── Knob row: DRIVE | CRUNCH | BOOM | DAMP | TRANS | DECAY ── */}
       <div style={{
         padding: '6px 10px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        borderTop: '1px solid rgba(255,140,0,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
+        borderTop: '1px solid rgba(0,212,192,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
       }}>
         <Knob label="DRIVE" value={drive} defaultValue={0.3} size={26} format={pctFmt}
           onChange={v => { setDrive(v); engineRef.current?.setDrive(v); setActivePreset(null); }} />
@@ -890,7 +799,7 @@ export default function DrumBusOrb({
       {/* ── Footer row: FREQ | MIX | TRIM | BYPASS ── */}
       <div style={{
         padding: '4px 14px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderTop: '1px solid rgba(255,140,0,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
+        borderTop: '1px solid rgba(0,212,192,0.04)', position: 'relative', zIndex: 2, flexShrink: 0,
         gap: 6,
       }}>
         <Knob label="FREQ" value={freq} defaultValue={0.25} size={20}
@@ -900,23 +809,23 @@ export default function DrumBusOrb({
           onChange={v => { setMix(v); engineRef.current?.setMix(v); setActivePreset(null); }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', userSelect: 'none' }}>
           <div style={{
-            fontSize: 9, color: 'rgba(255,140,0,0.85)', fontFamily: '"Courier New",monospace',
+            fontSize: 9, color: 'rgba(0,212,192,0.85)', fontFamily: '"Courier New",monospace',
             fontWeight: 700, letterSpacing: '0.05em',
-            background: 'rgba(255,140,0,0.06)', border: '1px solid rgba(255,140,0,0.2)',
+            background: 'rgba(0,212,192,0.06)', border: '1px solid rgba(0,212,192,0.2)',
             borderRadius: 3, padding: '2px 6px',
           }}>{trimFmt(trim)}</div>
           <div style={{ display: 'flex', gap: 3, marginTop: 2 }}>
             <span onClick={() => { const v = Math.max(-12, trim - 1); setTrim(v); engineRef.current?.setTrim(v); }}
-              style={{ fontSize: 9, cursor: 'pointer', color: 'rgba(255,140,0,0.55)', fontWeight: 700, padding: '0 3px', borderRadius: 2,
+              style={{ fontSize: 9, cursor: 'pointer', color: 'rgba(0,212,192,0.55)', fontWeight: 700, padding: '0 3px', borderRadius: 2,
                 transition: 'color 0.1s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#FF8C00'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,140,0,0.55)'}>-</span>
-            <span style={{ fontSize: 7.5, color: 'rgba(255,140,0,0.4)', fontFamily: '"Courier New",monospace' }}>TRIM</span>
+              onMouseEnter={e => e.currentTarget.style.color = '#00d4c0'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,212,192,0.55)'}>-</span>
+            <span style={{ fontSize: 7.5, color: 'rgba(0,212,192,0.4)', fontFamily: '"Courier New",monospace' }}>TRIM</span>
             <span onClick={() => { const v = Math.min(12, trim + 1); setTrim(v); engineRef.current?.setTrim(v); }}
-              style={{ fontSize: 9, cursor: 'pointer', color: 'rgba(255,140,0,0.55)', fontWeight: 700, padding: '0 3px', borderRadius: 2,
+              style={{ fontSize: 9, cursor: 'pointer', color: 'rgba(0,212,192,0.55)', fontWeight: 700, padding: '0 3px', borderRadius: 2,
                 transition: 'color 0.1s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#FF8C00'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,140,0,0.55)'}>+</span>
+              onMouseEnter={e => e.currentTarget.style.color = '#00d4c0'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(0,212,192,0.55)'}>+</span>
           </div>
         </div>
         <RaceBypass active={!bypassed} onClick={() => { const n = !bypassed; setBypassed(n); engineRef.current?.setBypass(n); }} />
