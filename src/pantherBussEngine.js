@@ -23,19 +23,27 @@ export async function createPantherBussEngine(ctx) {
   analyser.smoothingTimeConstant = 0;
   fx.output.connect(analyser);
 
-  const _buf = new Float32Array(analyser.fftSize);
+  // Input-side analyser for the IN meter on the Panther UI.
+  const analyserIn = ctx.createAnalyser();
+  analyserIn.fftSize = 512;
+  analyserIn.smoothingTimeConstant = 0;
+  fx.input.connect(analyserIn);
+
+  const _buf    = new Float32Array(analyser.fftSize);
+  const _bufIn  = new Float32Array(analyserIn.fftSize);
   const DECAY = 0.94;
-  let _smoothPeak = 0;
-  function getOutputPeak() {
-    analyser.getFloatTimeDomainData(_buf);
+  let _smoothPeak = 0, _smoothPeakIn = 0;
+  function _peakFrom(node, buf, prev) {
+    node.getFloatTimeDomainData(buf);
     let m = 0;
-    for (let i = 0; i < _buf.length; i++) {
-      const a = Math.abs(_buf[i]);
+    for (let i = 0; i < buf.length; i++) {
+      const a = Math.abs(buf[i]);
       if (a > m) m = a;
     }
-    _smoothPeak = Math.max(m, _smoothPeak * DECAY);
-    return _smoothPeak;
+    return Math.max(m, prev * DECAY);
   }
+  function getOutputPeak() { _smoothPeak   = _peakFrom(analyser,   _buf,   _smoothPeak);   return _smoothPeak;   }
+  function getInputPeak()  { _smoothPeakIn = _peakFrom(analyserIn, _bufIn, _smoothPeakIn); return _smoothPeakIn; }
 
   return {
     // Host graph contract
@@ -55,6 +63,7 @@ export async function createPantherBussEngine(ctx) {
     loadPreset: p => product.loadPreset(p),
 
     getOutputPeak,
+    getInputPeak,
     connect(dest)  { fx.output.connect(dest); },
     disconnect()   { try { fx.output.disconnect(); } catch {} },
     dispose() {
@@ -62,6 +71,7 @@ export async function createPantherBussEngine(ctx) {
       try { fx.output.disconnect(); } catch {}
       try { fx.input.disconnect(); } catch {}
       try { analyser.disconnect(); } catch {}
+      try { analyserIn.disconnect(); } catch {}
     },
   };
 }

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>QC Rack — plugin chain test</title>
+<style>
+  body { margin:0; background:#050a06; color:#eaeaea;
+    font-family: system-ui, sans-serif; padding: 24px; }
+  h1 { font-size:13px; letter-spacing:.3em; color:#9fff8f; margin:0 0 16px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  button, select, input[type=file] {
+    background:#111; color:#ddd; border:1px solid #333;
+    padding:7px 11px; border-radius:6px; font-family:inherit; font-size:12px;
+    cursor:pointer; }
+  button:hover { border-color:#555; }
+  /* Rack bypass state colouring — green = processing, red = bypassed. */
+  button.btn-active   { background:#1a3a1e; color:#9fff8f; border-color:#3a6a44;
+                        font-weight:600; letter-spacing:.1em; }
+  button.btn-active:hover   { border-color:#6fbf7a; }
+  button.btn-bypassed { background:#3a1a1a; color:#ff8f8f; border-color:#6a3a3a;
+                        font-weight:600; letter-spacing:.1em; }
+  button.btn-bypassed:hover { border-color:#bf6f6f; }
+  #status { font-size:10px; letter-spacing:.2em; color:#888; margin-left:auto; }
+  .chain { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .slot { display:flex; gap:10px; align-items:center;
+    background:#0a120c; border:1px solid #1b2a1f; border-radius:8px;
+    padding:10px 12px; }
+  .slot .name { flex:1; font-size:12px; letter-spacing:.15em; }
+  .slot .tag { font-size:9px; letter-spacing:.2em; padding:2px 6px;
+    border-radius:4px; border:1px solid #333; color:#888; }
+  .slot .tag.new    { border-color:#2e5a34; color:#9fff8f; }
+  .slot .tag.legacy { border-color:#3a3a3a; color:#aaa; }
+  .slot.bypassed .name { color:#666; text-decoration: line-through; }
+  .empty { color:#666; font-size:11px; padding:8px 2px; }
+  .slot.put { border-color:#3a6a44; box-shadow: inset 0 0 0 1px #3a6a44; }
+
+  .analyzers { display:flex; gap:16px; margin-top:20px; flex-wrap:wrap; }
+  .analyzer  { background:#0a120c; border:1px solid #1b2a1f; border-radius:8px;
+               padding:10px 12px; width:480px; }
+  .analyzer .head { display:flex; justify-content:space-between; align-items:center;
+                    font-size:10px; letter-spacing:.3em; margin-bottom:6px; color:#bbb; }
+  .analyzer .head .tag { color:#9fff8f; }
+  .analyzer canvas { display:block; width:100%; height:140px;
+                     background:#050a06; border-radius:4px; }
+  .readouts { display:grid; grid-template-columns: repeat(3, 1fr); gap:4px 14px;
+              font-family: monospace; font-size:10px; color:#aaa; margin-top:8px; }
+  .readouts .k { color:#666; letter-spacing:.15em; }
+  .readouts .v { color:#eaeaea; }
+  .readouts .v.clip { color:#ff6060; }
+  .corrbar { margin-top:6px; height:6px; background:#0f1a12; border-radius:2px;
+             position:relative; overflow:hidden; }
+  .corrbar i { position:absolute; top:0; bottom:0; background:#7fbfff; }
+  .corrbar .center { position:absolute; top:0; bottom:0; left:50%; width:1px; background:#2a3a30; }
+  .noput { color:#666; font-size:11px; padding:12px 2px; }
+
+  .put-panel { margin-top:14px; padding:10px 12px;
+    background:#0a120c; border:1px solid #3a6a44; border-radius:8px;
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .put-panel .lbl { font-size:10px; letter-spacing:.25em; color:#9fff8f; }
+  .put-panel .ver { display:flex; gap:0; border:1px solid #333; border-radius:6px; overflow:hidden; }
+  .put-panel .ver button { border:none; border-radius:0; padding:6px 12px; font-size:11px; }
+  .put-panel .ver button.on { background:#1b3a22; color:#9fff8f; }
+  .put-panel .ver button:disabled { color:#555; cursor:not-allowed; }
+  .put-panel .approved { font-size:10px; letter-spacing:.2em; color:#9fff8f; }
+  .put-panel .unapproved { font-size:10px; letter-spacing:.2em; color:#888; }
+
+  .slot .ver-badge { font-size:9px; letter-spacing:.2em; color:#888;
+    padding:2px 5px; border-radius:3px; border:1px solid #2a2a2a; }
+  .slot .ver-badge.nu { color:#9fff8f; border-color:#2e5a34; }
+
+  /* QC status dot + pill. Color lookup comes from STATUS_COLORS in JS. */
+  .qc-dot { display:inline-block; width:10px; height:10px; border-radius:50%;
+    background:#777; margin-right:6px; vertical-align:middle;
+    box-shadow:0 0 6px rgba(0,0,0,0.5) inset; }
+  .qc-pill { display:inline-flex; align-items:center; gap:6px;
+    font-size:10px; letter-spacing:.2em; color:#ccc;
+    padding:3px 8px; border-radius:999px;
+    background:#0f1a12; border:1px solid #2a2a2a; }
+  .qc-pill .qc-dot { margin-right:0; }
+
+  .put-panel .qc-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .put-panel .qc-actions button { font-size:11px; }
+  .put-panel .qc-actions button.danger { border-color:#5a2a2a; color:#ffb0b0; }
+  .put-panel .qc-actions button.warn   { border-color:#5a4a1a; color:#ffdf8f; }
+  .put-panel .qc-actions button.go     { border-color:#2e5a34; color:#9fff8f; }
+  .put-panel .qc-actions button.info   { border-color:#244a6e; color:#9fcfff; }
+
+  select option { background:#111; color:#ddd; }
+
+  /* Lightweight CSS tooltips. Any element with data-tip shows the tip on
+     hover after ~150 ms. Uses position:absolute inside a relatively
+     positioned parent, no extra markup. */
+  [data-tip] { position: relative; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    color: #eaeaea;
+    border: 1px solid #2a3a30;
+    border-radius: 4px;
+    padding: 6px 9px;
+    font-size: 11px;
+    font-family: system-ui, sans-serif;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: normal;
+    width: max-content;
+    max-width: 260px;
+    line-height: 1.35;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    animation: tipIn 0.12s ease-out 0.15s both;
+  }
+  [data-tip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #2a3a30;
+    z-index: 1000;
+    pointer-events: none;
+    animation: tipIn 0.12s ease-out 0.15s both;
+  }
+  @keyframes tipIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<h1>QC RACK · PLUGIN CHAIN TEST</h1>
+
+<div class="row">
+  <input type="file" id="file" accept="audio/*" />
+  <button id="play">Play</button>
+  <button id="stop">Stop</button>
+  <button id="rackBypass" class="btn-active">Rack: ACTIVE</button>
+  <span id="status">IDLE</span>
+</div>
+
+<div class="row">
+  <select id="pluginPick"></select>
+  <button id="add">+ Add to chain</button>
+</div>
+
+<div class="chain" id="chain"><div class="empty">Chain is empty — audio passes through unaffected.</div></div>
+
+<div id="putPanel"></div>
+
+<div class="analyzers" id="analyzers">
+  <div class="noput">Select a plugin under test ("PUT" button on a slot) to show pre/post analyzers.</div>
+</div>
+
+<script type="module">
+  import { createRack } from '/src/rack/rackEngine.js';
+  import {
+    REGISTRY, findType, hasVersion,
+    isApproved, approve, revert,
+    resolveDefaultVersion, loadFactory,
+    STATUSES, STATUS_COLORS, STATUS_LABELS,
+    getStatus, setStatus,
+  } from '/src/rack/rackRegistry.js';
+  import { createAnalyzer, drawWave, fmtDb } from '/src/rack/analyzer.js';
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const status = document.getElementById('status');
+  status.textContent = 'BUILDING RACK…';
+
+  const rack = createRack(ctx);
+  rack.output.connect(ctx.destination);
+  status.textContent = 'READY';
+  console.log('[rack.html] ctx.state =', ctx.state,
+    '| rack.output → ctx.destination connected');
+
+  // Plugin picker — each entry is a plugin TYPE. The version used on insert
+  // is resolved at add-time via resolveDefaultVersion(type) (approved → nu,
+  // otherwise legacy). Once inserted, the PUT panel can switch versions
+  // per-slot without affecting the default policy.
+  const pick = document.getElementById('pluginPick');
+  // HTML <option> can't render a colored dot, so the QC status is encoded
+  // in text with a leading symbol unique per status. The full colored
+  // legend lives in the slot rows + PUT panel. Symbol legend:
+  //   ○ not_started   ◐ in_qc   ● approved   ✕ needs_work   ▷ deferred
+  const STATUS_SYMBOL = {
+    not_started:'○', in_qc:'◐', approved:'●', needs_work:'✕', deferred:'▷',
+  };
+  function refreshPicker() {
+    pick.innerHTML = '';
+    for (const r of REGISTRY) {
+      const o = document.createElement('option');
+      const st   = getStatus(r.id);
+      const sym  = STATUS_SYMBOL[st];
+      const def  = resolveDefaultVersion(r.id);
+      const hasNu = !!r.nu;
+      o.value = r.id;
+      o.textContent = `${sym} ${r.label}${hasNu ? '' : '  (legacy only)'}  — default: ${def}`;
+      pick.appendChild(o);
+    }
+  }
+  refreshPicker();
+
+  const chainEl = document.getElementById('chain');
+  function renderChain() {
+    const slots = rack.listSlots();
+    chainEl.innerHTML = '';
+    if (!slots.length) {
+      chainEl.innerHTML = '<div class="empty">Chain is empty — audio passes through unaffected.</div>';
+      return;
+    }
+    slots.forEach((s, idx) => {
+      const type  = findType(s.kind);
+      const label = type ? type.label : s.kind;
+      const tag   = s.version === 'nu' ? 'new' : 'legacy';
+      const isPut = rack.getPUT() === s.id;
+      const row = document.createElement('div');
+      row.className = 'slot' + (s.bypassed ? ' bypassed' : '') + (isPut ? ' put' : '');
+      const st = getStatus(s.kind);
+      row.innerHTML = `
+        <span class="qc-dot" style="background:${STATUS_COLORS[st]}" title="${STATUS_LABELS[st]}"></span>
+        <span class="tag ${tag}">${tag}</span>
+        <span class="ver-badge ${s.version === 'nu' ? 'nu' : ''}">${s.version}</span>
+        <span class="name">${idx + 1}. ${label}${isPut ? '  · PUT' : ''}</span>
+        <button data-act="put" data-tip="${isPut ? 'Stop testing this plugin (hide pre/post analyzers)' : 'Set this plugin as the one under test (shows analyzers before/after it)'}">${isPut ? 'Clear PUT' : 'Set PUT'}</button>
+        <button data-act="up"     data-tip="Move this plugin earlier in the chain">▲</button>
+        <button data-act="down"   data-tip="Move this plugin later in the chain">▼</button>
+        <button data-act="bypass" data-tip="${s.bypassed ? 'Route audio through this plugin again' : 'Skip this plugin (audio passes around it, state preserved)'}">${s.bypassed ? 'Enable' : 'Bypass'}</button>
+        <button data-act="remove" data-tip="Remove this plugin from the chain">✕</button>
+      `;
+      row.querySelector('[data-act=put]'   ).onclick = () => { setPUT(isPut ? null : s.id); };
+      row.querySelector('[data-act=up]'    ).onclick = () => { rack.moveSlot(s.id, -1); renderChain(); };
+      row.querySelector('[data-act=down]'  ).onclick = () => { rack.moveSlot(s.id, +1); renderChain(); };
+      row.querySelector('[data-act=bypass]').onclick = () => { rack.setSlotBypass(s.id, !s.bypassed); renderChain(); };
+      row.querySelector('[data-act=remove]').onclick = () => {
+        if (rack.getPUT() === s.id) setPUT(null);
+        rack.removeSlot(s.id);
+        renderChain();
+      };
+      chainEl.appendChild(row);
+    });
+  }
+
+  document.getElementById('add').addEventListener('click', async () => {
+    const typeId = pick.value;
+    const type = findType(typeId);
+    if (!type) return;
+    const version = resolveDefaultVersion(typeId);
+    status.textContent = `LOADING ${type.label} [${version}]…`;
+    try {
+      const factory = await loadFactory(typeId, version);
+      await rack.addSlot(typeId, factory, { version });
+      status.textContent = 'READY';
+      renderChain();
+    } catch (err) {
+      console.error(err);
+      status.textContent = `FAILED: ${type.label}`;
+    }
+  });
+
+  // Rack bypass — button reflects actual state with colour + text.
+  // Green "Rack: ACTIVE" = audio processing through the chain.
+  // Red   "Rack: BYPASSED" = chain short-circuited.
+  let rackBp = false;
+  const rBtn = document.getElementById('rackBypass');
+  function paintRackBypassBtn() {
+    rBtn.textContent = rackBp ? 'Rack: BYPASSED' : 'Rack: ACTIVE';
+    rBtn.classList.toggle('btn-bypassed',  rackBp);
+    rBtn.classList.toggle('btn-active',   !rackBp);
+  }
+  paintRackBypassBtn(); // initial sync before any clicks
+  rBtn.addEventListener('click', () => {
+    rackBp = !rackBp;
+    rack.setRackBypass(rackBp);
+    paintRackBypassBtn();
+  });
+
+  // Audio source
+  let src = null, buffer = null;
+  document.getElementById('file').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const ab = await f.arrayBuffer();
+    buffer = await ctx.decodeAudioData(ab);
+    status.textContent = `LOADED · ${f.name}`;
+  });
+  document.getElementById('play').addEventListener('click', async () => {
+    if (ctx.state === 'suspended') await ctx.resume();
+    console.log('[rack.html] Play clicked. ctx.state =', ctx.state);
+    if (!buffer) { status.textContent = 'NO FILE'; return; }
+    if (src) try { src.stop(); } catch {}
+    src = ctx.createBufferSource();
+    src.buffer = buffer; src.loop = true;
+    src.connect(rack.input);
+    src.start();
+    console.log('[rack.html] audio graph:',
+      'src → rack.input →', rack.listSlots().length, 'slot(s) → rack.output → ctx.destination',
+      '| rack.output.gain =', rack.output.gain.value,
+      '| slots =', rack.listSlots().map(s => `${s.kind}[${s.version}]${s.bypassed?' (byp)':''}`));
+    status.textContent = 'PLAYING';
+  });
+  document.getElementById('stop').addEventListener('click', () => {
+    if (src) try { src.stop(); } catch {}
+    src = null; status.textContent = 'STOPPED';
+  });
+
+  renderChain();
+
+  // ── Analyzer panels around Plugin-Under-Test ────────────────────────────
+  // Two analyser clusters attached to rack.tapPre / rack.tapPost. Taps are
+  // stable AudioNodes — rewires keep the analysers alive; only the chain
+  // position of the taps changes. Fan-out is visual-only (AnalyserNodes
+  // process input regardless of whether their output is connected).
+  const analyzersEl = document.getElementById('analyzers');
+  let preAnalyzer = null, postAnalyzer = null;
+  let preUI = null, postUI = null;
+
+  function buildPanel(tag, colour) {
+    const wrap = document.createElement('div');
+    wrap.className = 'analyzer';
+    wrap.innerHTML = `
+      <div class="head"><span>${tag}</span><span class="tag">ANALYZER</span></div>
+      <canvas width="960" height="280"></canvas>
+      <div class="readouts">
+        <span class="k">PEAK</span><span class="v peak">-inf</span><span></span>
+        <span class="k">RMS</span> <span class="v rms">-inf</span> <span></span>
+        <span class="k">LUFS~</span><span class="v lufs">-inf</span><span></span>
+        <span class="k">L-R</span> <span class="v lr">0.0</span>   <span></span>
+        <span class="k">CORR</span><span class="v corr">+1.00</span><span></span>
+        <span class="k">CLIP</span><span class="v clip">–</span>   <span></span>
+      </div>
+      <div class="corrbar"><span class="center"></span><i></i></div>
+    `;
+    return {
+      root: wrap, colour,
+      canvas: wrap.querySelector('canvas'),
+      ctx2d:  wrap.querySelector('canvas').getContext('2d'),
+      peak: wrap.querySelector('.peak'),
+      rms:  wrap.querySelector('.rms'),
+      lufs: wrap.querySelector('.lufs'),
+      lr:   wrap.querySelector('.lr'),
+      corr: wrap.querySelector('.corr'),
+      clip: wrap.querySelector('.clip'),
+      corrFill: wrap.querySelector('.corrbar i'),
+    };
+  }
+
+  // ── PUT approval panel ─────────────────────────────────────────────────
+  // Lets the current PUT slot switch between legacy / nu, and approve/revert
+  // the nu version as the default for this plugin type. Approval is stored
+  // in localStorage via the registry and only affects future inserts + the
+  // picker default label.
+  const putPanelEl = document.getElementById('putPanel');
+  function renderPutPanel() {
+    putPanelEl.innerHTML = '';
+    const id = rack.getPUT();
+    if (!id) return;
+    const s = rack.listSlots().find(x => x.id === id);
+    if (!s) return;
+    const type   = findType(s.kind);
+    if (!type) return;
+    const hasNu  = !!type.nu;
+    const hasLeg = !!type.legacy;
+    const st     = getStatus(s.kind);
+    const approved = st === 'approved';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'put-panel';
+    wrap.innerHTML = `
+      <span class="lbl">PUT · ${type.label}</span>
+      <span class="qc-pill"><span class="qc-dot" style="background:${STATUS_COLORS[st]}"></span>${STATUS_LABELS[st]}</span>
+      <div class="ver">
+        <button data-v="legacy" class="${s.version==='legacy'?'on':''}" ${hasLeg?'':'disabled'} data-tip="Load the legacy (pre-migration) engine for this plugin">LEGACY</button>
+        <button data-v="nu"     class="${s.version==='nu'    ?'on':''}" ${hasNu ?'':'disabled'} data-tip="Load the new FxEngine version of this plugin">NEW</button>
+      </div>
+      <div class="qc-actions">
+        <button class="info"   data-qc="in_qc"      ${st==='in_qc'    ?'disabled':''} data-tip="Mark QC as in progress (blue). Reminder that this plugin is being actively reviewed.">Start QC</button>
+        <button class="go"     data-act="approve"   ${hasNu && !approved ? '' : 'disabled'} data-tip="Approve the NEW version after your listening test. Makes NEW the default for future inserts of this plugin. Requires confirmation.">Approve New Version</button>
+        <button class="danger" data-qc="needs_work" ${hasNu ? '' : 'disabled'} data-tip="Mark NEW as not acceptable yet (red). Legacy stays as the default.">Mark Needs Work</button>
+        <button class="warn"   data-qc="deferred"   data-tip="Skip this plugin for now (yellow). Legacy stays as the default. Come back to it later.">Defer / Skip</button>
+        <button data-act="revert" ${approved ? '' : 'disabled'} data-tip="Undo approval. Status returns to not_started and legacy becomes the default again.">Revert to Legacy</button>
+      </div>
+    `;
+    wrap.querySelectorAll('.ver button').forEach(b => {
+      b.onclick = () => switchVersion(s.id, b.dataset.v);
+    });
+    // Non-approval status changes are direct — no confirm dialog needed
+    // because they never flip the default to `nu`. Only `approve` does
+    // that, and it keeps its confirm gate.
+    wrap.querySelectorAll('[data-qc]').forEach(b => {
+      b.onclick = () => {
+        setStatus(s.kind, b.dataset.qc);
+        refreshPicker();
+        renderPutPanel();
+        renderChain();
+      };
+    });
+    wrap.querySelector('[data-act=approve]').onclick = () => {
+      // Manual-only gate. Approval is a studio listening decision; this
+      // confirm dialog is the single audit point where a human click
+      // turns into a persisted default-version change.
+      const ok = window.confirm(
+        `Approve NEW engine version of "${type.label}" as the default?\n\n` +
+        `This only changes which version is inserted by default on future ` +
+        `adds. Legacy remains available and can be re-selected or reverted ` +
+        `at any time.\n\n` +
+        `Only approve after a listening test in a monitored environment.`
+      );
+      if (!ok) return;
+      if (!approve(s.kind)) return;
+      // Default flips to nu. If the PUT slot is still on legacy, switch
+      // it too so the user immediately hears what was approved.
+      if (s.version !== 'nu') switchVersion(s.id, 'nu');
+      else { refreshPicker(); renderPutPanel(); renderChain(); }
+    };
+    wrap.querySelector('[data-act=revert]').onclick = () => {
+      revert(s.kind);
+      if (s.version !== 'legacy') switchVersion(s.id, 'legacy');
+      else { refreshPicker(); renderPutPanel(); renderChain(); }
+    };
+    putPanelEl.appendChild(wrap);
+  }
+
+  async function switchVersion(slotId, version) {
+    const s = rack.listSlots().find(x => x.id === slotId);
+    if (!s) return;
+    const type = findType(s.kind);
+    if (!hasVersion(type, version)) return;
+    status.textContent = `SWITCHING ${type.label} → ${version}…`;
+    try {
+      const factory = await loadFactory(s.kind, version);
+      await rack.replaceSlot(slotId, factory, { version });
+      status.textContent = 'READY';
+      refreshPicker();
+      renderChain();
+      renderPutPanel();
+      // Analyzer taps are stable AudioNodes — they survive replaceSlot's
+      // rewire, so the pre/post analysers keep reading without reconnect.
+    } catch (err) {
+      console.error(err);
+      status.textContent = `SWITCH FAILED: ${type.label}`;
+    }
+  }
+
+  function setPUT(id) {
+    rack.setPUT(id);
+    // Tear down old analyzer wiring
+    if (preAnalyzer)  { preAnalyzer.dispose();  preAnalyzer  = null; }
+    if (postAnalyzer) { postAnalyzer.dispose(); postAnalyzer = null; }
+    analyzersEl.innerHTML = '';
+
+    if (!id) {
+      analyzersEl.innerHTML = '<div class="noput">Select a plugin under test ("PUT" button on a slot) to show pre/post analyzers.</div>';
+      renderPutPanel();
+      renderChain();
+      return;
+    }
+    preUI  = buildPanel('PRE · input to plugin',  '#7fbfff');
+    postUI = buildPanel('POST · output of plugin','#9fff8f');
+    analyzersEl.appendChild(preUI.root);
+    analyzersEl.appendChild(postUI.root);
+    preAnalyzer  = createAnalyzer(ctx, rack.tapPre);
+    postAnalyzer = createAnalyzer(ctx, rack.tapPost);
+    renderPutPanel();
+    renderChain();
+  }
+
+  function paint(ui, m) {
+    drawWave(ui.ctx2d, m.wave, ui.canvas.width, ui.canvas.height, ui.colour);
+    ui.peak.textContent = fmtDb(m.peakDb) + ' dB';
+    ui.rms .textContent = fmtDb(m.rmsDb)  + ' dB';
+    ui.lufs.textContent = fmtDb(m.lufs)   + ' LU';
+    ui.lr  .textContent = fmtDb(m.lrDiffDb) + ' dB';
+    ui.corr.textContent = (m.correlation >= 0 ? '+' : '') + m.correlation.toFixed(2);
+    ui.clip.textContent = m.clipping ? 'CLIP' : '–';
+    ui.clip.classList.toggle('clip', !!m.clipping);
+    // correlation bar: center is 0, full right = +1, full left = -1
+    const pct = Math.max(-1, Math.min(1, m.correlation));
+    if (pct >= 0) {
+      ui.corrFill.style.left  = '50%';
+      ui.corrFill.style.width = (pct * 50) + '%';
+    } else {
+      ui.corrFill.style.left  = (50 + pct * 50) + '%';
+      ui.corrFill.style.width = (-pct * 50) + '%';
+    }
+  }
+
+  function analyzerTick() {
+    requestAnimationFrame(analyzerTick);
+    if (preAnalyzer  && preUI)  paint(preUI,  preAnalyzer.sample());
+    if (postAnalyzer && postUI) paint(postUI, postAnalyzer.sample());
+  }
+  analyzerTick();
+</script>
+</body>
+</html>

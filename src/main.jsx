@@ -52,6 +52,9 @@ import ReverbBusOrb from './ReverbBusOrb';
 import DrumBusOrb from './DrumBusOrb';
 import PantherBussOrb from './PantherBussOrb';
 import { createSharedSource } from './audioEngine';
+import { REGISTRY, getProduct, getProductByLegacyType, getVariant } from './migration/registry.js';
+import { useQcMode, useProductStatus, getStatus, defaultVariantFor } from './migration/store.js';
+import { InfoIcon, QcPanel } from './migration/QcOverlay.jsx';
 
 // ─── Categorized Add Menu ───────────────────────────────────────────────────
 const PLUGIN_CATEGORIES = [
@@ -173,6 +176,117 @@ function AddMenu({ onAdd }) {
   );
 }
 
+// ── QC Mode: two-tab Add Menu (Legacy / Engine V1) ─────────────────────────
+// Appears only when qcMode is on. Non-QC mode keeps the original AddMenu.
+function AddMenuTabs({ onAdd }) {
+  const [tab, setTab] = useState('legacy');
+
+  // Legacy tab: reuse the existing PLUGIN_CATEGORIES exactly (every product
+  // lives here always — legacy is the source of truth).
+  // Engine V1 tab: derived from the registry, filtered by approved status.
+  const engineV1Items = REGISTRY.filter(
+    p => getStatus(p.productId) === 'approved_engine_v1' && !!p.variants.engine_v1,
+  );
+
+  const tabBtn = (id, label) => (
+    <button key={id} onClick={() => setTab(id)}
+      style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: '0.18em',
+        padding: '5px 12px', borderRadius: 4, cursor: 'pointer',
+        border: '1px solid',
+        borderColor: tab === id ? 'rgba(127,255,143,0.55)' : 'rgba(255,255,255,0.12)',
+        color:       tab === id ? '#9fff8f' : 'rgba(255,255,255,0.6)',
+        background:  tab === id ? 'rgba(30,80,40,0.35)' : 'rgba(255,255,255,0.02)',
+        fontFamily:  'system-ui, -apple-system, Arial, sans-serif',
+      }}>{label}</button>
+  );
+
+  return (
+    <div style={{
+      padding: 8, borderRadius: 10, marginBottom: 4,
+      background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(127,255,143,0.22)',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+      maxWidth: 560, width: 560,
+    }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        {tabBtn('legacy',    'LEGACY')}
+        {tabBtn('engine_v1', 'ENGINE V1')}
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 8, letterSpacing: '0.2em', color: '#9fff8f',
+          alignSelf: 'center', paddingRight: 4 }}>QC MODE</span>
+      </div>
+
+      {tab === 'legacy' ? (
+        // Legacy tab — full original grid. For products in the registry, we
+        // attach productId + 'legacy' variantId so render routes correctly.
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3 }}>
+          {PLUGIN_CATEGORIES.map(cat => (
+            <div key={cat.name} style={{
+              display: 'flex', flexDirection: 'column', gap: 2, padding: '6px 4px',
+            }}>
+              <div style={{
+                fontSize: 7, fontWeight: 800, letterSpacing: '0.2em',
+                color: cat.color, padding: '0 4px 3px',
+                borderBottom: `1px solid ${cat.color}22`,
+                fontFamily: 'system-ui, Arial, sans-serif',
+              }}>{cat.name}</div>
+              {cat.items.map(([type, label]) => {
+                const prod = getProductByLegacyType(type);
+                return (
+                  <button key={type}
+                    onClick={() => onAdd({ type, productId: prod?.productId, variantId: prod ? 'legacy' : undefined })}
+                    style={{
+                      fontSize: 9, fontWeight: 500, padding: '4px 6px', borderRadius: 4,
+                      border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.6)',
+                      cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap',
+                      fontFamily: 'system-ui, Arial, sans-serif',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = `${cat.color}18`; e.currentTarget.style.color = cat.color; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        // Engine V1 tab — only approved migrated products.
+        <div style={{ padding: '8px 6px' }}>
+          {engineV1Items.length === 0 ? (
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)',
+              letterSpacing: '0.15em', padding: 10 }}>
+              No plugins approved for Engine V1 yet. Approve from a legacy instance in QC mode.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {engineV1Items.map(p => (
+                <button key={p.productId}
+                  onClick={() => onAdd({
+                    type: p.legacyType, productId: p.productId, variantId: 'engine_v1',
+                  })}
+                  style={{
+                    fontSize: 10, fontWeight: 600, padding: '6px 10px', borderRadius: 4,
+                    border: '1px solid rgba(127,255,143,0.25)',
+                    background: 'rgba(30,80,40,0.18)', color: '#c8ffcf',
+                    cursor: 'pointer', textAlign: 'left',
+                    fontFamily: 'system-ui, Arial, sans-serif',
+                  }}>
+                  {p.displayLabel}
+                  <span style={{ opacity: 0.55, marginLeft: 8, fontSize: 8, letterSpacing: '0.15em' }}>
+                    · ENGINE V1
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   // Default chain is just a Scope at the front. The audio loader UI in the
   // top bar used to live inside the Space module (it reported controls up
@@ -182,6 +296,7 @@ function App() {
   const [instances, setInstances] = useState([{ id: 1, type: 'scope' }]);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [sharedSource, setSharedSource] = useState(null);
+  const [qcMode, setQcMode] = useQcMode();
 
   // ── Global audio loader state (was inside OrbPluginDemo) ──────────────────
   const [audioSource, setAudioSource] = useState('none'); // 'none' | 'file' | 'mic'
@@ -189,7 +304,9 @@ function App() {
   const [muted, setMuted]             = useState(false);
   const [fileName, setFileName]       = useState('');
   const [bpm, setBpm]                 = useState(0);
+  const [inputPadDb, setInputPadDb]   = useState(0); // 0 | -5 | -10 (QC gain stage)
   const fileInputRef                  = useRef(null);
+  const inputPadRef                   = useRef(null); // GainNode: source → pad → chain
 
   const handleFile = useCallback(async (file) => {
     if (!file || !sharedSource) return;
@@ -226,6 +343,17 @@ function App() {
       return next;
     });
   }, [sharedSource]);
+
+  // Input Pad — apply dB selection to the pre-chain GainNode (5ms ramp, zipper-free).
+  useEffect(() => {
+    const pad = inputPadRef.current;
+    if (!pad || !sharedSource) return;
+    const linear = Math.pow(10, inputPadDb / 20);
+    const t = sharedSource.ctx.currentTime;
+    pad.gain.cancelScheduledValues(t);
+    pad.gain.setValueAtTime(pad.gain.value, t);
+    pad.gain.linearRampToValueAtTime(linear, t + 0.005);
+  }, [inputPadDb, sharedSource]);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -276,8 +404,9 @@ function App() {
     const src = createSharedSource();
     setSharedSource(src);
     masterGainRef.current = null; // reset so rewire re-creates master in new context
+    inputPadRef.current   = null;
     routingRef.current    = { pads: [], firstInput: null, lastOutput: null };
-    return () => { src.destroy(); masterGainRef.current = null; };
+    return () => { src.destroy(); masterGainRef.current = null; inputPadRef.current = null; };
   }, []);
 
   // ─── Click-free rewire ────────────────────────────────────────────────────
@@ -312,12 +441,24 @@ function App() {
       masterAnalyserRef.current = masterAnalyser;
       masterGainRef.current = master;
     }
+    // ── Global Input Pad (QC gain stage) ──────────────────────────────────────
+    // Lives BEFORE the plugin chain. Signal flow:
+    //   sharedSource.outputNode → inputPad → chain[0].input → ... → master
+    // Created once and reused; gain is updated by a separate effect on inputPadDb.
+    if (!inputPadRef.current) {
+      const pad = ctx.createGain();
+      const linear = Math.pow(10, inputPadDb / 20);
+      pad.gain.value = linear;
+      sharedSource.outputNode.connect(pad);
+      inputPadRef.current = pad;
+    }
+    const inputPad = inputPadRef.current;
     const master = masterGainRef.current;
     const t      = ctx.currentTime;
 
     if (chain.length === 0) {
       const prev = routingRef.current;
-      if (prev.firstInput) try { sharedSource.outputNode.disconnect(prev.firstInput); } catch {}
+      if (prev.firstInput) try { inputPad.disconnect(prev.firstInput); } catch {}
       routingRef.current = { pads: [], firstInput: null, lastOutput: null };
       return;
     }
@@ -328,7 +469,7 @@ function App() {
 
     // ── STEP 1: Connect new routing (audio keeps flowing) ─────────────────────
     if (firstInput !== prev.firstInput) {
-      sharedSource.outputNode.connect(firstInput);
+      inputPad.connect(firstInput);
     }
 
     // Pure series chain. Each module feeds the next at UNITY. No parallel pan
@@ -365,7 +506,7 @@ function App() {
     }, 30);
 
     if (prev.firstInput && prev.firstInput !== firstInput) {
-      try { sharedSource.outputNode.disconnect(prev.firstInput); } catch {}
+      try { inputPad.disconnect(prev.firstInput); } catch {}
     }
     if (prev.lastOutput && prev.lastOutput !== lastOutput) {
       setTimeout(() => { try { prev.lastOutput.disconnect(master); } catch {} }, 30);
@@ -430,8 +571,46 @@ function App() {
     try { localStorage.setItem(MASTER_KEY, JSON.stringify(next)); } catch {}
   };
 
-  const addInstance = (type) => { setInstances(prev => [...prev, { id: Date.now(), type }]); setShowAddMenu(false); };
+  // addInstance accepts either:
+  //   - legacy form: addInstance('drumbus')
+  //   - structured:  addInstance({ type, productId?, variantId? })
+  // For products in the migration registry, productId/variantId are stored
+  // on the instance so rendering + the ⓘ tooltip read the exact truth.
+  const addInstance = (arg) => {
+    const payload = typeof arg === 'string' ? { type: arg } : { ...arg };
+    // If a registry product was reached via the non-QC menu (no variantId
+    // set), resolve to the approved variant (engine_v1) or legacy.
+    if (payload.type && !payload.productId) {
+      const prod = getProductByLegacyType(payload.type);
+      if (prod) {
+        payload.productId = prod.productId;
+        payload.variantId = defaultVariantFor(prod.productId);
+      }
+    }
+    setInstances(prev => [...prev, { id: Date.now(), ...payload }]);
+    setShowAddMenu(false);
+  };
   const removeInstance = (id) => setInstances(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
+
+  // Load the alternate variant of an existing instance beside the current.
+  // Non-destructive — current instance remains, the alternate is appended
+  // immediately after it so A/B is visually adjacent.
+  const loadAlternateVariant = useCallback((instId, altVariantId) => {
+    setInstances(prev => {
+      const idx = prev.findIndex(i => i.id === instId);
+      if (idx < 0) return prev;
+      const cur = prev[idx];
+      if (!cur.productId) return prev;
+      const next = [...prev];
+      next.splice(idx + 1, 0, {
+        id: Date.now(),
+        type: cur.type,
+        productId: cur.productId,
+        variantId: altVariantId,
+      });
+      return next;
+    });
+  }, []);
 
   // Quick bypass from chain pill — calls engine directly, no prop threading needed
   const [pillBypasses, setPillBypasses] = useState({});
@@ -538,6 +717,27 @@ function App() {
             }}>
             {muted ? 'Muted' : 'Mute'}
           </button>
+          {/* Input Pad — global pre-chain gain stage for QC */}
+          <div className="flex items-center gap-0 rounded-md overflow-hidden border"
+            title="Input Pad — applied before the plugin chain"
+            style={{ borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(0,0,0,0.2)' }}>
+            <span className="text-[8px] px-1.5 py-1 uppercase tracking-[0.15em]"
+              style={{ color: 'rgba(255,255,255,0.35)' }}>Pad</span>
+            {[0, -5, -10].map(db => {
+              const active = inputPadDb === db;
+              return (
+                <button key={db} onClick={() => setInputPadDb(db)}
+                  className="text-[9px] px-1.5 py-1 font-medium border-l transition-colors"
+                  style={{
+                    borderColor: 'rgba(255,255,255,0.08)',
+                    background: active ? 'rgba(100,220,130,0.18)' : 'transparent',
+                    color: active ? '#7fff8f' : 'rgba(255,255,255,0.45)',
+                  }}>
+                  {db === 0 ? '0' : db}
+                </button>
+              );
+            })}
+          </div>
           <input
             type="text" inputMode="numeric" pattern="[0-9]*"
             value={bpm || ''}
@@ -634,9 +834,17 @@ function App() {
       </div>
       {/* Module grid */}
       <div className="flex flex-wrap items-start justify-center gap-6" style={{ position: 'relative' }}>
-        {instances.map(inst => (
+        {instances.map(inst => {
+          // Registry truth for the ⓘ tooltip + QC panel. Only populated for
+          // products that have been modelled in migration/registry.js — for
+          // everything else, the overlays simply don't render.
+          const product = inst.productId ? getProduct(inst.productId) : null;
+          const variant = product && inst.variantId ? getVariant(inst.productId, inst.variantId) : null;
+          const status  = product ? getStatus(product.productId) : null;
+          return (
           <div key={inst.id} style={{
             borderRadius: 12,
+            position: 'relative',    // anchor for InfoIcon / QcPanel overlays
             transition: 'box-shadow 0.12s ease',
             // Neve handles its own Drive-knob glow internally — suppress the box glow wrapper
             boxShadow: inst.type === 'neve' ? 'none'
@@ -646,6 +854,13 @@ function App() {
               ? '0 0 0 2px hsla(38,80%,48%,0.45), 0 0 14px hsla(38,80%,48%,0.18)'
               : '0 0 0 2px transparent',
           }}>
+          {product && variant && (
+            <InfoIcon product={product} variant={variant} status={status} />
+          )}
+          {qcMode && product && variant && (
+            <QcPanel product={product} variant={variant}
+              onLoadAlternate={(altId) => loadAlternateVariant(inst.id, altId)} />
+          )}
           {inst.type === 'amp' ? (
           <AmpOrb
             key={inst.id} instanceId={inst.id} sharedSource={sharedSource}
@@ -1139,16 +1354,22 @@ function App() {
             initialState={initialStates[inst.id]}
           />
         ) : inst.type === 'drumbus' ? (
-          <PantherBussOrb
-            key={inst.id}
-            instanceId={inst.id}
-            sharedSource={sharedSource}
-            registerEngine={registerEngine}
-            unregisterEngine={unregisterEngine}
-            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
-            onStateChange={handleStateChange}
-            initialState={initialStates[inst.id]}
-          />
+          (() => {
+            // Registry-driven: legacy variantId → DrumBusOrb, else → PantherBussOrb.
+            const Shell = inst.variantId === 'legacy' ? DrumBusOrb : PantherBussOrb;
+            return (
+              <Shell
+                key={inst.id}
+                instanceId={inst.id}
+                sharedSource={sharedSource}
+                registerEngine={registerEngine}
+                unregisterEngine={unregisterEngine}
+                onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+                onStateChange={handleStateChange}
+                initialState={initialStates[inst.id]}
+              />
+            );
+          })()
         ) : (
           <OrbPluginDemo
             key={inst.id}
@@ -1162,7 +1383,8 @@ function App() {
           />
         )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* CSS for cursor blink */}
@@ -1172,11 +1394,32 @@ function App() {
 
       {/* Add module button + categorized menu */}
       <div className="fixed bottom-6 right-6 flex flex-col items-end gap-1.5" style={{ zIndex: 500 }}>
-        {showAddMenu && <AddMenu onAdd={type => { addInstance(type); setShowAddMenu(false); }} />}
-        <button
-          onClick={() => setShowAddMenu(m => !m)}
-          className="w-12 h-12 rounded-full border border-white/15 bg-black/50 backdrop-blur text-white/50 hover:text-white hover:border-white/30 transition-all text-2xl flex items-center justify-center"
-        >{showAddMenu ? '×' : '+'}</button>
+        {showAddMenu && (
+          qcMode
+            ? <AddMenuTabs onAdd={payload => { addInstance(payload); setShowAddMenu(false); }} />
+            : <AddMenu     onAdd={type    => { addInstance(type);    setShowAddMenu(false); }} />
+        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* QC Mode toggle — persists in localStorage */}
+          <button
+            onClick={() => setQcMode(v => !v)}
+            title={qcMode ? 'QC Mode ON — click to disable' : 'QC Mode OFF — click to enable'}
+            style={{
+              height: 28, padding: '0 12px', borderRadius: 14,
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
+              fontFamily: 'system-ui, Arial, sans-serif', cursor: 'pointer',
+              border: `1px solid ${qcMode ? 'rgba(127,255,143,0.55)' : 'rgba(255,255,255,0.15)'}`,
+              background: qcMode ? 'rgba(30,80,40,0.45)' : 'rgba(0,0,0,0.5)',
+              color:      qcMode ? '#9fff8f' : 'rgba(255,255,255,0.5)',
+              backdropFilter: 'blur(8px)',
+            }}>
+            QC {qcMode ? 'ON' : 'OFF'}
+          </button>
+          <button
+            onClick={() => setShowAddMenu(m => !m)}
+            className="w-12 h-12 rounded-full border border-white/15 bg-black/50 backdrop-blur text-white/50 hover:text-white hover:border-white/30 transition-all text-2xl flex items-center justify-center"
+          >{showAddMenu ? '×' : '+'}</button>
+        </div>
       </div>
     </div>
   );
