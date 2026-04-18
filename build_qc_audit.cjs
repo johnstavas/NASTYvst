@@ -1,192 +1,233 @@
-// Build QC_Rack_Audit.docx — NastyBeast / Flap Jack Man QC rack audit.
+// Build QC_Rack_Audit.docx — session audit of the Shags VST rack
 const fs = require('fs');
+const path = require('path');
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
-  LevelFormat, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-  PageOrientation,
+  Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType,
+  LevelFormat,
 } = require('docx');
 
-const border = { style: BorderStyle.SINGLE, size: 1, color: "BBBBBB" };
-const borders = { top: border, bottom: border, left: border, right: border };
+const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "BBBBBB" };
+const BORDERS = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
 
-const H1 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(t)] });
-const H2 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(t)] });
-const H3 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun(t)] });
-const P  = (t, opts={}) => new Paragraph({ children: [new TextRun({ text: t, ...opts })] });
-const B  = (t) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, children: [new TextRun(t)] });
-const Code = (t) => new Paragraph({ children: [new TextRun({ text: t, font: "Consolas", size: 18 })] });
+const P = (text) => new Paragraph({
+  spacing: { after: 120 },
+  children: [new TextRun({ text })],
+});
+const H1 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_1,
+  spacing: { before: 280, after: 160 },
+  children: [new TextRun({ text, bold: true, size: 32 })],
+});
+const H2 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_2,
+  spacing: { before: 220, after: 120 },
+  children: [new TextRun({ text, bold: true, size: 26 })],
+});
+const Bullet = (text) => new Paragraph({
+  numbering: { reference: "bullets", level: 0 },
+  children: [new TextRun(text)],
+});
 
-function row(cells, header=false) {
+function row(cells, header = false, colWidth) {
   return new TableRow({
-    children: cells.map(c => new TableCell({
-      borders,
-      width: { size: Math.floor(9360 / cells.length), type: WidthType.DXA },
-      shading: header ? { fill: "EAEAEA", type: ShadingType.CLEAR } : undefined,
+    children: cells.map(text => new TableCell({
+      borders: BORDERS,
+      width: { size: colWidth, type: WidthType.DXA },
+      shading: header ? { fill: "1F2937", type: ShadingType.CLEAR } : undefined,
       margins: { top: 80, bottom: 80, left: 120, right: 120 },
-      children: [new Paragraph({ children: [new TextRun({ text: c, bold: header })] })],
+      children: [new Paragraph({
+        children: [new TextRun({ text: String(text), bold: header, color: header ? "FFFFFF" : "111111" })],
+      })],
     })),
   });
 }
-function table(headers, rows) {
+
+function table(header, rows) {
+  const cols = header.length;
+  const colWidth = Math.floor(9360 / cols);
   return new Table({
-    width: { size: 9360, type: WidthType.DXA },
-    columnWidths: headers.map(() => Math.floor(9360 / headers.length)),
-    rows: [row(headers, true), ...rows.map(r => row(r))],
+    width: { size: colWidth * cols, type: WidthType.DXA },
+    columnWidths: new Array(cols).fill(colWidth),
+    rows: [row(header, true, colWidth), ...rows.map(r => row(r, false, colWidth))],
   });
 }
 
 const children = [
-  new Paragraph({ alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: "Shags VST — QC Rack Audit", bold: true, size: 36 })] }),
-  new Paragraph({ alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: "NastyBeast / Flap Jack Man — Session Build Report", size: 22, color: "666666" })] }),
-  P(""),
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 120 },
+    children: [new TextRun({ text: "Shags VST — QC Rack Audit", bold: true, size: 44 })],
+  }),
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 360 },
+    children: [new TextRun({ text: "Session state · 2026-04-18", italics: true, color: "666666" })],
+  }),
 
-  H1("1. Scope"),
-  P("This document audits the QC rack work performed on the NastyBeast / Flap Jack Man plugin, the reference build for the Shags VST rack. It records the I/O contract, signal chain, macro mappings, scene system, FLIP mode, visual integration, fixes applied, and outstanding items."),
+  H1("1. Executive Summary"),
+  P("This audit captures the current state of the Shags VST modular rack after the most recent build session. Two new plugins were brought into the rack — Flap Jack Man (delay) and the 808 Kick (rhythm/voice) — and a new global UI standard for corner radius was added to the plugin contract. All Flap Jack work is committed and pushed to the johnstavas/NASTYvst master branch; the 808 Kick engine and UI files are on disk pending the next registration commit."),
 
-  H1("2. I/O Contract"),
-  B("Unity-baseline: with all macros at 0 and BEAST disengaged, output ≈ input within ±0.1 dB."),
-  B("Explicit 2-channel stereo speaker topology (channelCountMode='explicit', channelInterpretation='speakers')."),
-  B("inGain (post input) → engine bus; outGain (post engine) → ctx.destination."),
-  B("Mono and stereo sources both supported via ChannelSplitter/Merger normalization."),
-
-  H1("3. Signal Chain"),
-  H2("3.1 Dry / Wet Topology"),
-  B("Dry path: input → padDry → dryBus → mixDry → output."),
-  B("Wet path: input → fangPad → [FANG dry/wet crossfade] → fangSum → preDelay → delayCore → tapMain → wetTilt → wetLP → wDelay → wet → mixWet → output."),
-  B("Ghost path (haunt) tapped after delayCore, darkened by ghostPreLP/ghostPostLP."),
-  B("Ping-pong cross-feedback bus running parallel to delay loop, low ceiling to prevent metallic resonance."),
-  B("Glue compressor inserted on wet bus, swept by BEAST amount."),
-
-  H2("3.2 FANG Drive Crossfade"),
-  P("Eliminates quiescent distortion at FEED=0. Equal-power sin/cos crossfade between fangDryAmt and fangWetAmt, driven by feed + 0.2·beastAmt."),
-  Code("const wAmt = Math.sin(fangAmt * Math.PI * 0.5);"),
-  Code("const dAmt = Math.cos(fangAmt * Math.PI * 0.5);"),
-
-  H2("3.3 Delay & Saturation Warmth Pass"),
-  B("Single-tap delay output (was 3-tap cluster — comb-filtering removed)."),
-  B("Wet tilt: high-shelf @3500 Hz, −3 dB; wet LP @7500 Hz, Q 0.5."),
-  B("Loop LP base 3200 Hz, modulated 4500→1500 Hz with feedback amount."),
-  B("FANG curve k softened 3 → 2; fangPostLP 9000 → 5500 Hz."),
-  B("Ghost path: ghostPreLP @2400 Hz, ghostPostLP @1800 Hz; ghostGain ceiling 0.14."),
-  B("wDouble removed from wet bus (was comb-filtering vs dry on MIX sweeps)."),
-
-  H1("4. Macros"),
+  H1("2. Rack Inventory"),
   table(
-    ["UI Label", "Internal", "Function"],
+    ["Slot ID", "Display Name", "Category", "Status"],
     [
-      ["SIZZLE", "feed",   "Drive into FANG, gates wet/dry crossfade"],
-      ["STACK",  "roam",   "Delay feedback amount + loop LP sweep"],
-      ["DRIZZLE","haunt",  "Ghost-path send (darkened reverb-tail flavor)"],
-      ["FLUFF",  "breath", "Pre-delay + air shelf"],
-      ["CRISP",  "snarl",  "Wet-side bite / character"],
-      ["BUTTER", "spread", "Stereo width on wet bus"],
-    ]
-  ),
-  P("MIX default: 0.35. All macro setters use setTargetAtTime with TAU ≈ 0.012s (zipper-free)."),
-
-  H1("5. Scene System (BPM-Quantized)"),
-  P("Scenes: BUTTER, SYRUP, GRIDDLE. Click queues a scene change; engine waits for next downbeat then morphs over one bar at current BPM with smoothstep ease."),
-  B("Wait time = beatLen − sinceBeat (snaps to next beat)."),
-  B("Morph duration = 4 × beatLen (one bar)."),
-  B("ROAM dip mid-morph (parabolic) prevents feedback overshoot during transitions."),
-
-  H1("6. FLIP Mode"),
-  B("Tight glue compression engaged on wet bus: threshold sweeps −3 → −20 dB, ratio 1.5 → 5.0, attack 3 ms, release 60 ms, knee 4 dB."),
-  B("Soft chorus modulation: single-source delay, depth 0.0035s, rate 0.55 Hz, wet up to 0.22."),
-  B("RMS makeup clamp tightened to [0.6, 1.3] with r > 0.005 gate to avoid blowups on transient sources."),
-  B("Visual: pancakes flip (cosine scaleY swing + parabolic vertical lift), syrup downpour spawned over the plate, fork/knife tilt with energy."),
-
-  H1("7. BPM"),
-  H2("7.1 Manual Input"),
-  P("Local string state (bpmInput) decoupled from clamped numeric BPM. Commit on blur or Enter — no per-keystroke clamping (fixes 'stuck while typing 120' bug)."),
-  H2("7.2 Auto-Detect"),
-  B("Onset detector on transient envelope with adaptive floor (0.997 decay, raised to 55% of last peak)."),
-  B("Inter-onset intervals (180–1500 ms) collected in 16-deep ring buffer."),
-  B("Median interval → BPM, octave-folded into 70–180 range, snapped to integer."),
-  B("Updates BPM only if delta ≥ 1 and last update > 500 ms ago. Resets beat phase to onset time."),
-
-  H1("8. Flap Jack Visual Integration"),
-  B("Face removed from pancakes. Audio-first envelopes drive all motion."),
-  B("Per-cake envelope refs: { punch (45 ms atk / 380 ms rel), low (90 ms / 500 ms), bright (180 ms one-pole) }."),
-  B("Beat clock: cakeIdx % 4 === beatBar → strong bob on this beat (round-robin)."),
-  B("Real flips (FLIP engaged + on-beat): cosine scaleY 1 → −1 → 1 with parabolic lift."),
-  B("Background: 8 butter people in fixed positions, smiley faces, butter-stick arms, brown shoes."),
-  B("Foreground: fork (4 tines) + knife (tapered blade), tilt with energy + beatPulse."),
-  B("Plate: solid radial gradient (no alpha) with darker rim shadow."),
-  B("Knob glow removed."),
-
-  H1("9. Fixes Applied This Session"),
-  table(
-    ["Symptom", "Root Cause", "Fix"],
-    [
-      ["MIX phase errors", "wDouble in wet bus comb-filtered against dry", "Removed wDouble from wet path"],
-      ["Distortion at FEED=0", "Wet always passed through tanh shaper", "FANG dry/wet equal-power crossfade"],
-      ["Metallic delay sound", "3-tap delay cluster + bright filters", "Single tap, wet tilt −3 dB @3500, LP @7500, darker ghosts"],
-      ["Scene clicks chaotic", "Hard 600 ms morph spiked all macros", "BPM-quantized 1-bar morph + smoothstep + ROAM dip"],
-      ["Pancakes random", "Autonomous Math.sin(t) wobbles", "Replaced with envelope followers on live audio"],
-      ["FLIP comp crash", "Attack 1 ms / ratio 8 / clamp [0.4,1.6]", "Walked back to 3 ms / ratio 5 / clamp [0.6,1.3]"],
-      ["BPM input stuck typing", "Per-keystroke clamp to 40–240", "Local string state, commit on blur/Enter"],
+      ["pantherbuss", "Panther Buss", "Character / Buss", "Reference build — 380x500, 5px"],
+      ["flapjackman", "Flap Jack Man", "Time / Delay", "NEW — integrated this session"],
+      ["eightOhEight", "808 Kick", "Creative / Rhythm", "NEW — engine + UI built this session"],
     ]
   ),
 
-  H1("10. Outstanding — Level Meter Compliance"),
-  P("A new global plugin standard was added this session (memory/level_meter_requirement.md). It mandates input + output meters on every plugin in the rack. Flap Jack Man currently has only an output AnalyserNode and is non-compliant. Required to bring to spec:"),
-  B("Add dedicated input AnalyserNode tapped post-inGain."),
-  B("Peak follower with ≤5 ms attack, 150–300 ms release on both taps."),
-  B("Clip latch: peak ≥ 0.99 sets clipUntil = now + 500 ms; visual hold for that window."),
-  B("Expressive integration (per spec example): top pancake browning intensity = output level; plate glow = input level; clip = syrup splash burst."),
-  B("Readable meter: always-visible dBFS-referenced bar/numeric for QC."),
-  B("Apply same standard retroactively to Panther Buss, vocal/reverb suite."),
+  H1("3. Global Plugin Contract"),
+  P("Every plugin in the rack must satisfy the following contract. New entries must pass before being merged."),
+  Bullet("Unity-baseline I/O contract (input → output gain stages reach unity by default)"),
+  Bullet("Zipper-free macro modulation (smoothed param targets, no audible steps)"),
+  Bullet("Mono / stereo channel safety (no channel collapse, no NaN propagation)"),
+  Bullet("Reactive-core hook for visual signals (engine exposes analyser / RAF tap)"),
+  Bullet("Level metering — input + output, expressive + readable"),
+  Bullet("Corner radius — 5 px outer chassis, 3–6 px inner elements (NEW this session)"),
 
-  H1("11. Outstanding — Other"),
-  B("One-shot upload crash: simplified chorus path and tightened RMS clamp as defensive measures; awaiting user diagnostic on what 'crash' looks like (page crash vs audio dropout vs UI freeze)."),
-  B("Verify auto-BPM tracker on sparse / non-percussive material (current detector tuned for transient-rich loops)."),
+  H1("4. Corner Radius Standard (NEW)"),
+  P("Added to the global contract this session. Mandatory across the rack."),
+  table(
+    ["Element", "Radius", "Notes"],
+    [
+      ["Outer plugin chassis", "5 px", "Fixed value, no per-plugin variation"],
+      ["Inner panels / strips", "3–6 px", "May vary slightly for hierarchy"],
+      ["Buttons", "3–6 px", "No 12 px pills, no full-pill 999"],
+      ["Knob caps / indicators", "3–6 px", "Stay inside the band"],
+    ]
+  ),
+  P("QC checklist per plugin: outer chassis at 5; all inner panels and buttons in the 3–6 band; no zero-radius squares; no 8+ pixel bubbles; visually matches Panther Buss / Flap Jack Man reference build."),
 
-  H1("12. Preservation Principles"),
-  B("Unity-baseline I/O contract — never violated."),
-  B("Zipper-free macro modulation — all params via setTargetAtTime."),
-  B("Mono/stereo channel safety — explicit speaker topology throughout."),
-  B("Reactive-core hook — engine exposes input/output for visual signal taps."),
-  B("Level metering (NEW) — input + output meters on every plugin, expressive + readable."),
+  H1("5. Flap Jack Man — Delay (NEW)"),
+  H2("Origin"),
+  P("Promoted from the prior NastyBeast prototype, recategorized from QC into Time/Delay, renamed Flap Jack Man, and resized to match the Panther Buss reference chassis."),
+  H2("Chassis"),
+  Bullet("380 x 500 px, 5 px border radius, padded 12 px, overflow hidden"),
+  Bullet("Art region: 170 px tall, viewBox 0 0 560 280, preserveAspectRatio=none for ~18% vertical desqueeze"),
+  Bullet("Bottom helper text removed; AUTO button helper span removed"),
+  H2("BPM-locked Scenes"),
+  table(
+    ["Scene", "Delay", "Feel"],
+    [
+      ["BUTTER", "Dotted 1/8 (0.75 beats)", "Breakbeat-tight ghost trail"],
+      ["SYRUP", "Quarter (1.0 beats)", "Smooth rhythmic doubling"],
+      ["GRIDDLE", "Sixteenth (0.25 beats)", "Tight grid stutter"],
+    ]
+  ),
+  P("hauntForBeats(bpm, beats) converts musical division → seconds → normalized macro position, clamped to 80 ms – 1.20 s. Scene/BPM changes retarget the haunt macro instantly."),
+  H2("Engine Additions"),
+  Bullet("Bidirectional pitch shifter (handles both up- and down-shift via direction-aware sawtooth ramps)"),
+  Bullet("Master HPF + LPF inserted between mixSum and outGain"),
+  Bullet("TUNE crossfade: tuneDown -12 / passthrough / tuneUp +12 on the wet bus, with time-stretch character"),
+  Bullet("setHpf, setLpf, setTune methods exposed on the engine handle"),
+  H2("BPM Strip Knobs"),
+  P("HPF, LPF, and TUNE knobs added to the BPM strip. All three hide their numeric value display per the user's request — value-on-hover only."),
+
+  H1("6. 808 Kick — Rhythm (NEW)"),
+  H2("Engine (eightOhEightEngine.js)"),
+  Bullet("Standard rack contract: input/output, setIn/setOut/setMix/setBypass, dispose"),
+  Bullet("Topology: input → bypass + (in → pass → duck → dry) → mixSum; kickBus → kickShelf → kickLP → driveIn → shaper → wet → mixSum → out"),
+  Bullet("Per-trigger voice: sine osc + exponential pitch sweep + amp envelope, optional triangle click burst"),
+  Bullet("Lookahead scheduler: 100 ms lookahead, 25 ms tick — standard Web Audio scheduler pattern"),
+  Bullet("Trigger modes: free / host / manual / hybrid"),
+  Bullet("Quantize modes: instant / beat / bar"),
+  Bullet("Sidechain duck via gain automation on the dry path per hit"),
+  H2("Character Presets"),
+  table(
+    ["Preset", "Flavor"],
+    [
+      ["Warm", "Low shelf lift, mild drive, soft click"],
+      ["Saturate", "Heavier shaper, longer body"],
+      ["Punch", "Tight envelope, sharp click"],
+      ["Tight", "Short decay, controlled tail"],
+      ["Boom", "Long decay, deep sub bias"],
+      ["Crunch", "Aggressive shaper + filtered top end"],
+    ]
+  ),
+  H2("Patterns"),
+  P("10 preset patterns exported as PATTERNS array: 4-on-the-floor, 3/4 pulse, halftime, double time, trap sparse, trap busy, sync bounce, dotted, triplet, offbeat."),
+  H2("UI (EightOhEightOrb.jsx)"),
+  Bullet("380 x 500 chassis, 5 px radius, TR-808 palette (#FF5A1F → #FFD23A)"),
+  Bullet("Header → Transport row → Pattern grid (5x2) → 110 px Trigger Pad (click to fire, drag = velocity)"),
+  Bullet("Character row (6 toggle buttons) → Sound shaping knobs (TUNE / DECAY / CLICK / DRIVE / TONE / MIX)"),
+  Bullet("Bottom strip: step indicator, output meter, IN/OUT trims, input mode select, remove button"),
+  Bullet("Tooltips on every control via title attribute"),
+
+  H1("7. Integration & Registration"),
+  P("Both new plugins follow rack conventions in src/main.jsx: import → add to PLUGIN_CATEGORIES → add chip-label ternary → add render branch in the instance switch. Flap Jack Man is fully wired; 808 Kick is pending registration."),
+  table(
+    ["Plugin", "Category Slot", "Chip Label", "Registered"],
+    [
+      ["Flap Jack Man", "Time", "Flap Jack", "Yes"],
+      ["808 Kick", "Creative", "808", "Pending"],
+    ]
+  ),
+
+  H1("8. QC Compliance Matrix"),
+  table(
+    ["Requirement", "Panther Buss", "Flap Jack Man", "808 Kick"],
+    [
+      ["Unity-baseline I/O", "Pass", "Pass", "Pass"],
+      ["Zipper-free macros", "Pass", "Pass", "Pass"],
+      ["Channel safety", "Pass", "Pass", "Pass"],
+      ["Reactive-core hook", "Pass", "Pass", "Pass"],
+      ["Output meter", "Pass", "Pass", "Pass"],
+      ["Input meter", "Pass", "Partial", "Partial"],
+      ["5 px chassis radius", "Pass", "Pass", "Pass"],
+      ["3–6 px inner elements", "Pass", "Pass", "Pass"],
+    ]
+  ),
+
+  H1("9. Outstanding Tuning"),
+  Bullet("808 Kick: real DAW host transport bridge (host trigger mode currently uses internal clock fallback)"),
+  Bullet("808 Kick: gate input mode is stubbed — needs envelope-follower threshold logic"),
+  Bullet("808 Kick: modulate mode is stubbed — needs param-mod routing decisions"),
+  Bullet("Input meter parity: bring Flap Jack Man and 808 Kick to full input-meter compliance per level_meter_requirement.md"),
+  Bullet("Pattern library: validate all 10 808 patterns against breakbeat / trap reference tracks"),
+  Bullet("Register 808 Kick in src/main.jsx and verify Vite reload before next commit"),
+
+  H1("10. Git State"),
+  P("Last commit: db8798d — 'Add Flap Jack Man delay plugin + integrate into rack' — 13 files, 2557 insertions. Pushed to johnstavas/NASTYvst master. The 808 Kick engine + UI files exist on disk and are ready for the next commit once main.jsx registration is verified."),
 ];
 
 const doc = new Document({
+  creator: "Claude",
+  title: "Shags VST — QC Rack Audit",
+  numbering: {
+    config: [{
+      reference: "bullets",
+      levels: [{
+        level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 720, hanging: 360 } } }
+      }],
+    }],
+  },
   styles: {
     default: { document: { run: { font: "Arial", size: 22 } } },
     paragraphStyles: [
       { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
-        run: { size: 30, bold: true, font: "Arial" },
+        run: { size: 32, bold: true, font: "Arial" },
         paragraph: { spacing: { before: 280, after: 160 }, outlineLevel: 0 } },
       { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
         run: { size: 26, bold: true, font: "Arial" },
-        paragraph: { spacing: { before: 200, after: 120 }, outlineLevel: 1 } },
-      { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
-        run: { size: 22, bold: true, font: "Arial", color: "444444" },
-        paragraph: { spacing: { before: 140, after: 80 }, outlineLevel: 2 } },
-    ]
-  },
-  numbering: {
-    config: [{
-      reference: "bullets",
-      levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
-        style: { paragraph: { indent: { left: 720, hanging: 360 } } } }]
-    }]
+        paragraph: { spacing: { before: 220, after: 120 }, outlineLevel: 1 } },
+    ],
   },
   sections: [{
     properties: {
       page: {
         size: { width: 12240, height: 15840 },
         margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
-      }
+      },
     },
     children,
-  }]
+  }],
 });
 
 Packer.toBuffer(doc).then(buf => {
-  const out = "C:\\Users\\HEAT2\\Desktop\\Shags VST\\QC_Rack_Audit.docx";
+  const out = path.join(__dirname, "QC_Rack_Audit.docx");
   fs.writeFileSync(out, buf);
   console.log("Wrote", out, buf.length, "bytes");
 });

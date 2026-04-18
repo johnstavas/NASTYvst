@@ -19,6 +19,7 @@ import SpringReverbOrb from './SpringReverbOrb';
 import SpringPhysicsOrb from './SpringPhysicsOrb';
 import TapeDelayOrb from './TapeDelayOrb';
 import FlapJackManOrb from './nastybeast/NastyBeastOrb.jsx';
+import EightOhEightOrb from './eightOhEight/EightOhEightOrb.jsx';
 import AnalogGlueOrb from './AnalogGlueOrb';
 import LA2AOrb from './LA2AOrb';
 import ShagatronOrb from './ShagatronOrb';
@@ -120,6 +121,7 @@ const PLUGIN_CATEGORIES = [
   { name: 'Creative', color: '#ff80b0', items: [
     ['vocal', 'Vocal'],
     ['playbox', 'PlayBox'],
+    ['eightOhEight', '808 Kick'],
   ]},
   { name: 'Master', color: '#d4c8a8', items: [
     ['finisher', 'Finisher'],
@@ -759,7 +761,7 @@ function App() {
             const insertBefore = insertAfterIndex === idx - 1;
             const insertAfter  = insertAfterIndex === idx;
             const isBypassed = !!pillBypasses[inst.id];
-            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'flapjackman' ? 'Flap Jack' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : 'Space';
+            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'eightOhEight' ? '808' : inst.type === 'flapjackman' ? 'Flap Jack' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : 'Space';
             return (
               <div key={inst.id} className="flex items-center">
                 {/* Insert-before line */}
@@ -983,6 +985,17 @@ function App() {
           />
         ) : inst.type === 'flapjackman' ? (
           <FlapJackManOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+          />
+        ) : inst.type === 'eightOhEight' ? (
+          <EightOhEightOrb
             key={inst.id}
             instanceId={inst.id}
             sharedSource={sharedSource}
