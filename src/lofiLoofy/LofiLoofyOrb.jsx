@@ -25,8 +25,18 @@ const COL = {
   shadow:  'rgba(180,120,140,0.18)',
 };
 
-// ── BITS / RATE button-strip (hoisted; defining these inside render
-//    caused remounts on every RAF tick, which ate mouse clicks) ──────────
+// ─────────────────────────────────────────────────────────────────────────
+// DEV_RULES E1 — NO COMPONENTS DEFINED INSIDE RENDER BODIES, EVER.
+//
+//   These subcomponents MUST stay at module scope. Defining them inside
+//   the parent's render body caused React to treat them as new component
+//   types on every RAF tick (~60 Hz) and remount the DOM buttons. Mouse
+//   clicks landed on soon-to-be-unmounted nodes and never dispatched.
+//
+//   If you need stateful behavior in a subcomponent, still keep it at
+//   module scope and hoist its state into the parent.
+// ─────────────────────────────────────────────────────────────────────────
+// ── BITS / RATE button-strip (hoisted) ──────────────────────────────────
 const BIT_OPTS = [
   { v: 0, label: 'OFF' }, { v: 12, label: '12' },
   { v: 10, label: '10' }, { v: 8, label: '8' }, { v: 6, label: '6' },
@@ -148,11 +158,20 @@ const CHAR_TIPS = {
   Slam:     'Slam: hot parallel crush with vibe on, 12-bit @ 12k. Punchy, crunchy, weighted.',
 };
 
-// ── Single source of truth for defaults + persisted keys ───────────────
-// Every knob/control: its default, its Knob defaultVal, its state init, and
-// its persistence payload all derive from this one table. Adding a new
-// control = one line here + one setter/effect. No more drift between what
-// the knob shows, what state initializes to, and what gets saved.
+// ─────────────────────────────────────────────────────────────────────────
+// DEV_RULES A1 / E4 — SINGLE SOURCE OF TRUTH FOR DEFAULTS.
+//
+//   DO NOT add a second source of truth for defaults. Every knob's
+//   `defaultVal` prop, every `useState` initializer, every save payload,
+//   and every double-click reset target resolves through THIS TABLE.
+//
+//   If you find yourself typing a literal in a `defaultVal={...}` prop,
+//   you are violating the rule. Use `DEFAULTS.<key>` instead.
+//
+//   Adding a control = one line here + one setter/effect. Adding a
+//   literal anywhere else will silently create two "factory" states
+//   that disagree (see Lofi Loofy audit, April 2026).
+// ─────────────────────────────────────────────────────────────────────────
 const DEFAULTS = Object.freeze({
   // Dust/dropouts default to 0 so a freshly loaded plugin is silent —
   // the crackle/stutter generators only start when the user dials them in.
@@ -174,23 +193,32 @@ const PERSISTED_KEYS = Object.keys(DEFAULTS);
 // LOFI_CHARACTERS in the engine; these are the user-facing knob positions
 // that match each preset's flavor.
 const CHAR_MACROS = {
+  // Every macro MUST declare bits + rate explicitly. Leaving them out
+  // made the classic presets inherit the prior preset's digital
+  // artifacts (button highlights stayed, engine didn't update) — which
+  // is why clicking Tape after Slam still sounded like a 12-bit sampler.
   // Flutter values halved from original — presets were too seasick.
   // Dust/dropouts defaults reduced so presets aren't tick-heavy on load.
   Tape:     { age:0.40, drift:0.40, flutter:0.15, dust:0.12, dropouts:0.08,
               tone:0.55, width:1.00, glue:0.45, texture:0.30,
-              dream:0.10 },
+              dream:0.10,
+              bits:12, rate:24000 },               // tape — light digital floor, wide bandwidth
   Cassette: { age:0.55, drift:0.45, flutter:0.28, dust:0.15, dropouts:0.10,
               tone:0.45, width:0.90, glue:0.50, texture:0.40,
-              dream:0.10 },
+              dream:0.10,
+              bits:0, rate:16000 },                // compact cassette — narrow but analog bits
   Sampler:  { age:0.50, drift:0.20, flutter:0.08, dust:0.10, dropouts:0.05,
               tone:0.40, width:0.95, glue:0.55, texture:0.55,
-              dream:0.10 },
+              dream:0.10,
+              bits:12, rate:12000 },               // SP-1200 / Akai S-series bite
   Radio:    { age:0.60, drift:0.30, flutter:0.15, dust:0.22, dropouts:0.18,
               tone:0.30, width:0.70, glue:0.60, texture:0.35,
-              dream:0.10 },
+              dream:0.10,
+              bits:8, rate:8000 },                 // AM / telephone band — narrow + crunchy
   Dusty:    { age:0.70, drift:0.50, flutter:0.20, dust:0.28, dropouts:0.20,
               tone:0.35, width:1.00, glue:0.55, texture:0.45,
-              dream:0.10 },
+              dream:0.10,
+              bits:8, rate:12000 },                // aged, degraded — 8-bit grit, limited BW
   // SLAM — matches the visible knob layout: hot crush, vibe on, boom
   // lifted, bits 12 + rate 12k for sampler bite.
   Slam:     { age:0.55, drift:0.35, flutter:0.28, dust:0.18, dropouts:0.12,
@@ -257,6 +285,11 @@ export default function LofiLoofyOrb({
   // Apply a preset atomically. Set the suppression flag, update all React
   // state, and push one bulk write to the engine so the DSP lands exactly
   // on the macro values — no races between individual setX useEffects.
+  // DEV_RULES D1/D2/D5 — Preset application path.
+  // Presets are full-state snapshots, not partial moods. The bulk write
+  // goes to the engine once, gated by applyingPresetRef so the per-knob
+  // useEffects don't race it. Do not split this into per-knob setters;
+  // do not call the engine twice from here with different subsets.
   const applyCharacter = (name) => {
     const m = CHAR_MACROS[name];
     if (!m) return;
@@ -278,8 +311,13 @@ export default function LofiLoofyOrb({
     // Engine gets one atomic pass — character preset first, then overrides.
     engineRef.current?.setCharacter(name);
     engineRef.current?.applyBulk(m);
-    // Release suppression after React commits.
-    queueMicrotask(() => { applyingPresetRef.current = false; });
+    // Flag stays raised until the commit-flush effect (below) lowers it.
+    // DO NOT use queueMicrotask here — microtasks drain BEFORE React's
+    // passive-effect flush, which means the per-knob `gated` effects run
+    // with the flag already false and clobber the bulk write (in
+    // particular, the character useEffect re-applies LOFI_CHARACTERS
+    // filter frequencies, wiping out setDrift/setFlutter from applyBulk).
+    // That's what caused "first preset click sounds wrong, second is right."
   };
 
   // Wrapped knob setters — clear the active preset highlight whenever
@@ -369,6 +407,17 @@ export default function LofiLoofyOrb({
   useEffect(() => gated(() => engineRef.current?.setBits(bits)),           [bits]);
   useEffect(() => gated(() => engineRef.current?.setRate(rate)),           [rate]);
   useEffect(() => { if (character && !applyingPresetRef.current) engineRef.current?.setCharacter(character); }, [character]);
+
+  // Suppression-flag release — MUST be declared after every `gated`
+  // effect above. React fires passive effects in declaration order, so
+  // by the time this one runs, every gated effect has already seen the
+  // raised flag and early-returned. Clearing it here ensures the next
+  // render cycle (user knob tweak, etc.) behaves normally.
+  // This replaces the old `queueMicrotask` in applyCharacter — microtasks
+  // drain before React's effect-flush, which caused preset double-application.
+  useEffect(() => {
+    if (applyingPresetRef.current) applyingPresetRef.current = false;
+  });
 
   // ── State persistence ────────────────────────────────────────────────
   useEffect(() => {
@@ -972,6 +1021,12 @@ export default function LofiLoofyOrb({
         ...panel, marginBottom: 0, marginTop: 'auto', padding: '4px 6px',
         display: 'flex', alignItems: 'center', gap: 6,
       }}>
+        {/*
+          DEV_RULES F1/F2 — Meters show TRUE FS, linear 0..1 = 0..FS.
+          The current `* 140` multiplier is FLAGGED for removal; it makes
+          -3 dBFS read as pinned. A 0 dB reference tick is also required.
+          Do not scale for visual flair — scale for gain-staging truth.
+        */}
         {/* Input meter */}
         <div title="Input level" style={{
           width: 36, height: 6, background: '#F3DDE5', borderRadius: 2,

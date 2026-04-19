@@ -10,8 +10,10 @@
 
 import DrumBusOrb      from '../DrumBusOrb.jsx';
 import PantherBussOrb  from '../PantherBussOrb.jsx';
+import ManChildOrb     from '../manChild/ManChildOrb.jsx';
 import { createDrumBusEngine }      from '../drumBusEngine.js';
 import { createPantherBussEngine }  from '../pantherBussEngine.js';
+import { createManChildEngine }     from '../manChild/manChildEngine.js';
 
 export const VARIANT_LABELS = {
   legacy:    'Legacy',
@@ -62,6 +64,26 @@ export const REGISTRY = [
         componentName: 'PantherBussOrb',
         engineFactory: createPantherBussEngine,
         engineName:    'pantherBussEngine',
+      },
+    },
+  },
+  {
+    // MANchild — Fairchild-inspired vari-mu 670M stereo compressor.
+    // First-version flagship compressor. Shipped as `legacy` (DEV_RULES G4
+    // minimum). Once a new engine revision ships, promote the current one
+    // to `engine_v1` and migrate this entry accordingly.
+    productId:    'manchild',
+    displayLabel: 'MANchild',
+    category:     'Dynamics',
+    legacyType:   'manchild',
+    variants: {
+      legacy: {
+        variantId:     'legacy',
+        displayLabel:  VARIANT_LABELS.legacy,
+        component:     ManChildOrb,
+        componentName: 'ManChildOrb',
+        engineFactory: createManChildEngine,
+        engineName:    'manChildEngine',
       },
     },
   },

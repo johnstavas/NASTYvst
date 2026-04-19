@@ -1,23 +1,48 @@
 // lofiLoofyEngine.js — Lo-fi degradation + movement + nostalgia plugin.
 //
-// Standard rack contract:
-//   { input, output, chainOutput, setIn/setOut/setMix/setBypass, dispose, ... }
+// ─────────────────────────────────────────────────────────────────────────
+// GOVERNED BY: /DEV_RULES.md — read it before editing this file.
+// BYPASS BEHAVIOR: phase-safe, 36 ms latency (see getLatency()).
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Standard rack contract (see DEV_RULES B1):
+//   { input, output, chainOutput, setIn/setOut/setMix/setBypass,
+//     isBypassed, applyBulk, dispose, getLatency, ... }
 //
 // Sound philosophy:
 //   This is NOT a distortion plugin. Saturation is supporting only. The
 //   identity is movement (drift, flutter, Dream LFO), media wear (dust,
 //   dropouts, bandwidth), and emotional softening — not aggression.
 //
-// Topology:
-//   in → bypassPath ────────────────────────────────────────────► mixSum
-//   in → inGain → tilt → satShape → bwLP → tapeDelay (drift+flutter) →
-//        dropoutGain → noiseSumNode → glueComp → mid/side width →
-//        wetGain → mixSum → outGain → out
-//   noiseGen ─►─► noiseSumNode  (parallel dust layer)
+// Topology (authoritative — DEV_RULES I1: if you change the graph, update
+// this comment in the SAME commit):
+//
+//   input ─► inGain ┬─► dryCompensate(36ms) ─► dryGain ──────────────────┐
+//                   │                                                    │
+//                   └─► toneTilt → toneLP → lowSatPre → satShape →       │
+//                       lowSatPost → subHum → lowBloom → ageHP →         │
+//                       ageCrush → ageLP → bwLP → bwHP → tapeDelay →     │
+//                       bitsShaper → rateLP → glueComp → wetTrim →       │
+//                       ┬─► compDryDelay(6ms) → compDry ────► compMix ───┤
+//                       └─► crushShape → crushComp → crushMakeup →       │
+//                           vibeBody → pumpGain → compWet ── → compMix → │
+//                                                          ↓            │
+//                                        compMix → boomShelf → wetGain ─┤
+//                       wetTrim ─► reverbSend → dreamReverb →           │
+//                                  reverbReturn ────────────► wetGain ──┤
+//                                                                       ▼
+//   noiseSrc ─► hissFilters ─► noiseGain ┐                            preOut
+//   gritSrc  ─► crackleHP   ─► crackleGain ┴─► dustBus ─► wetGain       │
+//                                                                       │
+//   preOut ─► widthIn → widener → widthOut ─► dropDuck ─► outGain ─► output
 //
 // Dream LFO: a smoothed sine modulator with diffusion-style trailing.
 // It does NOT add reverb to audio — it smooths the modulation signal
 // itself so destinations move in soft, lingering arcs rather than steps.
+//
+// DEV_RULES B4 — Dream targets must NOT dual-write any AudioParam the user
+// directly controls. `mix` target currently writes dryGain/wetGain — this
+// is flagged for migration to a dedicated `mixMod` series node.
 
 export function createLofiLoofyEngine(ctx) {
   // ── I/O ──────────────────────────────────────────────────────────────
@@ -806,6 +831,14 @@ export function createLofiLoofyEngine(ctx) {
   let bypassed = false;
   let mixVal = 1.0;
 
+  // ─────────────────────────────────────────────────────────────────────
+  // DEV_RULES C1: MIX MUST USE EQUAL-POWER CROSSFADE (cos/sin).
+  // DEV_RULES B4: Do NOT add a second writer to dryGain/wetGain here or
+  // elsewhere. If a modulator needs to affect mix, add a dedicated
+  // series `mixMod` gain node and write that instead.
+  // DEV_RULES I3: Bypass here is phase-safe but inherits the 36 ms
+  // dryCompensate latency. Do not advertise as zero-latency.
+  // ─────────────────────────────────────────────────────────────────────
   function applyMixAndBypass() {
     const t = ctx.currentTime, tau = 0.05;
     if (bypassed) {
@@ -902,6 +935,11 @@ export function createLofiLoofyEngine(ctx) {
   }
 
   // ── Character presets (tone + modulation flavor bundles) ─────────────
+  // DEV_RULES D2: setCharacter MUST apply every parameter the preset owns,
+  // or this function must be removed from the returned public API. Do NOT
+  // let this drift back into a partial "tone-and-drift-only" recall — that
+  // is how ghost states happen. If SLAM needs comp/crush/boom/bits/rate,
+  // setCharacter applies them. No exceptions.
   function setCharacter(name) {
     const p = LOFI_CHARACTERS[name];
     if (!p) return;
@@ -994,6 +1032,11 @@ export function createLofiLoofyEngine(ctx) {
       recomputeToneLP();
       toneTilt.gain.setTargetAtTime((1 - v * 2) * 6, ctx.currentTime, 0.05);
     },
+    // DEV_RULES C5: Width=0 MUST equal (L+R)/2 on both channels at matched
+    // level. Current cross-swap path is FLAGGED for correction — do not
+    // ship any downstream code that assumes this behavior is already true.
+    // If you edit this setter, re-verify true mono with a pink-noise null
+    // test before committing.
     setWidth: v => {
       widthBase = Math.max(0, Math.min(2, v));
       const x = widthBase - 1;            // -1..+1
@@ -1201,16 +1244,26 @@ export function createLofiLoofyEngine(ctx) {
       }
     },
 
+    // DEV_RULES H1: dispose() MUST stop every Oscillator, every
+    // BufferSource, cancel every RAF, clear every setTimeout, and
+    // disconnect input/output. If you add a new node above, add its
+    // teardown here in the same commit.
     dispose() {
       try {
         if (dreamRafId) cancelAnimationFrame(dreamRafId);
         if (dropoutTimer) clearTimeout(dropoutTimer);
         if (crackleTimer) clearTimeout(crackleTimer);
         driftLFO.stop();   flutterLFO.stop();
-        noiseSrc.stop();
+        pumpLFO.stop();
+        noiseSrc.stop();   gritSrc.stop();
         input.disconnect(); output.disconnect();
       } catch {}
     },
+
+    // DEV_RULES I4: Every engine reports its total latency in seconds.
+    // 0.036 = 30 ms tape baseline + 6 ms DynamicsCompressor lookahead.
+    // Update this if dryCompensate or comp-stage latency changes.
+    getLatency() { return 0.036; },
   };
 }
 
