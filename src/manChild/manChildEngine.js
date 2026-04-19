@@ -815,6 +815,48 @@ export async function createManChildEngine(audioCtx) {
   const engine = {
     input, output, chainOutput,
 
+    // ── QC HARNESS SCHEMA (authoritative; verified against worklet) ──────
+    // CHANNEL_MODES = ['IND','LINK','M-S','M-S LINK']
+    // TC_TABLE      = 10 entries: TC1..TC6 fixed + VAR1..VAR4 variable
+    // MANCHILD_PRESETS keys — full preset list drives setCharacter.
+    paramSchema: [
+      { name: 'setIn',           label: 'Input Drive (dB)',   kind: 'db',   min: -24, max: 24, step: 0.1, def: 0 },
+      { name: 'setOut',          label: 'Output Trim (dB)',   kind: 'db',   min: -24, max: 24, step: 0.1, def: 0 },
+      { name: 'setMix',          label: 'Mix',                kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 1 },
+      { name: 'setBypass',       label: 'Bypass',             kind: 'bool', def: 0 },
+      { name: 'setTxDrive',      label: 'Tube Drive',         kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0 },
+      { name: 'setFB',           label: 'Feedback Detector',  kind: 'bool', def: 1 },
+      { name: 'setChannelMode',  label: 'Channel Mode',       kind: 'enum', def: 1,
+        values: [
+          { value: 0, label: 'IND' },
+          { value: 1, label: 'LINK' },
+          { value: 2, label: 'M-S' },
+          { value: 3, label: 'M-S LINK' },
+        ] },
+      { name: 'setCharacter',    label: 'Preset',             kind: 'preset',
+        options: Object.keys(MANCHILD_PRESETS) },
+
+      // Per-channel (A/B) controls
+      { name: 'setInputGainA',   label: 'Input Gain A (dB)',  kind: 'db',   min: 0,   max: 24, step: 0.1, def: 0, group: 'A' },
+      { name: 'setInputGainB',   label: 'Input Gain B (dB)',  kind: 'db',   min: 0,   max: 24, step: 0.1, def: 0, group: 'B' },
+      { name: 'setOutputGainA',  label: 'Output Gain A',      kind: 'noop', note: 'No-op on Fairchild 670 topology — use Output Trim.' },
+      { name: 'setOutputGainB',  label: 'Output Gain B',      kind: 'noop', note: 'No-op on Fairchild 670 topology — use Output Trim.' },
+      { name: 'setThresholdA',   label: 'Threshold A',        kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.45, group: 'A' },
+      { name: 'setThresholdB',   label: 'Threshold B',        kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.45, group: 'B' },
+      { name: 'setDcA',          label: 'DC Bias A',          kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.5,  group: 'A' },
+      { name: 'setDcB',          label: 'DC Bias B',          kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.5,  group: 'B' },
+      { name: 'setVarAtkA',      label: 'VAR Attack A',       kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.5,  group: 'A' },
+      { name: 'setVarRelA',      label: 'VAR Release A',      kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.5,  group: 'A' },
+      { name: 'setVarAtkB',      label: 'VAR Attack B',       kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.5,  group: 'B' },
+      { name: 'setVarRelB',      label: 'VAR Release B',      kind: 'unit', min: 0,   max: 1,  step: 0.01,def: 0.5,  group: 'B' },
+      { name: 'setTcA',          label: 'Time Constant A',    kind: 'enum', def: 1, group: 'A',
+        values: TC_TABLE.map((t, i) => ({ value: i, label: t.id })) },
+      { name: 'setTcB',          label: 'Time Constant B',    kind: 'enum', def: 1, group: 'B',
+        values: TC_TABLE.map((t, i) => ({ value: i, label: t.id })) },
+      { name: 'setScA',          label: 'Sidechain A',        kind: 'bool', def: 1, group: 'A' },
+      { name: 'setScB',          label: 'Sidechain B',        kind: 'bool', def: 1, group: 'B' },
+    ],
+
     setIn:  (db) => { lineIn.gain.setTargetAtTime(Math.pow(10, db / 20), audioCtx.currentTime, 0.01); },
     setOut: (db) => { outTrim.gain.setTargetAtTime(Math.pow(10, db / 20), audioCtx.currentTime, 0.01); },
     setMix,

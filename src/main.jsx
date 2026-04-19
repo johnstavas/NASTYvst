@@ -1476,10 +1476,26 @@ function App() {
   );
 }
 
+// ── QC Harness route — ?qc=<productId>&variant=legacy|engine_v1 ──────────────
+// Deliberately bypasses App + Reshaped. Naked slider UI for DSP-first QC.
+// See src/qc-harness/QcHarness.jsx.
+
+import QcHarness from './qc-harness/QcHarness.jsx';
+
+const _qcParams = new URLSearchParams(window.location.search);
+const _qcProduct = _qcParams.get('qc');
+const _qcVariant = _qcParams.get('variant') || undefined;
+
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <Reshaped theme="slate">
-      <App />
-    </Reshaped>
-  </React.StrictMode>
+  _qcProduct ? (
+    <React.StrictMode>
+      <QcHarness productId={_qcProduct} variantId={_qcVariant} />
+    </React.StrictMode>
+  ) : (
+    <React.StrictMode>
+      <Reshaped theme="slate">
+        <App />
+      </Reshaped>
+    </React.StrictMode>
+  )
 );

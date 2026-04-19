@@ -51,6 +51,18 @@ export async function createPantherBussEngine(ctx) {
     output:      fx.output,
     chainOutput: fx.output,
 
+    // ── QC HARNESS SCHEMA ─────────────────────────────────────────────────
+    // v1 Panther Buss intentionally collapses the legacy drumBus knobs into
+    // 5 macros + bypass. DRIFT against legacy is tracked by the parity lens.
+    paramSchema: [
+      { name: 'setDrive',  label: 'Drive',  kind: 'unit', min: 0, max: 1, step: 0.01, def: 0.3 },
+      { name: 'setGlue',   label: 'Glue',   kind: 'unit', min: 0, max: 1, step: 0.01, def: 0.3 },
+      { name: 'setTone',   label: 'Tone',   kind: 'unit', min: 0, max: 1, step: 0.01, def: 0.5 },
+      { name: 'setOutput', label: 'Output', kind: 'unit', min: 0, max: 1, step: 0.01, def: 0.5 },
+      { name: 'setMix',    label: 'Mix',    kind: 'unit', min: 0, max: 1, step: 0.01, def: 1   },
+      { name: 'setBypass', label: 'Bypass', kind: 'bool', def: 0 },
+    ],
+
     // Panther macros — all go through fx.setParam inside the product
     setDrive : v => product.setDrive(v),
     setGlue  : v => product.setGlue(v),

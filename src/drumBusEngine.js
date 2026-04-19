@@ -360,6 +360,26 @@ export async function createDrumBusEngine(audioCtx) {
   return {
     input, output, chainOutput,
 
+    // ── QC HARNESS SCHEMA (authoritative; verified against worklet) ──────
+    paramSchema: [
+      { name: 'setInputGain',  label: 'Input Gain',  kind: 'gain', min: 0,   max: 2,  step: 0.01, def: 1 },
+      { name: 'setOutputGain', label: 'Output Gain', kind: 'gain', min: 0,   max: 2,  step: 0.01, def: 1 },
+      { name: 'setDrive',      label: 'Drive',       kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0.3 },
+      { name: 'setCrunch',     label: 'Crunch',      kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0 },
+      { name: 'setBoom',       label: 'Boom',        kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0 },
+      { name: 'setFreq',       label: 'Freq (norm)', kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0.25 },
+      { name: 'setDamp',       label: 'Damp',        kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0.75 },
+      { name: 'setTransients', label: 'Transients',  kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0.5 },
+      { name: 'setDecay',      label: 'Decay',       kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0.5 },
+      { name: 'setComp',       label: 'Comp',        kind: 'bool', def: 0 },
+      { name: 'setDriveMode',  label: 'Drive Mode',  kind: 'enum', def: 0,
+        values: [{ value: 0, label: 'A' }, { value: 1, label: 'B' }, { value: 2, label: 'C' }] },
+      { name: 'setMix',        label: 'Mix',         kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 1 },
+      { name: 'setTrim',       label: 'Trim',        kind: 'db',   min: -12, max: 12, step: 0.1,  def: 0 },
+      { name: 'setBypass',     label: 'Bypass',      kind: 'bool', def: 0 },
+      { name: 'setWidth',      label: 'Width',       kind: 'unit', min: 0,   max: 1,  step: 0.01, def: 0.5 },
+    ],
+
     setInputGain:  v => { inputTrim.gain.value  = v; },
     setOutputGain: v => { outputTrim.gain.value = v; },
     setDrive:      v => { p('drive').value      = v; },
