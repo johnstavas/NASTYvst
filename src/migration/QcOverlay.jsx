@@ -11,6 +11,14 @@
 
 import React, { useState } from 'react';
 import { useProductStatus } from './store.js';
+import { useParity } from './parity.js';
+
+const PARITY_COLOR = {
+  OK:          '#7fff8f',
+  EXTENDED:    '#80d0ff',
+  DRIFT:       '#ffd040',
+  LEGACY_ONLY: '#a0a0c0',
+};
 
 const STATUS_COLOR = {
   legacy_only:        { fg: '#9aa5b1', bg: 'rgba(80,90,100,0.22)',  bd: 'rgba(160,170,180,0.35)' },
@@ -32,6 +40,7 @@ const STATUS_LABEL = {
 
 export function InfoIcon({ product, variant, status }) {
   const [hover, setHover] = useState(false);
+  const parity = useParity(product.productId);
 
   return (
     <div
@@ -69,6 +78,21 @@ export function InfoIcon({ product, variant, status }) {
           <Row k="Component" v={variant.componentName} />
           <Row k="Engine"    v={variant.engineName} />
           <Row k="Status"    v={status} highlight={STATUS_COLOR[status]?.fg} />
+          {parity && (
+            <Row
+              k="Parity"
+              v={
+                parity.status === 'DRIFT'
+                  ? `DRIFT — missing: ${parity.legacyOnly.join(', ')}`
+                : parity.status === 'EXTENDED'
+                  ? `EXTENDED (+${parity.v1Only.length})`
+                : parity.status === 'LEGACY_ONLY'
+                  ? 'LEGACY ONLY (no v1 engine)'
+                :   'OK'
+              }
+              highlight={PARITY_COLOR[parity.status]}
+            />
+          )}
         </div>
       )}
     </div>
@@ -88,7 +112,19 @@ function Row({ k, v, highlight }) {
 
 export function QcPanel({ product, variant, onLoadAlternate }) {
   const [status, setStatus] = useProductStatus(product.productId);
-  const color = STATUS_COLOR[status] || STATUS_COLOR.legacy_only;
+  const color  = STATUS_COLOR[status] || STATUS_COLOR.legacy_only;
+  const parity = useParity(product.productId);
+
+  const approve = () => {
+    if (parity?.status === 'DRIFT') {
+      const ok = window.confirm(
+        `Parity audit shows DRIFT — v1 is missing: ${parity.legacyOnly.join(', ')}\n\n` +
+        'Approve anyway? (Only do this if those features were intentionally retired.)'
+      );
+      if (!ok) return;
+    }
+    setStatus('approved_engine_v1');
+  };
 
   // Alternate variant: the one that isn't current.
   const altVariantId = variant.variantId === 'legacy' ? 'engine_v1' : 'legacy';
@@ -114,8 +150,7 @@ export function QcPanel({ product, variant, onLoadAlternate }) {
       </span>
 
       {canApprove && (
-        <Btn label="Approve" tone="ok"
-          onClick={() => setStatus('approved_engine_v1')} />
+        <Btn label="Approve" tone="ok" onClick={approve} />
       )}
       {canRevoke && (
         <Btn label="Revoke" tone="warn"

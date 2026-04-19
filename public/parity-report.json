@@ -1,0 +1,86 @@
+{
+  "generatedAt": "2026-04-19T16:33:47.659Z",
+  "products": {
+    "panther_buss": {
+      "status": "DRIFT",
+      "legacyMethods": [
+        "setBoom",
+        "setBypass",
+        "setComp",
+        "setCrunch",
+        "setDamp",
+        "setDecay",
+        "setDrive",
+        "setDriveMode",
+        "setFreq",
+        "setInputGain",
+        "setMix",
+        "setOutputGain",
+        "setTransients",
+        "setTrim",
+        "setWidth"
+      ],
+      "v1Methods": [
+        "setBypass",
+        "setDrive",
+        "setGlue",
+        "setMix",
+        "setOutput",
+        "setTone"
+      ],
+      "legacyOnly": [
+        "setBoom",
+        "setComp",
+        "setCrunch",
+        "setDamp",
+        "setDecay",
+        "setDriveMode",
+        "setFreq",
+        "setInputGain",
+        "setOutputGain",
+        "setTransients",
+        "setTrim",
+        "setWidth"
+      ],
+      "v1Only": [
+        "setGlue",
+        "setOutput",
+        "setTone"
+      ],
+      "matched": [
+        "setBypass",
+        "setDrive",
+        "setMix"
+      ]
+    },
+    "manchild": {
+      "status": "LEGACY_ONLY",
+      "legacyMethods": [
+        "setBypass",
+        "setChannelMode",
+        "setCharacter",
+        "setDcA",
+        "setDcB",
+        "setFB",
+        "setIn",
+        "setInputGainA",
+        "setInputGainB",
+        "setMix",
+        "setOut",
+        "setOutputGainA",
+        "setOutputGainB",
+        "setScA",
+        "setScB",
+        "setTcA",
+        "setTcB",
+        "setThresholdA",
+        "setThresholdB",
+        "setTxDrive",
+        "setVarAtkA",
+        "setVarAtkB",
+        "setVarRelA",
+        "setVarRelB"
+      ]
+    }
+  }
+}
