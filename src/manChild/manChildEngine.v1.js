@@ -847,6 +847,37 @@ export async function createManChildEngineV1(audioCtx) {
     // CHANNEL_MODES = ['IND','LINK','M-S','M-S LINK']
     // TC_TABLE      = 10 entries: TC1..TC6 fixed + VAR1..VAR4 variable
     // MANCHILD_PRESETS keys — full preset list drives setCharacter.
+    //
+    // Capability schema (canonical keys — see memory/qc_family_map.md §2).
+    // Drives QC tier selection in the generator. Two taxonomies:
+    //   categories[]    — industry-facing (13 strings, §2.5), for UI.
+    //   subcategories[] — DSP-family IDs (73, §3), for QC dispatch.
+    capabilities: {
+      categories: ['Dynamics'],
+      subcategories: ['compressor-feedback', 'ms-comp'], // families #19, #27
+      modes: ['IND', 'LINK', 'M-S', 'M-S LINK'],        // composite-bus per-mode sweep
+
+      // Capability flags
+      hasSidechain: false,   // no external SC input; internal FB/FF only
+      hasFeedback: true,     // setFB toggles FF/FB detector topology
+      hasFreeze: false,
+      hasLFO: false,
+      hasStereoWidth: false, // M-S mode exists but no explicit width knob
+      hasMultiband: false,
+      hasLookahead: false,
+      hasTruePeak: false,
+      hasPitchDetector: false,
+      hasLPC: false,
+      hasFFT: false,
+      hasWDF: false,
+
+      // Numeric / structural
+      nonlinearStages: 2,    // tube drive + cell nonlinearity
+      osThresholds: null,    // adaptive OS, no user-facing threshold
+      latencySamples: 0,     // pure IIR + cell; no lookahead, no FIR
+      crossoverPhase: null,  // not a multiband plugin
+    },
+
     paramSchema: [
       { name: 'setIn',           label: 'Input Drive (dB)',   kind: 'db',   min: -24, max: 24, step: 0.1, def: 0 },
       { name: 'setOut',          label: 'Output Trim (dB)',   kind: 'db',   min: -24, max: 24, step: 0.1, def: 0 },
