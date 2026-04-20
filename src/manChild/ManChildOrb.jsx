@@ -767,6 +767,7 @@ const DEFAULTS = Object.freeze({
   scA:true, scB:true,
   meterA:'VU', meterB:'VU',
   chanMode:'LINK',
+  knobGang:false,
   dcA:0.50, dcB:0.50,
   varAtkA:0.50, varAtkB:0.50,
   varRelA:0.50, varRelB:0.50,
@@ -801,6 +802,7 @@ export default function ManChildOrb({
   const [meterA, setMeterA]     = useState(init.meterA   ?? D.meterA);
   const [meterB, setMeterB]     = useState(init.meterB   ?? D.meterB);
   const [chanMode, setChanMode] = useState(init.chanMode ?? D.chanMode);
+  const [knobGang, setKnobGang] = useState(init.knobGang ?? D.knobGang);
   const [dcA, setDcA]           = useState(init.dcA      ?? D.dcA);
   const [dcB, setDcB]           = useState(init.dcB      ?? D.dcB);
   const [varAtkA, setVarAtkA]   = useState(init.varAtkA  ?? D.varAtkA);
@@ -895,7 +897,7 @@ export default function ManChildOrb({
     if (!onStateChange) return;
     const map = {
       inA, inB, thA, thB, tcA, tcB, scA, scB, meterA, meterB,
-      chanMode, dcA, dcB, varAtkA, varRelA, varAtkB, varRelB,
+      chanMode, knobGang, dcA, dcB, varAtkA, varRelA, varAtkB, varRelB,
       fb, txDrive, inDb, outDb, mix, bypass, character,
     };
     const payload = {};
@@ -903,7 +905,7 @@ export default function ManChildOrb({
     onStateChange(instanceId, payload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inA,inB,thA,thB,tcA,tcB,scA,scB,meterA,meterB,
-      chanMode,dcA,dcB,varAtkA,varRelA,varAtkB,varRelB,
+      chanMode,knobGang,dcA,dcB,varAtkA,varRelA,varAtkB,varRelB,
       fb,txDrive,inDb,outDb,mix,bypass,character]);
 
   // ── Meter RAF ──
@@ -961,6 +963,45 @@ export default function ManChildOrb({
     queueMicrotask(() => { applyingPreset.current = false; });
   };
   const edit = (setter) => (v) => { setter(v); setCharacter(null); };
+
+  // ── Knob-gang (UX, orthogonal to DSP mode) ──
+  // `knobGang` is a user-toggleable UI convenience, independent of chanMode.
+  // When ON, moving either A or B knob mirrors the value to the other
+  // channel. Works in every mode — IND, LINK, M-S, M-S LINK alike. This
+  // keeps MODE pure DSP (hardware-faithful: LINK only links the sidechain)
+  // and makes ganging an explicit workflow choice.
+  //
+  // Non-knob per-channel features (SC enable, meter mode) are NOT ganged —
+  // they stay channel-specific toggles.
+  const gang = (primary, secondary) => (v) => {
+    primary(v);
+    if (knobGang) secondary(v);
+  };
+
+  // When the user FLIPS gang ON (not on preset load), snap B to A so the
+  // now-mirrored knobs start in sync. Turning gang OFF leaves values put.
+  //
+  // Also: when gang turns ON, force mode to LINK. LINK is the only mode
+  // compatible with GANG (IND / M-S / M-S LINK are all disabled in the UI
+  // while GANG is on — see MODE button render). Auto-switching prevents a
+  // "disabled-but-active" dead state.
+  const prevKnobGangRef = useRef(knobGang);
+  useEffect(() => {
+    const prev = prevKnobGangRef.current;
+    if (!prev && knobGang && !applyingPreset.current) {
+      if (chanMode !== 'LINK') {
+        setChanMode('LINK');
+      }
+      setInB(inA);
+      setThB(thA);
+      setDcB(dcA);
+      setVarAtkB(varAtkA);
+      setVarRelB(varRelA);
+      setTcB(tcA);
+    }
+    prevKnobGangRef.current = knobGang;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [knobGang]);
 
   // ── Derived ──
   const sideA = isMsMode(chanMode) ? 'M'    : 'LEFT/M';
@@ -1277,33 +1318,67 @@ export default function ManChildOrb({
                 </Col>
                 <Col title="INPUT" channel="A" side={sideA} w={120} primary>
                   <SkirtKnob paramValue={inA} paramMin={-12} paramMax={24}
-                    onChange={edit(setInA)} scaleMin={0} scaleMax={20} scaleStep={4}
+                    onChange={edit(gang(setInA, setInB))} scaleMin={0} scaleMax={20} scaleStep={4}
                     size={104} unique="inA" />
                 </Col>
                 <Col title="THRESH" channel="A" w={120} primary>
                   <SkirtKnob paramValue={thA} paramMin={0} paramMax={1}
-                    onChange={edit(setThA)} scaleMin={0} scaleMax={10} scaleStep={2}
+                    onChange={edit(gang(setThA, setThB))} scaleMin={0} scaleMax={10} scaleStep={2}
                     size={104} unique="thA" />
                 </Col>
                 <Col title="TIME CONST" channel="A" w={124} primary>
                   <ChickenHead positions={TC_POSITIONS} selectedIndex={tcAIdx}
-                    onChange={(i) => edit(setTcA)(TC_POSITIONS[i])}
+                    onChange={(i) => edit(gang(setTcA, setTcB))(TC_POSITIONS[i])}
                     size={108} sweepDeg={260} startDeg={-130}
                     unique="tcA" labelSize={9} labelDistance={0.95} />
                 </Col>
                 <Col title="DC THR" channel="A" w={100}>
                   <SkirtKnob paramValue={dcA} paramMin={0} paramMax={1}
-                    onChange={edit(setDcA)} scaleMin={0} scaleMax={10} scaleStep={2}
+                    onChange={edit(gang(setDcA, setDcB))} scaleMin={0} scaleMax={10} scaleStep={2}
                     size={80} unique="dcA" />
                 </Col>
                 <Col title="VAR ATK" channel="A" w={92}>
-                  <VarKnob paramValue={varAtkA} onChange={edit(setVarAtkA)}
+                  <VarKnob paramValue={varAtkA} onChange={edit(gang(setVarAtkA, setVarAtkB))}
                     disabled={!isVarTc(tcA)} unique="vAtkA" size={68} />
                 </Col>
-                <Col title="VAR REL" channel="A" w={92}>
-                  <VarKnob paramValue={varRelA} onChange={edit(setVarRelA)}
-                    disabled={!isVarTc(tcA)} unique="vRelA" size={68} />
-                </Col>
+                {/* VAR REL A column with BYPASS floating ABOVE the "A VAR REL"
+                    title. Absolute positioning keeps layout unaffected so the
+                    knob doesn't shift vs its B-row counterpart. Fixed-width
+                    button (label stays "BYPASS"; color + lamp show state). */}
+                <div style={{ position:'relative', width:92 }}>
+                  {(() => {
+                    const fire = (e) => { e.preventDefault(); e.stopPropagation(); edit(setBypass)(!bypass); };
+                    return (
+                      <div style={{
+                        position:'absolute', left:0, right:0, top:-52,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        gap:6, pointerEvents:'auto', zIndex:2,
+                      }}>
+                        <button type="button"
+                          onMouseDown={fire}
+                          onTouchStart={fire}
+                          onClick={(e) => { e.stopPropagation(); }}
+                          style={{
+                            fontSize:9, fontFamily:'"Helvetica Neue",Arial,sans-serif',
+                            fontWeight:800, letterSpacing:1.0,
+                            width:56, boxSizing:'border-box',
+                            background: bypass ? COL.textRed : '#1A1A1A',
+                            color:      bypass ? '#000'      : '#F2F2F2',
+                            border:`1px solid ${bypass ? COL.textRed : '#3A3A3A'}`,
+                            borderRadius:2, padding:'3px 0', cursor:'pointer',
+                            textAlign:'center', pointerEvents:'auto',
+                          }}>
+                          BYPASS
+                        </button>
+                        <RedLamp on={bypass} />
+                      </div>
+                    );
+                  })()}
+                  <Col title="VAR REL" channel="A" w={92}>
+                    <VarKnob paramValue={varRelA} onChange={edit(gang(setVarRelA, setVarRelB))}
+                      disabled={!isVarTc(tcA)} unique="vRelA" size={68} />
+                  </Col>
+                </div>
               </div>
 
               {/* divider — bright orange hairline + soft glow, separates channels */}
@@ -1325,31 +1400,31 @@ export default function ManChildOrb({
                 </Col>
                 <Col title="INPUT" channel="B" side={sideB} w={120} primary>
                   <SkirtKnob paramValue={inB} paramMin={-12} paramMax={24}
-                    onChange={edit(setInB)} scaleMin={0} scaleMax={20} scaleStep={4}
+                    onChange={edit(gang(setInB, setInA))} scaleMin={0} scaleMax={20} scaleStep={4}
                     size={104} unique="inB" />
                 </Col>
                 <Col title="THRESH" channel="B" w={120} primary>
                   <SkirtKnob paramValue={thB} paramMin={0} paramMax={1}
-                    onChange={edit(setThB)} scaleMin={0} scaleMax={10} scaleStep={2}
+                    onChange={edit(gang(setThB, setThA))} scaleMin={0} scaleMax={10} scaleStep={2}
                     size={104} unique="thB" />
                 </Col>
                 <Col title="TIME CONST" channel="B" w={124} primary>
                   <ChickenHead positions={TC_POSITIONS} selectedIndex={tcBIdx}
-                    onChange={(i) => edit(setTcB)(TC_POSITIONS[i])}
+                    onChange={(i) => edit(gang(setTcB, setTcA))(TC_POSITIONS[i])}
                     size={108} sweepDeg={260} startDeg={-130}
                     unique="tcB" labelSize={9} labelDistance={0.95} />
                 </Col>
                 <Col title="DC THR" channel="B" w={100}>
                   <SkirtKnob paramValue={dcB} paramMin={0} paramMax={1}
-                    onChange={edit(setDcB)} scaleMin={0} scaleMax={10} scaleStep={2}
+                    onChange={edit(gang(setDcB, setDcA))} scaleMin={0} scaleMax={10} scaleStep={2}
                     size={80} unique="dcB" />
                 </Col>
                 <Col title="VAR ATK" channel="B" w={92}>
-                  <VarKnob paramValue={varAtkB} onChange={edit(setVarAtkB)}
+                  <VarKnob paramValue={varAtkB} onChange={edit(gang(setVarAtkB, setVarAtkA))}
                     disabled={!isVarTc(tcB)} unique="vAtkB" size={68} />
                 </Col>
                 <Col title="VAR REL" channel="B" w={92}>
-                  <VarKnob paramValue={varRelB} onChange={edit(setVarRelB)}
+                  <VarKnob paramValue={varRelB} onChange={edit(gang(setVarRelB, setVarRelA))}
                     disabled={!isVarTc(tcB)} unique="vRelB" size={68} />
                 </Col>
               </div>
@@ -1379,20 +1454,35 @@ export default function ManChildOrb({
                 }}>
                   {MODE_POSITIONS.map((mode, i) => {
                     const active = chanMode === mode;
-                    const fire = (e) => { e.preventDefault(); e.stopPropagation(); edit(setChanMode)(mode); };
+                    // GANG = "treat input as a stereo pair." The only MODE
+                    // that matches that intent is LINK (sidechain-linked
+                    // L/R). IND is dual-mono (unrelated sources → can't be
+                    // ganged). M-S and M-S LINK lose their point when M
+                    // and S settings are forced identical. So: when GANG
+                    // is on, LINK is the only live mode.
+                    const disabled = knobGang && mode !== 'LINK';
+                    const fire = (e) => {
+                      e.preventDefault(); e.stopPropagation();
+                      if (disabled) return;
+                      edit(setChanMode)(mode);
+                    };
                     return (
                       <button key={mode} type="button"
+                        disabled={disabled}
                         onMouseDown={fire}
                         onTouchStart={fire}
                         onClick={(e) => { e.stopPropagation(); }}
+                        title={disabled ? 'Turn GANG A/B off to access M-S modes (they need independent M/S settings).' : ''}
                         style={{
                           fontSize:11, fontFamily:'"Helvetica Neue",Arial,sans-serif',
                           fontWeight:800, letterSpacing:1.2,
                           background: active ? COL.active : '#1A1A1A',
-                          color:      active ? '#000'     : '#F2F2F2',
-                          border:`1px solid ${active ? COL.active : '#3A3A3A'}`,
-                          boxShadow: active ? `0 0 6px ${COL.active}88` : 'none',
-                          borderRadius:3, padding:'8px 0', cursor:'pointer',
+                          color:      disabled ? '#555' : (active ? '#000' : '#F2F2F2'),
+                          border:`1px solid ${disabled ? '#2A2A2A' : (active ? COL.active : '#3A3A3A')}`,
+                          boxShadow: active && !disabled ? `0 0 6px ${COL.active}88` : 'none',
+                          opacity: disabled ? 0.45 : 1,
+                          borderRadius:3, padding:'8px 0',
+                          cursor: disabled ? 'not-allowed' : 'pointer',
                           textAlign:'center', pointerEvents:'auto',
                         }}>
                         {MODE_LABELS[i]}
@@ -1401,22 +1491,33 @@ export default function ManChildOrb({
                   })}
                 </div>
               </Col>
-              {/* BYPASS — sits above SIDECHAIN in the right global column */}
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <button onClick={() => edit(setBypass)(!bypass)}
-                  style={{
-                    fontSize:10, fontFamily:'"Helvetica Neue",Arial,sans-serif',
-                    fontWeight:800, letterSpacing:1.2,
-                    background: bypass ? COL.textRed : '#1A1A1A',
-                    color: bypass ? '#000' : '#F2F2F2',
-                    border:`1px solid ${bypass ? COL.textRed : '#3A3A3A'}`,
-                    borderRadius:3, padding:'5px 14px', cursor:'pointer',
-                  }}>
-                  {bypass ? 'BYPASSED' : 'BYPASS'}
-                </button>
-                <RedLamp on={bypass} />
-              </div>
-
+              {/* GANG — UI convenience, orthogonal to MODE. When ON, A/B knobs
+                  mirror each other. MODE stays pure DSP (LNK = sidechain link
+                  only, Fairchild-faithful). Width matches MODE grid for
+                  right-column alignment. */}
+              {(() => {
+                const fire = (e) => { e.preventDefault(); e.stopPropagation(); edit(setKnobGang)(!knobGang); };
+                return (
+                  <button type="button"
+                    onMouseDown={fire}
+                    onTouchStart={fire}
+                    onClick={(e) => { e.stopPropagation(); }}
+                    title="Gang A/B knobs — moves both channels together. Works in any MODE."
+                    style={{
+                      fontSize:11, fontFamily:'"Helvetica Neue",Arial,sans-serif',
+                      fontWeight:800, letterSpacing:1.2,
+                      width:120, boxSizing:'border-box',
+                      background: knobGang ? COL.active : '#1A1A1A',
+                      color:      knobGang ? '#000'     : '#F2F2F2',
+                      border:`1px solid ${knobGang ? COL.active : '#3A3A3A'}`,
+                      boxShadow: knobGang ? `0 0 6px ${COL.active}88` : 'none',
+                      borderRadius:3, padding:'6px 0', cursor:'pointer',
+                      textAlign:'center', pointerEvents:'auto',
+                    }}>
+                    GANG A/B
+                  </button>
+                );
+              })()}
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
                 <div style={{
                   fontSize:13, color:'#F2F2F2', letterSpacing:2,

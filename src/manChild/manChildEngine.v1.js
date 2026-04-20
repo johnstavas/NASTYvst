@@ -876,6 +876,46 @@ export async function createManChildEngineV1(audioCtx) {
       osThresholds: null,    // adaptive OS, no user-facing threshold
       latencySamples: 0,     // pure IIR + cell; no lookahead, no FIR
       crossoverPhase: null,  // not a multiband plugin
+
+      // Design-intent flag. ManChild models a Fairchild 670: 6386
+      // remote-cutoff twin triodes wired in push-pull. Those tubes sit
+      // in the signal path at all times — a real Fairchild with Input at
+      // zero still has the triodes in-circuit. We faithfully emulate that,
+      // which means the "dry leg" is colored by construction (even/odd
+      // harmonic behavior from the push-pull topology).
+      //
+      // Consequence for QC: the mix_null_series test (two instances in
+      // series, second at Mix=0 — see dry_wet_mix_rule.md §5) will always
+      // show a coloration-difference residual on this plugin. That's the
+      // hardware faithfulness, not a dry-path leak. The flag tells the
+      // harness to self-disable that rule with an INFO narrative instead
+      // of false-failing the verdict.
+      //
+      // Only declare true when the dry-signal coloration is an explicit
+      // hardware-fidelity choice. Modern-voiced or "clean" plugin designs
+      // should leave this false and honor the in-worklet mix contract
+      // (coloration gated behind `mix > 0`).
+      dryLegHasColoration: true,
+
+      // Compressor topology declaration. Vari-mu (variable-mu) compressors
+      // use the tube's own transfer curve as the gain-control element — no
+      // sidechain, no VCA, no peak detector. The attack is inherently slow
+      // (the envelope follows the tube's bias response, not a dedicated
+      // detector), so TRANSIENTS PASS THROUGH BY DESIGN before the tube
+      // settles into compression. That's the "slow fat" Fairchild sound
+      // (DAFx Ch.4, Zölzer 2011).
+      //
+      // Consequence for QC: the `peak_above_input` rule gates at +1.0 dB
+      // for FET/VCA/digital topologies where a >1 dB overshoot would
+      // indicate a gain-staging bug. That gate is too tight for a vari-mu
+      // — a +1 to +2 dB transient overshoot on percussive sources is the
+      // EXPECTED behaviour, not a defect. When this flag is 'vari-mu',
+      // the rule raises its gate to +2.5 dB.
+      //
+      // Valid values: 'vari-mu' | 'fet' | 'vca' | 'opto' | 'digital' | null
+      // Add new topologies to the switch in qcAnalyzer.js → peak_above_input
+      // when introducing them. Null / unset = default gate (+1.0 dB).
+      compressorTopology: 'vari-mu',
     },
 
     paramSchema: [

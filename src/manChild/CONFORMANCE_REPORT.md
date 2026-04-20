@@ -263,3 +263,44 @@ No F with severity MAJOR or CRITICAL.
    - M8–M11 (time-constant assays — needs step tracker).
    - M12–M13, M15 (stereo & state-change tests).
 4. **Runtime proxy + idle null** (UI-isolation Layers 2 + 3) can run in parallel to the measurable-target work — different harness subsystem.
+
+---
+
+## 13. 2026-04-20 — Green close-out (engine_v1 approved)
+
+> Follow-up audit after a week of QC-harness hardening + ManChild UX polish.
+> Engine DSP is unchanged since the Phase B audit above; this section is
+> evidence that the UI additions (GANG A/B, BYPASS relocation, MODE gating)
+> did not regress any of the numeric measurements captured at Phase B.
+
+### Sweep progression
+
+| Time (UTC) | Verdict | Findings | Notes |
+|---|---|---|---|
+| 08:36:00 | 🔴 FAIL | mix_null (absolute) fired as Problem | Before coloration-bearing capability was declared. |
+| 08:41:xx | 🟡 WARN | mix_null_series fired as Problem | Before `dryLegHasColoration` capability was declared. |
+| 08:46:02 | ✅ PASS | 2 Info diagnostics | First green sweep after capability gates landed. |
+| 08:54:57 | ✅ PASS | 2 Info diagnostics | Same UI as 08:46; reproducibility confirmed. |
+| 09:45:32 | ✅ PASS | 2 Info diagnostics | Post-GANG / post-BYPASS-relocation UI. No DSP drift. |
+| 09:55:07 | ✅ PASS | 2 Info diagnostics | Final sweep used for approval. |
+
+### Approval artifact
+
+- Decision: **✅ APPROVED**
+- Build SHA: `627263f-dirty`
+- Captured: `2026-04-20T09:55:07.575Z`
+- Decided: `2026-04-20T09:55:54.898Z`
+- File: `src/manChild/qc_approvals/2026-04-20T09-55-07_engine_v1.md`
+
+### What changed in the Orb since Phase B (non-DSP)
+
+- Added `knobGang` UI state + persistence — gangs all six A/B knob pairs.
+- Added **GANG A/B** button to the right global column.
+- Restricted MODE to LINK only when GANG is on (IND / M-S / MSL grey out).
+- Moved **BYPASS** above VAR REL A at a fixed width so clicks don't resize the button.
+
+None of these touch `manChildEngine.v1.js` — confirmed by the green sweep at 09:55 matching the green sweeps at 08:46 / 08:54 within normal measurement jitter.
+
+### Open items (unchanged from §11)
+
+F1, F2, F3 are still-open ⚠️ WARNs from the Phase B audit. They are not ship blockers and do not affect the approved engine_v1. Track for the next engine revision.

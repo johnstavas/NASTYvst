@@ -15,6 +15,72 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { runConformanceChecks } from './conformanceChecks.js';
 import { analyzeAudit, reportToMarkdown, diffReports, RULE_META, HEADLINE_HINTS, humanSummary } from './qcAnalyzer.js';
+import { generateQcPresets, summarizeQcPresets } from './qcPresets.js';
+import { renderSeriesNull } from './seriesRender.js';
+
+// ── Approval / acknowledgment persistence ─────────────────────────────────
+//
+// Approve + Acknowledge both write a localStorage entry keyed by
+// productId+variantId+build.sha. Re-running QC on the same build leaves
+// the approval intact (you're re-verifying). Re-running after a rebuild
+// invalidates it (SHA changed → different binary → old approval doesn't
+// cover it). Approvals are a dev-facing paper trail; the real blessed
+// artifact is the .md file the user downloads and commits alongside.
+const APPROVAL_LS_KEY = 'qc:approvals:v1';
+
+function readApprovals() {
+  try { return JSON.parse(localStorage.getItem(APPROVAL_LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function writeApprovals(next) {
+  try { localStorage.setItem(APPROVAL_LS_KEY, JSON.stringify(next)); } catch {}
+}
+function approvalKey(productId, variantId) {
+  return `${productId}:${variantId}`;
+}
+function readApproval(productId, variantId, sha) {
+  const all = readApprovals();
+  const entry = all[approvalKey(productId, variantId)];
+  if (!entry) return null;
+  // Invalidate on SHA drift — a new build is a different binary.
+  if (sha && entry.sha && sha !== entry.sha) return null;
+  return entry;
+}
+function saveApproval(productId, variantId, entry) {
+  const all = readApprovals();
+  all[approvalKey(productId, variantId)] = entry;
+  writeApprovals(all);
+}
+function clearApproval(productId, variantId) {
+  const all = readApprovals();
+  delete all[approvalKey(productId, variantId)];
+  writeApprovals(all);
+}
+
+function triggerMdDownload(fname, md) {
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = fname; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Prepends an approval/acknowledgment block to the standard QC markdown
+// so the downloaded file carries the decision on its face — not just as
+// a filename suffix. Any reader of the .md sees "APPROVED by … on …"
+// at the top before they scroll to the verdict.
+function buildDecisionMarkdown({ md, decision, productId, variantId, sha, reason }) {
+  const lines = [];
+  const stamp = new Date().toISOString();
+  const heading = decision === 'approved' ? '✅ APPROVED' : '⚠️ ACKNOWLEDGED (shipping with findings)';
+  lines.push(`> **${heading}**`);
+  lines.push(`> ${productId} · ${variantId} · build \`${sha || 'unknown'}\``);
+  lines.push(`> Decision recorded: ${stamp}`);
+  if (reason) lines.push(`> Reason: ${reason}`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  return lines.join('\n') + md;
+}
 
 const DB_FLOOR = -100;
 const FFT_SIZE = 8192;
@@ -23,6 +89,59 @@ const OCTAVE_BANDS = [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
 function dbfs(x) { return x > 0 ? 20 * Math.log10(x) : DB_FLOOR; }
 function fmtDb(x) { return !isFinite(x) || x <= DB_FLOOR + 0.01 ? '−∞' : x.toFixed(1); }
+
+// Offline aligned null between two time-domain buffers.
+//
+// The live null analyser (input + −output) physically cannot resolve below
+// ~−20 dB under any plugin latency because it does the subtraction in real
+// time with no sample alignment — 128-sample AudioWorklet quanta + oversampler
+// group delay guarantee a phase offset. Per JOS PASP, a 1-sample offset alone
+// nulls at ~−20 dB, which is exactly the fingerprint we kept hitting.
+//
+// This function: searches for the integer-sample lag (±maxLagSamples) that
+// maximises cross-correlation magnitude, shifts `post` to match `pre`, and
+// returns RMS of the residual in dB. Usable as a < −90 dB null-test gate.
+//
+// Center crop is taken from both buffers so shifted comparisons stay inside
+// the captured window without boundary artefacts.
+function computeAlignedNullDb(preBuf, postBuf, maxLagSamples = 256) {
+  const fail = { db: DB_FLOOR, lag: null };
+  if (!preBuf || !postBuf) return fail;
+  const N = Math.min(preBuf.length, postBuf.length);
+  if (N < 1024) return fail;
+  const margin = maxLagSamples;
+  const L = N - 2 * margin;            // compared length
+  if (L < 512) return fail;
+
+  // Pre-check: if pre is effectively silent the null is ambiguous.
+  let preSs = 0;
+  for (let i = margin; i < margin + L; i++) { const v = preBuf[i]; preSs += v * v; }
+  const preRmsLin = Math.sqrt(preSs / L);
+  if (preRmsLin < 1e-6) return fail;
+
+  // Coarse search: max |Σ pre[i]·post[i+k]| over k ∈ [-margin, +margin].
+  let bestK = 0, bestMag = -Infinity;
+  for (let k = -margin; k <= margin; k++) {
+    let acc = 0;
+    for (let i = margin; i < margin + L; i++) {
+      acc += preBuf[i] * postBuf[i + k];
+    }
+    const mag = Math.abs(acc);
+    if (mag > bestMag) { bestMag = mag; bestK = k; }
+  }
+
+  // Residual RMS at the chosen lag.
+  let ss = 0;
+  for (let i = margin; i < margin + L; i++) {
+    const d = postBuf[i + bestK] - preBuf[i];
+    ss += d * d;
+  }
+  const rmsLin = Math.sqrt(ss / L);
+  return {
+    db: rmsLin > 0 ? 20 * Math.log10(rmsLin) : DB_FLOOR,
+    lag: bestK,
+  };
+}
 
 // One tap = one AnalyserNode + canvas pair.
 function Tap({ label, analyser, color, peak, rms, hold, lufs, crest, centroid, frozenRef }) {
@@ -319,6 +438,7 @@ export default function Analyzer({
   const fileInputRef = useRef(null);
   const [audit, setAudit] = useState([]);   // queue of saved snapshots
   const [sweeping, setSweeping] = useState(false);
+  const [longMode, setLongMode] = useState(false); // opt-in: adds Tier 4 long-session drift preset
   // Keep latest stats in a ref so sweep can read fresh values without re-renders
   const statsRef = useRef(null);
   const [stats, setStats] = useState({
@@ -519,6 +639,29 @@ export default function Analyzer({
     try { liveGrB = engine?.getGrDbB?.() ?? null; } catch {}
     const liveGrDb = { A: liveGrA, B: liveGrB };
 
+    // Sample-aligned null residual. The live `nullRmsDb` is a real-time
+    // AnalyserNode sum of (input + −output) with no alignment, so it floors
+    // at ~−20 dB under any plugin latency (see computeAlignedNullDb header).
+    // We pull both time-domain buffers here at snapshot time, cross-correlate
+    // for integer-sample lag, and compute a real residual. This field is what
+    // the mix_null rule gates on.
+    let alignedNullRmsDb = DB_FLOOR;
+    let alignedNullLagSamples = null;
+    try {
+      if (pre && post) {
+        const preBuf  = new Float32Array(pre.fftSize);
+        const postBuf = new Float32Array(post.fftSize);
+        pre.getFloatTimeDomainData(preBuf);
+        post.getFloatTimeDomainData(postBuf);
+        // Search lag up to 256 samples — covers 128-sample worklet quantum +
+        // typical oversampler group delays. Widen later if a plugin declares
+        // capabilities.latencySamples > 256.
+        const r = computeAlignedNullDb(preBuf, postBuf, 256);
+        alignedNullRmsDb = r.db;
+        alignedNullLagSamples = r.lag;
+      }
+    } catch {}
+
     const measurements = {
       pre: {
         peakDb: s.prePk, rmsDb: s.preRms, holdDb: s.preHold,
@@ -531,7 +674,9 @@ export default function Analyzer({
       deltaPkDb:  s.postPk  - s.prePk,
       deltaRmsDb: s.postRms - s.preRms,
       deltaLufsDb: s.postLufs - s.preLufs,
-      nullRmsDb:  s.nullRmsDb,
+      nullRmsDb:  s.nullRmsDb,                 // live, advisory (graph sum, unaligned)
+      alignedNullRmsDb,                         // offline, cross-correlated — contract-grade
+      alignedNullLagSamples,                    // integer lag found by correlator
       grDb: liveGrDb,
     };
 
@@ -555,6 +700,7 @@ export default function Analyzer({
       changedParamsFromPrevious: changedFromPrevious,
       engineState,
       paramSchema,
+      capabilities: engine?.capabilities ?? null,
       measurements,
       checks,
     };
@@ -701,6 +847,10 @@ export default function Analyzer({
   // a failing finding.
   const runReRun = async () => {
     if (!presetEntry || sweeping) return;
+    // Re-running invalidates any prior approval for this variant — the
+    // user is capturing fresh data, so the old blessed artifact no
+    // longer describes the current state. They must re-Approve.
+    clearApproval(productId, variantId);
     setAnalysis(null);
     // sweepPresets({replace:true}) returns the freshly collected array
     // AND atomically replaces the audit state with it — no append race,
@@ -729,11 +879,66 @@ export default function Analyzer({
     const md = reportToMarkdown(analysis.report, analysis.bundle);
     const ts = analysis.bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
     const fname = `qc_report_${productId}_${variantId}_${ts}.md`;
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = fname; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    triggerMdDownload(fname, md);
   };
+
+  // Approve — only safe when verdict is green. Saves approval to
+  // localStorage (keyed by productId+variantId+SHA so re-runs on the
+  // same build survive, but new builds invalidate) and downloads a
+  // blessed .md with an APPROVED header. The user commits that .md
+  // alongside CONFORMANCE_REPORT.md as the ship receipt.
+  const approveReport = () => {
+    if (!analysis) return;
+    if (analysis.report.verdict !== 'ok') return;
+    const bundle = analysis.bundle;
+    const sha = bundle?.build?.sha || null;
+    const ts = bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
+    const rawMd = reportToMarkdown(analysis.report, bundle);
+    const md = buildDecisionMarkdown({ md: rawMd, decision: 'approved', productId, variantId, sha });
+    const fname = `qc_approval_${productId}_${variantId}_${ts}.md`;
+    saveApproval(productId, variantId, {
+      decision: 'approved',
+      at: new Date().toISOString(),
+      sha,
+      capturedAt: bundle.capturedAt,
+      verdict: analysis.report.verdict,
+    });
+    triggerMdDownload(fname, md);
+    // Nudge a re-render so the approval badge lights up immediately.
+    setAnalysis(a => a ? { ...a } : a);
+  };
+
+  // Acknowledge — the escape hatch. Available when verdict is WARN or
+  // FAIL (or INFO-only on green, in case someone wants to annotate
+  // declared diagnostics). Requires a reason string — no silent bypass.
+  const acknowledgeReport = (reason) => {
+    if (!analysis) return;
+    if (!reason || !reason.trim()) return;
+    const bundle = analysis.bundle;
+    const sha = bundle?.build?.sha || null;
+    const ts = bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
+    const rawMd = reportToMarkdown(analysis.report, bundle);
+    const md = buildDecisionMarkdown({
+      md: rawMd, decision: 'acknowledged', productId, variantId, sha, reason: reason.trim(),
+    });
+    const fname = `qc_acknowledgment_${productId}_${variantId}_${ts}.md`;
+    saveApproval(productId, variantId, {
+      decision: 'acknowledged',
+      at: new Date().toISOString(),
+      sha,
+      capturedAt: bundle.capturedAt,
+      verdict: analysis.report.verdict,
+      reason: reason.trim(),
+    });
+    triggerMdDownload(fname, md);
+    setAnalysis(a => a ? { ...a } : a);
+  };
+
+  // Current decision for this variant (if any), used to light up the
+  // "Approved" / "Acknowledged" badge on the verdict banner.
+  const currentDecision = analysis
+    ? readApproval(productId, variantId, analysis.bundle?.build?.sha || null)
+    : null;
 
   const clearAudit = () => { setAudit([]); setLoadMsg({ level: 'ok', text: 'audit queue cleared' }); };
 
@@ -752,15 +957,17 @@ export default function Analyzer({
     if (options.length === 0) return null;
     const starting = (valuesRef?.current ?? values)[presetEntry.name]; // restore after
     setSweeping(true);
-    setLoadMsg({ level: 'ok', text: `sweeping ${options.length} presets…` });
+    setLoadMsg({ level: 'ok', text: `sweeping plugin presets 0/${options.length}…` });
     const collected = [];
-    for (const opt of options) {
+    for (let i = 0; i < options.length; i++) {
+      const opt = options[i];
       setParam?.(presetEntry.name, opt);
       // Let engine apply, sync slider state back, meters settle
       await new Promise(r => setTimeout(r, 600));
       const applied = (valuesRef?.current ?? values)[presetEntry.name] === opt;
       const snap = buildSnapshot({ requestedPresetName: opt, presetApplySucceeded: applied });
       collected.push({ label: opt, snap });
+      setLoadMsg({ level: 'ok', text: `sweeping plugin presets ${i + 1}/${options.length} · ${opt}` });
     }
     // Restore starting state
     if (starting !== undefined) {
@@ -771,6 +978,129 @@ export default function Analyzer({
     setSweeping(false);
     setLoadMsg({ level: 'ok', text: `swept ${collected.length} presets — ${nextAudit.length} queued` });
     return nextAudit;
+  };
+
+  // ── sweep QC presets (generator-driven, schema-conditional) ─────────────
+  //
+  // Reads engine.capabilities + engine.paramSchema and emits tier-gated
+  // presets. Applies each preset's `params` map via setParam (same setter
+  // fan-out as plugin preset sweep, just per-param instead of via
+  // setCharacter). Tags each snapshot with source:'qc' + ruleId so the
+  // analyzer can route rule evaluation.
+  const sweepQcPresets = async ({ replace = false, includeLong = false, base = null } = {}) => {
+    if (sweeping) return null;
+    if (!engine) return null;
+    const qcPresets = generateQcPresets(engine, { includeLong });
+    if (qcPresets.length === 0) {
+      setLoadMsg({ level: 'warn', text: 'no QC presets emitted — engine.capabilities missing?' });
+      return null;
+    }
+    const sum = summarizeQcPresets(qcPresets);
+    setSweeping(true);
+    setLoadMsg({ level: 'ok',
+      text: `sweeping QC presets 0/${sum.total} (T1:${sum.t1} T2:${sum.t2} T3:${sum.t3} T4:${sum.t4})…` });
+
+    // Snapshot starting params so we can restore after
+    const startingValues = { ...(valuesRef?.current ?? values) };
+    const collected = [];
+    for (let i = 0; i < qcPresets.length; i++) {
+      const qp = qcPresets[i];
+      // Apply each param via the React setParam so UI + engine stay in sync
+      for (const [name, v] of Object.entries(qp.params || {})) {
+        if (typeof engine?.[name] === 'function') setParam?.(name, v);
+      }
+      await new Promise(r => setTimeout(r, 600));
+      const snap = buildSnapshot({ requestedPresetName: qp.id, presetApplySucceeded: true });
+      // Tag snapshot with QC metadata (analyzer routes on source + ruleId)
+      snap.qc = { source: 'qc', tier: qp.tier, ruleId: qp.ruleId, meta: qp.meta || null };
+
+      // ── Capture-layer: series-render hook ───────────────────────────
+      //
+      // For `mix_null_series` probes we run an offline two-pass render
+      // (see seriesRender.js) and write the residual onto the snap. The
+      // rule in qcAnalyzer.js reads measurements.seriesNullRmsDb and
+      // self-disables (INFO/capture_pending) when the field is absent.
+      //
+      // Factory wiring: the render needs the engine FACTORY, not the
+      // instance (to construct two engines inside one OfflineAudioContext).
+      // Currently hardcoded for manchild — the only plugin emitting this
+      // probe today. To generalize: read from the variant registry using
+      // productId+variantId. That refactor is scoped separately; keeping
+      // this guarded + loud so the next plugin that trips it fails obvious.
+      if (qp.ruleId === 'mix_null_series') {
+        try {
+          let factory = null;
+          if (productId === 'manchild' && variantId === 'engine_v1') {
+            const mod = await import('../manChild/manChildEngine.v1.js');
+            factory = mod.createManChildEngineV1;
+          }
+          if (factory) {
+            const { rmsDb, lagNotes } = await renderSeriesNull({
+              factory,
+              params: qp.params,
+              sampleRate: ctx.sampleRate,
+            });
+            snap.measurements.seriesNullRmsDb = rmsDb;
+            snap.measurements.seriesNullRefLabel = 'single-instance @ same params';
+            snap.measurements.seriesNullNotes = lagNotes;
+          } else {
+            snap.measurements.seriesNullNotes = `no-factory-for-${productId}/${variantId}`;
+          }
+        } catch (err) {
+          // Never let a render failure break the sweep. Record the error
+          // and move on — the rule will see a missing measurement and
+          // stay in INFO/capture_pending.
+          snap.measurements.seriesNullNotes = `render-threw: ${err && err.message || err}`;
+        }
+      }
+
+      // ── Capture-layer TODO — other offline hooks, not yet built ──────────
+      // Follow the mix_null_series pattern above. Each rule self-disables
+      // to INFO when its measurement field is missing, so shipping any
+      // subset is safe — the generator + analyzer rules already exist,
+      // this block is the only remaining gap. Pending hooks:
+      //   - 'bypass_exact'        (single pass, signal=impulse, null vs source)
+      //   - 'impulse_ir'          (single pass, signal=impulse, IR metrics)
+      //   - 'latency_report'      (impulse → first-nonzero-sample vs declared)
+      //   - 'mix_identity'        (two passes, second replays ref at mix=100)
+      //   - 'pathological_stereo' (single pass with L=R/L=−R/L-only/R-only)
+      //   - 'denormal_tail'       (single pass, signal burst→silence, CPU timing)
+      //   - 'fb_runaway'          (single pass, bounded-output assertion)
+      // ────────────────────────────────────────────────────────────────
+
+      collected.push({ label: qp.label, snap });
+      setLoadMsg({ level: 'ok',
+        text: `sweeping QC presets ${i + 1}/${qcPresets.length} · ${qp.id}` });
+    }
+    // Restore starting state (best effort — only restores params we know about)
+    for (const [name, v] of Object.entries(startingValues)) {
+      if (typeof engine?.[name] === 'function') setParam?.(name, v);
+    }
+
+    // Use explicit `base` when provided (sweepAll passes the fresh plugin
+    // audit through to avoid a stale-closure race on `audit` state — after
+    // sweepPresets' setAudit, this function's `audit` closure is still the
+    // pre-sweep value, so appending to it silently overwrites the plugin
+    // half). Falls back to closure `audit` for solo SWEEP QC.
+    const baseAudit = base !== null ? base : audit;
+    const nextAudit = replace ? collected : [...baseAudit, ...collected];
+    setAudit(nextAudit);
+    setSweeping(false);
+    setLoadMsg({ level: 'ok',
+      text: `swept ${collected.length} QC presets — ${nextAudit.length} queued` });
+    return nextAudit;
+  };
+
+  // ── sweep ALL (plugin presets + QC presets, tagged) ─────────────────────
+  const sweepAll = async ({ includeLong = false } = {}) => {
+    if (sweeping) return null;
+    // Plugin presets first (wipes queue, tags variant_drift semantics),
+    // then QC presets append to the same queue.
+    // CRITICAL: pass pluginAudit as `base` — sweepQcPresets' `audit` closure
+    // is stale at this point (captured at sweepAll's render, pre-setAudit).
+    const pluginAudit = await sweepPresets({ replace: true });
+    if (!pluginAudit) return null;
+    return await sweepQcPresets({ replace: false, includeLong, base: pluginAudit });
   };
 
   const delta = stats.postPk - stats.prePk;
@@ -796,10 +1126,12 @@ export default function Analyzer({
                   title="Add current state to the audit queue">
             + ADD{audit.length > 0 ? ` (${audit.length})` : ''}
           </button>
-          <button onClick={openAnalyzer} disabled={audit.length === 0}
-                  style={{ ...ST.freezeBtn, opacity: audit.length === 0 ? 0.4 : 1 }}
-                  title="Analyze the audit queue and show a plain-English verdict">
-            📊 ANALYZE
+          <button onClick={openAnalyzer} disabled={audit.length === 0 || sweeping}
+                  style={{ ...ST.freezeBtn, opacity: (audit.length === 0 || sweeping) ? 0.4 : 1 }}
+                  title={sweeping
+                    ? "Sweep in progress — wait for it to finish before analyzing"
+                    : "Analyze the audit queue and show a plain-English verdict"}>
+            {sweeping ? '⏳ SWEEPING…' : '📊 ANALYZE'}
           </button>
           {presetEntry && (
             <button onClick={reRun} disabled={sweeping}
@@ -821,9 +1153,34 @@ export default function Analyzer({
             <button onClick={sweepPresets} disabled={sweeping}
                     style={{ ...ST.freezeBtn, opacity: sweeping ? 0.5 : 1,
                              borderColor: '#6a7aff', color: '#9aa9ff' }}
-                    title="Iterate every preset, capture each, restore starting state">
+                    title="Iterate every plugin-authored preset, capture each, restore starting state">
               {sweeping ? '⏳ SWEEPING…' : '🌀 SWEEP PRESETS'}
             </button>
+          )}
+          {/* QC preset sweep — reads engine.capabilities + paramSchema */}
+          {engine?.capabilities && (
+            <>
+              <button onClick={() => sweepQcPresets({ replace: true, includeLong: longMode })}
+                      disabled={sweeping}
+                      style={{ ...ST.freezeBtn, opacity: sweeping ? 0.5 : 1,
+                               borderColor: '#b97aff', color: '#c89bff' }}
+                      title="Generate QC presets from engine capabilities (tier-gated), sweep, replace queue">
+                {sweeping ? '⏳ SWEEPING…' : '🧪 SWEEP QC'}
+              </button>
+              <button onClick={() => sweepAll({ includeLong: longMode })}
+                      disabled={sweeping || !presetEntry}
+                      style={{ ...ST.freezeBtn, opacity: (sweeping || !presetEntry) ? 0.5 : 1,
+                               borderColor: '#7affc3', color: '#7affc3' }}
+                      title="Run plugin presets + QC presets in one sweep (plugin first, QC appended)">
+                {sweeping ? '⏳ SWEEPING…' : '🔬 SWEEP ALL'}
+              </button>
+              <label style={{ fontSize: 10, fontFamily: 'monospace', color: longMode ? '#ffb86b' : '#888',
+                              display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}
+                     title="Opt-in: when SWEEP ALL or SWEEP QC runs, include Tier 4 long-session drift preset (10-min steady-state)">
+                <input type="checkbox" checked={longMode} onChange={e => setLongMode(e.target.checked)} />
+                + LONG
+              </label>
+            </>
           )}
           <input ref={fileInputRef} type="file" accept="application/json,.json"
                  style={{ display: 'none' }}
@@ -869,8 +1226,11 @@ export default function Analyzer({
           bundle={analysis.bundle}
           diff={analysis.diff}
           history={history}
+          decision={currentDecision}
           onClose={closeAnalyzer}
           onDownload={downloadReport}
+          onApprove={approveReport}
+          onAcknowledge={acknowledgeReport}
           onReRun={presetEntry ? reRun : null}
           sweeping={sweeping}
         />
@@ -895,7 +1255,11 @@ export default function Analyzer({
 // Renders the plain-English verdict from qcAnalyzer.analyzeAudit(). Three
 // sections top-to-bottom: verdict banner, headline-metrics table, findings
 // list. Bottom toolbar has CLOSE + DOWNLOAD REPORT (.md).
-function AnalyzerPopup({ report, bundle, diff, history, onClose, onDownload, onReRun, sweeping }) {
+function AnalyzerPopup({ report, bundle, diff, history, decision, onClose, onDownload, onApprove, onAcknowledge, onReRun, sweeping }) {
+  // Acknowledge-reason modal. Lives here (not at Analyzer root) because
+  // it's cheap and keeps the decision flow co-located with the verdict.
+  const [ackOpen, setAckOpen] = useState(false);
+  const [ackReason, setAckReason] = useState('');
   const badge =
     report.verdict === 'fail' ? { t: '❌ Not ready',    bg: '#3a1212', fg: '#ff9a9a', bd: '#ff5050' } :
     report.verdict === 'warn' ? { t: '⚠️ Almost there', bg: '#332a12', fg: '#ffd07a', bd: '#ffb040' } :
@@ -915,6 +1279,7 @@ function AnalyzerPopup({ report, bundle, diff, history, onClose, onDownload, onR
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.04em' }}>{badge.t}</div>
             <VariantChip variantId={bundle?.product?.variantId} />
+            {decision && <DecisionChip decision={decision} />}
           </div>
           <div style={{ fontSize: 13, marginTop: 4, opacity: 0.95 }}>{friendlyLine}</div>
           <div style={{ fontSize: 10, marginTop: 6, opacity: 0.7, fontFamily: 'monospace' }}>
@@ -1060,11 +1425,19 @@ function AnalyzerPopup({ report, bundle, diff, history, onClose, onDownload, onR
                 const row = f.severity === 'fail' ? { bg: '#2a0d0d', fg: '#ff9a9a', bd: '#ff5050', icon: '🔴', tag: 'Problem' }
                            : f.severity === 'warn' ? { bg: '#281f0d', fg: '#ffd07a', bd: '#ffb040', icon: '🟡', tag: 'Check' }
                            :                         { bg: '#0d1a28', fg: '#9fc3ff', bd: '#5080c0', icon: '🔵', tag: 'Info' };
-                const meta = RULE_META[f.rule] || {
+                // Merge severity-branched copy — same rule can show a
+                // FAIL title ("Dry path leaks when Mix = 0") or an INFO
+                // title ("Mix knob — automatic check skipped for this
+                // plugin") depending on severity. reportToMarkdown does
+                // this merge in qcAnalyzer.js; the UI must do the same
+                // or the generated .md and the popup disagree.
+                const baseMeta = RULE_META[f.rule] || {
                   title:   f.rule,
                   meaning: f.msg,
                   fix:     "No suggested fix on file for this rule yet — open qcAnalyzer.js and add one.",
                 };
+                const override = baseMeta.bySeverity?.[f.severity] || {};
+                const meta = { ...baseMeta, ...override, dev: override.dev || baseMeta.dev };
                 return (
                   <div key={i} style={{ ...AP.finding, background: row.bg, borderColor: row.bd, color: row.fg }}>
                     {/* Plain-English header */}
@@ -1161,15 +1534,129 @@ function AnalyzerPopup({ report, bundle, diff, history, onClose, onDownload, onR
           {onReRun && (
             <button onClick={onReRun} disabled={sweeping}
                     style={{ ...AP.btnReRun, opacity: sweeping ? 0.5 : 1 }}
-                    title="Clear queue, re-sweep every preset, re-analyze — one-click fix→verify loop">
-              {sweeping ? '⏳ RE-RUNNING…' : '🔁 RE-RUN QC'}
+                    title={decision
+                      ? 'Re-running will invalidate the current approval for this variant.'
+                      : 'Clear queue, re-sweep every preset, re-analyze — one-click fix→verify loop'}>
+              {sweeping ? '⏳ RE-RUNNING…' : (decision ? '🔁 RE-RUN (invalidates approval)' : '🔁 RE-RUN QC')}
             </button>
           )}
           <button onClick={onDownload} style={AP.btnPrimary} title="Save the markdown report for the conformance file">
             ⬇ DOWNLOAD REPORT (.md)
           </button>
+          {onAcknowledge && (
+            <button onClick={() => { setAckReason(''); setAckOpen(true); }}
+                    style={AP.btnAck}
+                    title="Ship despite findings — requires a short reason so there's a paper trail.">
+              ⚠ ACKNOWLEDGE
+            </button>
+          )}
+          {onApprove && (
+            <button onClick={onApprove}
+                    disabled={report.verdict !== 'ok'}
+                    style={{
+                      ...AP.btnApprove,
+                      opacity: report.verdict === 'ok' ? 1 : 0.4,
+                      cursor: report.verdict === 'ok' ? 'pointer' : 'not-allowed',
+                    }}
+                    title={report.verdict === 'ok'
+                      ? 'Record this green sweep as the blessed artifact for this variant + build.'
+                      : 'Approve is only available on a green verdict. Fix findings or use Acknowledge.'}>
+              ✅ APPROVE
+            </button>
+          )}
           <div style={{ flex: 1 }} />
           <button onClick={onClose} style={AP.btn}>CLOSE</button>
+        </div>
+
+        {ackOpen && (
+          <AcknowledgeModal
+            reason={ackReason}
+            onReasonChange={setAckReason}
+            onCancel={() => setAckOpen(false)}
+            onConfirm={() => {
+              onAcknowledge(ackReason);
+              setAckOpen(false);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Decision chip — shown on the verdict banner when an approval or
+// acknowledgment exists for this variant+SHA. Lives next to the variant
+// chip so the state is obvious at a glance.
+function DecisionChip({ decision }) {
+  const approved = decision.decision === 'approved';
+  const bg = approved ? 'rgba(30,120,50,0.35)' : 'rgba(160,110,30,0.35)';
+  const fg = approved ? '#7fff8f' : '#ffc080';
+  const when = (() => {
+    try {
+      const t = new Date(decision.at);
+      return `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    } catch { return ''; }
+  })();
+  return (
+    <span title={decision.reason ? `Reason: ${decision.reason}` : undefined}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '2px 10px',
+        border: `1px solid ${fg}`, borderRadius: 3,
+        color: fg, background: bg,
+        fontFamily: 'monospace', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+      }}>
+      {approved ? '✅ APPROVED' : '⚠ ACKNOWLEDGED'} · {when}
+    </span>
+  );
+}
+
+// ── Acknowledge-reason modal — reason is REQUIRED. Silent bypass would
+// defeat the point of having a QC system at all; a short string is
+// the minimum audit trail that survives the conversation.
+function AcknowledgeModal({ reason, onReasonChange, onCancel, onConfirm }) {
+  const trimmed = (reason || '').trim();
+  const canConfirm = trimmed.length >= 5;
+  return (
+    <div onClick={onCancel} style={AP.ackBackdrop}>
+      <div onClick={e => e.stopPropagation()} style={AP.ackShell}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#ffd07a', marginBottom: 6 }}>
+          ⚠ Acknowledge findings
+        </div>
+        <div style={{ fontSize: 12, color: '#c0c8d0', marginBottom: 12, lineHeight: 1.5 }}>
+          Shipping with findings is fine when you know why. Leave a short
+          reason (tracking issue, known-expected, declared diagnostic,
+          etc.) so the next person reading the .md understands the call.
+        </div>
+        <textarea
+          value={reason}
+          onChange={e => onReasonChange(e.target.value)}
+          autoFocus
+          placeholder="e.g. Declared diagnostic per capabilities.dryLegHasColoration — design-intent carve-out, not a bug."
+          style={{
+            width: '100%', minHeight: 90,
+            background: 'rgba(10,14,20,0.85)',
+            color: '#e0e4ea',
+            border: '1px solid rgba(255,208,122,0.45)',
+            borderRadius: 4,
+            padding: '8px 10px',
+            fontFamily: '"Inter", system-ui, sans-serif',
+            fontSize: 12, lineHeight: 1.5,
+            resize: 'vertical',
+            boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <div style={{ fontSize: 10, color: trimmed.length >= 5 ? '#7fff8f' : '#8aa0b8', fontFamily: 'monospace' }}>
+            {trimmed.length} chars {trimmed.length < 5 ? '(min 5)' : ''}
+          </div>
+          <div style={{ flex: 1 }} />
+          <button onClick={onCancel} style={AP.btn}>CANCEL</button>
+          <button onClick={onConfirm}
+            disabled={!canConfirm}
+            style={{ ...AP.btnAck, opacity: canConfirm ? 1 : 0.4, cursor: canConfirm ? 'pointer' : 'not-allowed' }}>
+            ⚠ CONFIRM ACKNOWLEDGE
+          </button>
         </div>
       </div>
     </div>
@@ -1374,6 +1861,34 @@ const AP = {
     background: 'rgba(122,255,195,0.12)', color: '#7affc3',
     border: '1px solid rgba(122,255,195,0.55)', borderRadius: 3,
     fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+  },
+  btnApprove: {
+    cursor: 'pointer', padding: '7px 14px',
+    background: 'rgba(30,120,50,0.35)', color: '#9affc3',
+    border: '1px solid #50c080', borderRadius: 3,
+    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+    boxShadow: '0 0 8px rgba(80,192,128,0.25)',
+  },
+  btnAck: {
+    cursor: 'pointer', padding: '7px 14px',
+    background: 'rgba(255,176,64,0.12)', color: '#ffd07a',
+    border: '1px solid rgba(255,176,64,0.55)', borderRadius: 3,
+    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+  },
+  ackBackdrop: {
+    position: 'fixed', inset: 0,
+    background: 'rgba(0,0,0,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 2100,
+  },
+  ackShell: {
+    width: 'min(520px, 92vw)',
+    padding: 18,
+    background: 'linear-gradient(180deg, #121418 0%, #0e1014 100%)',
+    border: '1px solid rgba(255,208,122,0.45)',
+    borderRadius: 6,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+    color: '#cfd6dc',
   },
   diffStrip: {
     marginBottom: 12,
