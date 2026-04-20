@@ -1,3 +1,11 @@
+// manChildEngine.v1.js — FROZEN SNAPSHOT of MANchild engine at v1 approval.
+// =====================================================================
+// This file is immutable. If you need to change MANchild behavior, create
+// manChildEngine.v2.js, leave this one alone, and register a new engine_v2
+// variant in migration/registry.js. v1 stays bit-identical forever so saved
+// sessions that pinned v1 keep sounding the way they did at approval.
+// =====================================================================
+//
 // manChildEngine.js — Fairchild 670-inspired vari-mu stereo compressor.
 // =====================================================================
 // GOVERNED BY /DEV_RULES.md  —  read that file before touching this one.
@@ -57,7 +65,10 @@
 //   • DEV_RULES I4      — getLatency() === 0
 // =====================================================================
 
-const PROCESSOR_VERSION = 'v9';
+// Suffixed so the v1 frozen snapshot registers a distinct AudioWorkletProcessor
+// name from the mutable manChildEngine.js. Without this they collide in the
+// global AudioWorkletGlobalScope and the second-loaded engine throws.
+const PROCESSOR_VERSION = 'v9-frozen';
 
 // ── TC table ───────────────────────────────────────────────────────────
 // Fairchild 670 reference values (service-data / UnFairchild 670M II-aligned).
@@ -143,19 +154,19 @@ export const MANCHILD_PRESETS = Object.freeze({
 
   // ── INSTRUMENTS (7–8) ───────────────────────────────────────────────
   'Bass – 5dB Control':         _P('TC3','TC3', 6, 6, -20,-20, { chanMode:'IND' }),
-  'Guitar – Smooth 2dB':        _P('TC4','TC4', 3, 3, -12,-12),
+  'Guitar – Smooth 2dB':        _P('TC4','TC4', 3, 3, -12,-12, { outDb:-1 }),
 
   // ── MIX BUS (9–10) ──────────────────────────────────────────────────
-  'Mix Bus – Glue 1.5dB':       _P('TC2','TC2', 2, 2, -10,-10),
-  'Mix Bus – Warm 2dB':         _P('TC3','TC3', 4, 4, -14,-14, { dcA:0.40, txDrive:0.15 }),
+  'Mix Bus – Glue 1.5dB':       _P('TC2','TC2', 2, 2, -10,-10, { outDb:-1 }),
+  'Mix Bus – Warm 2dB':         _P('TC3','TC3', 4, 4, -14,-14, { dcA:0.40, txDrive:0.15, outDb:-1 }),
 
   // ── M/S (11–12) ─────────────────────────────────────────────────────
   // A = Mid, B = Side (engine v9: INPUT applied post M-S encode).
   'M/S – Center Control':       _P('TC3','TC3', 6, 2, -20,-10, { chanMode:'M-S' }),
-  'M/S – Width Enhance':        _P('TC4','TC4', 2, 8, -8, -18, { chanMode:'M-S', dcB:0.55 }),
+  'M/S – Width Enhance':        _P('TC4','TC4', 2, 8, -8, -18, { chanMode:'M-S', dcB:0.55, outDb:-2 }),
 
   // ── CHARACTER (13–15) ───────────────────────────────────────────────
-  'Tube Drive – Light':         _P('TC4','TC4',10,10, -8, -8,  { txDrive:0.30, mix:0.80, outDb:-3 }),
+  'Tube Drive – Light':         _P('TC4','TC4',10,10, -8, -8,  { txDrive:0.30, mix:0.80, outDb:-6 }),
   'Heavy Comp – 10dB':          _P('TC1','TC1',12,12, -30,-30, { dcA:0.60, txDrive:0.10, outDb:-4 }),
   'Parallel Glue – Mix 50':     _P('TC2','TC2',10,10, -28,-28, { dcA:0.55, mix:0.50, outDb:-2 }),
 
@@ -166,23 +177,23 @@ export const MANCHILD_PRESETS = Object.freeze({
   'Drum Bus – Parallel Energy': _P('TC1','TC1',12,12, -30,-30, { mix:0.35, outDb:-2 }),
 
   // ── VOCAL DETAIL (20–22) ────────────────────────────────────────────
-  'Vocal – Air Control':        _P('TC4','TC4', 5, 5, -14,-14, { dcA:0.60 }),
+  'Vocal – Air Control':        _P('TC4','TC4', 5, 5, -14,-14, { dcA:0.60, outDb:-1 }),
   'Vocal – Tight Modern':       _P('TC2','TC2', 9, 9, -24,-24),
   'Vocal – Parallel Thick':     _P('TC3','TC3',12,12, -30,-30, { mix:0.50, outDb:-2 }),
 
   // ── INSTRUMENT DETAIL (23–25) ───────────────────────────────────────
   'Guitar – Edge Control':      _P('TC2','TC2', 6, 6, -18,-18, { chanMode:'IND' }),
-  'Guitar – Drive Tube':        _P('TC4','TC4',12,12, -10,-10, { chanMode:'IND', txDrive:0.40, mix:0.90, outDb:-3 }),
+  'Guitar – Drive Tube':        _P('TC4','TC4',12,12, -10,-10, { chanMode:'IND', txDrive:0.40, mix:0.90, outDb:-5 }),
   'Bass – Aggressive Clamp':    _P('TC1','TC1',10,10, -28,-28, { chanMode:'IND' }),
 
   // ── MASTERING (26–28) ───────────────────────────────────────────────
   'Master – Clean Glue':        _P('TC2','TC2', 1, 1, -8, -8),
-  'Master – Polish':            _P('TC3','TC3', 3, 3, -12,-12, { dcA:0.45 }),
-  'Master – Tube Tone':         _P('TC4','TC4', 8, 8, -6, -6,  { txDrive:0.25, mix:0.80, outDb:-2 }),
+  'Master – Polish':            _P('TC3','TC3', 3, 3, -12,-12, { dcA:0.45, outDb:-1 }),
+  'Master – Tube Tone':         _P('TC4','TC4', 8, 8, -6, -6,  { txDrive:0.25, mix:0.80, outDb:-6 }),
 
   // ── M/S ADVANCED (29–30) ────────────────────────────────────────────
   'M/S – Vocal Focus':          _P('TC3','TC4', 8, 2, -22,-8,  { chanMode:'M-S' }),
-  'M/S – Side Control':         _P('TC4','TC2', 2, 8, -8, -22, { chanMode:'M-S' }),
+  'M/S – Side Control':         _P('TC4','TC2', 2, 8, -8, -22, { chanMode:'M-S', outDb:-2 }),
 
   // ── VAR MODE (31–41) ────────────────────────────────────────────────
   // VAR atk/rel: Fast=0.15 · Med-fast=0.32 · Med=0.50 · Slow=0.85
@@ -191,14 +202,14 @@ export const MANCHILD_PRESETS = Object.freeze({
   'VAR – Drum Bus Bounce':      _P('VAR3','VAR3', 8, 8, -22,-22, { varAtkA:0.50, varRelA:0.85 }),
   'VAR – Drum Pump Parallel':   _P('VAR1','VAR1',12,12, -30,-30, { varAtkA:0.15, varRelA:0.20, mix:0.40, outDb:-2 }),
 
-  'VAR – Vocal Rider Smooth':   _P('VAR3','VAR3', 5, 5, -14,-14, { varAtkA:0.85, varRelA:0.50 }),
+  'VAR – Vocal Rider Smooth':   _P('VAR3','VAR3', 5, 5, -14,-14, { varAtkA:0.85, varRelA:0.50, outDb:-2 }),
   'VAR – Vocal Tight Modern':   _P('VAR2','VAR2', 9, 9, -24,-24, { varAtkA:0.15, varRelA:0.20 }),
-  'VAR – Vocal Breath Control': _P('VAR4','VAR4', 4, 4, -14,-14, { varAtkA:0.85, varRelA:0.85 }),
+  'VAR – Vocal Breath Control': _P('VAR4','VAR4', 4, 4, -14,-14, { varAtkA:0.85, varRelA:0.85, outDb:-1 }),
 
   'VAR – Bass Tight Groove':    _P('VAR2','VAR2', 6, 6, -20,-20, { chanMode:'IND', varAtkA:0.50, varRelA:0.50 }),
-  'VAR – Guitar Sustain Lift':  _P('VAR4','VAR4', 4, 4, -12,-12, { chanMode:'IND', varAtkA:0.85, varRelA:0.85 }),
+  'VAR – Guitar Sustain Lift':  _P('VAR4','VAR4', 4, 4, -12,-12, { chanMode:'IND', varAtkA:0.85, varRelA:0.85, outDb:-3 }),
 
-  'VAR – Mix Glue Breathing':   _P('VAR3','VAR3', 2, 2, -10,-10, { varAtkA:0.50, varRelA:0.85 }),
+  'VAR – Mix Glue Breathing':   _P('VAR3','VAR3', 2, 2, -10,-10, { varAtkA:0.50, varRelA:0.85, outDb:-1 }),
   'VAR – Mix Punch Control':    _P('VAR2','VAR2', 4, 4, -14,-14, { varAtkA:0.15, varRelA:0.50 }),
 });
 
@@ -634,7 +645,7 @@ try {
 `;
 
 // ── Public factory ─────────────────────────────────────────────────────
-export async function createManChildEngine(audioCtx) {
+export async function createManChildEngineV1(audioCtx) {
   const blob = new Blob([PROCESSOR_CODE], { type: 'application/javascript' });
   const url  = URL.createObjectURL(blob);
   try {
@@ -801,6 +812,12 @@ export async function createManChildEngine(audioCtx) {
 
   const P = (name) => worklet.parameters.get(name);
 
+  // Diagnostic: last-commanded targets for the variant_drift rule so we can
+  // distinguish "setter was called with preset value" (rampset path OK, DSP
+  // settle issue) from "setter was called with wrong value" (applyBulk /
+  // preset drift). Not authoritative state — just a breadcrumb for QC.
+  const _targets = { thA: null, thB: null };
+
   function setMix(m) {
     state.mix = Math.max(0, Math.min(1, m));
     // Write the worklet's internal mix param. Equal-power curve is applied
@@ -904,8 +921,8 @@ export async function createManChildEngine(audioCtx) {
     // steps the detector/envelope and causes zipper on fast knob drags.
     // 10 ms target is inaudible but long enough to de-zipper; the cell's
     // own 4 ms GR smoother finishes the job.
-    setThresholdA: (v) => { P('thA').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
-    setThresholdB: (v) => { P('thB').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
+    setThresholdA: (v) => { _targets.thA = v; P('thA').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
+    setThresholdB: (v) => { _targets.thB = v; P('thB').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
     setDcA:        (v) => { P('dcA').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
     setDcB:        (v) => { P('dcB').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
     setVarAtkA:    (v) => { P('varAtkA').setTargetAtTime(v, audioCtx.currentTime, 0.01); },
@@ -977,7 +994,9 @@ export async function createManChildEngine(audioCtx) {
       state.character = name;
     },
 
-    // QC contract: see qcAnalyzer.js → variant_drift rule.
+    // QC contract: expose the preset dictionary so the harness can diff
+    // declared-vs-live per preset and flag variant_drift. Plugin authors:
+    // implement these two on every engine. See qcAnalyzer.js → variant_drift.
     getPresetNames() { return Object.keys(MANCHILD_PRESETS); },
     getPreset(name)  { return MANCHILD_PRESETS[name] || null; },
 
@@ -990,8 +1009,10 @@ export async function createManChildEngine(audioCtx) {
     // setTarget ramp target — so we capture what the audio actually hears.
     getState() {
       const linTo = (g) => 20 * Math.log10(Math.max(1e-9, g));
-      // Return preset-matching string forms for enum fields so the
-      // variant_drift QC rule compares apples to apples.
+      // tcA/tcB and chanMode: return the STRING form that presets declare
+      // (TC_TABLE id, CHANNEL_MODES name) rather than the worklet's
+      // internal index. Keeps the variant_drift QC rule from false-firing
+      // on pure representation differences.
       const tcIdxA = P('tcA').value | 0;
       const tcIdxB = P('tcB').value | 0;
       const chanIdx = P('chanMode').value | 0;
@@ -1004,14 +1025,14 @@ export async function createManChildEngine(audioCtx) {
         txDrive:     currentDrive,
         fb:          P('fb').value,
         chanMode:    CHANNEL_MODES[chanIdx] ?? chanIdx,
-        channelMode: P('chanMode').value, // legacy alias
+        channelMode: P('chanMode').value, // legacy alias — retained for back-compat
         character:   state.character ?? null,
         // Per-channel
-        inA:        state.inA, // alias matching preset
+        inA:        state.inA,  // alias matching preset field
         inB:        state.inB,
-        inputGainA: state.inA, // legacy alias
+        inputGainA: state.inA,  // legacy alias
         inputGainB: state.inB,
-        thA:        P('thA').value, // alias matching preset
+        thA:        P('thA').value, // alias matching preset field
         thB:        P('thB').value,
         thresholdA: P('thA').value, // legacy alias
         thresholdB: P('thB').value,
@@ -1025,6 +1046,12 @@ export async function createManChildEngine(audioCtx) {
         tcB:        TC_TABLE[tcIdxB]?.id ?? tcIdxB,
         scA:        state.scA ? 1 : 0,
         scB:        state.scB ? 1 : 0,
+        // Diagnostic: last-commanded threshold targets. If these match the
+        // preset but P('thB').value doesn't, the DSP ramp isn't settling.
+        // If these DON'T match the preset, applyBulk/setCharacter path is
+        // dropping the field. Surfaces via variant_drift rule affected list.
+        _thATarget: _targets.thA,
+        _thBTarget: _targets.thB,
       };
     },
 

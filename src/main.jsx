@@ -58,7 +58,9 @@ import PantherBussOrb from './PantherBussOrb';
 import { createSharedSource } from './audioEngine';
 import { REGISTRY, getProduct, getProductByLegacyType, getVariant } from './migration/registry.js';
 import { useQcMode, useProductStatus, getStatus, defaultVariantFor } from './migration/store.js';
-import { InfoIcon, QcPanel } from './migration/QcOverlay.jsx';
+import { InfoIcon } from './migration/QcOverlay.jsx';
+import { QcWizard } from './migration/QcWizard.jsx';
+import QcDrawer from './qc-harness/QcDrawer.jsx';
 
 // ─── Categorized Add Menu ───────────────────────────────────────────────────
 const PLUGIN_CATEGORIES = [
@@ -599,6 +601,17 @@ function App() {
   };
   const removeInstance = (id) => setInstances(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
 
+  // QC drawer — docked bottom panel targeting a live engine in the chain.
+  const [qcDrawerId, setQcDrawerId] = useState(null);
+
+  // Flip a single instance's variant (legacy ↔ engine_v1). React remounts
+  // the orb automatically because the render switch keys on variantId.
+  const switchInstanceVariant = useCallback((instId, nextVariantId) => {
+    setInstances(prev => prev.map(i =>
+      i.id === instId ? { ...i, variantId: nextVariantId } : i
+    ));
+  }, []);
+
   // Load the alternate variant of an existing instance beside the current.
   // Non-destructive — current instance remains, the alternate is appended
   // immediately after it so A/B is visually adjacent.
@@ -674,7 +687,12 @@ function App() {
   if (!sharedSource) return null; // Wait for audio context
 
   return (
-    <div className="min-h-screen flex flex-col p-6 gap-6" style={{ background: '#050a06' }}>
+    <div className="min-h-screen flex flex-col p-6 gap-6" style={{
+      background: '#050a06',
+      // Reserve room at the bottom when the QC drawer is open so the chain
+      // isn't hidden behind it.
+      paddingBottom: qcDrawerId != null ? 'calc(55vh + 24px)' : undefined,
+    }}>
       {/* Master preset bar */}
       <div className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl flex-shrink-0"
         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -849,9 +867,20 @@ function App() {
           const variant = product && inst.variantId ? getVariant(inst.productId, inst.variantId) : null;
           const status  = product ? getStatus(product.productId) : null;
           return (
-          <div key={inst.id} style={{
+          <div key={inst.id} style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* QC strip above the plugin — only when QC Mode is on AND plugin is in the registry. */}
+          {qcMode && product && variant && (
+            <QcWizard
+              product={product}
+              variant={variant}
+              engine={enginesRef.current.get(inst.id) || null}
+              onSwitchVariant={(nextId) => switchInstanceVariant(inst.id, nextId)}
+              onOpenQc={() => setQcDrawerId(inst.id)}
+            />
+          )}
+          <div style={{
             borderRadius: 12,
-            position: 'relative',    // anchor for InfoIcon / QcPanel overlays
+            position: 'relative',    // anchor for InfoIcon overlay
             transition: 'box-shadow 0.12s ease',
             // Neve handles its own Drive-knob glow internally — suppress the box glow wrapper
             boxShadow: inst.type === 'neve' ? 'none'
@@ -863,10 +892,6 @@ function App() {
           }}>
           {product && variant && (
             <InfoIcon product={product} variant={variant} status={status} />
-          )}
-          {qcMode && product && variant && (
-            <QcPanel product={product} variant={variant}
-              onLoadAlternate={(altId) => loadAlternateVariant(inst.id, altId)} />
           )}
           {inst.type === 'amp' ? (
           <AmpOrb
@@ -1021,8 +1046,13 @@ function App() {
           />
         ) : inst.type === 'manchild' ? (
           <ManChildOrb
-            key={inst.id}
+            // Key on variantId too: switching legacy ↔ engine_v1 must
+            // unmount/remount so the effect dispose runs and a fresh
+            // engine is built from the right module (see ManChildOrb's
+            // loadVariantModule + the variant_drift QC rule).
+            key={`${inst.id}:${inst.variantId || 'legacy'}`}
             instanceId={inst.id}
+            variantId={inst.variantId || 'legacy'}
             sharedSource={sharedSource}
             registerEngine={registerEngine}
             unregisterEngine={unregisterEngine}
@@ -1434,6 +1464,7 @@ function App() {
           />
         )}
           </div>
+          </div>
           );
         })}
       </div>
@@ -1472,6 +1503,19 @@ function App() {
           >{showAddMenu ? '×' : '+'}</button>
         </div>
       </div>
+
+      {/* QC Drawer — docks against a live engine in the chain. Only mounts
+          when the user clicks "Open QC" on a plugin's QC strip. */}
+      {qcMode && qcDrawerId != null && (
+        <QcDrawer
+          instanceId={qcDrawerId}
+          instances={instances}
+          enginesRef={enginesRef}
+          onPick={(id) => setQcDrawerId(id)}
+          onSwitchVariant={(nextId) => switchInstanceVariant(qcDrawerId, nextId)}
+          onClose={() => setQcDrawerId(null)}
+        />
+      )}
     </div>
   );
 }

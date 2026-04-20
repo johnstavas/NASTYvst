@@ -568,9 +568,82 @@ export function createNastyBeastEngine(ctx) {
   }
   applyMixAndBypass();
 
+  // ── Engine_V1 contract — paramSchema (QC harness contract) ──────────────
+  // Schema describes every user-facing setter, its range, and its default.
+  // See src/nastybeast/CONFORMANCE.md for the authoritative parameter table.
+  const paramSchema = [
+    // Globals
+    { name: 'setIn',     label: 'Input (lin)',  kind: 'unit',  min: 0,    max: 2,    step: 0.01, def: 1 },
+    { name: 'setOut',    label: 'Output (lin)', kind: 'unit',  min: 0,    max: 2,    step: 0.01, def: 1 },
+    { name: 'setMix',    label: 'Mix',          kind: 'unit',  min: 0,    max: 1,    step: 0.01, def: 1 },
+    { name: 'setBypass', label: 'Bypass',       kind: 'bool',  def: 0 },
+    // Macros (pancake-themed labels: SIZZLE / STACK / DRIZZLE / FLUFF / CRISP / BUTTER)
+    { name: 'setFeed',   label: 'SIZZLE (Feed/Drive)',      kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+    { name: 'setRoam',   label: 'STACK (Feedback)',         kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+    { name: 'setHaunt',  label: 'DRIZZLE (Delay Time)',     kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+    { name: 'setBreath', label: 'FLUFF (Ghost/Breath)',     kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+    { name: 'setSnarl',  label: 'CRISP (Asymmetric Clip)',  kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+    { name: 'setSpread', label: 'BUTTER (Stereo Spread)',   kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+    // Filters & pitch
+    { name: 'setHpf',    label: 'Master HPF (Hz)', kind: 'hz', min: 20,  max: 2000,  step: 1, def: 20 },
+    { name: 'setLpf',    label: 'Master LPF (Hz)', kind: 'hz', min: 500, max: 20000, step: 1, def: 20000 },
+    { name: 'setTune',   label: 'Tune (-1..+1)',   kind: 'float', min: -1, max: 1, step: 0.01, def: 0,
+      note: '-1 = full octave down, 0 = no shift, +1 = full octave up' },
+    // Beast / FLIP
+    { name: 'setBeast',  label: 'FLIP/Beast', kind: 'unit', min: 0, max: 1, step: 0.01, def: 0 },
+  ];
+
   return {
     input, output,
     chainOutput: output,
+
+    // Engine_V1 contract
+    paramSchema,
+    getLatency: () => 0,  // dry tap is pre-chain; no PDC needed
+    getState: () => ({
+      // Globals
+      in:       inGain.gain.value,
+      out:      outGain.gain.value,
+      mix:      mixVal,
+      bypass:   bypassed ? 1 : 0,
+      // Macro user values
+      feed:     macros.feed,
+      roam:     macros.roam,
+      haunt:    macros.haunt,
+      breath:   macros.breath,
+      snarl:    macros.snarl,
+      spread:   macros.spread,
+      // Filters & pitch
+      hpfHz:    masterHP.frequency.value,
+      lpfHz:    masterLP.frequency.value,
+      tune: (function () {
+        const dry  = tuneDryAmt.gain.value;
+        const down = tuneDownAmt.gain.value;
+        const up   = tuneUpAmt.gain.value;
+        return up - down;  // reconstruct user value from gain amounts
+      })(),
+      // Beast
+      beast:    beastAmt,
+      // Mix bus (for FJ-MIX-DRY check)
+      dryGainLevel:    dryGain.gain.value,
+      wetGainLevel:    wetGain.gain.value,
+      bypassGainLevel: bypassGain.gain.value,
+      // FANG crossfade (for FJ-FEED-ZERO check)
+      fangWetAmt:  fangWetAmt.gain.value,
+      fangDryAmt:  fangDryAmt.gain.value,
+      // Delay engine (for FJ-HAUNT / FJ-ROAM checks)
+      delayTime:   delayCore.delayTime.value,
+      feedbackAmt: fbReturn.gain.value,
+      // Pitch ghost (for FJ-BREATH check)
+      ghostGainLevel: ghostGain.gain.value,
+      // Ping-pong (for FJ-SPREAD check)
+      pingSendLevel:  pingSend.gain.value,
+      pingMixLevel:   pingMix.gain.value,
+      // Tune crossfade taps (for FJ-TUNE check)
+      tuneDryAmt:  tuneDryAmt.gain.value,
+      tuneDownAmt: tuneDownAmt.gain.value,
+      tuneUpAmt:   tuneUpAmt.gain.value,
+    }),
 
     setIn:     v => { const t = ctx.currentTime;
                       inGain.gain.setTargetAtTime(Math.max(0, v), t, 0.05); },

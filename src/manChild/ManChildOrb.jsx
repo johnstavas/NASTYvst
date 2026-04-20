@@ -17,9 +17,23 @@
 // ════════════════════════════════════════════════════════════════════════════════
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  createManChildEngine, TC_TABLE, CHANNEL_MODES, MANCHILD_PRESETS,
-} from './manChildEngine.js';
+
+// Engine + presets are loaded dynamically per `variantId` so the UI is
+// always paired with the exact engine the registry/migration store says
+// should run. See registry.js (engineFactory lazy imports) + store.js
+// (defaultVariantFor). Hardcoding `./manChildEngine.js` here caused the
+// QC report to label runs as "engine_v1" while the legacy engine was
+// actually playing audio — silent variant drift. The QC harness also
+// enforces this via the `variant_drift` rule (qcAnalyzer.js) by diffing
+// engine.getPreset(name) against engine.getState() post-apply.
+async function loadVariantModule(variantId) {
+  if (variantId === 'engine_v1') {
+    const m = await import('./manChildEngine.v1.js');
+    return { createEngine: m.createManChildEngineV1, PRESETS: m.MANCHILD_PRESETS };
+  }
+  const m = await import('./manChildEngine.js');
+  return { createEngine: m.createManChildEngine, PRESETS: m.MANCHILD_PRESETS };
+}
 
 // ── Palette (sampled from the reference photo) ───────────────────────────────
 const COL = {
@@ -767,6 +781,10 @@ const PERSISTED_KEYS = Object.keys(DEFAULTS);
 export default function ManChildOrb({
   instanceId, sharedSource, registerEngine, unregisterEngine,
   onRemove, onStateChange, initialState,
+  // variantId selects which engine module to load. Default 'legacy' keeps
+  // older main.jsx call sites working; main.jsx should pass inst.variantId
+  // so the registry's approved variant drives the UI.
+  variantId = 'legacy',
 }) {
   const init = initialState || {};
   const D    = DEFAULTS;
@@ -805,14 +823,25 @@ export default function ManChildOrb({
   const applyingPreset = useRef(false);
   const engineRef      = useRef(null);
   const [ready, setReady] = useState(false);
+  // Preset dictionary for the ACTIVE variant, loaded async with the engine
+  // factory so the UI can't drift from the DSP (the exact bug the
+  // variant_drift QC rule now catches). Used only for the dropdown + name
+  // lookup in applyCharacter; the engine has its own copy for setCharacter.
+  const [presets, setPresets] = useState(null);
   const ctx = sharedSource?.ctx;
 
   // ── Engine mount ──
+  // Re-runs when ctx OR variantId changes. Variant switch → Orb remounts
+  // this effect via new module load → new engine instance → fresh audio
+  // graph wired into the shared context. Cleanup disposes the prior one.
   useEffect(() => {
     if (!ctx) return;
     let disposed = false;
     (async () => {
-      const eng = await createManChildEngine(ctx);
+      const { createEngine, PRESETS } = await loadVariantModule(variantId);
+      if (disposed) return;
+      setPresets(PRESETS);
+      const eng = await createEngine(ctx);
       if (disposed) { eng.dispose(); return; }
       engineRef.current = eng;
       eng.applyBulk({
@@ -832,9 +861,10 @@ export default function ManChildOrb({
         engineRef.current.dispose();
         engineRef.current = null;
       }
+      setReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx]);
+  }, [ctx, variantId]);
 
   // ── Reactive bindings ──
   const g = (fn) => { if (!applyingPreset.current) fn(); };
@@ -913,7 +943,7 @@ export default function ManChildOrb({
 
   // ── Preset apply ──
   const applyCharacter = (name) => {
-    const p = MANCHILD_PRESETS[name]; if (!p) return;
+    const p = presets?.[name]; if (!p) return;
     applyingPreset.current = true;
     setCharacter(name);
     setInA(p.inA);     setInB(p.inB);
@@ -1434,7 +1464,7 @@ export default function ManChildOrb({
               cursor:'pointer',
             }}>
             <option value="" style={{ background:'#1A1A1A', color:'#F0ECE0' }}>— preset —</option>
-            {Object.keys(MANCHILD_PRESETS).map(n => (
+            {presets && Object.keys(presets).map(n => (
               <option key={n} value={n} style={{ background:'#1A1A1A', color:'#F0ECE0' }}>{n}</option>
             ))}
           </select>

@@ -883,12 +883,17 @@ export function createLofiLoofyEngine(ctx) {
     const f = _bwHPBase * _bwHPMul_dust;
     bwHP.frequency.setTargetAtTime(Math.max(20, Math.min(400, f)), ctx.currentTime, 0.05);
   }
-  // Sat composer — Age + Texture add together; Character overrides; Dream modulates.
+  // Sat composer — Character baseline + Age + Texture + Dream, all additive.
   // _satAge is driven by applyAge on a cubic curve — starts at 0 so the
   // plugin is transparent at Age=0 (no baked-in distortion).
-  let _satAge = 0, _satTexture = 0, _satDream = 0;
+  // _satChar holds the character's saturation baseline (written by setCharacter).
+  // Previously setCharacter wrote `satBase` directly and recomputeSat then
+  // overwrote it with Age+Texture+Dream only — silently zeroing the character
+  // contribution whenever those three were low. DEV_RULES D2 aliasing bug
+  // caught by QC check [LL-M16] (Sampler / satBase mismatch, 2026-04-19).
+  let _satChar = 0, _satAge = 0, _satTexture = 0, _satDream = 0;
   function recomputeSat() {
-    const s = Math.max(0, Math.min(1, _satAge + _satTexture + _satDream));
+    const s = Math.max(0, Math.min(1, _satChar + _satAge + _satTexture + _satDream));
     satBase = s;
     satShape.curve = buildSatCurve(s);
   }
@@ -940,25 +945,145 @@ export function createLofiLoofyEngine(ctx) {
   // let this drift back into a partial "tone-and-drift-only" recall — that
   // is how ghost states happen. If SLAM needs comp/crush/boom/bits/rate,
   // setCharacter applies them. No exceptions.
+  // Tracked for getState() — not stored elsewhere.
+  let bitsVal = 0;          // 0=off, otherwise 6..16
+  let rateVal = 0;          // 0=off, otherwise Hz
+  let currentCharacter = null;
+  // Character-driven DSP that has no user-facing knob. Exposed via getState
+  // so QC snapshots can tell characters apart even when main sliders don't
+  // move (they aren't supposed to — character is an independent macro).
+  let charTilt = 0, charBwLPHz = 0, charBwHPHz = 0, charDriftRate = 0, charFlutterRate = 0;
   function setCharacter(name) {
     const p = LOFI_CHARACTERS[name];
     if (!p) return;
+    currentCharacter = name;
     const now = ctx.currentTime, tau = 0.05;
     toneTilt.gain.setTargetAtTime(p.tilt, now, tau);
-    toneLPBase = p.toneLP;
-    toneLP.frequency.setTargetAtTime(p.toneLP, now, tau);
+    // Write the AUTHORITATIVE tone var (_toneLPBase), then route through
+    // recomputeToneLP so the Age/Drift/Flutter multipliers still apply and
+    // getState.tone readouts stay truthful. Previously this wrote to a dead
+    // mirror var (toneLPBase) that no DSP path reads — DEV_RULES D2.
+    _toneLPBase = p.toneLP;
+    toneLPBase  = p.toneLP;             // keep the legacy mirror in sync
+    recomputeToneLP();
     bwLP.frequency.setTargetAtTime(p.bwLP, now, tau);
     bwHP.frequency.setTargetAtTime(p.bwHP, now, tau);
     driftLFO.frequency.setTargetAtTime(p.driftRate, now, tau);
     flutterLFO.frequency.setTargetAtTime(p.flutterRate, now, tau);
-    if (p.satBase != null) { satBase = p.satBase; satShape.curve = buildSatCurve(satBase); }
+    // Write the character baseline into its own slot (_satChar), then route
+    // through recomputeSat so Age/Texture/Dream contributions still add
+    // correctly. Previously wrote `satBase` directly, which recomputeSat
+    // would then overwrite with (Age+Texture+Dream) only — DEV_RULES D2.
+    if (p.satBase != null) { _satChar = p.satBase; recomputeSat(); }
     if (p.dreamRate != null) dreamRate = p.dreamRate;
     if (p.dreamTarget != null) dreamTarget = p.dreamTarget;
+    // Cache the character-driven DSP params that have no user-facing knob,
+    // so getState() can expose them to QC (otherwise sweeps look identical).
+    charTilt       = p.tilt;
+    charBwLPHz     = p.bwLP;
+    charBwHPHz     = p.bwHP;
+    charDriftRate  = p.driftRate;
+    charFlutterRate= p.flutterRate;
   }
 
   // ── API ──────────────────────────────────────────────────────────────
   return {
     input, output, chainOutput: output,
+
+    // ── QC HARNESS SCHEMA (authoritative) ────────────────────────────────
+    paramSchema: [
+      // Rack
+      { name: 'setIn',         label: 'Input (lin)',   kind: 'unit', min: 0,    max: 2,   step: 0.01, def: 1 },
+      { name: 'setOut',        label: 'Output (lin)',  kind: 'unit', min: 0,    max: 2,   step: 0.01, def: 1 },
+      { name: 'setMix',        label: 'Mix',           kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 1 },
+      { name: 'setBypass',     label: 'Bypass',        kind: 'bool', def: 0 },
+      // Macros
+      { name: 'setAge',        label: 'Age',           kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setDrift',      label: 'Drift',         kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setFlutter',    label: 'Flutter',       kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setDust',       label: 'Dust',          kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setDropouts',   label: 'Dropouts',      kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setTexture',    label: 'Texture',       kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      // Tone
+      { name: 'setTone',       label: 'Tone',          kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0.5 },
+      { name: 'setWidth',      label: 'Width',         kind: 'unit', min: 0,    max: 2,   step: 0.01, def: 1 },
+      { name: 'setGlue',       label: 'Glue',          kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setDream',      label: 'Dream',         kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0.5 },
+      // Parallel comp
+      { name: 'setCrush',      label: 'Crush',         kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setPump',       label: 'Pump',          kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setCompBlend',  label: 'Comp Blend',    kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0.5 },
+      { name: 'setCompOff',    label: 'Comp Off',      kind: 'bool', def: 0, stateKey: 'compOff' },
+      { name: 'setCompVibe',   label: 'Comp Vibe',     kind: 'bool', def: 0, stateKey: 'compVibe' },
+      // Low / digital
+      { name: 'setBoom',       label: 'Boom',          kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0 },
+      { name: 'setBits',       label: 'Bits',          kind: 'float',min: 0,    max: 16,  step: 1,    def: 0,
+        note: '0 = OFF, otherwise 6..16' },
+      { name: 'setRate',       label: 'Rate (Hz)',     kind: 'hz',   min: 0,    max: 48000, step: 100, def: 0,
+        note: '0 = OFF, otherwise sample-rate reduce' },
+      // Dream details
+      { name: 'setDreamRate',  label: 'Dream Rate (Hz)', kind: 'float', min: 0.05, max: 5,  step: 0.05, def: 0.25 },
+      { name: 'setDreamDepth', label: 'Dream Depth',   kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0.5 },
+      { name: 'setDreamDrift', label: 'Dream Drift',   kind: 'unit', min: 0,    max: 1,   step: 0.01, def: 0.3 },
+      { name: 'setDreamTarget',label: 'Dream Target',  kind: 'enum', def: 'tone',
+        values: [...DREAM_TARGETS].map(s => ({ value: s, label: s })) },
+      // Character preset
+      { name: 'setCharacter',  label: 'Character',     kind: 'preset',
+        options: Object.keys(LOFI_CHARACTERS) },
+    ],
+
+    // ── QC HARNESS: live runtime state ───────────────────────────────────
+    // Keys match candidateKeys() convention (camelCase of setter minus 'set')
+    // so the harness sync picks them up without per-engine wiring.
+    getState() {
+      return {
+        in:           inGain.gain.value,
+        out:          outGain.gain.value,
+        mix:          mixVal,
+        bypass:       bypassed ? 1 : 0,
+        age:          ageVal,
+        drift:        _drift_depth_knob / 0.014,
+        flutter:      _flutter_depth_knob / 0.0018,
+        dust:         crackleAmt,
+        dropouts:     dropoutAmt,
+        texture:      _satTexture / 0.4,
+        tone:         Math.max(0, Math.min(1, (_toneLPBase - 1200) / 14800)),
+        width:        widthBase,
+        glue:         _glueAmt,
+        dream:        dreamAmount,
+        crush:        _crushAmt,
+        pump:         _pumpAmt,
+        compBlend:    _compBlendAmt,
+        compOff:      _compOff ? 1 : 0,
+        compVibe:     _vibeOn ? 1 : 0,
+        boom:         boomShelf.gain.value / 8,
+        bits:         bitsVal,
+        rate:         rateVal,
+        dreamRate:    dreamRate,
+        dreamDepth:   dreamDepth,
+        dreamDrift:   dreamDrift,
+        dreamTarget:  dreamTarget,
+        character:    currentCharacter,
+        // Character-driven DSP (read-only; no slider). Present so QC can
+        // distinguish presets that only alter internal coefficients.
+        charTilt,
+        charBwLPHz,
+        charBwHPHz,
+        charDriftRate,
+        charFlutterRate,
+        // satBase is the LIVE sum (_satChar + _satAge + _satTexture + _satDream);
+        // charSatBase is the pure character baseline so LL-M16 can diff
+        // against LOFI_CHARACTERS without false positives from user-driven Age/Texture/Dream.
+        satBase,
+        charSatBase: _satChar,
+        // Wet-chain levels for QC targets M18 / M20 (Conformance finding F3).
+        // Without these, "Dream=0 means no reverb send" and "Dust=0 means
+        // silent dust bus" require indirect audio measurement.
+        reverbSendLevel: reverbSend.gain.value,
+        dustHiss:        noiseGain.gain.value,
+        dustGrit:        crackleGain.gain.value,
+      };
+    },
 
     // Standard rack
     setIn:     v => { inGain.gain.setTargetAtTime(Math.max(0, v),  ctx.currentTime, 0.05); },
@@ -1148,12 +1273,14 @@ export function createLofiLoofyEngine(ctx) {
     setBits: v => {
       // 0 = OFF (passthrough). Otherwise the target bit depth (6..16).
       const b = (v | 0);
-      bitsShaper.curve = buildBitsCurve(b > 0 ? b : 0);
+      bitsVal = b > 0 ? b : 0;
+      bitsShaper.curve = buildBitsCurve(bitsVal);
     },
     setRate: v => {
       // 0 = OFF (passthrough). Otherwise target sample rate in Hz — drive
       // the biquad LP at ~Nyquist of the target rate as a proxy for ZOH.
       const target = +v || 0;
+      rateVal = target;
       const f = (target <= 0 || target >= ctx.sampleRate / 2) ? 20000 : target / 2;
       rateLP.frequency.setTargetAtTime(f, ctx.currentTime, 0.05);
     },

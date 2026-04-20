@@ -1,0 +1,1481 @@
+// src/qc-harness/Analyzer.jsx
+//
+// Dual-tap analyzer for the QC harness. Sits between the source and the
+// engine input (PRE) and on the engine output (POST) so you can A/B the
+// signal with no UI bias.
+//
+// Shows for each tap:
+//   - time-domain waveform scope
+//   - log-frequency spectrum
+//   - peak dBFS (with 1.5 s hold), RMS dBFS
+// Plus a pre→post delta (gain reduction / makeup).
+//
+// Throttled at 30 Hz to match the meter-RAF rule.
+
+import React, { useEffect, useRef, useState } from 'react';
+import { runConformanceChecks } from './conformanceChecks.js';
+import { analyzeAudit, reportToMarkdown, diffReports, RULE_META, HEADLINE_HINTS, humanSummary } from './qcAnalyzer.js';
+
+const DB_FLOOR = -100;
+const FFT_SIZE = 8192;
+const PEAK_DECAY_DB_PER_S = 24;   // spectrum peak-hold fall rate
+const OCTAVE_BANDS = [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+
+function dbfs(x) { return x > 0 ? 20 * Math.log10(x) : DB_FLOOR; }
+function fmtDb(x) { return !isFinite(x) || x <= DB_FLOOR + 0.01 ? '−∞' : x.toFixed(1); }
+
+// One tap = one AnalyserNode + canvas pair.
+function Tap({ label, analyser, color, peak, rms, hold, lufs, crest, centroid, frozenRef }) {
+  const scopeRef = useRef(null);
+  const specRef  = useRef(null);
+  const peakHoldRef = useRef(null);  // per-bin peak-hold dB, decays over time
+  const lastTsRef   = useRef(0);
+
+  useEffect(() => {
+    if (!analyser) return;
+    let raf;
+    const tBuf = new Float32Array(analyser.fftSize);
+    const fBuf = new Float32Array(analyser.frequencyBinCount);
+    const sr   = analyser.context.sampleRate;
+    if (!peakHoldRef.current || peakHoldRef.current.length !== fBuf.length) {
+      peakHoldRef.current = new Float32Array(fBuf.length).fill(DB_FLOOR);
+    }
+
+    const draw = () => {
+      if (frozenRef?.current) { raf = requestAnimationFrame(draw); return; }
+      // Scope
+      const sc = scopeRef.current;
+      if (sc) {
+        const ctx = sc.getContext('2d');
+        const { width: W, height: H } = sc;
+        ctx.fillStyle = '#0a0a0c';
+        ctx.fillRect(0, 0, W, H);
+        // center line
+        ctx.strokeStyle = '#1f1f24'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+        // waveform — auto-scale to peak so quiet signals stay visible
+        analyser.getFloatTimeDomainData(tBuf);
+        let peak = 0.001;
+        for (let i = 0; i < tBuf.length; i++) {
+          const a = tBuf[i] < 0 ? -tBuf[i] : tBuf[i];
+          if (a > peak) peak = a;
+        }
+        const scale = Math.min(1 / peak, 32); // cap 30 dB of zoom
+        ctx.strokeStyle = color; ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        for (let i = 0; i < tBuf.length; i++) {
+          const x = (i / (tBuf.length - 1)) * W;
+          const y = H / 2 - tBuf[i] * scale * (H / 2 - 2);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        // tiny scale badge so you know the zoom level
+        ctx.fillStyle = '#555'; ctx.font = '9px monospace';
+        ctx.fillText(`×${scale.toFixed(scale < 10 ? 1 : 0)}`, W - 26, 10);
+      }
+
+      // Spectrum — log-frequency axis (20 Hz .. Nyquist), -100..0 dB,
+      // octave grid with Hz labels, dB ladder, peak-hold trace.
+      const sp = specRef.current;
+      if (sp) {
+        const ctx2 = sp.getContext('2d');
+        const { width: W, height: H } = sp;
+        ctx2.fillStyle = '#0a0a0c';
+        ctx2.fillRect(0, 0, W, H);
+        analyser.getFloatFrequencyData(fBuf); // dB already
+
+        const fMin = 20, fMax = sr / 2;
+        const logMin = Math.log10(fMin), logMax = Math.log10(fMax);
+        const xOf = (f) => ((Math.log10(f) - logMin) / (logMax - logMin)) * W;
+        const yOf = (db) => ((db - 0) / (DB_FLOOR - 0)) * H;
+
+        // Octave grid with Hz labels
+        ctx2.strokeStyle = '#1d1d24'; ctx2.lineWidth = 1;
+        ctx2.fillStyle = '#555'; ctx2.font = '9px monospace';
+        for (const f of OCTAVE_BANDS) {
+          if (f < fMin || f > fMax) continue;
+          const x = xOf(f);
+          ctx2.beginPath(); ctx2.moveTo(x, 0); ctx2.lineTo(x, H); ctx2.stroke();
+          const lbl = f >= 1000 ? (f / 1000) + 'k' : String(f);
+          ctx2.fillText(lbl, x + 2, H - 2);
+        }
+        // dB ladder: -20, -40, -60, -80 with labels
+        for (const db of [-20, -40, -60, -80]) {
+          const y = yOf(db);
+          ctx2.strokeStyle = '#17171d';
+          ctx2.beginPath(); ctx2.moveTo(0, y); ctx2.lineTo(W, y); ctx2.stroke();
+          ctx2.fillStyle = '#555';
+          ctx2.fillText(db + 'dB', 2, y - 2);
+        }
+
+        // Peak-hold decay in dB per frame
+        const now = performance.now();
+        const dt = lastTsRef.current ? (now - lastTsRef.current) / 1000 : 0.016;
+        lastTsRef.current = now;
+        const decay = PEAK_DECAY_DB_PER_S * dt;
+        const holdBuf = peakHoldRef.current;
+        for (let i = 0; i < holdBuf.length; i++) {
+          const v = fBuf[i];
+          holdBuf[i] = Math.max(v, holdBuf[i] - decay);
+        }
+
+        // Filled spectrum + outline (current)
+        const bins = fBuf.length;
+        // fill under
+        ctx2.fillStyle = color + '33'; // ~20% alpha
+        ctx2.beginPath();
+        let started = false;
+        for (let i = 1; i < bins; i++) {
+          const f = (i * sr) / (bins * 2);
+          if (f < fMin) continue;
+          const x = xOf(f);
+          const db = Math.max(DB_FLOOR, Math.min(0, fBuf[i]));
+          const y = yOf(db);
+          if (!started) { ctx2.moveTo(x, H); ctx2.lineTo(x, y); started = true; }
+          else          ctx2.lineTo(x, y);
+        }
+        ctx2.lineTo(W, H); ctx2.closePath(); ctx2.fill();
+
+        // outline
+        ctx2.strokeStyle = color; ctx2.lineWidth = 1.1;
+        ctx2.beginPath(); started = false;
+        for (let i = 1; i < bins; i++) {
+          const f = (i * sr) / (bins * 2);
+          if (f < fMin) continue;
+          const x = xOf(f);
+          const db = Math.max(DB_FLOOR, Math.min(0, fBuf[i]));
+          const y = yOf(db);
+          if (!started) { ctx2.moveTo(x, y); started = true; }
+          else          ctx2.lineTo(x, y);
+        }
+        ctx2.stroke();
+
+        // peak-hold trace (thin, lighter color)
+        ctx2.strokeStyle = '#ffffff66'; ctx2.lineWidth = 1;
+        ctx2.beginPath(); started = false;
+        for (let i = 1; i < bins; i++) {
+          const f = (i * sr) / (bins * 2);
+          if (f < fMin) continue;
+          const x = xOf(f);
+          const db = Math.max(DB_FLOOR, Math.min(0, holdBuf[i]));
+          const y = yOf(db);
+          if (!started) { ctx2.moveTo(x, y); started = true; }
+          else          ctx2.lineTo(x, y);
+        }
+        ctx2.stroke();
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [analyser, color]);
+
+  return (
+    <div style={ST.tap}>
+      <div style={ST.tapHead}>
+        <span style={{ color, fontWeight: 600 }}>{label}</span>
+        <span style={ST.readout}>
+          <span style={ST.k}>PK</span> {fmtDb(hold)}{' '}
+          <span style={ST.k}>NOW</span> {fmtDb(peak)}{' '}
+          <span style={ST.k}>RMS</span> {fmtDb(rms)}
+          <span style={ST.unit}> dBFS</span>
+        </span>
+      </div>
+      <div style={ST.subReadout}>
+        <span><span style={ST.k}>LUFS-M</span> {fmtDb(lufs)}</span>
+        <span><span style={ST.k}>CREST</span> {isFinite(crest) ? crest.toFixed(1) : '—'} dB</span>
+        <span><span style={ST.k}>CENT</span> {centroid > 0 ? (centroid >= 1000 ? (centroid/1000).toFixed(2)+'k' : centroid.toFixed(0)) : '—'} Hz</span>
+      </div>
+      <canvas ref={scopeRef} width={480} height={70}  style={ST.canvas} />
+      <canvas ref={specRef}  width={480} height={140} style={ST.canvas} />
+    </div>
+  );
+}
+
+// ── snapshot self-consistency checks ──────────────────────────────────────
+// A-level only for v1. Returns [{ level, msg }, ...] with level:
+//   'ok' | 'warn' | 'error'.
+// Severity taxonomy for checks:
+//   critical — QC cannot trust this snapshot (silence, broken routing, NaN)
+//   major    — behavior wrong (dead knob, preset didn't apply, bypass broken)
+//   minor    — cosmetic (missing schema, undeclared method, small drift)
+//   info     — positive confirmation (so we never emit just "all passed")
+//   cannot_verify — capability gap (no getState), not a failure
+function runChecks({ entries, values, engineState, paramSchema, measurements, productId, engine }) {
+  const out = [];
+  const push = (severity, msg, extra = {}) => out.push({ severity, msg, ...extra });
+
+  // ── capture-level sanity (these can invalidate the whole snapshot) ──
+  if (measurements) {
+    const preRms = measurements.pre?.rmsDb;
+    if (isFinite(preRms) && preRms < -60) {
+      push('critical', `input RMS ${preRms.toFixed(1)} dBFS — signal near silence, snapshot unreliable`);
+    }
+    for (const side of ['pre', 'post']) {
+      const m = measurements[side];
+      if (!m) continue;
+      for (const k of ['peakDb', 'rmsDb']) {
+        if (m[k] !== undefined && !isFinite(m[k]) && m[k] !== -Infinity) {
+          push('critical', `${side}.${k} is NaN`);
+        }
+      }
+    }
+  }
+
+  let drivenCount = 0, undeclared = 0;
+  for (const e of entries || []) {
+    if (e.kind === 'noop') continue;
+    const v = values?.[e.name];
+    if (v !== undefined) drivenCount++;
+
+    if (typeof v === 'number' && typeof e.min === 'number' && typeof e.max === 'number') {
+      if (v < e.min - 1e-6 || v > e.max + 1e-6) {
+        push('major', `${e.name}=${v} outside schema range [${e.min}..${e.max}]`);
+      }
+    }
+    if (e.kind === 'enum' && Array.isArray(e.values)) {
+      const valid = e.values.some(ev => ev.value === v);
+      if (!valid) push('minor', `${e.name}=${v} not in enum values`);
+    }
+    if (e.kind === 'preset' && Array.isArray(e.options)) {
+      if (v && !e.options.includes(v)) {
+        push('minor', `${e.name}="${v}" not in options`);
+      }
+    }
+    if (e._inSchema === false) undeclared++;
+  }
+
+  if (paramSchema && drivenCount !== entries.filter(e => e.kind !== 'noop').length) {
+    push('minor', `${drivenCount}/${entries.filter(e => e.kind !== 'noop').length} params driven — some have no captured value`);
+  }
+  if (undeclared > 0) {
+    push('minor', `${undeclared} undeclared method(s) — add to paramSchema`);
+  }
+  if (!paramSchema) {
+    push('minor', 'engine has no paramSchema — values inferred from names');
+  }
+  if (!engineState) {
+    push('cannot_verify', 'engine has no getState() — cannot verify DSP state matches intent');
+  }
+
+  // ── Per-product conformance checks (Phase C) ──
+  // Every non-ok result carries a checkId that traces back to the plugin's
+  // CONFORMANCE.md. See src/qc-harness/conformanceChecks.js.
+  if (productId) {
+    const conf = runConformanceChecks({ productId, engineState, values, measurements, engine });
+    for (const r of conf) {
+      if (r.severity === 'ok') continue;
+      push(r.severity, `[${r.checkId}] ${r.name}${r.msg ? ' — ' + r.msg : ''}`, { checkId: r.checkId });
+    }
+  }
+
+  const worst = out.some(c => c.severity === 'critical') ? 'critical'
+              : out.some(c => c.severity === 'major')    ? 'major'
+              : out.some(c => c.severity === 'minor')    ? 'minor'
+              : out.some(c => c.severity === 'cannot_verify') ? 'cannot_verify'
+              : 'ok';
+  if (worst === 'ok') push('info', 'no issues detected — snapshot looks clean');
+  return { severity: worst, items: out };
+}
+
+// ── K-weighted filter chain (ITU-R BS.1770) for LUFS-M ────────────────────
+// Stage 1: pre-filter (high-shelf, +4 dB @ 1.68 kHz, Q≈0.71)
+// Stage 2: RLB weighting (high-pass, 38 Hz, Q≈0.5)
+// We route signal through two cascaded BiquadFilterNodes into a dedicated
+// AnalyserNode. The RMS of the K-weighted signal is LUFS-momentary (in
+// dBFS, roughly equivalent to LUFS for a single 400ms block).
+function createKWeightedChain(ctx) {
+  // Stage 1 — high-shelf per ITU-R BS.1770-4
+  const pre = ctx.createBiquadFilter();
+  pre.type = 'highshelf';
+  pre.frequency.value = 1681;
+  pre.gain.value = 3.99984385397;
+  // Stage 2 — high-pass (RLB)
+  const rlb = ctx.createBiquadFilter();
+  rlb.type = 'highpass';
+  rlb.frequency.value = 38.1;
+  rlb.Q.value = 0.5003270373;
+  pre.connect(rlb);
+  return { input: pre, output: rlb };
+}
+
+export default function Analyzer({
+  ctx, engine, productId, variantId,
+  entries = [], values = {}, valuesRef, setParam, syncFromEngineState,
+  sourceKind, droppedName,
+}) {
+  const [pre, setPre]   = useState(null);
+  const [post, setPost] = useState(null);
+  const [preK, setPreK]   = useState(null); // K-weighted analyser (pre)
+  const [postK, setPostK] = useState(null); // K-weighted analyser (post)
+  const [nullAn, setNullAn] = useState(null); // post − pre residual analyser
+  // GR readout (if engine exposes getGrDbA / getGrDbB)
+  const [grDb, setGrDb] = useState({ A: null, B: null });
+  const [frozen, setFrozen] = useState(false);
+  const frozenRef = useRef(false);
+  frozenRef.current = frozen;
+  const [loadMsg, setLoadMsg] = useState(null); // { level, text }
+  const fileInputRef = useRef(null);
+  const [audit, setAudit] = useState([]);   // queue of saved snapshots
+  const [sweeping, setSweeping] = useState(false);
+  // Keep latest stats in a ref so sweep can read fresh values without re-renders
+  const statsRef = useRef(null);
+  const [stats, setStats] = useState({
+    prePk: DB_FLOOR, preRms: DB_FLOOR, preHold: DB_FLOOR, preLufs: DB_FLOOR, preCrest: 0, preCentroidHz: 0,
+    postPk: DB_FLOOR, postRms: DB_FLOOR, postHold: DB_FLOOR, postLufs: DB_FLOOR, postCrest: 0, postCentroidHz: 0,
+    nullRmsDb: DB_FLOOR,
+  });
+  const holdRef = useRef({ pre: { v: DB_FLOOR, t: 0 }, post: { v: DB_FLOOR, t: 0 } });
+
+  // Create analysers once engine is available. Pre taps engine.input,
+  // post taps engine.output. Both are passive (connect only — no
+  // destination) so they don't double-route audio.
+  useEffect(() => {
+    if (!engine || !ctx) return;
+    // Raw taps ─ fast live metering
+    const a = ctx.createAnalyser(); a.fftSize = FFT_SIZE; a.smoothingTimeConstant = 0.5; a.minDecibels = DB_FLOOR; a.maxDecibels = 0;
+    const b = ctx.createAnalyser(); b.fftSize = FFT_SIZE; b.smoothingTimeConstant = 0.5; b.minDecibels = DB_FLOOR; b.maxDecibels = 0;
+    try { engine.input.connect(a); } catch {}
+    try { engine.output.connect(b); } catch {}
+
+    // K-weighted taps (LUFS-M) ─ BS.1770 filter chain → analyser
+    const kPre  = createKWeightedChain(ctx);
+    const kPost = createKWeightedChain(ctx);
+    const anKPre  = ctx.createAnalyser(); anKPre.fftSize = 2048;  anKPre.smoothingTimeConstant = 0.3;
+    const anKPost = ctx.createAnalyser(); anKPost.fftSize = 2048; anKPost.smoothingTimeConstant = 0.3;
+    try { engine.input.connect(kPre.input);  kPre.output.connect(anKPre); } catch {}
+    try { engine.output.connect(kPost.input); kPost.output.connect(anKPost); } catch {}
+
+    // Null residual tap ─ sum(post + (-1 * pre)). If the plugin has zero
+    // latency this gives a clean null during bypass or Mix=0. Any
+    // non-trivial latency will leak energy here; the readout is advisory.
+    const inv  = ctx.createGain(); inv.gain.value = -1;
+    const sum  = ctx.createGain(); sum.gain.value = 1;
+    const anNull = ctx.createAnalyser(); anNull.fftSize = 2048; anNull.smoothingTimeConstant = 0.3;
+    try { engine.input.connect(inv); inv.connect(sum); } catch {}
+    try { engine.output.connect(sum); sum.connect(anNull); } catch {}
+
+    setPre(a); setPost(b);
+    setPreK(anKPre); setPostK(anKPost);
+    setNullAn(anNull);
+
+    return () => {
+      for (const n of [a, b, anKPre, anKPost, anNull, inv, sum, kPre.input, kPre.output, kPost.input, kPost.output]) {
+        try { n.disconnect(); } catch {}
+      }
+    };
+  }, [ctx, engine]);
+
+  // 30 Hz stats loop
+  useEffect(() => {
+    if (!pre || !post) return;
+    let raf, last = 0;
+    const tBuf = new Float32Array(2048);
+    const fBuf = new Float32Array(pre.frequencyBinCount);
+    const sr   = ctx.sampleRate;
+
+    const measureTime = (an) => {
+      an.getFloatTimeDomainData(tBuf);
+      let pk = 0, ss = 0;
+      for (let i = 0; i < tBuf.length; i++) {
+        const v = tBuf[i]; const a = v < 0 ? -v : v;
+        if (a > pk) pk = a;
+        ss += v * v;
+      }
+      const rmsLin = Math.sqrt(ss / tBuf.length);
+      return { peakLin: pk, rmsLin, peakDb: dbfs(pk), rmsDb: dbfs(rmsLin) };
+    };
+    const measureLufsM = (an) => {
+      // Momentary (400 ms) K-weighted loudness ≈ K-weighted RMS in dBFS.
+      // 2048 samples @ 48 kHz ≈ 42 ms; good enough for UI readout. For
+      // true BS.1770 momentary we'd accumulate 400 ms; deferred.
+      an.getFloatTimeDomainData(tBuf);
+      let ss = 0;
+      for (let i = 0; i < tBuf.length; i++) ss += tBuf[i] * tBuf[i];
+      return dbfs(Math.sqrt(ss / tBuf.length));
+    };
+    const spectralCentroid = (an) => {
+      an.getFloatFrequencyData(fBuf);
+      let num = 0, den = 0;
+      for (let i = 1; i < fBuf.length; i++) {
+        const mag = Math.pow(10, fBuf[i] / 20); // dB → linear
+        const f   = (i * sr) / (fBuf.length * 2);
+        num += mag * f;
+        den += mag;
+      }
+      return den > 0 ? num / den : 0;
+    };
+
+    const tick = (now) => {
+      if (frozenRef.current) { raf = requestAnimationFrame(tick); return; }
+      if (now - last > 33) {
+        last = now;
+        const p = measureTime(pre), q = measureTime(post);
+        const pLufs = preK  ? measureLufsM(preK)  : DB_FLOOR;
+        const qLufs = postK ? measureLufsM(postK) : DB_FLOOR;
+        const pCent = spectralCentroid(pre);
+        const qCent = spectralCentroid(post);
+        const nullD = nullAn ? measureTime(nullAn).rmsDb : DB_FLOOR;
+
+        const h = holdRef.current;
+        const HOLD_MS = 1500;
+        if (p.peakDb > h.pre.v  || now - h.pre.t  > HOLD_MS) h.pre  = { v: p.peakDb, t: now };
+        if (q.peakDb > h.post.v || now - h.post.t > HOLD_MS) h.post = { v: q.peakDb, t: now };
+
+        // GR readout — engines expose getGrDbA/B (meter-side values in dB).
+        let grA = null, grB = null;
+        try { grA = engine?.getGrDbA?.() ?? null; } catch {}
+        try { grB = engine?.getGrDbB?.() ?? null; } catch {}
+        if (grA !== null || grB !== null) setGrDb({ A: grA, B: grB });
+
+        setStats({
+          prePk: p.peakDb,  preRms: p.rmsDb,  preHold: h.pre.v,
+          preLufs: pLufs,   preCrest: p.peakDb - p.rmsDb,  preCentroidHz: pCent,
+          postPk: q.peakDb, postRms: q.rmsDb, postHold: h.post.v,
+          postLufs: qLufs,  postCrest: q.peakDb - q.rmsDb, postCentroidHz: qCent,
+          nullRmsDb: nullD,
+        });
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [pre, post, preK, postK, nullAn, engine, ctx]);
+
+  // Track the previous snapshot's params so each new snapshot can report
+  // which knobs actually moved since the last capture. This is the
+  // canary for "preset sweep but sliders didn't change" bugs.
+  const prevParamsRef = useRef(null);
+
+  // ── snapshot build / download / load ────────────────────────────────────
+  // Reads valuesRef.current (not the `values` prop) so sweep loops see
+  // the freshest state even before React flushes a re-render.
+  const buildSnapshot = ({ requestedPresetName = null, presetApplySucceeded = null } = {}) => {
+    const paramSchema = Array.isArray(engine?.paramSchema) ? engine.paramSchema : null;
+    let engineState = null;
+    try { engineState = engine?.getState?.() ?? null; } catch {}
+    // Declared preset values — captured so the `variant_drift` rule can
+    // diff against engineState post-apply. If engine.getPreset isn't
+    // implemented on this plugin, the rule self-disables (cannot_verify).
+    let declaredPreset = null;
+    if (requestedPresetName) {
+      try { declaredPreset = engine?.getPreset?.(requestedPresetName) ?? null; } catch {}
+    }
+    const liveValues = (valuesRef?.current) ? { ...valuesRef.current } : { ...values };
+
+    // Changed vs schema defaults
+    const changedFromDefault = [];
+    if (paramSchema) {
+      for (const e of paramSchema) {
+        if (e.kind === 'noop') continue;
+        if (!(e.name in liveValues)) continue;
+        const v = liveValues[e.name];
+        const d = e.def;
+        if (d === undefined) { changedFromDefault.push(e.name); continue; }
+        const same = (typeof v === 'number' && typeof d === 'number')
+                     ? Math.abs(v - d) < 1e-6
+                     : v === d;
+        if (!same) changedFromDefault.push(e.name);
+      }
+    }
+
+    // Changed vs previous snapshot
+    const changedFromPrevious = [];
+    const prev = prevParamsRef.current;
+    if (prev) {
+      for (const [k, v] of Object.entries(liveValues)) {
+        const p = prev[k];
+        const same = (typeof v === 'number' && typeof p === 'number')
+                     ? Math.abs(v - p) < 1e-6
+                     : v === p;
+        if (!same) changedFromPrevious.push(k);
+      }
+    }
+
+    // Preset verification
+    let presetFound = null;
+    if (requestedPresetName !== null) {
+      const pe = entries.find(e => e.kind === 'preset');
+      presetFound = pe && Array.isArray(pe.options) ? pe.options.includes(requestedPresetName) : null;
+    }
+
+    // Read statsRef (not the closure-captured `stats`) so sweep loops see
+    // the FRESHEST measurements. React doesn't re-render during the async
+    // sweep loop, so `stats` in the closure is stale — statsRef is updated
+    // synchronously on every RAF tick.
+    const s = statsRef.current || stats;
+
+    // Gain-reduction: read LIVE from the engine at capture time, not from
+    // the React `grDb` state. The RAF-driven state is fine for meter
+    // rendering, but the sweep loop is an async for/await that never lets
+    // React re-render between snapshots — so a closure-captured `grDb`
+    // would be frozen at the value it held when the loop started, giving
+    // a variance of exactly 0.000 across all 41 presets. Calling the
+    // engine getters directly matches what the RAF itself does (see the
+    // metering effect) and sidesteps the closure trap entirely.
+    let liveGrA = null, liveGrB = null;
+    try { liveGrA = engine?.getGrDbA?.() ?? null; } catch {}
+    try { liveGrB = engine?.getGrDbB?.() ?? null; } catch {}
+    const liveGrDb = { A: liveGrA, B: liveGrB };
+
+    const measurements = {
+      pre: {
+        peakDb: s.prePk, rmsDb: s.preRms, holdDb: s.preHold,
+        lufsDb: s.preLufs, crestDb: s.preCrest, centroidHz: s.preCentroidHz,
+      },
+      post: {
+        peakDb: s.postPk, rmsDb: s.postRms, holdDb: s.postHold,
+        lufsDb: s.postLufs, crestDb: s.postCrest, centroidHz: s.postCentroidHz,
+      },
+      deltaPkDb:  s.postPk  - s.prePk,
+      deltaRmsDb: s.postRms - s.preRms,
+      deltaLufsDb: s.postLufs - s.preLufs,
+      nullRmsDb:  s.nullRmsDb,
+      grDb: liveGrDb,
+    };
+
+    const checks = runChecks({ entries, values: liveValues, engineState, paramSchema, measurements, productId, engine });
+
+    const snap = {
+      schemaVersion: 2,
+      capturedAt: new Date().toISOString(),
+      build: {
+        sha:     typeof __BUILD_SHA__   !== 'undefined' ? __BUILD_SHA__   : 'dev',
+        version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '?',
+        time:    typeof __BUILD_TIME__  !== 'undefined' ? __BUILD_TIME__  : '',
+      },
+      product:  { productId, variantId },
+      stimulus: { type: sourceKind || null, file: droppedName || null },
+      preset:   { requestedName: requestedPresetName, found: presetFound,
+                  applySucceeded: presetApplySucceeded },
+      declaredPreset,
+      params:   liveValues,
+      changedParamsFromDefault:  changedFromDefault,
+      changedParamsFromPrevious: changedFromPrevious,
+      engineState,
+      paramSchema,
+      measurements,
+      checks,
+    };
+    prevParamsRef.current = liveValues;
+    return snap;
+  };
+
+  const downloadSnapshot = () => {
+    // Freeze if not already, so the numbers in the JSON match what you're
+    // seeing on screen right now.
+    if (!frozen) setFrozen(true);
+    const snap = buildSnapshot();
+    const ts = snap.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
+    const fname = `qc_${productId}_${variantId}_${ts}.json`;
+    const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setLoadMsg({ level: 'ok', text: `saved ${fname}` });
+  };
+
+  const onLoadFile = async (file) => {
+    if (!file) return;
+    try {
+      const txt  = await file.text();
+      const snap = JSON.parse(txt);
+      if (!snap.params) throw new Error('no params in file');
+      const warns = [];
+      if (snap.product?.productId && snap.product.productId !== productId) {
+        warns.push(`product mismatch: snap=${snap.product.productId} current=${productId}`);
+      }
+      if (snap.product?.variantId && snap.product.variantId !== variantId) {
+        warns.push(`variant mismatch: snap=${snap.product.variantId} current=${variantId} — applying anyway`);
+      }
+      let applied = 0, skipped = 0;
+      for (const [name, v] of Object.entries(snap.params)) {
+        if (typeof engine?.[name] === 'function') { setParam?.(name, v); applied++; }
+        else                                        { skipped++; }
+      }
+      const level = warns.length || skipped ? 'warn' : 'ok';
+      setLoadMsg({ level,
+        text: `loaded: ${applied} applied, ${skipped} skipped${warns.length ? ' · ' + warns.join(' · ') : ''}` });
+      // Auto-freeze so user can compare loaded-state measurements immediately.
+      setFrozen(true);
+    } catch (err) {
+      setLoadMsg({ level: 'error', text: `load failed: ${err.message}` });
+    }
+  };
+
+  statsRef.current = stats;
+
+  // ── audit queue ─────────────────────────────────────────────────────────
+  const presetEntry = entries.find(e => e.kind === 'preset');
+  const activePresetLabel = presetEntry ? values[presetEntry.name] : null;
+
+  const addToAudit = (labelOverride) => {
+    const snap = buildSnapshot();
+    const label = labelOverride
+                  || activePresetLabel
+                  || `snap ${audit.length + 1}`;
+    setAudit(a => [...a, { label, snap }]);
+    setLoadMsg({ level: 'ok', text: `queued "${label}" (${audit.length + 1} total)` });
+  };
+
+  // Build the audit bundle in the shape exportAudit writes to disk.
+  // Shared between exportAudit (download JSON) and openAnalyzer (in-app
+  // report) so both see identical data — no drift between "what the file
+  // says" and "what the popup says".
+  //
+  // `auditOverride` sidesteps React's stale-closure trap on the RE-RUN
+  // path: sweepPresets returns its collected array, runReRun passes that
+  // array straight through here, so the analyzer reads the data it just
+  // captured — not whatever React happens to have committed by the time
+  // the callback fires.
+  const buildAuditBundle = (auditOverride) => ({
+    schemaVersion: 1,
+    kind: 'audit',
+    capturedAt: new Date().toISOString(),
+    build: {
+      sha:     typeof __BUILD_SHA__   !== 'undefined' ? __BUILD_SHA__   : 'dev',
+      version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '?',
+    },
+    product: { productId, variantId },
+    source:  { kind: sourceKind || null, name: droppedName || null },
+    snapshots: (auditOverride || audit).map(a => ({ label: a.label, ...a.snap })),
+  });
+
+  const exportAudit = () => {
+    if (audit.length === 0) return;
+    const bundle = buildAuditBundle();
+    const ts = bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
+    const fname = `qc_audit_${productId}_${variantId}_${ts}.json`;
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setLoadMsg({ level: 'ok', text: `exported ${fname} (${audit.length} snapshots)` });
+  };
+
+  // ── In-app analyzer popup ───────────────────────────────────────────────
+  // Runs qcAnalyzer.analyzeAudit() on the in-memory audit queue so users
+  // never have to export + drag the JSON into an external tool to get a
+  // verdict. Deterministic rule table in qcAnalyzer.js; see that file
+  // for the full list.
+  //
+  // `analysis` holds the current popup's report + its diff vs the previous
+  // run. `history` keeps the last 5 runs (report + timestamp) so the popup
+  // can show a run-history strip and we can diff the new run against the
+  // most recent one automatically after RE-RUN.
+  const [analysis, setAnalysis] = useState(null); // { report, bundle, diff } | null
+  const [history,  setHistory]  = useState([]);   // [{ at, verdict, variantId, findingKeys }]
+
+  // Variant-gate confirm popup. Asked before any ANALYZE or RE-RUN so the
+  // user sees "you're about to analyze LEGACY / ENGINE V1" in plain text
+  // and can cancel if the active variant isn't what they meant. Prevents
+  // the foot-gun of approving the wrong engine after a variant switch.
+  const [pendingAction, setPendingAction] = useState(null); // 'analyze' | 'rerun' | null
+
+  // `auditOverride` is the array of snapshots to analyze. Omit it to read
+  // the current React `audit` state (the normal ANALYZE path). Pass it
+  // explicitly from runReRun so we analyze the snapshots we just captured
+  // instead of whatever state React has committed — see buildAuditBundle.
+  const runAnalyze = (auditOverride) => {
+    const data = auditOverride || audit;
+    if (data.length === 0) return;
+    const bundle = buildAuditBundle(auditOverride);
+    const report = analyzeAudit(bundle);
+    // Diff only against the most recent run of the SAME variant — diffing
+    // Legacy vs V1 would be nonsensical (they're different engines).
+    const prev = history.find(h => h.variantId === variantId) || null;
+    const diff = prev ? diffReports(prev, report) : null;
+    setAnalysis({ report, bundle, diff });
+    setHistory(h => [
+      { at: new Date(), verdict: report.verdict, variantId,
+        findingKeys: report.findings.map(f => f.rule) },
+      ...h,
+    ].slice(0, 5));
+  };
+
+  // One-click fix→verify loop. Clears the queue, re-sweeps every preset,
+  // then auto-opens the analyzer so the popup appears with a diff against
+  // the previous run. Saves ~5 manual clicks per iteration when debugging
+  // a failing finding.
+  const runReRun = async () => {
+    if (!presetEntry || sweeping) return;
+    setAnalysis(null);
+    // sweepPresets({replace:true}) returns the freshly collected array
+    // AND atomically replaces the audit state with it — no append race,
+    // no stale-closure read inside runAnalyze. See commentary in
+    // sweepPresets + buildAuditBundle for why the array is passed through
+    // explicitly instead of re-reading state.
+    const freshAudit = await sweepPresets({ replace: true });
+    if (freshAudit && freshAudit.length > 0) runAnalyze(freshAudit);
+  };
+
+  // Confirmation entry points — set pendingAction, popup asks "analyze on
+  // LEGACY / ENGINE V1?", and only then calls runAnalyze / runReRun.
+  const openAnalyzer = () => { if (audit.length > 0) setPendingAction('analyze'); };
+  const reRun        = () => { if (presetEntry && !sweeping) setPendingAction('rerun'); };
+  const closeAnalyzer = () => setAnalysis(null);
+  const cancelConfirm = () => setPendingAction(null);
+  const confirmAction = () => {
+    const action = pendingAction;
+    setPendingAction(null);
+    if (action === 'analyze') runAnalyze();
+    else if (action === 'rerun') runReRun();
+  };
+
+  const downloadReport = () => {
+    if (!analysis) return;
+    const md = reportToMarkdown(analysis.report, analysis.bundle);
+    const ts = analysis.bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
+    const fname = `qc_report_${productId}_${variantId}_${ts}.md`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const clearAudit = () => { setAudit([]); setLoadMsg({ level: 'ok', text: 'audit queue cleared' }); };
+
+  // ── sweep all presets ───────────────────────────────────────────────────
+  //
+  // `replace: true` means "wipe the queue first, I'm starting fresh" — used
+  // by RE-RUN so successive iterations don't double, triple, quadruple the
+  // snapshot count. Default (`replace: false`) keeps the main toolbar's
+  // SWEEP button appending, which is the normal authoring flow.
+  //
+  // Returns the next-audit array directly so callers that need to analyze
+  // the fresh data can skip React's render cycle entirely (see runReRun).
+  const sweepPresets = async ({ replace = false } = {}) => {
+    if (!presetEntry || sweeping) return null;
+    const options = presetEntry.options || [];
+    if (options.length === 0) return null;
+    const starting = (valuesRef?.current ?? values)[presetEntry.name]; // restore after
+    setSweeping(true);
+    setLoadMsg({ level: 'ok', text: `sweeping ${options.length} presets…` });
+    const collected = [];
+    for (const opt of options) {
+      setParam?.(presetEntry.name, opt);
+      // Let engine apply, sync slider state back, meters settle
+      await new Promise(r => setTimeout(r, 600));
+      const applied = (valuesRef?.current ?? values)[presetEntry.name] === opt;
+      const snap = buildSnapshot({ requestedPresetName: opt, presetApplySucceeded: applied });
+      collected.push({ label: opt, snap });
+    }
+    // Restore starting state
+    if (starting !== undefined) {
+      setParam?.(presetEntry.name, starting);
+    }
+    const nextAudit = replace ? collected : [...audit, ...collected];
+    setAudit(nextAudit);
+    setSweeping(false);
+    setLoadMsg({ level: 'ok', text: `swept ${collected.length} presets — ${nextAudit.length} queued` });
+    return nextAudit;
+  };
+
+  const delta = stats.postPk - stats.prePk;
+  const deltaStr = !isFinite(delta) ? '—' : (delta >= 0 ? '+' : '') + delta.toFixed(1);
+
+  return (
+    <div style={ST.wrap}>
+      <div style={ST.title}>
+        <span>ANALYZER {frozen && <span style={{ color: '#ffb86b' }}>· FROZEN</span>}</span>
+        <span style={ST.delta}>
+          <button
+            onClick={() => setFrozen(f => !f)}
+            style={{
+              ...ST.freezeBtn,
+              background: frozen ? '#3a2a12' : '#1a1a22',
+              borderColor: frozen ? '#ffb86b' : '#2a2a34',
+              color: frozen ? '#ffb86b' : '#aaa',
+            }}
+          >{frozen ? '▶ RESUME' : '⏸ FREEZE'}</button>
+          <button onClick={downloadSnapshot} style={ST.freezeBtn} title="Freeze and download snapshot JSON">💾 SAVE</button>
+          <button onClick={() => fileInputRef.current?.click()} style={ST.freezeBtn} title="Load snapshot JSON and re-apply params">📂 LOAD</button>
+          <button onClick={() => addToAudit()} style={ST.freezeBtn}
+                  title="Add current state to the audit queue">
+            + ADD{audit.length > 0 ? ` (${audit.length})` : ''}
+          </button>
+          <button onClick={openAnalyzer} disabled={audit.length === 0}
+                  style={{ ...ST.freezeBtn, opacity: audit.length === 0 ? 0.4 : 1 }}
+                  title="Analyze the audit queue and show a plain-English verdict">
+            📊 ANALYZE
+          </button>
+          {presetEntry && (
+            <button onClick={reRun} disabled={sweeping}
+                    style={{ ...ST.freezeBtn, opacity: sweeping ? 0.5 : 1,
+                             borderColor: '#7affc3', color: '#7affc3' }}
+                    title="Clear queue, re-sweep all presets, and auto-open the analyzer (fix→verify loop)">
+              {sweeping ? '⏳ RE-RUNNING…' : '🔁 RE-RUN'}
+            </button>
+          )}
+          <button onClick={exportAudit} disabled={audit.length === 0}
+                  style={{ ...ST.freezeBtn, opacity: audit.length === 0 ? 0.4 : 1 }}
+                  title="Download all queued snapshots as one audit JSON">
+            📤 EXPORT AUDIT
+          </button>
+          {audit.length > 0 && (
+            <button onClick={clearAudit} style={ST.freezeBtn} title="Empty the audit queue">✕ CLEAR</button>
+          )}
+          {presetEntry && (
+            <button onClick={sweepPresets} disabled={sweeping}
+                    style={{ ...ST.freezeBtn, opacity: sweeping ? 0.5 : 1,
+                             borderColor: '#6a7aff', color: '#9aa9ff' }}
+                    title="Iterate every preset, capture each, restore starting state">
+              {sweeping ? '⏳ SWEEPING…' : '🌀 SWEEP PRESETS'}
+            </button>
+          )}
+          <input ref={fileInputRef} type="file" accept="application/json,.json"
+                 style={{ display: 'none' }}
+                 onChange={e => { const f = e.target.files?.[0]; onLoadFile(f); e.target.value = ''; }} />
+          <span style={{ marginLeft: 10 }}>
+            Δ PK <span style={{ color: delta < 0 ? '#ff9f6a' : '#7affc3' }}>{deltaStr}</span> dB
+          </span>
+        </span>
+      </div>
+      {loadMsg && (
+        <div style={{
+          fontSize: 10, fontFamily: 'monospace', padding: '4px 8px', borderRadius: 4,
+          background: loadMsg.level === 'error' ? '#3a1212'
+                    : loadMsg.level === 'warn'  ? '#332a12' : '#123a24',
+          color:      loadMsg.level === 'error' ? '#ff9a9a'
+                    : loadMsg.level === 'warn'  ? '#ffd07a' : '#9affc3',
+          border: '1px solid #2a2a34',
+        }}>
+          {loadMsg.text}
+        </div>
+      )}
+      <div style={ST.tapsRow}>
+        <Tap label="PRE"  analyser={pre}  color="#7ab8ff"
+             peak={stats.prePk}  rms={stats.preRms}  hold={stats.preHold}
+             lufs={stats.preLufs} crest={stats.preCrest} centroid={stats.preCentroidHz}
+             frozenRef={frozenRef} />
+        <Tap label="POST" analyser={post} color="#7affc3"
+             peak={stats.postPk} rms={stats.postRms} hold={stats.postHold}
+             lufs={stats.postLufs} crest={stats.postCrest} centroid={stats.postCentroidHz}
+             frozenRef={frozenRef} />
+      </div>
+      <LiveChecks
+        entries={entries}
+        values={(valuesRef?.current) || values}
+        engine={engine}
+        productId={productId}
+        stats={stats}
+        grDb={grDb}
+      />
+      {analysis && (
+        <AnalyzerPopup
+          report={analysis.report}
+          bundle={analysis.bundle}
+          diff={analysis.diff}
+          history={history}
+          onClose={closeAnalyzer}
+          onDownload={downloadReport}
+          onReRun={presetEntry ? reRun : null}
+          sweeping={sweeping}
+        />
+      )}
+      {pendingAction && (
+        <ConfirmVariantPopup
+          action={pendingAction}
+          variantId={variantId}
+          productId={productId}
+          snapshotCount={audit.length}
+          sourceKind={sourceKind}
+          onCancel={cancelConfirm}
+          onConfirm={confirmAction}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Analyzer report popup ──────────────────────────────────────────────────
+//
+// Renders the plain-English verdict from qcAnalyzer.analyzeAudit(). Three
+// sections top-to-bottom: verdict banner, headline-metrics table, findings
+// list. Bottom toolbar has CLOSE + DOWNLOAD REPORT (.md).
+function AnalyzerPopup({ report, bundle, diff, history, onClose, onDownload, onReRun, sweeping }) {
+  const badge =
+    report.verdict === 'fail' ? { t: '❌ Not ready',    bg: '#3a1212', fg: '#ff9a9a', bd: '#ff5050' } :
+    report.verdict === 'warn' ? { t: '⚠️ Almost there', bg: '#332a12', fg: '#ffd07a', bd: '#ffb040' } :
+                                { t: '✅ Looks good',   bg: '#123a24', fg: '#9affc3', bd: '#50c080' };
+  const friendlyLine = humanSummary(report);
+  const h = report.headline;
+  const fmt = (x) => (typeof x === 'number' && isFinite(x)) ? x.toFixed(2) : '—';
+
+  const verdictPill = (v) => v === 'fail' ? { fg: '#ff9a9a', bd: '#ff5050', icon: '❌' }
+                          : v === 'warn' ? { fg: '#ffd07a', bd: '#ffb040', icon: '⚠️' }
+                          :                { fg: '#9affc3', bd: '#50c080', icon: '✅' };
+
+  return (
+    <div onClick={onClose} style={AP.backdrop}>
+      <div onClick={e => e.stopPropagation()} style={AP.shell}>
+        <div style={{ ...AP.banner, background: badge.bg, color: badge.fg, borderColor: badge.bd }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.04em' }}>{badge.t}</div>
+            <VariantChip variantId={bundle?.product?.variantId} />
+          </div>
+          <div style={{ fontSize: 13, marginTop: 4, opacity: 0.95 }}>{friendlyLine}</div>
+          <div style={{ fontSize: 10, marginTop: 6, opacity: 0.7, fontFamily: 'monospace' }}>
+            {bundle?.product?.productId} · {h.snapshots} snapshot(s)
+            {bundle?.build?.sha ? ` · build ${bundle.build.sha}` : ''}
+          </div>
+          {bundle?.product?.variantId === 'legacy' && (
+            <div style={{
+              marginTop: 10, padding: '8px 10px',
+              background: 'rgba(127,180,255,0.08)',
+              border: '1px solid rgba(127,180,255,0.35)',
+              borderRadius: 4, fontSize: 12, color: '#9fc3ff',
+            }}>
+              🔵 This is the <b>Legacy baseline</b> — you're measuring, not approving.
+              Switch to Engine V1 above to run an approval audit.
+            </div>
+          )}
+        </div>
+
+        {/* Diff strip — only shows after a second run. Tells the user
+            whether their code change actually moved the needle: which
+            findings went away, which are new, which are still there. */}
+        {diff && (
+          <div style={{
+            ...AP.diffStrip,
+            borderColor: diff.verdictChange === 'improved' ? '#50c080'
+                       : diff.verdictChange === 'regressed' ? '#ff5050'
+                       :                                      '#555',
+          }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: '#8aa0b8', marginBottom: 6 }}>
+              SINCE LAST RUN · {diff.verdictChange === 'improved' ? '↑ BETTER'
+                              : diff.verdictChange === 'regressed' ? '↓ WORSE'
+                              : '= SAME'}
+            </div>
+            {diff.resolved.length > 0 && (
+              <div style={{ fontSize: 12, color: '#9affc3', marginBottom: 3 }}>
+                ✅ Fixed: {diff.resolved.map(r => (RULE_META[r]?.title || r)).join(' · ')}
+              </div>
+            )}
+            {diff.introduced.length > 0 && (
+              <div style={{ fontSize: 12, color: '#ff9a9a', marginBottom: 3 }}>
+                🆕 New problem: {diff.introduced.map(r => (RULE_META[r]?.title || r)).join(' · ')}
+              </div>
+            )}
+            {diff.carried.length > 0 && (
+              <div style={{ fontSize: 12, color: '#c0c8d0' }}>
+                ↻ Still there: {diff.carried.map(r => (RULE_META[r]?.title || r)).join(' · ')}
+              </div>
+            )}
+            {diff.resolved.length === 0 && diff.introduced.length === 0 && diff.carried.length === 0 && (
+              <div style={{ fontSize: 12, color: '#9affc3' }}>Nothing flagged then or now — stayed clean.</div>
+            )}
+          </div>
+        )}
+
+        {/* Run history strip — last 5 verdicts as small pills, newest
+            first. A visible log of your debugging session inside the popup. */}
+        {history && history.length > 1 && (
+          <div style={AP.historyStrip}>
+            <span style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.2em', color: '#8aa0b8', marginRight: 8 }}>
+              HISTORY
+            </span>
+            {history.map((hst, i) => {
+              const p = verdictPill(hst.verdict);
+              const t = hst.at instanceof Date ? hst.at : new Date(hst.at);
+              const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+              const ageSec = Math.max(0, Math.round((Date.now() - t.getTime()) / 1000));
+              const rel = i === 0 ? 'now'
+                        : ageSec < 60   ? `${ageSec}s ago`
+                        : ageSec < 3600 ? `${Math.round(ageSec / 60)}m ago`
+                        :                 `${Math.round(ageSec / 3600)}h ago`;
+              const vTag = hst.variantId === 'engine_v1' ? 'V1' : (hst.variantId === 'legacy' ? 'Legacy' : (hst.variantId || 'Legacy'));
+              return (
+                <span key={i} title={`${hhmm} · ${hst.variantId || 'legacy'} · ${hst.findingKeys.length} finding(s)`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', marginRight: 6,
+                    border: `1px solid ${p.bd}`, borderRadius: 10,
+                    color: p.fg,
+                    fontFamily: 'monospace', fontSize: 10,
+                    background: i === 0 ? 'rgba(255,255,255,0.05)' : 'transparent',
+                  }}>
+                  {p.icon} {rel} <span style={{ opacity: 0.6 }}>·</span> {vTag}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={AP.section}>
+          <div style={AP.sectionHead}>THE NUMBERS</div>
+          <table style={AP.table}>
+            <thead>
+              <tr>
+                <th style={AP.th}>Metric</th>
+                <th style={AP.th}>Typical</th>
+                <th style={AP.th}>Range</th>
+                <th style={AP.th}>What this tells you</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={AP.td}>How many presets</td>
+                <td style={AP.td}>{h.snapshots}</td>
+                <td style={AP.td}>{h.presetsApplied}/{h.presetsRequested} applied</td>
+                <td style={AP.td}>{HEADLINE_HINTS.snapshots}</td>
+              </tr>
+              <tr>
+                <td style={AP.td}>How much the sound changed</td>
+                <td style={AP.td}>{fmt(h.nullRms.p50)} dB</td>
+                <td style={AP.td}>{fmt(h.nullRms.min)} … {fmt(h.nullRms.max)} dB</td>
+                <td style={AP.td}>{HEADLINE_HINTS.nullRms}</td>
+              </tr>
+              <tr>
+                <td style={AP.td}>Loudness change</td>
+                <td style={AP.td}>{fmt(h.lufs.p50)} dB</td>
+                <td style={AP.td}>{fmt(h.lufs.min)} … {fmt(h.lufs.max)} dB</td>
+                <td style={AP.td}>{HEADLINE_HINTS.lufs}</td>
+              </tr>
+              <tr>
+                <td style={AP.td}>Peak level change</td>
+                <td style={AP.td}>{fmt(h.peak.p50)} dB</td>
+                <td style={AP.td}>{fmt(h.peak.min)} … {fmt(h.peak.max)} dB</td>
+                <td style={AP.td}>{HEADLINE_HINTS.peak}</td>
+              </tr>
+              <tr>
+                <td style={AP.td}>Compression (GR)</td>
+                <td style={AP.td}>{fmt(h.gr.p50)} dB</td>
+                <td style={AP.td}>variance {fmt(h.gr.variance)} dB</td>
+                <td style={AP.td}>{HEADLINE_HINTS.gr}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style={AP.section}>
+          <div style={AP.sectionHead}>FINDINGS</div>
+          {report.findings.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#9affc3', padding: '8px 4px' }}>No issues detected.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {report.findings.map((f, i) => {
+                const row = f.severity === 'fail' ? { bg: '#2a0d0d', fg: '#ff9a9a', bd: '#ff5050', icon: '🔴', tag: 'Problem' }
+                           : f.severity === 'warn' ? { bg: '#281f0d', fg: '#ffd07a', bd: '#ffb040', icon: '🟡', tag: 'Check' }
+                           :                         { bg: '#0d1a28', fg: '#9fc3ff', bd: '#5080c0', icon: '🔵', tag: 'Info' };
+                const meta = RULE_META[f.rule] || {
+                  title:   f.rule,
+                  meaning: f.msg,
+                  fix:     "No suggested fix on file for this rule yet — open qcAnalyzer.js and add one.",
+                };
+                return (
+                  <div key={i} style={{ ...AP.finding, background: row.bg, borderColor: row.bd, color: row.fg }}>
+                    {/* Plain-English header */}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: row.fg }}>
+                      {row.icon} {row.tag} — {meta.title}
+                    </div>
+
+                    {/* What it means */}
+                    <div style={{ fontSize: 12, marginTop: 6, color: '#e0e4ea', lineHeight: 1.45 }}>
+                      <b style={{ color: '#c8cdd6' }}>What it means:</b> {meta.meaning}
+                    </div>
+
+                    {/* Suggested fix */}
+                    <div style={{ fontSize: 12, marginTop: 4, color: '#e0e4ea', lineHeight: 1.45 }}>
+                      <b style={{ color: '#c8cdd6' }}>Try this:</b> {meta.fix}
+                    </div>
+
+                    {/* Affected list */}
+                    {f.affected && f.affected.length > 0 && (
+                      <details style={{ marginTop: 8 }}>
+                        <summary style={{ fontSize: 11, cursor: 'pointer', color: row.fg, opacity: 0.85 }}>
+                          {f.affected.length} affected preset{f.affected.length === 1 ? '' : 's'} — show list
+                        </summary>
+                        <ul style={{ margin: '6px 0 0 18px', fontSize: 11, color: '#c0c8d0' }}>
+                          {f.affected.slice(0, 40).map((a, j) => <li key={j}>{a}</li>)}
+                          {f.affected.length > 40 && <li>…and {f.affected.length - 40} more</li>}
+                        </ul>
+                      </details>
+                    )}
+
+                    {/* Developer notes — file paths, references, diagnostic
+                        checks, anti-patterns. Collapsed so non-devs skim past,
+                        but everything you need to sit down and fix is here. */}
+                    {meta.dev && (
+                      <details style={{ marginTop: 8 }}>
+                        <summary style={{ fontSize: 10, cursor: 'pointer', color: '#8aa0b8', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
+                          DEVELOPER NOTES
+                        </summary>
+                        <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(0,0,0,0.25)', borderRadius: 4, fontSize: 11, color: '#c0c8d0', lineHeight: 1.55 }}>
+                          {meta.dev.files?.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 10, color: '#8aa0b8', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: 3 }}>FILES TO INSPECT</div>
+                              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                {meta.dev.files.map((x, k) => <li key={k} style={{ fontFamily: 'monospace', fontSize: 11 }}>{x}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {meta.dev.refs?.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 10, color: '#8aa0b8', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: 3 }}>REFERENCES</div>
+                              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                {meta.dev.refs.map((x, k) => <li key={k}>{x}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {meta.dev.checks?.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 10, color: '#8aa0b8', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: 3 }}>DIAGNOSTIC CHECKS</div>
+                              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                {meta.dev.checks.map((x, k) => <li key={k}>{x}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {meta.dev.antipatterns?.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: 10, color: '#ff9a9a', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: 3 }}>ANTI-PATTERNS (AVOID)</div>
+                              <ul style={{ margin: 0, paddingLeft: 18, color: '#e8a0a0' }}>
+                                {meta.dev.antipatterns.map((x, k) => <li key={k}>{x}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    )}
+
+                    {/* Raw technical readout — rule ID + raw message */}
+                    <details style={{ marginTop: 6 }}>
+                      <summary style={{ fontSize: 10, cursor: 'pointer', color: '#8aa0b8', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
+                        TECHNICAL DETAILS
+                      </summary>
+                      <div style={{ marginTop: 6, fontSize: 11, color: '#a8b0bc', fontFamily: 'monospace' }}>
+                        rule: <span style={{ color: row.fg }}>{f.rule}</span>
+                      </div>
+                      <div style={{ marginTop: 2, fontSize: 11, color: '#a8b0bc' }}>{f.msg}</div>
+                    </details>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={AP.toolbar}>
+          {onReRun && (
+            <button onClick={onReRun} disabled={sweeping}
+                    style={{ ...AP.btnReRun, opacity: sweeping ? 0.5 : 1 }}
+                    title="Clear queue, re-sweep every preset, re-analyze — one-click fix→verify loop">
+              {sweeping ? '⏳ RE-RUNNING…' : '🔁 RE-RUN QC'}
+            </button>
+          )}
+          <button onClick={onDownload} style={AP.btnPrimary} title="Save the markdown report for the conformance file">
+            ⬇ DOWNLOAD REPORT (.md)
+          </button>
+          <div style={{ flex: 1 }} />
+          <button onClick={onClose} style={AP.btn}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Variant chip — the "you are here" indicator on the verdict banner ─────
+function VariantChip({ variantId }) {
+  const isV1 = variantId === 'engine_v1';
+  const c = isV1
+    ? { bg: 'rgba(30,120,50,0.35)',  fg: '#7fff8f', bd: '#7fff8f', label: 'ENGINE V1' }
+    : { bg: 'rgba(160,110,30,0.35)', fg: '#ffc080', bd: '#ffc080', label: 'LEGACY' };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '3px 10px',
+      background: c.bg, color: c.fg,
+      border: `1.5px solid ${c.bd}`,
+      borderRadius: 3,
+      fontFamily: 'monospace', fontSize: 11, fontWeight: 800, letterSpacing: '0.12em',
+    }}>
+      {c.label}
+    </span>
+  );
+}
+
+// ── Confirm-variant popup — the safety gate on ANALYZE / RE-RUN ───────────
+//
+// Gates every analyzer run so the user has to explicitly acknowledge which
+// engine variant they're about to audit. Prevents the classic foot-gun of
+// sweeping presets on LEGACY and then mistakenly approving ENGINE V1 —
+// or vice-versa — because the variant switcher isn't in direct eyeline.
+function ConfirmVariantPopup({ action, variantId, productId, snapshotCount, sourceKind, onCancel, onConfirm }) {
+  const isV1 = variantId === 'engine_v1';
+  const verb = action === 'rerun' ? 'Re-run' : 'Analyze';
+  const variantLabel = isV1 ? 'ENGINE V1' : 'LEGACY';
+  const tone = isV1
+    ? { fg: '#7fff8f', bd: '#7fff8f', note: 'V1 is under review. A clean pass here clears it for approval.' }
+    : { fg: '#ffc080', bd: '#ffc080', note: 'Legacy is the shipped baseline. Analyzing it measures — it does not re-approve it.' };
+
+  // Sourceless sweep/analyze measures silence and produces meaningless data.
+  // Hard-block the CONTINUE button in this case with an explicit fix-it
+  // prompt. Only relevant for 'rerun' (which re-sweeps) — 'analyze' over an
+  // already-captured queue doesn't need an active source.
+  const needsSource    = action === 'rerun';
+  const sourceMissing  = needsSource && !sourceKind;
+  const continueLocked = sourceMissing;
+
+  return (
+    <div onClick={onCancel} style={AP.backdrop}>
+      <div onClick={e => e.stopPropagation()} style={{ ...AP.shell, width: 'min(460px, 92vw)' }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.24em', color: '#8aa0b8', marginBottom: 10 }}>
+          CONFIRM — {verb.toUpperCase()}
+        </div>
+
+        <div style={{ fontSize: 15, marginBottom: 14, lineHeight: 1.5 }}>
+          You're about to <b>{verb.toLowerCase()}</b> audio on:
+        </div>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          padding: '14px 10px', marginBottom: 12,
+          background: 'rgba(255,255,255,0.04)',
+          border: `2px solid ${tone.bd}`,
+          borderRadius: 5,
+        }}>
+          <span style={{ color: '#c0c8d0', fontSize: 15, fontWeight: 600 }}>{productId}</span>
+          <span style={{ color: '#6a7888', fontSize: 14 }}>·</span>
+          <span style={{ color: tone.fg, fontSize: 15, fontWeight: 800, letterSpacing: '0.12em', fontFamily: 'monospace' }}>
+            {variantLabel}
+          </span>
+        </div>
+
+        {/* Source-missing block — only fires on RE-RUN (which drives the
+            actual sweep). Hard-blocks CONTINUE until they start a source. */}
+        {sourceMissing && (
+          <div style={{
+            padding: '10px 12px', marginBottom: 12,
+            background: 'rgba(255,80,80,0.10)',
+            border: '1px solid #ff5050',
+            borderRadius: 4, fontSize: 12, color: '#ff9a9a',
+          }}>
+            🔴 <b>No test source is playing.</b><br />
+            A sweep without a source measures silence — the results will be meaningless.
+            <br /><br />
+            Close this dialog, then click <b>PINK</b> (or SWEEP / DRUMS / FILE) at the top of the drawer before re-running.
+          </div>
+        )}
+
+        {/* Live source indicator when one IS playing, so users can confirm
+            at a glance that they're about to measure against the right
+            stimulus. */}
+        {needsSource && sourceKind && (
+          <div style={{
+            padding: '8px 12px', marginBottom: 12,
+            background: 'rgba(122,255,195,0.08)',
+            border: '1px solid rgba(122,255,195,0.45)',
+            borderRadius: 4, fontSize: 12, color: '#9affc3',
+          }}>
+            ▶ Test source: <b style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>{sourceKind}</b>
+          </div>
+        )}
+
+        <div style={{ fontSize: 12, color: '#a8b4c0', marginBottom: 6 }}>
+          {tone.note}
+        </div>
+        {action === 'analyze' && (
+          <div style={{ fontSize: 12, color: '#8aa0b8', marginBottom: 6 }}>
+            Queue currently holds <b style={{ color: '#cfd6dc' }}>{snapshotCount}</b> snapshot(s).
+          </div>
+        )}
+        {action === 'rerun' && (
+          <div style={{ fontSize: 12, color: '#8aa0b8', marginBottom: 6 }}>
+            This clears the current audit queue and sweeps every preset again (~30 s).
+          </div>
+        )}
+
+        <div style={{ ...AP.toolbar, marginTop: 14 }}>
+          <div style={{ flex: 1 }} />
+          <button onClick={onCancel} style={AP.btn}>CANCEL</button>
+          <button onClick={continueLocked ? undefined : onConfirm}
+                  disabled={continueLocked}
+                  title={continueLocked ? 'Start a test source first' : ''}
+                  style={{
+                    ...AP.btnPrimary,
+                    color: continueLocked ? '#6a7888' : tone.fg,
+                    borderColor: continueLocked ? '#444' : tone.bd,
+                    background: continueLocked ? 'rgba(255,255,255,0.02)' : `${tone.bd}18`,
+                    cursor: continueLocked ? 'not-allowed' : 'pointer',
+                  }}>
+            CONTINUE →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const AP = {
+  backdrop: {
+    position: 'fixed', inset: 0, zIndex: 5000,
+    background: 'rgba(0,0,0,0.72)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: '"Inter", system-ui, sans-serif',
+  },
+  shell: {
+    width: 'min(780px, 92vw)', maxHeight: '88vh',
+    overflow: 'auto',
+    background: '#0e1218', color: '#cfd6dc',
+    border: '1px solid #2a2f3a',
+    borderRadius: 6,
+    padding: 18,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+  },
+  banner: {
+    border: '2px solid', borderRadius: 5,
+    padding: '14px 16px',
+    marginBottom: 14,
+  },
+  section: { marginTop: 14 },
+  sectionHead: {
+    fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.24em',
+    color: '#8aa0b8', marginBottom: 6,
+  },
+  table: {
+    width: '100%', borderCollapse: 'collapse', fontSize: 12,
+    fontFamily: 'monospace',
+  },
+  th: {
+    textAlign: 'left', padding: '6px 8px',
+    borderBottom: '1px solid #2a2f3a',
+    color: '#7a8a9a', fontWeight: 600, fontSize: 10, letterSpacing: '0.1em',
+  },
+  td: {
+    padding: '5px 8px',
+    borderBottom: '1px solid #1a1f28',
+    color: '#c0c8d0',
+  },
+  finding: {
+    border: '1px solid', borderRadius: 4,
+    padding: '8px 10px',
+  },
+  toolbar: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    marginTop: 16, paddingTop: 12,
+    borderTop: '1px solid #2a2f3a',
+  },
+  btn: {
+    cursor: 'pointer', padding: '7px 14px',
+    background: 'rgba(255,255,255,0.04)', color: '#cfd6dc',
+    border: '1px solid rgba(255,255,255,0.2)', borderRadius: 3,
+    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+  },
+  btnPrimary: {
+    cursor: 'pointer', padding: '7px 14px',
+    background: 'rgba(127,180,255,0.12)', color: '#8fc1ff',
+    border: '1px solid rgba(127,180,255,0.55)', borderRadius: 3,
+    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+  },
+  btnReRun: {
+    cursor: 'pointer', padding: '7px 14px',
+    background: 'rgba(122,255,195,0.12)', color: '#7affc3',
+    border: '1px solid rgba(122,255,195,0.55)', borderRadius: 3,
+    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+  },
+  diffStrip: {
+    marginBottom: 12,
+    padding: '10px 12px',
+    border: '1px solid',
+    borderRadius: 5,
+    background: 'rgba(255,255,255,0.02)',
+  },
+  historyStrip: {
+    display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+    gap: 2, marginBottom: 12,
+    padding: '6px 10px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid #2a2f3a',
+    borderRadius: 4,
+  },
+  code: {
+    fontFamily: 'monospace', fontSize: 11,
+    background: 'rgba(255,255,255,0.06)',
+    padding: '1px 5px', borderRadius: 2,
+  },
+};
+
+// ── live severity strip + null/GR readouts ─────────────────────────────────
+function LiveChecks({ entries, values, engine, productId, stats, grDb }) {
+  const paramSchema = Array.isArray(engine?.paramSchema) ? engine.paramSchema : null;
+  let engineState = null;
+  try { engineState = engine?.getState?.() ?? null; } catch {}
+  const measurements = {
+    pre:  { peakDb: stats.prePk,  rmsDb: stats.preRms },
+    post: { peakDb: stats.postPk, rmsDb: stats.postRms },
+  };
+  const { severity, items } = runChecks({ entries, values, engineState, paramSchema, measurements, productId, engine });
+  const sevColor = {
+    critical: '#ff6a6a', major: '#ffae6a', minor: '#ffd87a',
+    info: '#9affc3', cannot_verify: '#9aa9ff', ok: '#9affc3',
+  };
+  const badge = (text, color) => (
+    <span style={{
+      fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.5,
+      padding: '1px 6px', borderRadius: 3, marginRight: 6,
+      border: `1px solid ${color}55`, color, background: `${color}11`,
+    }}>{text}</span>
+  );
+  const grLine = (grDb.A !== null || grDb.B !== null)
+    ? `GR A ${grDb.A !== null ? grDb.A.toFixed(1)+' dB' : '—'} · B ${grDb.B !== null ? grDb.B.toFixed(1)+' dB' : '—'}`
+    : null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4,
+                  borderTop: '1px solid #1f1f28' }}>
+      <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#888',
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+        {badge(severity.toUpperCase(), sevColor[severity] || '#888')}
+        <span style={{ marginRight: 10 }}>
+          <span style={ST.k}>NULL</span> {isFinite(stats.nullRmsDb) && stats.nullRmsDb > -200
+            ? stats.nullRmsDb.toFixed(1) + ' dBFS' : '—'}
+        </span>
+        {grLine && <span style={{ marginRight: 10 }}>{grLine}</span>}
+        <span style={{ color: '#555' }}>{items.length} check{items.length === 1 ? '' : 's'}</span>
+      </div>
+      {items.length > 0 && (
+        <div style={{ fontSize: 10, fontFamily: 'monospace', maxHeight: 72,
+                      overflowY: 'auto', paddingRight: 4 }}>
+          {items.map((it, i) => (
+            <div key={i} style={{ color: sevColor[it.severity] || '#aaa', lineHeight: 1.4 }}>
+              <span style={{ opacity: 0.7 }}>[{it.severity}]</span> {it.msg}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const ST = {
+  wrap: {
+    background: '#121217', border: '1px solid #23232b', borderRadius: 6,
+    padding: 8, margin: '6px 0', display: 'flex', flexDirection: 'column', gap: 6,
+  },
+  tapsRow:   { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
+  canvasRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 },
+  title: {
+    fontSize: 11, letterSpacing: 1.5, color: '#888', fontWeight: 600,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  },
+  delta: { fontSize: 11, fontFamily: 'monospace', color: '#aaa', display: 'flex', alignItems: 'center' },
+  freezeBtn: {
+    fontSize: 10, fontFamily: 'monospace', letterSpacing: 1,
+    padding: '3px 8px', borderRadius: 4, border: '1px solid #2a2a34',
+    cursor: 'pointer', fontWeight: 600,
+  },
+  tap:   { display: 'flex', flexDirection: 'column', gap: 4 },
+  tapHead: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+    fontSize: 11, fontFamily: 'monospace',
+  },
+  readout: { color: '#cfcfd6', fontSize: 11 },
+  subReadout: {
+    display: 'flex', gap: 10, fontSize: 10, fontFamily: 'monospace',
+    color: '#9a9aa4', paddingLeft: 2,
+  },
+  k:       { color: '#666', marginRight: 2 },
+  unit:    { color: '#666', marginLeft: 4 },
+  canvas:  { width: '100%', height: 'auto', borderRadius: 4, background: '#0a0a0c', display: 'block' },
+};

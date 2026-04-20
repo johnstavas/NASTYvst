@@ -11,9 +11,18 @@
 import DrumBusOrb      from '../DrumBusOrb.jsx';
 import PantherBussOrb  from '../PantherBussOrb.jsx';
 import ManChildOrb     from '../manChild/ManChildOrb.jsx';
-import { createDrumBusEngine }      from '../drumBusEngine.js';
-import { createPantherBussEngine }  from '../pantherBussEngine.js';
-import { createManChildEngine }     from '../manChild/manChildEngine.js';
+import LofiLoofyOrb    from '../lofiLoofy/LofiLoofyOrb.jsx';
+import FlapJackManOrb  from '../nastybeast/NastyBeastOrb.jsx';
+
+// Engine factories are code-split — each plugin's DSP module loads only when
+// that variant is actually instantiated. The eager React components above are
+// a few KB each and drive every menu/tooltip, so they stay synchronous; the
+// engines are the heavy (50+ KB with worklet source) bundles.
+//
+// Public contract is unchanged: engineFactory is still `async (ctx) => engine`.
+// Callers `await variant.engineFactory(ctx)` exactly as before — the dynamic
+// `import()` is hidden here. Vite emits one chunk per engine file.
+const lazy = (loader, named) => async (ctx) => (await loader())[named](ctx);
 
 export const VARIANT_LABELS = {
   legacy:    'Legacy',
@@ -54,7 +63,7 @@ export const REGISTRY = [
         displayLabel:  VARIANT_LABELS.legacy,
         component:     DrumBusOrb,
         componentName: 'DrumBusOrb',
-        engineFactory: createDrumBusEngine,
+        engineFactory: lazy(() => import('../drumBusEngine.js'), 'createDrumBusEngine'),
         engineName:    'drumBusEngine',
       },
       engine_v1: {
@@ -62,7 +71,7 @@ export const REGISTRY = [
         displayLabel:  VARIANT_LABELS.engine_v1,
         component:     PantherBussOrb,
         componentName: 'PantherBussOrb',
-        engineFactory: createPantherBussEngine,
+        engineFactory: lazy(() => import('../pantherBussEngine.js'), 'createPantherBussEngine'),
         engineName:    'pantherBussEngine',
       },
     },
@@ -82,8 +91,55 @@ export const REGISTRY = [
         displayLabel:  VARIANT_LABELS.legacy,
         component:     ManChildOrb,
         componentName: 'ManChildOrb',
-        engineFactory: createManChildEngine,
+        engineFactory: lazy(() => import('../manChild/manChildEngine.js'), 'createManChildEngine'),
         engineName:    'manChildEngine',
+      },
+      engine_v1: {
+        variantId:     'engine_v1',
+        displayLabel:  VARIANT_LABELS.engine_v1,
+        component:     ManChildOrb,                 // same UI
+        componentName: 'ManChildOrb',
+        engineFactory: lazy(() => import('../manChild/manChildEngine.v1.js'), 'createManChildEngineV1'), // frozen snapshot
+        engineName:    'manChildEngine.v1',
+      },
+    },
+  },
+  {
+    // Flap Jack Man — thick delay/distortion system with pitch-shifted
+    // ghosts. Memory Man / Space Echo-style lo-fi delay with in-loop
+    // saturation + octave-down granular shifter. Shipped as `legacy`
+    // (DEV_RULES G4); promote to engine_v1 on next rev.
+    productId:    'flapjackman',
+    displayLabel: 'Flap Jack Man',
+    category:     'Character',
+    legacyType:   'flapjackman',
+    variants: {
+      legacy: {
+        variantId:     'legacy',
+        displayLabel:  VARIANT_LABELS.legacy,
+        component:     FlapJackManOrb,
+        componentName: 'FlapJackManOrb',
+        engineFactory: lazy(() => import('../nastybeast/nastyBeastEngine.js'), 'createNastyBeastEngine'),
+        engineName:    'nastyBeastEngine',
+      },
+    },
+  },
+  {
+    // Lofi Loofy — tape/cassette/sampler vibe box. Same-day build as
+    // ManChild on Engine_V1; registered as `legacy` (first shipped rev
+    // per DEV_RULES G4). Promote to engine_v1 on next rev.
+    productId:    'lofi_loofy',
+    displayLabel: 'Lofi Loofy',
+    category:     'Character',
+    legacyType:   'lofiLoofy',
+    variants: {
+      legacy: {
+        variantId:     'legacy',
+        displayLabel:  VARIANT_LABELS.legacy,
+        component:     LofiLoofyOrb,
+        componentName: 'LofiLoofyOrb',
+        engineFactory: lazy(() => import('../lofiLoofy/lofiLoofyEngine.js'), 'createLofiLoofyEngine'),
+        engineName:    'lofiLoofyEngine',
       },
     },
   },

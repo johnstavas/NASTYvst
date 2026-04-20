@@ -19,69 +19,9 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getProduct } from '../migration/registry.js';
 import { createPinkNoise, createSineSweep, createDrumLoopStub, loadFileAsSource } from './sources.js';
-
-// ── fallback inference (only if engine has NO paramSchema) ─────────────────
-
-function inferKind(name) {
-  const n = name;
-  if (/^setBypass$/.test(n))        return { kind: 'bool', def: 0 };
-  if (/^setFB$/.test(n))            return { kind: 'bool', def: 0 };
-  if (/^setSc[AB]$/.test(n))        return { kind: 'bool', def: 1 };
-  if (/^setComp$/.test(n))          return { kind: 'bool', def: 0 };
-  const low = n.toLowerCase();
-  if (low.includes('threshold'))    return { kind: 'db',   min: -60, max: 0,  step: 0.5, def: -18 };
-  if (/^set(In|Out)$/.test(n))      return { kind: 'db',   min: -24, max: 24, step: 0.1, def: 0 };
-  if (low.includes('freq') || low.endsWith('hz'))
-                                    return { kind: 'hz',   min: 20,  max: 20000, step: 1, def: 1000 };
-  return { kind: 'unit', min: 0, max: 1, step: 0.01, def: 0.5 };
-}
-
-function buildEntries(engine) {
-  const setKeys = Object.keys(engine).filter(k => /^set[A-Z]/.test(k) && typeof engine[k] === 'function').sort();
-  const schema = Array.isArray(engine.paramSchema) ? engine.paramSchema : null;
-
-  if (schema) {
-    const byName = new Map(schema.map(s => [s.name, s]));
-    const out = schema.map(s => ({ ...s, _inSchema: true }));
-    // Flag any setX method that exists on the engine but is missing from
-    // the schema — so you SEE it and can add it to the schema.
-    for (const k of setKeys) {
-      if (!byName.has(k)) out.push({ name: k, label: k + ' (UNDECLARED)', ...inferKind(k), _inSchema: false });
-    }
-    return out;
-  }
-  // No schema: pure heuristics on every setX method.
-  return setKeys.map(k => ({ name: k, label: k, ...inferKind(k), _inSchema: false }));
-}
-
-function groupEntries(entries) {
-  // Respect explicit `group` property (e.g. 'A' / 'B'). Otherwise auto-pair
-  // setXxxA / setXxxB into A/B pair sections. Everything else is common.
-  const pairs = new Map();
-  const common = [];
-  const aByBase = new Map();
-  const bByBase = new Map();
-
-  for (const e of entries) {
-    const m = e.name.match(/^(.+)([AB])$/);
-    if (e.group === 'A' || (m && m[2] === 'A')) aByBase.set(m ? m[1] : e.name, e);
-    else if (e.group === 'B' || (m && m[2] === 'B')) bByBase.set(m ? m[1] : e.name, e);
-    else common.push(e);
-  }
-
-  const truePairs = [];
-  const extraCommon = [...common];
-  const seenBases = new Set();
-  for (const [base, a] of aByBase) {
-    const b = bByBase.get(base);
-    if (b) { truePairs.push({ base, A: a, B: b }); seenBases.add(base); }
-    else   { extraCommon.push(a); }
-  }
-  for (const [base, b] of bByBase) {
-    if (!seenBases.has(base)) extraCommon.push(b);
-  }
-  return { common: extraCommon, pairs: truePairs };
-}
+import Analyzer from './Analyzer.jsx';
+import { buildEntries, candidateKeys as _candidateKeys } from './entries.js';
+import { ControlPanel } from './Controls.jsx';
 
 // ── component ───────────────────────────────────────────────────────────────
 
@@ -101,6 +41,8 @@ export default function QcHarness({ productId, variantId }) {
   const [entries, setEntries] = useState([]);
   const [values,  setValues]  = useState({});
   const [sourceKind, setSourceKind] = useState(null);
+  const [dropActive, setDropActive] = useState(false);
+  const [droppedName, setDroppedName] = useState('');
   const sourceRef   = useRef(null);
   const analyserRef = useRef(null);
   const [meter, setMeter] = useState({ peak: -Infinity, rms: -Infinity });
@@ -194,20 +136,92 @@ export default function QcHarness({ productId, variantId }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Sync harness slider values back from engine.getState() after any
+  // setter that can mutate more than its own knob (presets, LINK mode,
+  // etc.). Matches by schema.stateKey if declared, else heuristic
+  // (setFoo → state.foo, lowercase first letter).
+  // Try several conventions to map a setFoo method → state key.
+  // Most engines use `foo` (lowercase first letter), some use the full
+  // `setFoo` name, some use snake_case.
+  const candidateKeys = _candidateKeys;
+
+  // Mirror of `values` that updates synchronously so the sweep loop can
+  // read the CURRENT values right after setParam. React's setState is
+  // async; without this ref, snapshots capture stale values.
+  const valuesRef = useRef({});
+  useEffect(() => { valuesRef.current = values; }, [values]);
+
+  function syncFromEngineState() {
+    try {
+      const st = engine?.getState?.();
+      if (!st) return;
+      setValues(prev => {
+        const next = { ...prev };
+        for (const e of entries) {
+          if (e.kind === 'noop') continue;
+          const keys = e.stateKey ? [e.stateKey] : candidateKeys(e.name);
+          for (const k of keys) {
+            if (st[k] !== undefined) { next[e.name] = st[k]; break; }
+          }
+        }
+        valuesRef.current = next; // keep ref in lock-step
+        return next;
+      });
+    } catch {}
+  }
   function setParam(name, v) {
-    setValues(vs => ({ ...vs, [name]: v }));
+    setValues(vs => {
+      const next = { ...vs, [name]: v };
+      valuesRef.current = next;
+      return next;
+    });
     try { engine?.[name]?.(v); } catch (err) { console.warn(`${name} threw`, err); }
+    // If the caller touched a preset-kind setter, the engine probably
+    // mutated lots of internal state — pull everything back.
+    const entry = entries.find(e => e.name === name);
+    if (entry?.kind === 'preset' || entry?.kind === 'enum') {
+      // Poll for a short window — the engine may apply internal
+      // setters over multiple microtasks (setTimeout, rAF, etc.).
+      setTimeout(syncFromEngineState, 0);
+      setTimeout(syncFromEngineState, 50);
+      setTimeout(syncFromEngineState, 200);
+    }
   }
 
-  const { common, pairs } = useMemo(() => groupEntries(entries), [entries]);
   const undeclared = entries.filter(e => e._inSchema === false && hasSchema);
 
+  // Page-wide drag & drop — drop any audio file onto the harness to play it
+  // through the current engine. Same codepath as the "file…" button.
+  const onDragOver = (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    setDropActive(true);
+  };
+  const onDragLeave = (e) => {
+    // Only clear when the pointer actually leaves the window
+    if (e.relatedTarget === null) setDropActive(false);
+  };
+  const onDrop = async (e) => {
+    e.preventDefault();
+    setDropActive(false);
+    const f = e.dataTransfer?.files?.[0];
+    if (!f) return;
+    setDroppedName(f.name);
+    await startSource('file', f);
+  };
+
   return (
-    <Shell>
+    <Shell onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+           overlay={dropActive}>
       <Header>
         <div>
           <div style={ST.eyebrow}>QC HARNESS {hasSchema ? '· schema' : '· heuristic'}</div>
           <div style={ST.title}>{product.displayLabel}</div>
+          <div style={{ fontSize: 10, opacity: 0.5, fontFamily: 'monospace', marginTop: 2 }}>
+            v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '?'} ·
+            {' '}{typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'} ·
+            {' '}{typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__.slice(5, 16).replace('T', ' ') : ''}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {Object.keys(product.variants).map(k => (
@@ -229,6 +243,23 @@ export default function QcHarness({ productId, variantId }) {
           add these to the engine's <code>paramSchema</code>.
         </Warn>
       )}
+      {engine && typeof engine.getState !== 'function' && (
+        <Warn>
+          This engine has no <code>getState()</code>. Presets will fire the DSP
+          but the harness sliders won't reflect the new values. Fix by adding
+          <code> getState()</code> to the engine's returned object.
+        </Warn>
+      )}
+
+      {engine && (
+        <Analyzer
+          ctx={ctx} engine={engine}
+          productId={productId} variantId={curVariant}
+          entries={entries} values={values} valuesRef={valuesRef} setParam={setParam}
+          syncFromEngineState={syncFromEngineState}
+          sourceKind={sourceKind} droppedName={droppedName}
+        />
+      )}
 
       <Section title={`SOURCE`}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -241,27 +272,19 @@ export default function QcHarness({ productId, variantId }) {
               onChange={e => { const f = e.target.files?.[0]; if (f) startSource('file', f); }} />
           </label>
           <Btn onClick={() => { stopSource(); setSourceKind(null); }}>stop</Btn>
+          {droppedName && <span style={{ fontSize: 11, color: '#8aa', fontFamily: 'monospace' }}>↳ {droppedName}</span>}
           <div style={{ flex: 1 }} />
           <Meter label="peak" db={meter.peak} />
           <Meter label="rms"  db={meter.rms}  />
         </div>
       </Section>
 
-      {common.length > 0 && (
-        <Section title="COMMON">
-          {common.map(e => (
-            <Control key={e.name} entry={e} value={values[e.name]}
-              onChange={v => setParam(e.name, v)} />
-          ))}
-        </Section>
-      )}
+      <ControlPanel
+        entries={entries}
+        values={values}
+        onChange={setParam}
+      />
 
-      {pairs.map(({ base, A, B }) => (
-        <Section key={base} title={`${base.replace(/^set/, '').toUpperCase()} · A / B`}>
-          <Control entry={A} value={values[A.name]} onChange={v => setParam(A.name, v)} />
-          <Control entry={B} value={values[B.name]} onChange={v => setParam(B.name, v)} />
-        </Section>
-      ))}
 
       <div style={{ color: '#666', fontSize: 11, marginTop: 20, fontFamily: 'Courier New, monospace' }}>
         {entries.length} controls · {hasSchema ? 'schema-driven' : 'heuristic'}
@@ -270,74 +293,8 @@ export default function QcHarness({ productId, variantId }) {
   );
 }
 
-// ── control router ─────────────────────────────────────────────────────────
-
-function Control({ entry, value, onChange }) {
-  if (entry.kind === 'noop') {
-    return (
-      <Row name={entry.label || entry.name} readout="no-op" readoutColor="#666">
-        <div style={{ color: '#666', fontSize: 11, fontFamily: 'Courier New, monospace' }}>
-          {entry.note || 'intentionally non-functional'}
-        </div>
-      </Row>
-    );
-  }
-  if (entry.kind === 'bool') {
-    const on = !!value;
-    return (
-      <Row name={entry.label || entry.name} readout={on ? 'ON' : 'OFF'} readoutColor={on ? '#7fff8f' : '#666'}>
-        <label style={ST.tog}>
-          <input type="checkbox" checked={on} onChange={e => onChange(e.target.checked ? 1 : 0)}
-            style={{ marginRight: 6 }} />
-          <span style={{ color: on ? '#7fff8f' : '#888' }}>{on ? 'ON' : 'OFF'}</span>
-        </label>
-      </Row>
-    );
-  }
-  if (entry.kind === 'enum') {
-    const vals = entry.values || [];
-    const cur  = vals.find(v => v.value === value);
-    return (
-      <Row name={entry.label || entry.name} readout={cur?.label ?? String(value)} readoutColor="#80d0ff">
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {vals.map(v => (
-            <Btn key={v.value} on={v.value === value} onClick={() => onChange(v.value)} small>
-              {v.label}
-            </Btn>
-          ))}
-        </div>
-      </Row>
-    );
-  }
-  if (entry.kind === 'preset') {
-    const opts = entry.options || [];
-    return (
-      <Row name={entry.label || entry.name} readout={value || '(none)'} readoutColor="#e0c080">
-        <select value={value || ''} onChange={e => onChange(e.target.value)} style={ST.select}>
-          <option value="">— select preset —</option>
-          {opts.map(name => <option key={name} value={name}>{name}</option>)}
-        </select>
-      </Row>
-    );
-  }
-  // numeric: unit | db | hz | gain | float
-  const { min, max, step, kind } = entry;
-  const display =
-    kind === 'db'   ? `${(+value).toFixed(1)} dB`
-  : kind === 'hz'   ? `${Math.round(+value)} Hz`
-  : kind === 'gain' ? `${(+value).toFixed(2)}×`
-  : kind === 'unit' ? `${Math.round(+value * 100)}%`
-  :                   (+value).toFixed(3);
-  return (
-    <Row name={entry.label || entry.name} readout={display} readoutColor="#d0d8e0">
-      <input type="range" className="qc" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(parseFloat(e.target.value))}
-        style={ST.range} />
-    </Row>
-  );
-}
-
 // ── chrome ─────────────────────────────────────────────────────────────────
+// (Control router lives in Controls.jsx — shared with QcDrawer.)
 
 function Row({ name, readout, readoutColor, children }) {
   return (
@@ -382,15 +339,30 @@ function Meter({ label, db }) {
   );
 }
 
-function Shell({ children }) {
+function Shell({ children, onDragOver, onDragLeave, onDrop, overlay }) {
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #0b0d10 0%, #0a0a0c 100%)',
-      color: '#cfd6dc', padding: '24px 32px',
-      fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
-      maxWidth: 1100, margin: '0 auto',
-    }}>
+    <div
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #0b0d10 0%, #0a0a0c 100%)',
+        color: '#cfd6dc', padding: '24px 32px',
+        fontFamily: '"Inter", system-ui, -apple-system, sans-serif',
+        maxWidth: 1100, margin: '0 auto',
+        position: 'relative',
+        outline: overlay ? '2px dashed #7ab8ff' : 'none',
+        outlineOffset: -8,
+      }}>
+      {overlay && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(10,20,40,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none', zIndex: 9999,
+          color: '#cfe3ff', fontSize: 22, fontWeight: 600, letterSpacing: 2,
+        }}>DROP AUDIO FILE</div>
+      )}
       <style>{`
         input[type="range"].qc {
           -webkit-appearance: none; appearance: none;
