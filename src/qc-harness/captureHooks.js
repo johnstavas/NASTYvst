@@ -1577,6 +1577,99 @@ export async function renderFreezeStability({
   };
 }
 
+// ── Hook: band_reconstruction (T3) ───────────────────────────────────
+//
+// Renders pink noise through a multiband plugin with all bands at unity
+// (preset already applies neutrals + bandsUnity=true hint). Subtracts
+// from the input stimulus and measures residual RMS.
+//
+// Contract: if the crossover is phase-complementary (Linkwitz-Riley,
+// matched-phase FIR, etc.) and all bands are at unity gain, the summed
+// output should reconstruct the input within float precision. A broken
+// crossover produces notches/bumps visible as residual energy orders of
+// magnitude above the float-noise floor.
+//
+// Alignment note:
+//   This is a raw (unaligned) null. If the plugin has declared latency,
+//   the raw null is limited by the integer-sample floor (~ −53 dB on
+//   pink). That's still plenty of headroom to catch real crossover bugs,
+//   which typically produce −6..−20 dB residual. Thresholds reflect this:
+//     residual > −20 dB → FAIL (crossover clearly broken)
+//     residual > −40 dB → WARN (alignment-limited or minor crossover misalignment)
+//     residual ≤ −40 dB → INFO (indistinguishable from the floor)
+//
+// A fancier future version could cross-correlate + delay-compensate
+// like mix_null does, pushing the floor to float precision. For now,
+// raw-null is sufficient for initial multiband onboarding.
+
+export async function renderBandReconstruction({
+  factory, params, sampleRate, durSec = 3, skipSec = 0.3,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  // Pink noise spanning the whole render — reuse the burst generator
+  // with silenceSec=0 as a full-duration pink buffer.
+  const pre = prebuildBurstThenSilence(sampleRate, durSec, 0);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const skip = Math.min(Math.floor(sampleRate * skipSec), buf.length - 1);
+  const chs = buf.numberOfChannels;
+  const len = Math.min(buf.length, pre.length);
+
+  let refSs = 0, resSs = 0, count = 0, peak = 0, finite = true;
+  for (let c = 0; c < chs; c++) {
+    const d = buf.getChannelData(c);
+    // Reference is mono-duplicated across L/R in prebuildBurstThenSilence.
+    const refArr = c === 0 ? pre.L : pre.R;
+    for (let i = skip; i < len; i++) {
+      const vOut = d[i];
+      const vRef = refArr[i];
+      if (!Number.isFinite(vOut)) { finite = false; break; }
+      refSs += vRef * vRef;
+      const diff = vOut - vRef;
+      resSs += diff * diff;
+      count++;
+      const a = Math.abs(vOut); if (a > peak) peak = a;
+    }
+    if (!finite) break;
+  }
+
+  if (!finite) {
+    return {
+      bandReconFinite: false,
+      bandReconPeakDb: rmsToDb(peak),
+      notes: 'non-finite-output',
+    };
+  }
+  if (count === 0 || refSs === 0) {
+    return {
+      bandReconFinite: true,
+      bandReconPeakDb: rmsToDb(peak),
+      notes: 'ambiguous-empty-ref',
+    };
+  }
+
+  const refRms = Math.sqrt(refSs / count);
+  const resRms = Math.sqrt(resSs / count);
+  const refDb  = rmsToDb(refRms);
+  const resDb  = rmsToDb(resRms);
+
+  return {
+    bandReconFinite:    true,
+    bandReconResidualDb: resDb,
+    bandReconRefDb:      refDb,
+    bandReconSnrDb:      refDb - resDb,        // positive = good null
+    bandReconPeakDb:     rmsToDb(peak),
+    notes: 'ok',
+  };
+}
+
 // ── Exports (named so Analyzer.jsx can dispatch on ruleId) ───────────
 export const captureHooks = {
   impulse_ir:           renderImpulseIR,
@@ -1587,6 +1680,7 @@ export const captureHooks = {
   loop_filter_stability_root: renderLoopFilterStabilityRoot,
   orthogonal_feedback:  renderOrthogonalFeedback,
   freeze_stability:     renderFreezeStability,
+  band_reconstruction:  renderBandReconstruction,
   pathological_stereo:  renderPathologicalStereo,
   extreme_freq:         renderExtremeFreq,
   denormal_tail:        renderDenormalTail,

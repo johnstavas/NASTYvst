@@ -693,14 +693,21 @@ export const RULE_META = {
     },
   },
   band_reconstruction: {
-    title:   "Band-split reconstruction — measurement pending",
-    meaning: "Multi-band engines should reconstruct to within a tight tolerance of input when all bands are set to unity. Registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T3.6 implementation.",
+    title:   "Multiband crossover doesn't reconstruct to unity",
+    meaning: "Rendered pink noise through the plugin with all bands at unity gain. In a correct multiband the per-band outputs sum back to the input within float precision (phase-complementary Linkwitz-Riley, matched-phase FIR, or similar). This plugin leaves significant residual energy when we subtract output from input — the crossover is producing notches, bumps, or phase misalignment across the band boundaries. That means any user processing that keeps bands near unity (subtle multiband compression, gentle EQ-balance) inherits audible tonal damage on every session.",
+    fix:     "Audit the crossover topology. For IIR multiband: ensure adjacent bands use complementary Linkwitz-Riley (24 dB/oct LR4 is the safe default — sums flat across the cutoff). For FIR multiband: verify the per-band impulse responses sum to a delta (within tolerance) offline before shipping. Common failures: (a) using Butterworth filter pairs (don't sum flat — need LR), (b) forgetting the all-pass compensation on the middle band in a 3-band split, (c) per-band gain applied before the crossover so unity isn't actually unity.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (band_reconstruction rule)", "src/qc-harness/qcPresets.js (flat-bands preset, TBD)"],
-      refs:  ["DAFX Zölzer Ch.2 (filter banks, perfect reconstruction)"],
-      checks: ["Capability gate: capabilities.bandsplit > 0"],
-      antipatterns: ["Measuring reconstruction with nonlinearity still active — it must be bypassed for this test."],
+      files: ["src/<product>/<product>Worklet.js → band-split + per-band gain routing", "src/<product>/<product>Engine.js → crossover topology"],
+      refs:  ["MEMORY.md → dafx_zolzer_textbook.md Ch.2 (filter banks, perfect reconstruction)", "MEMORY.md → jos_pasp_dsp_reference.md (Linkwitz-Riley pairs)"],
+      checks: ["All bands at unity → pink in, pink out, residual < −40 dB.", "Sweep a sine across the crossover frequency — output magnitude should stay within ±0.5 dB.", "For 3+ band: verify middle band has the correct all-pass compensation (otherwise it phase-rotates against the outers)."],
+      antipatterns: ["Butterworth pair instead of Linkwitz-Riley — sums to +3 dB bump at crossover.", "Applying nonlinearity in the band path during this test — must be bypassed to isolate crossover reconstruction.", "Per-band gain applied BEFORE the split so unity on the UI knob doesn't equal unity on the band."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Crossover reconstructs cleanly at unity",
+        meaning: "With all bands at unity, the plugin output nulled against input below the measurement floor. The crossover is phase-complementary and the per-band routing preserves unity correctly.",
+        fix:     "Nothing to fix.",
+      },
     },
   },
   lpc_stability: {
@@ -2294,11 +2301,54 @@ const RULES = [
   },
 
   // T3.6 band_reconstruction
-  (_, snaps) => {
-    const n = snaps[0]?.capabilities?.bandsplit ?? 0;
-    if (!(typeof n === 'number' && n > 0)) return null;
+  // T3.6 band_reconstruction. All bands at unity, render pink, subtract
+  // from input, measure residual. Unaligned null — alignment-floor on
+  // pink is ~ −53 dB, which is plenty to catch crossover bugs (those
+  // produce −6..−20 dB residuals).
+  //
+  // Thresholds:
+  //   bandReconFinite === false       → FAIL (non-finite)
+  //   bandReconResidualDb > −20       → FAIL (clearly broken crossover)
+  //   bandReconResidualDb > −40       → WARN (alignment-limited or minor misalignment)
+  //   else                            → INFO
+  (_, _snaps, ctx) => {
+    const probes = (ctx.qcSnaps || []).filter(s => s?.qc?.ruleId === 'band_reconstruction');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.bandReconFinite !== undefined);
+    if (withData.length === 0) {
+      return { severity: INFO, rule: 'band_reconstruction',
+        msg: `capture_pending: band-reconstruction measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`) };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB';
+
+    const nonFinite = withData.filter(s => s.measurements.bandReconFinite === false);
+    if (nonFinite.length) {
+      return { severity: FAIL, rule: 'band_reconstruction',
+        msg: `${nonFinite.length} capture(s) produced non-finite samples during band-reconstruction probe.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite output)`) };
+    }
+    const fails = withData.filter(s => {
+      const r = s.measurements.bandReconResidualDb;
+      return Number.isFinite(r) && r > -20;
+    });
+    if (fails.length) {
+      return { severity: FAIL, rule: 'band_reconstruction',
+        msg: `${fails.length} capture(s) show residual > −20 dB with all bands at unity — crossover is not reconstructing.`,
+        affected: fails.map(s => `${s.label} (residual=${fmtDb(s.measurements.bandReconResidualDb)})`) };
+    }
+    const warns = withData.filter(s => {
+      const r = s.measurements.bandReconResidualDb;
+      return Number.isFinite(r) && r > -40 && r <= -20;
+    });
+    if (warns.length) {
+      return { severity: WARN, rule: 'band_reconstruction',
+        msg: `${warns.length} capture(s) show residual in −40..−20 dB range — likely minor crossover misalignment or latency-floor limited. Cross-check with a sine sweep across the crossover frequency.`,
+        affected: warns.map(s => `${s.label} (residual=${fmtDb(s.measurements.bandReconResidualDb)})`) };
+    }
     return { severity: INFO, rule: 'band_reconstruction',
-      msg: `band_reconstruction probe registered (bandsplit=${n}); detection body pending T3.6 implementation.` };
+      msg: `Crossover reconstructs cleanly on ${withData.length} capture(s) — all-bands-unity null below −40 dB.`,
+      affected: withData.map(s => `${s.label} (residual=${fmtDb(s.measurements.bandReconResidualDb)})`) };
   },
 
   // T3.7 lpc_stability
