@@ -1,0 +1,4755 @@
+{
+  "schemaVersion": "deterministic-product-knowledge/v1",
+  "purpose": "Flat deterministic, music-first QC knowledge pack for resolving findings into Ear Lessons, creative-keep guidance, and searchable learning content. This file is runtime-safe, reviewable, and AI-free.",
+  "states": {
+    "recommendedDecisionLabels": {
+      "fix": "Tune it",
+      "keepIntentional": "Keep this sound",
+      "decideLater": "Decide later"
+    },
+    "riskLevels": [
+      "safe_creative",
+      "review_recommended",
+      "strong_warning",
+      "must_fix"
+    ],
+    "keepPolicy": {
+      "safe_creative": "User can keep intentionally with light confirmation.",
+      "review_recommended": "User can keep intentionally after seeing the tradeoff.",
+      "strong_warning": "User can keep only after a stronger warning.",
+      "must_fix": "User should not be allowed to keep as-is for release."
+    }
+  },
+  "migration": {
+    "generatedFrom": [
+      "deterministic_product_knowledge_v1.json",
+      "deterministic_product_knowledge_v3_deep_pass.json"
+    ],
+    "mergePolicy": "Merged by knowledgeId; v3 wins on collision.",
+    "renamedFields": {
+      "displayName": "title",
+      "whatThisControlDoes": "whatThisChanges",
+      "standardFix": "fix",
+      "recommendedListeningTarget": "listenFor",
+      "creativeKeepExplanation": "creativeKeep",
+      "keepConfirmation": "keepConfirmCopy"
+    },
+    "safetyPolicy": "riskLevel === must_fix forces canKeepIntentional = false at write time.",
+    "collisionCount": 18,
+    "droppedCount": 0
+  },
+  "knowledgeCards": [
+    {
+      "knowledgeId": "amp.cabinet_phase_hollow",
+      "title": "Cabinet sounds hollow",
+      "pluginFamilies": [
+        "Amp",
+        "Cabinet",
+        "Guitar"
+      ],
+      "repairFamily": "Phase",
+      "typicalControls": [
+        "Cabinet",
+        "Mic Blend",
+        "Phase",
+        "IR Align"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "Guitar tone loses body or sounds scooped in a strange way.",
+      "whatThisChanges": "Cabinet and mic blending combine filtered paths that must line up.",
+      "tradeoff": "Multi-mic blends add depth. Misaligned blends cancel tone.",
+      "fix": "Align IR/mic phase or reduce problematic mic blend.",
+      "creativeKeep": "A hollow cab tone can be a special lo-fi or nasal effect.",
+      "listenFor": "Use palm mutes, chords, and single-note leads.",
+      "keepConfirmCopy": "Keep the hollow cab? It may disappear in a mix.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "amp.cabinet_too_boxy",
+      "title": "Cabinet sounds boxy",
+      "pluginFamilies": [
+        "Amp",
+        "Cabinet",
+        "Guitar"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Cabinet",
+        "Mic Position",
+        "Low Mid",
+        "Room"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The tone feels trapped in a small cardboard box.",
+      "whatThisChanges": "Cabinet resonance and mic position shape midrange body.",
+      "tradeoff": "Boxiness can feel vintage. Too much makes the tone small.",
+      "fix": "Change mic position, reduce low-mid resonance, or choose a more open cab.",
+      "creativeKeep": "Boxy tone can work for garage, telephone, or old-radio effects.",
+      "listenFor": "Use guitar chords, snare, vocals, and midrange synths.",
+      "keepConfirmCopy": "Keep the box? It is a narrow, vintage flavor.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "amp.power_sag_chokes_attack",
+      "title": "Amp sag chokes the attack",
+      "pluginFamilies": [
+        "Amp",
+        "Distortion",
+        "Dynamics"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Sag",
+        "Supply",
+        "Compression",
+        "Feel"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Hard hits collapse or feel slow to recover.",
+      "whatThisChanges": "Sag models power supply droop under loud playing.",
+      "tradeoff": "More sag feels spongy and vintage. Less sag feels tight and immediate.",
+      "fix": "Lower sag or increase recovery speed.",
+      "creativeKeep": "Sag is a beloved amp feel for blues, rock, and vintage tones.",
+      "listenFor": "Use palm mutes, big chords, and loud single notes.",
+      "keepConfirmCopy": "Keep the sag? It makes the amp feel softer and slower.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "analysis.control_pass_full_plugin_fail",
+      "title": "Knob passes but the whole plugin still fails",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Verification",
+      "typicalControls": [
+        "Full QC",
+        "Control QC",
+        "Preset Sweep"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The fixed control behaves well alone, but another preset or interaction still fails.",
+      "whatThisChanges": "Full-plugin QC catches interactions between presets, controls, and modules.",
+      "tradeoff": "Focused tests are fast. Full tests prove release safety.",
+      "fix": "Run a full sweep after local fixes and resolve remaining linked findings.",
+      "creativeKeep": "Passing one control does not mean the whole plugin is ready.",
+      "listenFor": "Retest all presets after a control-level repair.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "analysis.false_positive_due_to_capability",
+      "title": "QC warning may be about plugin intent",
+      "pluginFamilies": [
+        "All",
+        "Hybrid",
+        "Sandbox"
+      ],
+      "repairFamily": "Capability",
+      "typicalControls": [
+        "Plugin Capabilities",
+        "Intent",
+        "Keep This Sound"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "QC flags behavior that may actually be the point of the plugin.",
+      "whatThisChanges": "Capability and intent metadata let QC judge the plugin against the right goal.",
+      "tradeoff": "Strict QC finds problems. Intent-aware QC avoids punishing creative design.",
+      "fix": "Route the finding to capability confirmation before changing sound.",
+      "creativeKeep": "Intent must be confirmed and saved, not guessed.",
+      "listenFor": "Compare the issue against the plugin's stated purpose and target family.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "analysis.full_plugin_pass_control_scope_fail",
+      "title": "Whole plugin passes but one knob path fails",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Verification",
+      "typicalControls": [
+        "Control QC",
+        "Knob Sweep",
+        "Verify Control"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The default preset seems fine, but a specific knob position creates a problem.",
+      "whatThisChanges": "Control-scope QC tests one knob or section across its range.",
+      "tradeoff": "Full-plugin QC checks release readiness. Control QC checks edit safety.",
+      "fix": "Fix or limit the problematic control range and rerun control-scope QC.",
+      "creativeKeep": "A risky knob range can be kept only if labeled and bounded.",
+      "listenFor": "Sweep the exact knob while monitoring the flagged issue.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "analysis.test_signal_overfits_pink_noise",
+      "title": "Fix only works on the test signal",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Verification",
+      "typicalControls": [
+        "Verify",
+        "Audition Source",
+        "QC Scope"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The issue passes pink noise but still sounds wrong on music.",
+      "whatThisChanges": "Verification should use both measurement signals and musical sources.",
+      "tradeoff": "Pink noise is consistent. Music proves the fix feels right.",
+      "fix": "Retest with family-specific audio examples after the measurement pass.",
+      "creativeKeep": "A fix is not truly trusted until it works musically.",
+      "listenFor": "Use drums, bass, vocals, full mix, and family-specific stress clips.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "automation.parameter_jumps",
+      "title": "Automation jumps or clicks",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Automation",
+        "Smoothing",
+        "Parameter Mapping"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Automated moves click, jump, or sound stepped.",
+      "whatThisChanges": "Automation smoothing turns DAW moves into clean audio changes.",
+      "tradeoff": "Fast automation follows the user. Smooth automation protects audio quality.",
+      "fix": "Add smoothing or better parameter interpolation.",
+      "creativeKeep": "Clicks from automation should not ship unless a glitch mode is explicit.",
+      "listenFor": "Automate every exposed knob quickly and slowly.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "bass_mono_maker_too_high",
+      "title": "Mono bass setting reaches too high",
+      "pluginFamilies": [
+        "Imaging",
+        "Mastering",
+        "Utility"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Mono Bass",
+        "Crossover",
+        "Width",
+        "Low Mono"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Low mids or guitars lose width, not just sub bass.",
+      "whatThisChanges": "Mono bass collapses low frequencies to the center.",
+      "tradeoff": "Mono low end is club-safe. Too high makes the mix narrow.",
+      "fix": "Lower the mono-bass crossover or make it preset-specific.",
+      "creativeKeep": "Higher mono crossover can be useful for strict club/mastering tools.",
+      "listenFor": "Use full mix, bass, guitars, and stereo synths.",
+      "keepConfirmCopy": "Keep the high mono crossover? It will narrow more than the sub.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "bitcrush_resolution_too_low",
+      "title": "Bitcrush destroys detail",
+      "pluginFamilies": [
+        "Bitcrush",
+        "Distortion",
+        "Lo-Fi"
+      ],
+      "repairFamily": "Character",
+      "typicalControls": [
+        "Bits",
+        "Resolution",
+        "Crush",
+        "Mix"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound turns grainy, blocky, or almost unrecognizable.",
+      "whatThisChanges": "Bit depth controls how many volume steps the signal can use.",
+      "tradeoff": "Fewer bits create stronger digital grit. More bits preserve detail.",
+      "fix": "Raise bit depth or lower wet mix.",
+      "creativeKeep": "Destroyed detail is the point of many bitcrush effects.",
+      "listenFor": "Use drums, bass, synth leads, and vocals.",
+      "keepConfirmCopy": "Keep the crushed detail? It is a digital destruction choice.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "bitcrush_sample_rate_alias",
+      "title": "Sample-rate crush aliases too hard",
+      "pluginFamilies": [
+        "Bitcrush",
+        "Lo-Fi",
+        "Digital FX"
+      ],
+      "repairFamily": "Quality",
+      "typicalControls": [
+        "Sample Rate",
+        "Downsample",
+        "Filter",
+        "Mix"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Digital side tones, whistles, or robotic grit appear around the source.",
+      "whatThisChanges": "Downsampling lowers the audio rate and can create alias tones.",
+      "tradeoff": "More downsampling is crunchy. Less downsampling keeps musical pitch clearer.",
+      "fix": "Raise sample-rate amount, add filtering, or reduce wet mix.",
+      "creativeKeep": "Aliasing is valid for retro game and glitch effects.",
+      "listenFor": "Use high notes, cymbals, and vocal consonants.",
+      "keepConfirmCopy": "Keep the aliasing? It should read as digital style.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "bypass.bypass_changes_tone_unexpected",
+      "title": "Bypass still changes tone",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Bypass",
+      "typicalControls": [
+        "Bypass",
+        "Color Bypass",
+        "Analog Mode"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin still colors the sound when it is supposed to be bypassed.",
+      "whatThisChanges": "Bypass should usually let the original sound through unchanged.",
+      "tradeoff": "Some analog-style plugins intentionally keep transformer or console color active, but users must know that.",
+      "fix": "Make bypass clean, or label the always-on color clearly.",
+      "creativeKeep": "Always-on coloration can be intentional for analog vibe, console trim, or tube path emulation.",
+      "listenFor": "Toggle bypass and listen for tone change without changing knobs.",
+      "keepConfirmCopy": "Keep color in bypass? Label it clearly so users know bypass is not fully clean.",
+      "mustFixIf": [
+        "bypass changes level dramatically",
+        "bypass clips",
+        "bypass creates delay or phase shift unexpectedly"
+      ],
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "capability.dry_leg_coloration_not_declared",
+      "title": "Dry path is intentionally colored",
+      "pluginFamilies": [
+        "Mix",
+        "Color",
+        "Hybrid"
+      ],
+      "repairFamily": "Capability",
+      "typicalControls": [
+        "Plugin Capabilities",
+        "Dry Color",
+        "Mix Path"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The dry side of a mix path has character even before wet signal is blended.",
+      "whatThisChanges": "Dry-path coloration declaration tells QC that dry is not transparent by design.",
+      "tradeoff": "Colored dry paths are valid for analog-style tools, but must be explicit.",
+      "fix": "Declare dry-leg coloration or change the dry path to transparent.",
+      "creativeKeep": "This is a product-definition decision, not a knob tweak.",
+      "listenFor": "Set mix dry and compare to bypass.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "capability.latency_mode_not_declared",
+      "title": "Latency mode is not explained",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Capability",
+      "typicalControls": [
+        "Plugin Capabilities",
+        "Latency Mode",
+        "Quality"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin feels late or changes latency depending on quality settings.",
+      "whatThisChanges": "Latency metadata tells hosts and users whether the plugin is live-friendly or mix/mastering-focused.",
+      "tradeoff": "High quality may need latency. Live use needs responsiveness.",
+      "fix": "Declare latency behavior and label quality modes clearly.",
+      "creativeKeep": "Latency is acceptable when users know what mode they are choosing.",
+      "listenFor": "Test live playing, parallel blend, and offline render.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "capability.nonlinear_color_not_declared",
+      "title": "Color behavior is not declared",
+      "pluginFamilies": [
+        "Color",
+        "Saturation",
+        "Hybrid"
+      ],
+      "repairFamily": "Capability",
+      "typicalControls": [
+        "Plugin Capabilities",
+        "Color Stage",
+        "Nonlinear"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin intentionally changes tone, but QC may treat it like an accidental mismatch.",
+      "whatThisChanges": "Capability declarations tell QC what kind of processor the creator built.",
+      "tradeoff": "Declaring color preserves artistic intent while keeping safety checks honest.",
+      "fix": "Declare the plugin as having intentional nonlinear color.",
+      "creativeKeep": "This is not a tone fix; it is confirming the plugin type.",
+      "listenFor": "Confirm the color stage is intentional across defaults and presets.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "capability.self_oscillation_not_declared",
+      "title": "Self-oscillation needs a label",
+      "pluginFamilies": [
+        "Delay",
+        "Filter",
+        "Reverb",
+        "Synth FX"
+      ],
+      "repairFamily": "Capability",
+      "typicalControls": [
+        "Plugin Capabilities",
+        "Feedback Mode",
+        "Self Oscillation"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin can generate sound or grow feedback on its own.",
+      "whatThisChanges": "Capability metadata tells QC that self-oscillation is intentional and should be safety-tested differently.",
+      "tradeoff": "Self-oscillation is expressive, but it must be safe and clear.",
+      "fix": "Declare self-oscillation and require feedback/output safety caps.",
+      "creativeKeep": "This can be a feature only when the product says so.",
+      "listenFor": "Test maximum resonance/feedback with no input and with short hits.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "no output cap",
+        "unbounded feedback",
+        "unsafe spike"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "color.aliasing_bright_fizz",
+      "title": "Bright fizz appears",
+      "pluginFamilies": [
+        "Color",
+        "Distortion",
+        "Saturation",
+        "Hybrid"
+      ],
+      "repairFamily": "Quality",
+      "typicalControls": [
+        "Oversampling",
+        "Drive",
+        "Tone",
+        "Quality"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "High notes, cymbals, or distortion create brittle fizz or metallic junk.",
+      "whatThisChanges": "Oversampling and tone filtering help distortion behave cleanly at high frequencies.",
+      "tradeoff": "Higher quality can use more CPU. Lower quality may sound rougher and more digital.",
+      "fix": "Enable higher-quality processing, lower drive, or filter harsh high fizz.",
+      "creativeKeep": "Aliased digital edge can be intentional for bitcrush or harsh digital effects.",
+      "listenFor": "Listen to high notes, cymbals, distorted vocals, and synth leads.",
+      "keepConfirmCopy": "Keep the bright fizz? It may be character, but it can sound broken on high notes.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "color.drive_too_dirty_default",
+      "title": "Starts too dirty",
+      "pluginFamilies": [
+        "Color",
+        "Saturation",
+        "Dynamics",
+        "Hybrid"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Drive",
+        "Color",
+        "Input",
+        "Saturation"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin loads with grit, fuzz, or edge before the user asks for it.",
+      "whatThisChanges": "Drive controls how hard the color stage is pushed.",
+      "tradeoff": "More drive adds attitude and density. Less drive keeps the starting sound cleaner.",
+      "fix": "Lower drive until the default has character without forcing grit.",
+      "creativeKeep": "A dirty starting tone can be the identity of a color box, tape, tube, or crush effect.",
+      "listenFor": "Listen to vocals, bass, cymbals, and full mixes for grit or fuzzy edges.",
+      "keepConfirmCopy": "Keep the dirty start? It gives character, but users may expect a cleaner default.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "color.low_mid_mud_from_drive",
+      "title": "Drive adds mud",
+      "pluginFamilies": [
+        "Color",
+        "Saturation",
+        "Tape",
+        "Tube",
+        "Hybrid"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Drive",
+        "Tone",
+        "Low Cut",
+        "Color"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound gets thick, cloudy, or boxy in the low mids.",
+      "whatThisChanges": "Drive and tone shaping decide where saturation adds weight.",
+      "tradeoff": "More low-mid color feels warm and vintage. Too much can hide clarity.",
+      "fix": "Reduce drive, add damping, or trim low-mid buildup.",
+      "creativeKeep": "Low-mid thickness can be intentional for vintage, lo-fi, or bass-forward sounds.",
+      "listenFor": "Listen to 150-500 Hz body on vocals, guitars, bass, and full mixes.",
+      "keepConfirmCopy": "Keep the extra thickness? It may sound warm but can cloud a mix.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "control.range_allows_unsafe_value",
+      "title": "Control range allows unsafe values",
+      "pluginFamilies": [
+        "All",
+        "Sandbox"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Range",
+        "Min",
+        "Max",
+        "Safety Limit"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "A knob can be turned into clipping, silence, runaway feedback, or broken audio.",
+      "whatThisChanges": "Control ranges define what users are allowed to save and automate.",
+      "tradeoff": "Wide ranges feel powerful. Unsafe ranges make the product fragile.",
+      "fix": "Clamp the range or add a protected advanced mode.",
+      "creativeKeep": "Dangerous values belong behind explicit safety confirmation and output caps.",
+      "listenFor": "Sweep every control to min and max while QC monitors safety.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "control.taper_wrong_for_parameter",
+      "title": "Knob travel feels wrong",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "ControlFeel",
+      "typicalControls": [
+        "Taper",
+        "Curve",
+        "Sensitivity",
+        "Range"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "Most useful settings are cramped into one tiny part of the knob.",
+      "whatThisChanges": "Taper maps knob movement to parameter movement.",
+      "tradeoff": "The right taper makes a knob feel musical. The wrong taper feels jumpy or dead.",
+      "fix": "Use a log, exponential, or custom taper that matches how the ear hears the parameter.",
+      "creativeKeep": "Unusual tapers are okay for special macros if they feel intentional.",
+      "listenFor": "Move the knob slowly and mark where the useful sounds live.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "control.units_wrong",
+      "title": "Control units are wrong",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "ControlMeaning",
+      "typicalControls": [
+        "Label",
+        "Unit",
+        "Tooltip",
+        "Value Readout"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The value readout does not match what the control appears to do.",
+      "whatThisChanges": "Units tell users whether they are changing dB, ms, Hz, percent, or a mode.",
+      "tradeoff": "Clear units build trust. Wrong units teach the wrong mental model.",
+      "fix": "Correct the displayed unit and tooltip for the saved parameter.",
+      "creativeKeep": "Abstract controls can avoid units, but wrong units should not ship.",
+      "listenFor": "Check each exposed control against its visible label and audible effect.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "convolution.ir_has_silence_at_start",
+      "title": "Impulse response starts late",
+      "pluginFamilies": [
+        "Convolution",
+        "Reverb",
+        "Cabinet"
+      ],
+      "repairFamily": "Latency",
+      "typicalControls": [
+        "IR Start",
+        "Trim Start",
+        "Latency",
+        "Pre-delay"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The cabinet, room, or effect feels delayed before it reacts.",
+      "whatThisChanges": "The start of an IR should usually begin at the first meaningful sound.",
+      "tradeoff": "A delayed IR can create pre-delay. Hidden delay makes the plugin feel late.",
+      "fix": "Trim silence from the start or declare it as pre-delay.",
+      "creativeKeep": "A late-starting space can be intentional for rhythmic ambience.",
+      "listenFor": "Use sharp transients and compare bypass timing.",
+      "keepConfirmCopy": "Keep the late start? It should be labeled as pre-delay or timing character.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "convolution.ir_level_mismatch",
+      "title": "Impulse response changes level too much",
+      "pluginFamilies": [
+        "Convolution",
+        "Reverb",
+        "Cabinet"
+      ],
+      "repairFamily": "Level",
+      "typicalControls": [
+        "IR Gain",
+        "Normalize",
+        "Output",
+        "Wet Level"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Loading an IR makes the plugin suddenly louder or quieter.",
+      "whatThisChanges": "IR gain normalizes captured responses so presets feel consistent.",
+      "tradeoff": "Natural captures vary in level. Normalized captures are easier to browse.",
+      "fix": "Normalize IR gain or save preset-specific wet/output trims.",
+      "creativeKeep": "Some IRs may intentionally be louder if they represent a special effect.",
+      "listenFor": "Switch through IR presets while a loop plays.",
+      "keepConfirmCopy": "Keep the IR level jump? Users may be surprised while browsing.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "convolution.ir_sample_rate_wrong",
+      "title": "Impulse response plays at the wrong pitch",
+      "pluginFamilies": [
+        "Convolution",
+        "Reverb",
+        "Cabinet"
+      ],
+      "repairFamily": "Quality",
+      "typicalControls": [
+        "IR Sample Rate",
+        "Resample",
+        "Quality"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "The room, cab, or resonance sounds shifted, strange, or wrong at different sessions.",
+      "whatThisChanges": "IR sample-rate handling keeps captured audio playing at the intended speed.",
+      "tradeoff": "There is no musical upside to accidental IR rate mismatch.",
+      "fix": "Resample or tag IRs correctly before they enter the plugin definition.",
+      "creativeKeep": "Pitch-shifted IRs should be a named effect, not a hidden import bug.",
+      "listenFor": "Compare the same IR at 44.1, 48, and 96 kHz.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "convolution.ir_too_long",
+      "title": "Impulse response is too long",
+      "pluginFamilies": [
+        "Convolution",
+        "Reverb",
+        "Cabinet",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "IR Length",
+        "Trim",
+        "Decay",
+        "Tail"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The space or cabinet keeps ringing longer than the plugin promises.",
+      "whatThisChanges": "IR length decides how much captured response is played back.",
+      "tradeoff": "Longer IRs sound more real. Shorter IRs are tighter and cheaper to run.",
+      "fix": "Trim the IR tail or lower the decay/tail amount.",
+      "creativeKeep": "Long IR tails are valid for realistic spaces and cinematic effects.",
+      "listenFor": "Use short clicks, snare hits, and stopped guitar chords.",
+      "keepConfirmCopy": "Keep the long capture? It will make the plugin feel more spacious and less tight.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.ducking_too_strong",
+      "title": "Ducked delay disappears",
+      "pluginFamilies": [
+        "Delay",
+        "Ducking",
+        "Vocal FX"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Duck",
+        "Threshold",
+        "Release",
+        "Wet Level"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Repeats vanish while the source plays and return too late.",
+      "whatThisChanges": "Ducking lowers delay while the dry signal is present.",
+      "tradeoff": "More ducking keeps vocals clear. Less ducking makes echoes more obvious.",
+      "fix": "Reduce duck amount or speed up release.",
+      "creativeKeep": "Strong ducking is useful for clean pop vocals and throws.",
+      "listenFor": "Use vocal phrases with spaces between lines.",
+      "keepConfirmCopy": "Keep the heavy duck? Delay will hide behind the source.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.feedback_filter_unstable",
+      "title": "Feedback tone gets sharper each repeat",
+      "pluginFamilies": [
+        "Delay",
+        "Echo",
+        "Dub"
+      ],
+      "repairFamily": "ToneSafety",
+      "typicalControls": [
+        "Feedback Filter",
+        "High Cut",
+        "Resonance",
+        "Damping"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "Each repeat becomes brighter, harsher, or more resonant.",
+      "whatThisChanges": "Feedback filtering shapes every repeat before it loops back.",
+      "tradeoff": "Regenerating tone creates dub character. Uncontrolled buildup gets piercing.",
+      "fix": "Reduce resonance, add damping, or cap feedback tone.",
+      "creativeKeep": "Repeat tone buildup can be a dub performance feature.",
+      "listenFor": "Play one hit and count how the tone changes across repeats.",
+      "keepConfirmCopy": "Keep the buildup? It needs to stay safe.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.feedback_runaway",
+      "title": "Repeats run away",
+      "pluginFamilies": [
+        "Delay",
+        "Echo",
+        "Hybrid"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Feedback",
+        "Regen",
+        "Repeat Limit",
+        "Safety"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Delay repeats keep getting louder or never settle down.",
+      "whatThisChanges": "Feedback sends repeats back into the delay.",
+      "tradeoff": "High feedback creates long echoes. Safety limits prevent dangerous buildup.",
+      "fix": "Lower feedback or add a feedback safety cap.",
+      "creativeKeep": "Self-oscillation must be a labeled performance mode with a cap.",
+      "listenFor": "Play a short hit and listen for whether repeats fade or grow.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "output grows without bound",
+        "feedback clips",
+        "no safety ceiling"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.ping_pong_imbalance",
+      "title": "Ping-pong leans to one side",
+      "pluginFamilies": [
+        "Delay",
+        "Stereo",
+        "Echo"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Ping Pong",
+        "Left Level",
+        "Right Level",
+        "Width"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Repeats are louder or more frequent on one side.",
+      "whatThisChanges": "Ping-pong routing balances repeats between left and right.",
+      "tradeoff": "Balanced ping-pong feels clean. Uneven ping-pong can feel human or weird.",
+      "fix": "Balance left/right repeat levels and timing.",
+      "creativeKeep": "Uneven stereo echo can be a creative movement choice.",
+      "listenFor": "Use a short mono hit and follow the repeats left/right.",
+      "keepConfirmCopy": "Keep the lean? It will move the stereo image.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.repeats_too_bright",
+      "title": "Repeats are too sharp",
+      "pluginFamilies": [
+        "Delay",
+        "Echo",
+        "Hybrid"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "High Cut",
+        "Damping",
+        "Tone",
+        "Feedback Filter"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Each repeat stays bright, pokey, or distracting.",
+      "whatThisChanges": "High cut and damping shape how repeats fade into the background.",
+      "tradeoff": "Brighter repeats stay clear. Darker repeats sit behind the source.",
+      "fix": "Lower repeat brightness or add damping in the feedback path.",
+      "creativeKeep": "Bright repeats can be intentional for rhythmic echoes, slapback, or dub-style throws.",
+      "listenFor": "Listen to vocal throws, guitar plucks, and snare delays.",
+      "keepConfirmCopy": "Keep bright repeats? They may cut through, but can distract from the dry sound.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "delay.repeats_too_dark",
+      "title": "Repeats disappear too fast",
+      "pluginFamilies": [
+        "Delay",
+        "Echo",
+        "Hybrid"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "High Cut",
+        "Damping",
+        "Tone"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Delay repeats lose clarity and vanish into darkness.",
+      "whatThisChanges": "Damping decides how quickly repeats lose high frequency detail.",
+      "tradeoff": "Darker repeats are smooth and vintage. Brighter repeats are clearer and more rhythmic.",
+      "fix": "Reduce damping or open the high cut until repeats remain audible.",
+      "creativeKeep": "Very dark repeats can be perfect for tape-style or background echo.",
+      "listenFor": "Listen to whether the second and third repeats are still musically useful.",
+      "keepConfirmCopy": "Keep dark repeats? They may sit nicely, but users may expect more audible echo.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "delay.tail_not_cleared_on_preset_change",
+      "title": "Old delay tail carries over",
+      "pluginFamilies": [
+        "Delay",
+        "Reverb",
+        "Hybrid"
+      ],
+      "repairFamily": "PresetTransition",
+      "typicalControls": [
+        "Tail Behavior",
+        "Clear On Preset",
+        "Smooth Preset Change"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The previous preset keeps echoing after switching sounds.",
+      "whatThisChanges": "Preset transition behavior decides whether tails keep ringing or reset.",
+      "tradeoff": "Keeping tails sounds smooth. Clearing tails avoids confusion when changing presets.",
+      "fix": "Clear or fade tails when switching presets unless tail carryover is intentional.",
+      "creativeKeep": "Tail carryover can be musical for live performance or ambient effects.",
+      "listenFor": "Switch presets after a loud echo or reverb tail.",
+      "keepConfirmCopy": "Keep tails across preset changes? It can be smooth, but users may hear the old preset bleeding into the new one.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "delay.tempo_sync_wrong",
+      "title": "Delay timing feels off",
+      "pluginFamilies": [
+        "Delay",
+        "Echo",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Sync",
+        "Delay Time",
+        "Division",
+        "Triplet",
+        "Dotted"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Repeats do not land where the groove expects.",
+      "whatThisChanges": "Tempo sync maps delay time to the song tempo and note division.",
+      "tradeoff": "Strict sync locks to the beat. Free timing feels human or experimental.",
+      "fix": "Set division/sync mode to match the intended groove.",
+      "creativeKeep": "Loose timing can be intentional for tape echo, slap, and experimental movement.",
+      "listenFor": "Listen to repeats against drums or a metronome.",
+      "keepConfirmCopy": "Keep the loose timing? It may not line up with tempo.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.time_change_clicks",
+      "title": "Delay time clicks when moved",
+      "pluginFamilies": [
+        "Delay",
+        "Modulation"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Delay Time",
+        "Smoothing",
+        "Tape Mode"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "Changing delay time creates clicks, zips, or hard jumps.",
+      "whatThisChanges": "Time smoothing decides how delay changes happen while audio is running.",
+      "tradeoff": "Smooth changes create pitch glide. Instant changes create glitch.",
+      "fix": "Smooth delay-time changes or label glitch behavior clearly.",
+      "creativeKeep": "Glitchy time jumps can be an experimental delay feature.",
+      "listenFor": "Move delay time while repeats are audible.",
+      "keepConfirmCopy": "Keep the glitch? It should be presented as a deliberate mode.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "delay.wow_flutter_too_much",
+      "title": "Echo wobbles too much",
+      "pluginFamilies": [
+        "Delay",
+        "Tape",
+        "Modulation"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Wow",
+        "Flutter",
+        "Mod Depth",
+        "Stability"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Repeats wobble in pitch or feel seasick.",
+      "whatThisChanges": "Wow/flutter adds tape-like pitch movement.",
+      "tradeoff": "More wobble feels vintage and unstable. Less wobble keeps timing clearer.",
+      "fix": "Reduce modulation depth or slow movement.",
+      "creativeKeep": "Heavy wobble is useful for lo-fi, tape, and psychedelic effects.",
+      "listenFor": "Use sustained notes and repeating chords.",
+      "keepConfirmCopy": "Keep the wobble? It is a strong flavor.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.aliasing_digital_fizz",
+      "title": "Digital fizz on bright notes",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Bitcrush",
+        "Hybrid"
+      ],
+      "repairFamily": "Quality",
+      "typicalControls": [
+        "Oversampling",
+        "Quality",
+        "High Cut",
+        "Drive"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "High notes, cymbals, or vocal consonants create brittle metallic fizz.",
+      "whatThisChanges": "Oversampling and filtering keep nonlinear distortion smoother at high frequencies.",
+      "tradeoff": "Higher quality sounds smoother but uses more CPU. Lower quality sounds rougher.",
+      "fix": "Enable oversampling, reduce drive, or filter harsh artifacts.",
+      "creativeKeep": "Digital fizz can be intentional for bitcrush, cyber, or harsh FX presets.",
+      "listenFor": "Try bright synth notes, cymbals, and vocal S sounds.",
+      "keepConfirmCopy": "Keep the fizz? This should be framed as an obvious digital character choice.",
+      "mustFixIf": [
+        "plugin is marketed as clean saturation",
+        "fizz appears at low drive",
+        "output clips"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.bias_too_extreme",
+      "title": "Bias makes the tone lopsided",
+      "pluginFamilies": [
+        "Distortion",
+        "Tube",
+        "Fuzz"
+      ],
+      "repairFamily": "Character",
+      "typicalControls": [
+        "Bias",
+        "Asymmetry",
+        "Sag"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The distortion feels spitty, uneven, or gated.",
+      "whatThisChanges": "Bias changes which side of the waveform distorts more.",
+      "tradeoff": "More bias creates spit and character. Less bias sounds smoother.",
+      "fix": "Move bias closer to center or make the default less extreme.",
+      "creativeKeep": "Spitty bias is useful for fuzz, broken gear, and vintage character.",
+      "listenFor": "Hold single notes and listen for sputter or uneven decay.",
+      "keepConfirmCopy": "Keep the lopsided bias? It is character, not cleanliness.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.clipper_ceiling_too_low",
+      "title": "Clipper ceiling crushes everything",
+      "pluginFamilies": [
+        "Clipper",
+        "Limiter",
+        "Distortion"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Ceiling",
+        "Clip Level",
+        "Output"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Peaks flatten constantly and the sound loses punch.",
+      "whatThisChanges": "Clip ceiling sets where the waveform is flattened.",
+      "tradeoff": "Lower ceiling catches more peaks. Higher ceiling keeps more transient life.",
+      "fix": "Raise the clip ceiling or reduce input into the clipper.",
+      "creativeKeep": "Heavy clipping can be intentional for loud drums or aggressive masters.",
+      "listenFor": "Use kicks, snares, bass, and full mix peaks.",
+      "keepConfirmCopy": "Keep the heavy clipping? It will reduce punch on purpose.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.dc_offset_from_asymmetry",
+      "title": "Asymmetry pulls the waveform off-center",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Tube",
+        "Wave Shaper"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Bias",
+        "Asymmetry",
+        "DC Filter"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The tone may click, lose headroom, or feel uneven after heavy drive.",
+      "whatThisChanges": "Bias changes the distortion shape; DC filtering keeps the waveform centered.",
+      "tradeoff": "Asymmetry adds tube-like character. Too much offset wastes headroom.",
+      "fix": "Add or tune DC blocking after asymmetric stages.",
+      "creativeKeep": "Asymmetry is musical, but unmanaged DC offset should not ship.",
+      "listenFor": "Use sustained bass and watch for headroom loss or clicks.",
+      "keepConfirmCopy": "Keep the asymmetric tone only if DC is safely controlled.",
+      "mustFixIf": [
+        "DC offset exceeds tolerance",
+        "preset clicks",
+        "headroom collapses"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.drive_knob_dead_zone",
+      "title": "Drive knob does nothing at first",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Color"
+      ],
+      "repairFamily": "ControlFeel",
+      "typicalControls": [
+        "Drive",
+        "Amount",
+        "Input"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The first part of the knob barely changes the sound.",
+      "whatThisChanges": "Knob taper decides how useful each part of the range feels.",
+      "tradeoff": "Fine control is good. Dead zones make the plugin feel broken.",
+      "fix": "Remap the drive curve so the useful range starts earlier.",
+      "creativeKeep": "A subtle lower range is okay only if the plugin is clearly a subtle saturator.",
+      "listenFor": "Move drive slowly from 0 to 100.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.drive_knob_too_sensitive",
+      "title": "Drive jumps too quickly",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Color"
+      ],
+      "repairFamily": "ControlFeel",
+      "typicalControls": [
+        "Drive",
+        "Amount",
+        "Input"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "A tiny knob move causes a huge tone change.",
+      "whatThisChanges": "Control taper determines how easy it is to dial in a sound.",
+      "tradeoff": "Sensitive controls feel powerful. Smooth controls are easier for musicians.",
+      "fix": "Soften the taper or add finer control around common settings.",
+      "creativeKeep": "Extreme sensitivity can be acceptable for experimental tools if labeled.",
+      "listenFor": "Try tiny knob moves around 10, 25, 50, and 75 percent.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.gated_fuzz_cuts_decay",
+      "title": "Fuzz cuts off note tails",
+      "pluginFamilies": [
+        "Fuzz",
+        "Distortion",
+        "Guitar"
+      ],
+      "repairFamily": "Envelope",
+      "typicalControls": [
+        "Gate",
+        "Bias",
+        "Input",
+        "Sustain"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Notes choke or stop suddenly instead of fading.",
+      "whatThisChanges": "Gate and bias determine how long fuzz keeps reacting as the note decays.",
+      "tradeoff": "Gated fuzz is punchy and broken. Open sustain feels smoother.",
+      "fix": "Lower gate amount, adjust bias, or increase sustain.",
+      "creativeKeep": "Gated decay is classic fuzz character.",
+      "listenFor": "Hold notes until they fade into silence.",
+      "keepConfirmCopy": "Keep the choking tail? It is a deliberate fuzz behavior.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.high_end_hash",
+      "title": "Drive adds scratchy top end",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Tape",
+        "Amp"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "High Cut",
+        "Presence",
+        "Tone",
+        "Air"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The top end becomes scratchy, sandy, or tiring.",
+      "whatThisChanges": "High-frequency shaping decides how much edge survives after distortion.",
+      "tradeoff": "More edge cuts through. Less edge is smoother and easier to mix.",
+      "fix": "Lower presence, add high cut, or soften the drive curve.",
+      "creativeKeep": "Scratchy top can be intentional for punk, industrial, and noise effects.",
+      "listenFor": "Use cymbals, vocals, distorted synths, and guitars.",
+      "keepConfirmCopy": "Keep the scratch? It will be an obvious aggressive texture.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.input_drive_too_hot",
+      "title": "Input hits the distortion too hard",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Fuzz",
+        "Hybrid"
+      ],
+      "repairFamily": "Drive",
+      "typicalControls": [
+        "Input",
+        "Drive",
+        "Pre Gain",
+        "Trim"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin sounds crushed immediately, even before the user turns the drive up.",
+      "whatThisChanges": "Input level decides how hard the source hits the distortion stage.",
+      "tradeoff": "More input creates hair and density. Less input keeps touch, punch, and clean-to-dirty range.",
+      "fix": "Lower input or drive until the default has usable range.",
+      "creativeKeep": "A hot input can define a fuzz, crush, or aggressive color plugin.",
+      "listenFor": "Play soft and loud notes and check whether the tone reacts to performance.",
+      "keepConfirmCopy": "Keep the hot drive? This makes the plugin start dirty by design.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.intermodulation_smear",
+      "title": "Chords turn into smear",
+      "pluginFamilies": [
+        "Distortion",
+        "Fuzz",
+        "Amp",
+        "Saturation"
+      ],
+      "repairFamily": "Clarity",
+      "typicalControls": [
+        "Drive",
+        "Tone",
+        "Definition",
+        "Pre EQ"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Multiple notes blur into a wall instead of staying separated.",
+      "whatThisChanges": "Heavy nonlinear drive creates new tones between notes.",
+      "tradeoff": "More smear feels thick. More definition keeps harmony readable.",
+      "fix": "Reduce drive, trim low mids, or add definition.",
+      "creativeKeep": "Smear is useful for shoegaze, doom, noise, and pads.",
+      "listenFor": "Test chords, not only single notes.",
+      "keepConfirmCopy": "Keep the smear? It makes harmony less clear.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.low_end_flub",
+      "title": "Bass gets flubby",
+      "pluginFamilies": [
+        "Distortion",
+        "Fuzz",
+        "Amp",
+        "Hybrid"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Pre Low Cut",
+        "Bass",
+        "Drive",
+        "Tight"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Low notes lose shape and become woolly or loose.",
+      "whatThisChanges": "Pre-drive bass decides how much low end gets distorted.",
+      "tradeoff": "More bass into drive feels huge. Less bass keeps notes tight.",
+      "fix": "Trim low end before the drive stage or add a Tight control.",
+      "creativeKeep": "Flubby low end can be intentional for doom, fuzz, lo-fi, or blown-speaker sounds.",
+      "listenFor": "Use bass notes, kick drums, and low guitar palm mutes.",
+      "keepConfirmCopy": "Keep the flub? It is a vibe, but it may blur the low end.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.low_end_vanishes",
+      "title": "Bass disappears when driven",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Amp"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Low Cut",
+        "Blend",
+        "Bass",
+        "Tone"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The distorted tone loses weight and sounds small.",
+      "whatThisChanges": "Low cut, blend, and tone controls decide how much body survives distortion.",
+      "tradeoff": "Less bass avoids mud. More bass keeps power.",
+      "fix": "Lower the low cut or restore clean low end with a blend path.",
+      "creativeKeep": "Thin distortion can be correct for telephone, radio, or special-effect presets.",
+      "listenFor": "Compare low notes with the plugin on and off.",
+      "keepConfirmCopy": "Keep the thin drive? It removes weight on purpose.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.low_mid_mud",
+      "title": "Drive adds mud",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Tape",
+        "Tube"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Low Mid",
+        "Tone",
+        "Post EQ",
+        "Drive"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound gets thick but cloudy around the body of the tone.",
+      "whatThisChanges": "Post-drive tone shaping controls how much low-mid buildup remains.",
+      "tradeoff": "Low mids add warmth and size. Too much hides clarity.",
+      "fix": "Reduce low-mid buildup after the drive stage.",
+      "creativeKeep": "Mud can be intentional for dark vintage color or lo-fi samples.",
+      "listenFor": "Use vocals, guitars, bass, and full drum loops.",
+      "keepConfirmCopy": "Keep the extra thickness? It may feel warm but can crowd the mix.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.noise_floor_rises",
+      "title": "Noise rises with drive",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Tape",
+        "Amp"
+      ],
+      "repairFamily": "Noise",
+      "typicalControls": [
+        "Noise",
+        "Gate",
+        "Drive",
+        "Output"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Hiss or hum becomes obvious as drive increases.",
+      "whatThisChanges": "Drive can amplify modeled noise along with music.",
+      "tradeoff": "Noise adds vintage realism. Too much noise feels broken.",
+      "fix": "Lower default noise, add noise trim, or gate noise during silence.",
+      "creativeKeep": "Noise can be intentional for tape, vinyl, amp, or lo-fi plugins.",
+      "listenFor": "Stop playback or play quiet passages and listen for hiss.",
+      "keepConfirmCopy": "Keep the noise? It should feel like intentional texture.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.output_compensation_missing",
+      "title": "Drive also gets louder",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Clipper",
+        "Hybrid"
+      ],
+      "repairFamily": "Level",
+      "typicalControls": [
+        "Output",
+        "Auto Level",
+        "Compensate",
+        "Makeup"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Turning drive up sounds better partly because it also raises volume.",
+      "whatThisChanges": "Output compensation keeps tone changes fair to compare.",
+      "tradeoff": "Uncompensated drive feels exciting. Matched drive helps users judge tone honestly.",
+      "fix": "Add or tune output compensation so drive does not create a huge loudness jump.",
+      "creativeKeep": "Some pedals and old hardware really do get louder when pushed.",
+      "listenFor": "Sweep drive while watching whether level jumps more than tone changes.",
+      "keepConfirmCopy": "Keep the drive boost? Users may hear volume as quality.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.output_compensation_overdone",
+      "title": "Drive gets smaller as it gets dirtier",
+      "pluginFamilies": [
+        "Distortion",
+        "Saturation",
+        "Tape"
+      ],
+      "repairFamily": "Level",
+      "typicalControls": [
+        "Output",
+        "Auto Level",
+        "Compensate"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The dirty sound falls backward when drive increases.",
+      "whatThisChanges": "Auto-level can turn the output down as distortion adds loudness.",
+      "tradeoff": "Strong compensation protects headroom. Too much makes the effect feel weak.",
+      "fix": "Reduce compensation strength until drive feels level-matched, not smaller.",
+      "creativeKeep": "A quieter dirty tone can work for background texture presets.",
+      "listenFor": "Sweep drive on drums, bass, and vocals and listen for loss of presence.",
+      "keepConfirmCopy": "Keep the quieter dirty setting? It will feel less forward as it gets dirtier.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.parallel_blend_phase",
+      "title": "Parallel distortion gets hollow",
+      "pluginFamilies": [
+        "Distortion",
+        "Mix",
+        "Hybrid"
+      ],
+      "repairFamily": "BlendPhase",
+      "typicalControls": [
+        "Mix",
+        "Blend",
+        "Latency Align",
+        "Phase Safe"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The tone gets thinner around the middle of the blend knob.",
+      "whatThisChanges": "Parallel blend combines clean and distorted paths.",
+      "tradeoff": "Parallel drive keeps clarity. Misaligned paths can cancel body.",
+      "fix": "Align latency/phase or use a phase-safe blend path.",
+      "creativeKeep": "Hollow phase tone can be a special effect.",
+      "listenFor": "Sweep mix from dry to wet and focus around 50%.",
+      "keepConfirmCopy": "Keep the hollow blend? It may sound weak in mono.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.rectifier_unwanted_octave",
+      "title": "Octave artifact takes over",
+      "pluginFamilies": [
+        "Fuzz",
+        "Rectifier",
+        "Distortion"
+      ],
+      "repairFamily": "Character",
+      "typicalControls": [
+        "Rectify",
+        "Bias",
+        "Blend",
+        "Tone"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "An octave-like overtone becomes louder than the source.",
+      "whatThisChanges": "Rectification flips part of the waveform and creates strong octave harmonics.",
+      "tradeoff": "More rectification is wild and synthetic. Less keeps the original note clearer.",
+      "fix": "Lower rectification or blend more dry tone.",
+      "creativeKeep": "Octave fuzz is a classic sound if the user expects it.",
+      "listenFor": "Use single-note lines and chords separately.",
+      "keepConfirmCopy": "Keep the octave bite? Chords may get messy.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.soft_clip_too_soft",
+      "title": "Soft clipper lacks edge",
+      "pluginFamilies": [
+        "Clipper",
+        "Saturation",
+        "Distortion"
+      ],
+      "repairFamily": "Character",
+      "typicalControls": [
+        "Softness",
+        "Curve",
+        "Drive",
+        "Knee"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound warms up but never gets the expected bite.",
+      "whatThisChanges": "Softness changes how gradually the waveform bends into clipping.",
+      "tradeoff": "Softer clipping is smooth. Harder clipping cuts more.",
+      "fix": "Use a firmer curve or increase presence/drive range.",
+      "creativeKeep": "Soft clipping is ideal for gentle glue and mastering tone.",
+      "listenFor": "Use drum bus, bass, and synth leads.",
+      "keepConfirmCopy": "Keep the soft behavior? It is warmth more than obvious distortion.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.stereo_drive_unbalanced",
+      "title": "One side distorts more",
+      "pluginFamilies": [
+        "Distortion",
+        "Stereo",
+        "Hybrid"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Stereo Link",
+        "Left Drive",
+        "Right Drive",
+        "M/S Drive"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The stereo image leans or one speaker sounds dirtier.",
+      "whatThisChanges": "Stereo drive routing decides whether both sides saturate equally.",
+      "tradeoff": "Linked drive is stable. Unlinked drive can feel wide and animated.",
+      "fix": "Link drive amount or balance left/right saturation.",
+      "creativeKeep": "Uneven drive can imitate analog imperfection.",
+      "listenFor": "Use centered vocals, bass, and drums.",
+      "keepConfirmCopy": "Keep the uneven drive? The center image may move.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "distortion.wavefolder_too_chaotic",
+      "title": "Wavefolder gets chaotic",
+      "pluginFamilies": [
+        "Wavefolder",
+        "Distortion",
+        "Synth FX"
+      ],
+      "repairFamily": "Character",
+      "typicalControls": [
+        "Fold",
+        "Symmetry",
+        "Drive",
+        "Tone"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound jumps into complex metallic overtones very quickly.",
+      "whatThisChanges": "Wavefolding bends the waveform back on itself to create rich harmonics.",
+      "tradeoff": "More fold creates wild harmonics. Less fold keeps the source recognizable.",
+      "fix": "Reduce fold amount or smooth the fold curve near the default.",
+      "creativeKeep": "Chaotic folding can be the whole point of an experimental synth effect.",
+      "listenFor": "Try sine waves, bass, vocals, and simple synth leads.",
+      "keepConfirmCopy": "Keep the chaos? It should be marketed as an effect, not subtle color.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.attack_too_fast_flattened_punch",
+      "title": "Attack flattens punch",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Attack",
+        "VAR ATK",
+        "Transient"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Drums, bass plucks, or consonants lose their first snap.",
+      "whatThisChanges": "Attack decides how quickly compression grabs the sound.",
+      "tradeoff": "Fast attack gives control and smash. Slower attack keeps punch.",
+      "fix": "Slow the attack until the front edge returns.",
+      "creativeKeep": "Fast attack is useful for crushed drums and dense vocals.",
+      "listenFor": "Listen to kick beater, snare crack, bass pluck, and vocal consonants.",
+      "keepConfirmCopy": "Keep the flattened punch? It is a controlled, smashed sound.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.attack_too_slow_peaks_escape",
+      "title": "Peaks slip through",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Attack",
+        "Lookahead",
+        "Peak Catch"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Sharp hits poke through before control starts.",
+      "whatThisChanges": "Attack decides how quickly gain reduction begins.",
+      "tradeoff": "Slower attack keeps excitement. Faster attack catches peaks.",
+      "fix": "Speed up attack or add peak catching.",
+      "creativeKeep": "Letting peaks through can preserve natural impact.",
+      "listenFor": "Use snare hits, plosives, pick attack, and bass spikes.",
+      "keepConfirmCopy": "Keep the loose attack? It may leave peaks less controlled.",
+      "mustFixIf": [
+        "peaks clip output",
+        "limiter fails safety target"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.auto_release_wrong_shape",
+      "title": "Auto release feels wrong",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Fairchild Style"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Auto Release",
+        "Time Constant",
+        "Program Dependent"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The compressor recovers naturally on some material but awkwardly on others.",
+      "whatThisChanges": "Auto release changes recovery based on program level and timing.",
+      "tradeoff": "Program-dependent release can sound musical. Wrong curves feel unpredictable.",
+      "fix": "Retune the release curve or choose a better time constant default.",
+      "creativeKeep": "Strange recovery can be a deliberate vintage behavior.",
+      "listenFor": "Test sparse vocals, drum loops, bass, and full mix.",
+      "keepConfirmCopy": "Keep the unusual recovery? It should feel like character, not confusion.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.deesser_lispy",
+      "title": "De-esser makes vocals lispy",
+      "pluginFamilies": [
+        "De-Esser",
+        "Compressor",
+        "Vocal"
+      ],
+      "repairFamily": "ToneDynamics",
+      "typicalControls": [
+        "Sibilance",
+        "Frequency",
+        "Threshold",
+        "Amount"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "S sounds get dull, smeared, or unnatural.",
+      "whatThisChanges": "De-essing reduces harsh sibilant frequencies.",
+      "tradeoff": "More de-essing controls harshness. Too much damages articulation.",
+      "fix": "Reduce amount or retune the sibilance frequency.",
+      "creativeKeep": "A lispy vocal is usually not desired unless it is a special effect.",
+      "listenFor": "Use words with S, SH, CH, T, and F sounds.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.gate_chatter",
+      "title": "Gate chatters",
+      "pluginFamilies": [
+        "Gate",
+        "Expander",
+        "Noise Control"
+      ],
+      "repairFamily": "Envelope",
+      "typicalControls": [
+        "Threshold",
+        "Hold",
+        "Release",
+        "Hysteresis"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The sound opens and closes rapidly near silence.",
+      "whatThisChanges": "Gate timing controls how smoothly quiet signal is muted.",
+      "tradeoff": "Tight gates remove noise. Smoother gates preserve natural tails.",
+      "fix": "Add hold/hysteresis or slow release.",
+      "creativeKeep": "Chatter is rarely useful outside a deliberate glitch mode.",
+      "listenFor": "Let drums, guitars, vocals, and reverb tails decay.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.gate_cuts_tails",
+      "title": "Gate cuts off tails",
+      "pluginFamilies": [
+        "Gate",
+        "Expander",
+        "Hybrid"
+      ],
+      "repairFamily": "Envelope",
+      "typicalControls": [
+        "Threshold",
+        "Release",
+        "Hold",
+        "Range"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Reverb, cymbals, vocals, or guitar sustain stops too abruptly.",
+      "whatThisChanges": "Gate threshold and release decide when quiet tails are muted.",
+      "tradeoff": "Tight gating cleans noise. Looser gating keeps natural decay.",
+      "fix": "Lower threshold, add hold, or slow release.",
+      "creativeKeep": "Hard gating is valid for drums, stutter, and rhythmic effects.",
+      "listenFor": "Listen to the end of notes and room tails.",
+      "keepConfirmCopy": "Keep the hard cut? It should feel rhythmic or intentional.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.knee_too_hard_grabby",
+      "title": "Compression grabs suddenly",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Knee",
+        "Soft Knee",
+        "Amount"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Compression appears suddenly instead of easing in.",
+      "whatThisChanges": "Knee controls how gradually compression starts around the threshold.",
+      "tradeoff": "Hard knee is assertive. Soft knee is smoother.",
+      "fix": "Soften the knee or raise threshold slightly.",
+      "creativeKeep": "A hard grab can be great for drums and aggressive control.",
+      "listenFor": "Listen around the moment gain reduction begins.",
+      "keepConfirmCopy": "Keep the grab? It makes compression more obvious.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.limiter_misses_true_peaks",
+      "title": "Limiter misses sharp peaks",
+      "pluginFamilies": [
+        "Limiter",
+        "Clipper",
+        "Mastering"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Ceiling",
+        "Lookahead",
+        "True Peak",
+        "Oversampling"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Loud hits can clip or distort after export.",
+      "whatThisChanges": "True-peak limiting catches peaks between samples.",
+      "tradeoff": "More safety can sound slightly less open. Missed peaks break release safety.",
+      "fix": "Enable true-peak/oversampled limiting or lower ceiling.",
+      "creativeKeep": "Unsafe peaks should not be a creative keep.",
+      "listenFor": "Test loud drums, bright masters, and offline export.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "true peak exceeds ceiling",
+        "digital clipping"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.meter_does_not_match_sound",
+      "title": "Meter does not match the sound",
+      "pluginFamilies": [
+        "Dynamics",
+        "Metering",
+        "Hybrid"
+      ],
+      "repairFamily": "Metering",
+      "typicalControls": [
+        "Meter Mode",
+        "GR Meter",
+        "Detector Feed"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The meter suggests one thing while the audio sounds like another.",
+      "whatThisChanges": "Meter mapping decides what the user sees when compression happens.",
+      "tradeoff": "Meters do not need to be perfectly literal, but they must help users trust the plugin.",
+      "fix": "Align the meter with the gain reduction or behavior it claims to show.",
+      "creativeKeep": "A stylized meter can be acceptable only if it is clearly labeled as vibe, not measurement.",
+      "listenFor": "Watch the meter while loud hits trigger compression.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "meter claims gain reduction but does not respond",
+        "meter moves when audio is bypassed"
+      ],
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "dynamics.meter_not_matching_sound",
+      "title": "Meter does not match the sound",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Metering"
+      ],
+      "repairFamily": "Metering",
+      "typicalControls": [
+        "Meter Mode",
+        "GR Meter",
+        "VU",
+        "Peak"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The meter says one thing while the audio does another.",
+      "whatThisChanges": "Meter mapping teaches users what the processor is doing.",
+      "tradeoff": "Stylized meters are fine, but misleading meters break trust.",
+      "fix": "Align the meter with the behavior it claims to show.",
+      "creativeKeep": "A vibe meter must be clearly labeled as vibe.",
+      "listenFor": "Watch the meter while loud hits trigger processing.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.ratio_too_high",
+      "title": "Ratio squeezes too hard",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Ratio",
+        "Amount",
+        "Limit"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The performance feels pinned, smaller, or less expressive.",
+      "whatThisChanges": "Ratio decides how strongly loud parts are turned down.",
+      "tradeoff": "Higher ratio controls more. Lower ratio keeps more natural movement.",
+      "fix": "Lower ratio or reduce compression amount.",
+      "creativeKeep": "High ratio is right for limiting, smash, and effect compression.",
+      "listenFor": "Use vocals, drum bus, bass, and full mix.",
+      "keepConfirmCopy": "Keep the heavy ratio? It is control over natural movement.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.release_too_fast_pumping",
+      "title": "Release pumps",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Release",
+        "Time Constant",
+        "Recovery"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound breathes, bounces, or swells after loud hits.",
+      "whatThisChanges": "Release decides how quickly compression lets go.",
+      "tradeoff": "Fast release adds energy. Slower release sounds smoother.",
+      "fix": "Slow or smooth release until movement feels musical.",
+      "creativeKeep": "Pumping is a signature dance, drum, and parallel compression sound.",
+      "listenFor": "Listen after kicks, snares, bass notes, and vocal phrases.",
+      "keepConfirmCopy": "Keep the pump? It is musical movement, but it will be obvious.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.release_too_slow_over_holding",
+      "title": "Release holds too long",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Release",
+        "Time Constant",
+        "Recovery"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound stays tucked down after the loud moment is gone.",
+      "whatThisChanges": "Release controls how long gain reduction remains.",
+      "tradeoff": "Slow release is smooth and glued. Too slow feels pinned down.",
+      "fix": "Shorten release until the sound recovers naturally.",
+      "creativeKeep": "Long release can be ideal for leveling vocals or bass.",
+      "listenFor": "Listen for whether the body returns before the next hit.",
+      "keepConfirmCopy": "Keep the heavy hold? It makes the sound smoother but less lively.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.sidechain_low_end_overreacts",
+      "title": "Bass pushes the compressor too hard",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Bus Processor"
+      ],
+      "repairFamily": "Detector",
+      "typicalControls": [
+        "Sidechain HPF",
+        "Detector",
+        "DC Threshold",
+        "Low Cut"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Kick or bass makes the whole mix duck too much.",
+      "whatThisChanges": "The detector decides what part of the sound controls compression.",
+      "tradeoff": "Low-end sensitivity creates pump. Filtered detection keeps the mix steady.",
+      "fix": "Raise sidechain high-pass or reduce low-frequency detector sensitivity.",
+      "creativeKeep": "Bass-triggered pumping is intentional in dance and sidechain effects.",
+      "listenFor": "Listen to the mix when kick and bass hit.",
+      "keepConfirmCopy": "Keep the bass pump? It will move the whole mix.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "dynamics.sidechain_too_sensitive_low_end",
+      "title": "Low end pushes too hard",
+      "pluginFamilies": [
+        "Dynamics",
+        "Hybrid"
+      ],
+      "repairFamily": "Detector",
+      "typicalControls": [
+        "Sidechain HPF",
+        "DC THR",
+        "Detector",
+        "Low Cut"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Bass or kick makes the whole compressor duck too much.",
+      "whatThisChanges": "The sidechain or detector decides what part of the sound tells the compressor to move.",
+      "tradeoff": "More low-end sensitivity gives strong pumping. Less low-end sensitivity keeps the mix steadier.",
+      "fix": "Reduce low-end sensitivity or raise the sidechain high-pass/DC threshold.",
+      "creativeKeep": "Bass-triggered pumping can be intentional for dance music and sidechain-style movement.",
+      "listenFor": "Listen to how the rest of the mix moves when the kick or bass hits.",
+      "keepConfirmCopy": "Keep the low-end pump? It can add groove, but it may pull the whole mix around.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "dynamics.threshold_too_high_not_reacting",
+      "title": "Compression barely reacts",
+      "pluginFamilies": [
+        "Dynamics",
+        "Hybrid"
+      ],
+      "repairFamily": "Balance",
+      "typicalControls": [
+        "Threshold",
+        "Input",
+        "Compression Amount"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The compressor does not seem to change the sound much.",
+      "whatThisChanges": "Threshold decides when the compressor starts reducing level.",
+      "tradeoff": "Higher threshold keeps the source natural. Lower threshold makes compression more audible.",
+      "fix": "Lower the threshold or increase input until the compressor reacts when expected.",
+      "creativeKeep": "Subtle compression can be intentional for transparent mastering, bus glue, or gentle leveling.",
+      "listenFor": "Listen for gain reduction on loud phrases or hits.",
+      "keepConfirmCopy": "Keep the subtle behavior? It may be correct, but users may expect a stronger effect.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "dynamics.threshold_too_low_over_compressing",
+      "title": "Too much compression",
+      "pluginFamilies": [
+        "Dynamics",
+        "Hybrid"
+      ],
+      "repairFamily": "Balance",
+      "typicalControls": [
+        "Threshold",
+        "Input",
+        "Compression Amount"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound feels squeezed, smaller, or less alive.",
+      "whatThisChanges": "Threshold decides how easily the compressor starts working.",
+      "tradeoff": "Lower threshold gives more control and density. Higher threshold keeps more natural dynamics.",
+      "fix": "Raise the threshold or reduce input drive until compression feels less constant.",
+      "creativeKeep": "Heavy compression may be intentional for crushed vocals, drums, or effect presets.",
+      "listenFor": "Listen for whether the performance still moves naturally.",
+      "keepConfirmCopy": "Keep the heavy squeeze? It can sound vibey, but may reduce dynamics.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "education.advanced_drawer_needed",
+      "title": "Technical detail belongs behind a drawer",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Education",
+      "typicalControls": [
+        "Advanced",
+        "Why",
+        "Details",
+        "Dev Info"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": false,
+      "whatYouHear": "The user may be overwhelmed by words that do not connect to sound.",
+      "whatThisChanges": "Advanced detail gives power users transparency without blocking musicians.",
+      "tradeoff": "Simple language builds momentum. Technical detail supports trust.",
+      "fix": "Show music-first guidance first and hide DSP details behind Advanced.",
+      "creativeKeep": "The product should teach without forcing every user to become an engineer.",
+      "listenFor": "Check whether the user knows what to do without opening Advanced.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "education.keep_requires_a_b",
+      "title": "Keep decision needs A/B proof",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Education",
+      "typicalControls": [
+        "Before",
+        "After",
+        "Keep This Sound",
+        "A/B"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The creator may keep a choice without comparing the safer alternative.",
+      "whatThisChanges": "A/B comparison teaches the audible cost of a creative keep.",
+      "tradeoff": "The user stays in control, but the product makes the tradeoff visible.",
+      "fix": "Show before, suggested fix, and keep-as-is comparison before saving intent.",
+      "creativeKeep": "A creative keep is stronger when the user has heard the alternative.",
+      "listenFor": "Use the exact source that caused the finding plus one musical example.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "envelope_follower_too_jumpy",
+      "title": "Envelope follower jumps around",
+      "pluginFamilies": [
+        "AutoWah",
+        "Filter",
+        "Dynamic FX",
+        "Sidechain"
+      ],
+      "repairFamily": "Envelope",
+      "typicalControls": [
+        "Sensitivity",
+        "Attack",
+        "Release",
+        "Smooth"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Filter, volume, or effect amount jitters instead of following the groove.",
+      "whatThisChanges": "Envelope followers turn input loudness into movement.",
+      "tradeoff": "Fast followers feel reactive. Smoother followers feel musical.",
+      "fix": "Add smoothing, slow attack/release, or reduce sensitivity.",
+      "creativeKeep": "Jumpy following can be valid for glitch and rhythmic effects.",
+      "listenFor": "Use drums, bass, vocals, and uneven performance dynamics.",
+      "keepConfirmCopy": "Keep the jumpy movement? It will feel reactive and possibly nervous.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "envelope_follower_too_slow",
+      "title": "Envelope follower reacts too late",
+      "pluginFamilies": [
+        "AutoWah",
+        "Filter",
+        "Dynamic FX",
+        "Sidechain"
+      ],
+      "repairFamily": "Envelope",
+      "typicalControls": [
+        "Attack",
+        "Release",
+        "Sensitivity",
+        "Smooth"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The movement misses the front of notes and arrives after the groove.",
+      "whatThisChanges": "Follower attack controls how quickly movement reacts to loudness.",
+      "tradeoff": "Slower movement is smooth. Faster movement tracks transients.",
+      "fix": "Speed up attack or reduce smoothing.",
+      "creativeKeep": "Slow following can be intentional for swelling effects.",
+      "listenFor": "Use plucked bass, guitar, drums, and vocal phrases.",
+      "keepConfirmCopy": "Keep the lazy follow? It will feel smoother but less precise.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "eq.dynamic_eq_pumps",
+      "title": "Dynamic EQ pumps the tone",
+      "pluginFamilies": [
+        "EQ",
+        "Dynamic EQ",
+        "Multiband"
+      ],
+      "repairFamily": "ToneDynamics",
+      "typicalControls": [
+        "Threshold",
+        "Attack",
+        "Release",
+        "Range"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "A frequency band ducks or blooms in an obvious, distracting way.",
+      "whatThisChanges": "Dynamic EQ changes a frequency only when it crosses a level.",
+      "tradeoff": "More movement controls problem tones. Less movement sounds natural.",
+      "fix": "Reduce range or smooth timing.",
+      "creativeKeep": "Obvious tonal pumping can be a creative movement effect.",
+      "listenFor": "Use vocals, bass, cymbals, and full mix.",
+      "keepConfirmCopy": "Keep the moving tone? It will feel like an effect.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "eq.high_cut_too_low_dulls_sound",
+      "title": "High cut dulls the sound",
+      "pluginFamilies": [
+        "EQ",
+        "Filter",
+        "Delay",
+        "Reverb"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "High Cut",
+        "Low Pass",
+        "Damping",
+        "Tone"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Air, brightness, pick detail, or vocal presence disappears.",
+      "whatThisChanges": "High cut removes brightness above a chosen point.",
+      "tradeoff": "Lower high cut sounds warm. Too low sounds muffled.",
+      "fix": "Open the high cut until enough detail returns.",
+      "creativeKeep": "Dark tone is valid for tape, vintage, underwater, or background sounds.",
+      "listenFor": "Listen to cymbals, consonants, acoustic attack, and synth brightness.",
+      "keepConfirmCopy": "Keep the dark tone? It may hide detail.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "eq.low_cut_too_high_thins_sound",
+      "title": "Low cut thins the sound",
+      "pluginFamilies": [
+        "EQ",
+        "Filter",
+        "Tone"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Low Cut",
+        "High Pass",
+        "Bass",
+        "Tilt"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Bass, body, or warmth disappears.",
+      "whatThisChanges": "Low cut removes low frequencies below a chosen point.",
+      "tradeoff": "Higher low cut cleans rumble. Too high makes the source thin.",
+      "fix": "Lower the low cut until body returns while rumble stays controlled.",
+      "creativeKeep": "Thin tone is valid for telephone, lo-fi, radio, or special effects.",
+      "listenFor": "Listen to bass, kick, vocal body, and guitar warmth.",
+      "keepConfirmCopy": "Keep the thin tone? It removes weight.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "eq.resonance_too_sharp",
+      "title": "Tone rings or whistles",
+      "pluginFamilies": [
+        "EQ",
+        "Filter",
+        "Tone"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Resonance",
+        "Q",
+        "Peak Gain",
+        "Filter"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "A narrow frequency jumps out, whistles, or rings.",
+      "whatThisChanges": "Resonance/Q controls how narrow and intense a tone boost is.",
+      "tradeoff": "More resonance gives character. Too much can be harsh or unstable.",
+      "fix": "Lower resonance/Q or reduce the boosted frequency.",
+      "creativeKeep": "Sharp resonance is valid for synth filters and sound design.",
+      "listenFor": "Sweep notes, vocals, cymbals, and full mix through the filter.",
+      "keepConfirmCopy": "Keep the ringing tone? It may be harsh at some notes.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "exciter.too_much_air",
+      "title": "Exciter adds too much air",
+      "pluginFamilies": [
+        "Exciter",
+        "Enhancer",
+        "Saturation"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Air",
+        "Excite",
+        "Harmonics",
+        "High Mix"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The top end feels shiny, sharp, or fake.",
+      "whatThisChanges": "Exciters add upper harmonics to create brightness.",
+      "tradeoff": "More air adds detail. Too much becomes harsh or plastic.",
+      "fix": "Lower air/excite amount or target a narrower band.",
+      "creativeKeep": "Extra air can be intentional for pop vocals and sparkle presets.",
+      "listenFor": "Use vocals, cymbals, acoustic guitar, and full mix.",
+      "keepConfirmCopy": "Keep the shine? It may fatigue listeners.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "feedback.module_loop_uncontrolled",
+      "title": "Module feedback loop is unsafe",
+      "pluginFamilies": [
+        "Delay",
+        "Reverb",
+        "Distortion",
+        "Hybrid"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Feedback",
+        "Module Order",
+        "Limiter",
+        "Safety"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "A routed loop grows, screams, clips, or never settles.",
+      "whatThisChanges": "Feedback routing sends processed audio back into earlier modules.",
+      "tradeoff": "Feedback creates wild effects. Unsafe feedback can damage ears and sessions.",
+      "fix": "Add feedback caps, damping, and output safety limits.",
+      "creativeKeep": "Self-oscillation must be a clearly labeled mode with a ceiling.",
+      "listenFor": "Stress test maximum feedback, drive, resonance, and wet mix.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "unbounded growth",
+        "digital clipping",
+        "no emergency cap"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "filter.cutoff_zippers",
+      "title": "Filter movement zippers",
+      "pluginFamilies": [
+        "Filter",
+        "EQ",
+        "Modulation"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Cutoff",
+        "Smoothing",
+        "Automation"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Moving cutoff creates stair-step noise or zipper clicks.",
+      "whatThisChanges": "Parameter smoothing keeps knob and automation movement fluid.",
+      "tradeoff": "Fast response follows automation. Smoothing avoids rough stepping.",
+      "fix": "Smooth cutoff changes without making automation feel sluggish.",
+      "creativeKeep": "Zipper noise should not be part of normal filter movement.",
+      "listenFor": "Sweep cutoff slowly and automate it quickly.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "filter.resonance_self_oscillates_unexpected",
+      "title": "Filter starts whistling",
+      "pluginFamilies": [
+        "Filter",
+        "EQ",
+        "Synth FX"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Resonance",
+        "Q",
+        "Feedback",
+        "Limit"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The filter creates its own loud tone or whistle.",
+      "whatThisChanges": "Resonance boosts frequencies around the cutoff and can self-oscillate.",
+      "tradeoff": "High resonance is expressive. Uncontrolled resonance can be piercing.",
+      "fix": "Limit resonance level or clearly mark self-oscillation as a mode.",
+      "creativeKeep": "Self-oscillation is valid for synth-style filters if controlled.",
+      "listenFor": "Sweep cutoff at high resonance and watch peak level.",
+      "keepConfirmCopy": "Keep self-oscillation? It needs a safe cap.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "granular.freeze_buffer_clicks",
+      "title": "Freeze clicks when captured",
+      "pluginFamilies": [
+        "Granular",
+        "Freeze",
+        "Reverb"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Freeze",
+        "Crossfade",
+        "Window",
+        "Capture"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "Engaging freeze creates a click, pop, or hard edge.",
+      "whatThisChanges": "Freeze capture needs crossfade/smoothing to avoid sudden waveform cuts.",
+      "tradeoff": "Fast capture feels responsive. Smooth capture avoids artifacts.",
+      "fix": "Crossfade into the frozen buffer or smooth capture boundaries.",
+      "creativeKeep": "Freeze should not pop unless it is explicitly a glitch mode.",
+      "listenFor": "Trigger freeze during sustained vocals, pads, and reverb tails.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "granular.grain_clicks",
+      "title": "Grains click",
+      "pluginFamilies": [
+        "Granular",
+        "Pitch",
+        "Texture"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Grain Size",
+        "Window",
+        "Overlap",
+        "Smooth"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The texture has little clicks or ticks between grains.",
+      "whatThisChanges": "Grain windowing and overlap smooth the edges of each slice.",
+      "tradeoff": "Sharper grains sound crisp. Smoother grains sound blended.",
+      "fix": "Increase window smoothing or overlap.",
+      "creativeKeep": "Clicks can be intentional for glitch textures if labeled.",
+      "listenFor": "Use sustained pads, vocals, and long samples.",
+      "keepConfirmCopy": "Keep the clicks? It should be a glitch style.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "host.tempo_change_breaks_timing",
+      "title": "Tempo changes break timing",
+      "pluginFamilies": [
+        "Delay",
+        "Modulation",
+        "Sequencer",
+        "Stutter"
+      ],
+      "repairFamily": "HostSync",
+      "typicalControls": [
+        "Sync",
+        "Tempo",
+        "Division",
+        "Rate"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "Delay, tremolo, or sequenced effects drift, jump, or click when tempo changes.",
+      "whatThisChanges": "Host sync keeps time-based effects locked to the DAW tempo map.",
+      "tradeoff": "Tempo-following should remain musical across changes.",
+      "fix": "Smooth tempo changes and recalculate synced timing safely.",
+      "creativeKeep": "Tempo chaos should be a named special effect, not normal sync behavior.",
+      "listenFor": "Automate tempo while a synced effect is running.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "host.transport_start_click",
+      "title": "Playback start clicks",
+      "pluginFamilies": [
+        "All",
+        "Modulation",
+        "Delay",
+        "Reverb"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Transport Sync",
+        "Reset",
+        "Smoothing",
+        "Fade In"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "Starting playback creates a click or abrupt state jump.",
+      "whatThisChanges": "Transport reset controls how internal envelopes, LFOs, and buffers start.",
+      "tradeoff": "Reset makes timing predictable. Smoothing prevents audible jumps.",
+      "fix": "Fade or smooth internal state on transport start.",
+      "creativeKeep": "Clicks on playback start are rarely musical.",
+      "listenFor": "Start and stop playback repeatedly with audio held through the plugin.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "level.clipping_on_loud_material",
+      "title": "Output clips on loud sounds",
+      "pluginFamilies": [
+        "Dynamics",
+        "Color",
+        "Delay",
+        "Reverb",
+        "Hybrid"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "OUT",
+        "Ceiling",
+        "Limiter",
+        "Drive",
+        "Feedback"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Loud hits crackle, flatten, or distort in an uncontrolled way.",
+      "whatThisChanges": "Output, ceiling, and safety limiting keep the plugin from creating broken digital peaks.",
+      "tradeoff": "Lowering output may feel less loud, but it protects headroom and prevents harsh clipping.",
+      "fix": "Lower output or add safe limiting until peaks stop clipping.",
+      "creativeKeep": "Creative distortion belongs in a controlled drive stage, not accidental output clipping.",
+      "listenFor": "Listen to loud kicks, snares, bass notes, and full-mix peaks.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "any digital clipping",
+        "NaN/Infinity",
+        "unsafe true peak"
+      ],
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "level.makeup_gain_overcompensates",
+      "title": "Makeup gain overshoots",
+      "pluginFamilies": [
+        "Dynamics",
+        "Hybrid"
+      ],
+      "repairFamily": "Level",
+      "typicalControls": [
+        "Makeup",
+        "Auto Makeup",
+        "OUT"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Compression makes the signal jump forward instead of simply controlling it.",
+      "whatThisChanges": "Makeup gain adds level after compression to replace level that was reduced.",
+      "tradeoff": "More makeup feels powerful, but too much hides whether the compression is actually helping.",
+      "fix": "Reduce makeup gain or turn down auto makeup strength.",
+      "creativeKeep": "Extra makeup may be desired for aggressive parallel or smash presets.",
+      "listenFor": "Compare bypassed and active level after gain reduction starts.",
+      "keepConfirmCopy": "Keep the extra push? This makes the compressor feel louder than the source.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "level.output_louder_than_input",
+      "title": "Output jumps up",
+      "pluginFamilies": [
+        "Dynamics",
+        "Color",
+        "Utility",
+        "Hybrid"
+      ],
+      "repairFamily": "Level",
+      "typicalControls": [
+        "OUT",
+        "Output Trim",
+        "Makeup Gain",
+        "Master"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin sounds better partly because it gets louder.",
+      "whatThisChanges": "Output trim sets the level people hear when the plugin loads or when a preset is selected.",
+      "tradeoff": "More output can feel exciting, but it can fool the ear and make fair comparison harder.",
+      "fix": "Lower the output until the processed signal feels level-matched with the input.",
+      "creativeKeep": "A louder default can be intentional for an effect plugin, but the creator should know it is part of the sound.",
+      "listenFor": "Toggle the plugin on and off and listen for loudness jump, not tone.",
+      "keepConfirmCopy": "Keep this louder starting point? Users may think the plugin sounds better because it is louder.",
+      "mustFixIf": [
+        "digital clipping",
+        "true peak exceeds safety limit",
+        "exported default clips"
+      ],
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "level.preset_outlier_hot",
+      "title": "One preset is much louder",
+      "pluginFamilies": [
+        "Dynamics",
+        "Delay",
+        "Reverb",
+        "Color",
+        "Hybrid"
+      ],
+      "repairFamily": "Preset",
+      "typicalControls": [
+        "Preset Output",
+        "OUT",
+        "Trim",
+        "Preset Gain"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "One preset jumps out much louder than the rest.",
+      "whatThisChanges": "Preset output sets the saved loudness for only that preset.",
+      "tradeoff": "A hotter preset can feel dramatic, but it can surprise users when switching sounds.",
+      "fix": "Bring the preset output closer to the pack average.",
+      "creativeKeep": "A preset named Crush, Smash, or Lead Boost may intentionally be louder.",
+      "listenFor": "Switch between presets and listen for sudden jumps.",
+      "keepConfirmCopy": "Keep this preset hotter than the rest? It may surprise users during preset browsing.",
+      "mustFixIf": [
+        "preset clips",
+        "preset causes dangerous output spike"
+      ],
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "lfo.phase_reset_click_or_jump",
+      "title": "LFO reset jumps",
+      "pluginFamilies": [
+        "Modulation",
+        "Tremolo",
+        "AutoPan",
+        "Filter"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Phase Reset",
+        "Retrigger",
+        "Smooth",
+        "Rate"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Movement jumps, clicks, or starts awkwardly when playback begins.",
+      "whatThisChanges": "Phase reset decides where the movement cycle starts.",
+      "tradeoff": "Reset gives repeatable timing. Free phase is smoother and less predictable.",
+      "fix": "Smooth phase reset or make retrigger optional.",
+      "creativeKeep": "Hard retrigger can be useful for rhythmic EDM effects.",
+      "listenFor": "Start/stop playback with tempo-synced movement enabled.",
+      "keepConfirmCopy": "Keep the retrigger? It will be a rhythmic behavior.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "lfo.tempo_sync_drift",
+      "title": "Modulation drifts from tempo",
+      "pluginFamilies": [
+        "Modulation",
+        "Delay",
+        "Tremolo",
+        "AutoPan"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Sync",
+        "Rate",
+        "Division",
+        "Phase Reset"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Movement starts in time but slowly falls away from the beat.",
+      "whatThisChanges": "Tempo sync locks modulation rate to host tempo.",
+      "tradeoff": "Locked sync feels rhythmic. Free-running LFOs feel organic.",
+      "fix": "Use host-synced timing or label the mode as free-run.",
+      "creativeKeep": "Free drift can be musical for chorus, phaser, and ambient motion.",
+      "listenFor": "Use tremolo, auto-pan, or filter movement against a click.",
+      "keepConfirmCopy": "Keep the drift? It will not stay grid-locked.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "linear_phase.preringing_transients",
+      "title": "Linear-phase mode rings before hits",
+      "pluginFamilies": [
+        "EQ",
+        "Crossover",
+        "Multiband",
+        "Mastering"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Linear Phase",
+        "Quality",
+        "Crossover Mode"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "A soft ghost of the sound appears before drums or sharp notes.",
+      "whatThisChanges": "Linear-phase processing can preserve phase but create pre-ringing around transients.",
+      "tradeoff": "Linear phase preserves alignment. Minimum phase often feels punchier.",
+      "fix": "Use minimum-phase mode for transient-heavy presets or reduce steep filtering.",
+      "creativeKeep": "Linear phase can be right for mastering and transparent tone shaping.",
+      "listenFor": "Use kick, snare, percussion, and sharp piano notes.",
+      "keepConfirmCopy": "Keep linear phase? It may trade punch for phase accuracy.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "looper.buffer_not_cleared",
+      "title": "Old audio remains in the loop buffer",
+      "pluginFamilies": [
+        "Looper",
+        "Delay",
+        "Granular",
+        "Freeze"
+      ],
+      "repairFamily": "State",
+      "typicalControls": [
+        "Clear",
+        "Reset",
+        "Capture",
+        "Buffer"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Previous audio appears in a new preset, new capture, or fresh playback.",
+      "whatThisChanges": "Buffer reset clears stored audio when the user expects a fresh state.",
+      "tradeoff": "Keeping buffers can be musical only when spillover is explicit.",
+      "fix": "Clear buffers on preset/load/reset or expose spillover as a labeled choice.",
+      "creativeKeep": "Hidden old audio should not appear in a new sound.",
+      "listenFor": "Capture audio, switch presets, clear, and start playback again.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "macro.controls_conflict",
+      "title": "Macro controls fight each other",
+      "pluginFamilies": [
+        "All",
+        "Hybrid",
+        "Sandbox"
+      ],
+      "repairFamily": "ControlMeaning",
+      "typicalControls": [
+        "Macro",
+        "Amount",
+        "Intensity",
+        "Morph"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "Turning one macro undoes, exaggerates, or scrambles another control.",
+      "whatThisChanges": "Macros can move many hidden parameters at once.",
+      "tradeoff": "Macros make complex plugins simple. Conflicting macros make them confusing.",
+      "fix": "Separate macro targets or define a clear priority when controls overlap.",
+      "creativeKeep": "Interactive macros are okay when the UI explains the relationship.",
+      "listenFor": "Move each macro alone, then together, while listening for predictable changes.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "macro.morph_path_has_bad_middle",
+      "title": "Morph knob sounds bad in the middle",
+      "pluginFamilies": [
+        "Hybrid",
+        "Multi-FX",
+        "Morph"
+      ],
+      "repairFamily": "ControlFeel",
+      "typicalControls": [
+        "Morph",
+        "Blend",
+        "Scene A/B"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The endpoints sound good, but halfway sounds hollow, too loud, or messy.",
+      "whatThisChanges": "Morphing moves through saved states, not only the start and end.",
+      "tradeoff": "Dramatic morphs can pass through wild places. Smooth morphs are easier to perform.",
+      "fix": "Retune the midpoint or add a safer curve through the morph path.",
+      "creativeKeep": "A strange midpoint can be intentional for performance effects.",
+      "listenFor": "Sweep the morph slowly from A to B on multiple sources.",
+      "keepConfirmCopy": "Keep the strange middle? It becomes a performance effect.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "macro.range_too_wide",
+      "title": "Macro range is too wide",
+      "pluginFamilies": [
+        "All",
+        "Hybrid",
+        "Sandbox"
+      ],
+      "repairFamily": "ControlFeel",
+      "typicalControls": [
+        "Macro",
+        "Range",
+        "Depth",
+        "Amount"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "A small move makes the plugin jump from subtle to extreme.",
+      "whatThisChanges": "Macro range sets how far hidden controls move.",
+      "tradeoff": "Wide macros are exciting. Useful macros give musicians control.",
+      "fix": "Narrow the macro range around musical values.",
+      "creativeKeep": "Extreme macros need a clear name like Destroy or Chaos.",
+      "listenFor": "Move the macro in tiny steps across common settings.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "meter_gain_reduction_inverted",
+      "title": "Gain reduction meter moves the wrong way",
+      "pluginFamilies": [
+        "Compressor",
+        "Limiter",
+        "Metering"
+      ],
+      "repairFamily": "Metering",
+      "typicalControls": [
+        "GR Meter",
+        "Meter Polarity",
+        "Display"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "The display suggests less compression when more compression is happening.",
+      "whatThisChanges": "Gain reduction meters show how much level is being turned down.",
+      "tradeoff": "Meters can be stylized, but direction must be understandable.",
+      "fix": "Correct meter direction and labeling.",
+      "creativeKeep": "An inverted GR meter breaks user trust.",
+      "listenFor": "Drive the compressor harder and verify the meter shows more reduction.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "meter.peak_meter_too_slow",
+      "title": "Peak meter misses fast hits",
+      "pluginFamilies": [
+        "Metering",
+        "Limiter",
+        "All"
+      ],
+      "repairFamily": "Metering",
+      "typicalControls": [
+        "Peak Meter",
+        "Ballistics",
+        "Hold",
+        "Meter Mode"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The meter looks safe while sharp hits may still clip.",
+      "whatThisChanges": "Meter ballistics decide how quickly the display reacts.",
+      "tradeoff": "Smooth meters are easy to read. Peak meters need fast detection.",
+      "fix": "Use true peak/peak hold for safety readings and VU for average loudness.",
+      "creativeKeep": "A slow vibe meter is fine only if not labeled as peak.",
+      "listenFor": "Use sharp drums, clicks, and clipped test material.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "meter.vu_meter_calibration_wrong",
+      "title": "VU meter calibration is wrong",
+      "pluginFamilies": [
+        "Metering",
+        "Compressor",
+        "Tape"
+      ],
+      "repairFamily": "Metering",
+      "typicalControls": [
+        "VU Cal",
+        "Meter Mode",
+        "Reference Level"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The meter suggests healthy level while the plugin is too hot or too quiet.",
+      "whatThisChanges": "VU calibration maps average level to the meter's reference point.",
+      "tradeoff": "Different references are fine when labeled. Wrong calibration misleads users.",
+      "fix": "Set and display the VU reference level clearly.",
+      "creativeKeep": "Stylized meters should not pretend to be calibrated tools.",
+      "listenFor": "Feed known -18 dBFS and -12 dBFS test tones and pink noise.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "midi.note_trigger_double_fires",
+      "title": "MIDI trigger fires twice",
+      "pluginFamilies": [
+        "MIDI FX",
+        "Envelope",
+        "Gate",
+        "Stutter"
+      ],
+      "repairFamily": "Triggering",
+      "typicalControls": [
+        "Trigger",
+        "Retrigger",
+        "MIDI Note",
+        "Gate"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "An envelope, chop, or effect starts twice from one note.",
+      "whatThisChanges": "Trigger logic decides when musical events start.",
+      "tradeoff": "Retriggering can be expressive. Accidental double firing feels broken.",
+      "fix": "Debounce note triggers or separate note-on from transport reset.",
+      "creativeKeep": "Double triggers need to be an explicit ratchet or roll mode.",
+      "listenFor": "Play single MIDI notes and repeated notes at different speeds.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "midi.velocity_mapping_too_extreme",
+      "title": "Velocity response is too extreme",
+      "pluginFamilies": [
+        "MIDI FX",
+        "Instrument FX",
+        "Dynamic Processor"
+      ],
+      "repairFamily": "ControlFeel",
+      "typicalControls": [
+        "Velocity",
+        "Sensitivity",
+        "Depth",
+        "Curve"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Soft and hard playing jump too far apart in tone or volume.",
+      "whatThisChanges": "Velocity mapping turns performance strength into parameter movement.",
+      "tradeoff": "More sensitivity feels expressive. Too much is hard to control.",
+      "fix": "Soften the velocity curve or reduce modulation depth.",
+      "creativeKeep": "Extreme velocity response can be valid for performance instruments.",
+      "listenFor": "Play quiet, medium, and hard notes through the same preset.",
+      "keepConfirmCopy": "Keep the wide response? It will reward or punish touch strongly.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "mix.mono_collapse",
+      "title": "Stereo gets weak in mono",
+      "pluginFamilies": [
+        "Imaging",
+        "Modulation",
+        "Delay",
+        "Reverb",
+        "Hybrid"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Width",
+        "Spread",
+        "Phase",
+        "Mono Safe"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound gets smaller, thinner, or disappears when summed to mono.",
+      "whatThisChanges": "Width and stereo spread decide how left and right signals relate to each other.",
+      "tradeoff": "More width feels bigger in stereo. Mono-safe width keeps the core sound intact everywhere.",
+      "fix": "Reduce risky width or enable mono-safe mode.",
+      "creativeKeep": "Extreme width can be intentional for headphones or special effects.",
+      "listenFor": "Compare stereo to mono and listen for loss of center, bass, or vocal body.",
+      "keepConfirmCopy": "Keep the wide sound? It may lose strength on mono speakers or clubs.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "mix.parallel_comb_filtering_mid_mix",
+      "title": "Mix sounds hollow at 50%",
+      "pluginFamilies": [
+        "Mix",
+        "Delay",
+        "Reverb",
+        "Modulation",
+        "Hybrid"
+      ],
+      "repairFamily": "BlendPhase",
+      "typicalControls": [
+        "Mix",
+        "Blend Mode",
+        "Latency Align",
+        "Phase Safe"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound gets thin, hollow, or phasey around the middle of the mix knob.",
+      "whatThisChanges": "The mix path decides how dry and wet signals combine.",
+      "tradeoff": "Parallel tone can create character. Misaligned paths cancel important sound.",
+      "fix": "Use a phase-safe or latency-aligned blend path.",
+      "creativeKeep": "Hollow phase tone can be a special effect.",
+      "listenFor": "Sweep the mix knob from dry to wet and listen around 50%.",
+      "keepConfirmCopy": "Keep the hollow blend? It may sound weak in mono.",
+      "mustFixIf": [
+        "mix disappears",
+        "mono output loses core signal",
+        "dry at 0 percent is not dry"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "mix.wet_dry_not_fully_dry",
+      "title": "Mix at dry is not dry",
+      "pluginFamilies": [
+        "Mix",
+        "Delay",
+        "Reverb",
+        "Modulation",
+        "Hybrid"
+      ],
+      "repairFamily": "Blend",
+      "typicalControls": [
+        "Mix",
+        "Dry Level",
+        "Wet Level",
+        "Bypass Blend"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin still changes the sound when mix is fully dry.",
+      "whatThisChanges": "The dry end of a mix knob should let the original signal through untouched.",
+      "tradeoff": "A dry label needs to mean dry.",
+      "fix": "Fix the mix path so 0% mix is fully dry.",
+      "creativeKeep": "If dry is intentionally colored, call it Color or Console, not Dry.",
+      "listenFor": "Set mix to 0% and compare to bypass.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "mix.wet_dry_not_fully_wet",
+      "title": "Mix at wet still has dry signal",
+      "pluginFamilies": [
+        "Mix",
+        "Delay",
+        "Reverb",
+        "Modulation",
+        "Hybrid"
+      ],
+      "repairFamily": "Blend",
+      "typicalControls": [
+        "Mix",
+        "Dry Level",
+        "Wet Level"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The original sound remains even when the mix says fully wet.",
+      "whatThisChanges": "The wet end of a mix knob should usually show only the processed signal.",
+      "tradeoff": "Keeping some dry can make effects clearer, but users may expect true wet-only behavior.",
+      "fix": "Reduce dry contribution at 100% wet.",
+      "creativeKeep": "Some compressors and color tools are never truly wet-only by design.",
+      "listenFor": "Set mix to 100% and listen for unchanged dry signal.",
+      "keepConfirmCopy": "Keep dry signal in the wet setting? Make sure the control behavior matches user expectations.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "modulation.autopan_loses_center",
+      "title": "Auto-pan loses the center",
+      "pluginFamilies": [
+        "AutoPan",
+        "Stereo",
+        "Modulation"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Pan Depth",
+        "Width",
+        "Center",
+        "Rate"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The source moves so wide that the middle feels empty.",
+      "whatThisChanges": "Pan depth moves signal between left and right speakers.",
+      "tradeoff": "More depth creates motion. Less depth keeps a stable center.",
+      "fix": "Reduce depth or preserve some center signal.",
+      "creativeKeep": "Full-width auto-pan is great for ear candy and movement effects.",
+      "listenFor": "Use vocals, percussion, synth plucks, and mono compatibility.",
+      "keepConfirmCopy": "Keep the wide pan? The center may feel empty.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "modulation.chorus_mono_phase_loss",
+      "title": "Chorus gets weak in mono",
+      "pluginFamilies": [
+        "Chorus",
+        "Modulation",
+        "Stereo"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Width",
+        "Phase",
+        "Mix",
+        "Mono Safe"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The chorus sounds wide in stereo but loses body in mono.",
+      "whatThisChanges": "Stereo modulation can create left/right phase differences.",
+      "tradeoff": "More width feels lush. Mono-safe width keeps the core tone strong.",
+      "fix": "Reduce width or enable mono-safe chorus behavior.",
+      "creativeKeep": "Extreme chorus width can be a headphone/special-effect choice.",
+      "listenFor": "Compare stereo and mono on guitars, keys, and vocals.",
+      "keepConfirmCopy": "Keep the wide chorus? It may weaken on mono systems.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "modulation.flanger_feedback_whistles",
+      "title": "Flanger whistles",
+      "pluginFamilies": [
+        "Flanger",
+        "Modulation"
+      ],
+      "repairFamily": "Feedback",
+      "typicalControls": [
+        "Feedback",
+        "Depth",
+        "Manual",
+        "Tone"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "A sharp resonant whistle appears during the sweep.",
+      "whatThisChanges": "Flanger feedback intensifies moving comb-filter peaks.",
+      "tradeoff": "More feedback sounds dramatic. Too much becomes piercing.",
+      "fix": "Lower feedback or limit resonant peaks.",
+      "creativeKeep": "Jet-like whistle is valid for obvious flanger effects.",
+      "listenFor": "Sweep through the full range on bright material.",
+      "keepConfirmCopy": "Keep the whistle? It should be an obvious effect.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "modulation.lfo_too_deep_seasick",
+      "title": "Movement feels seasick",
+      "pluginFamilies": [
+        "Modulation",
+        "Chorus",
+        "Flanger",
+        "Phaser",
+        "Hybrid"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Depth",
+        "Rate",
+        "Mix",
+        "Feedback"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Pitch, tone, or stereo position moves so much it feels wobbly or distracting.",
+      "whatThisChanges": "Depth sets how far the modulation moves.",
+      "tradeoff": "More depth creates obvious motion. Less depth gives subtle width or shimmer.",
+      "fix": "Reduce depth or mix until movement supports the sound.",
+      "creativeKeep": "Extreme movement is useful for psychedelic, lo-fi, or special-effect presets.",
+      "listenFor": "Listen to sustained vocals, pads, guitars, and keys.",
+      "keepConfirmCopy": "Keep the heavy movement? It can be a strong effect, but may distract from the part.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "modulation.phaser_notches_too_deep",
+      "title": "Phaser hollows the sound",
+      "pluginFamilies": [
+        "Phaser",
+        "Modulation"
+      ],
+      "repairFamily": "ToneMovement",
+      "typicalControls": [
+        "Depth",
+        "Stages",
+        "Feedback",
+        "Mix"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The moving notches remove too much body.",
+      "whatThisChanges": "Depth, stages, and feedback control how strong the phase notches are.",
+      "tradeoff": "Deep notches are psychedelic. Shallower notches keep the source intact.",
+      "fix": "Reduce depth, feedback, or wet mix.",
+      "creativeKeep": "Deep phasing is classic on keys, guitars, and psychedelic effects.",
+      "listenFor": "Use pads, guitar, vocal, and drum bus.",
+      "keepConfirmCopy": "Keep the hollow sweep? It is a strong color.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "modulation.rate_too_fast",
+      "title": "Movement is too fast",
+      "pluginFamilies": [
+        "Modulation",
+        "Chorus",
+        "Phaser",
+        "Tremolo",
+        "Hybrid"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Rate",
+        "Speed",
+        "Tempo Sync"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The effect vibrates, pulses, or wobbles faster than the music wants.",
+      "whatThisChanges": "Rate controls how quickly the movement cycles.",
+      "tradeoff": "Fast rate is obvious and energetic. Slow rate feels wider and smoother.",
+      "fix": "Slow the rate or sync it to a musical division.",
+      "creativeKeep": "Fast modulation can be intentional for rotary, vibrato, tremolo, or sci-fi effects.",
+      "listenFor": "Listen against the song tempo and sustained notes.",
+      "keepConfirmCopy": "Keep fast movement? It can be exciting, but may fight the groove.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "modulation.rotary_ramp_wrong",
+      "title": "Rotary speed change feels wrong",
+      "pluginFamilies": [
+        "Rotary",
+        "Modulation"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Ramp",
+        "Slow",
+        "Fast",
+        "Acceleration"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The speed shift feels too instant or too sluggish.",
+      "whatThisChanges": "Ramp controls how the rotary speaker speeds up or slows down.",
+      "tradeoff": "Fast ramp is responsive. Slow ramp feels more like physical hardware.",
+      "fix": "Tune ramp time so speed changes feel musical.",
+      "creativeKeep": "Unusual ramp behavior can be a creative modulation signature.",
+      "listenFor": "Switch slow/fast while holding organ, guitar, or pad chords.",
+      "keepConfirmCopy": "Keep the ramp? It defines the performance feel.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "modulation.tremolo_too_deep",
+      "title": "Tremolo cuts too much volume",
+      "pluginFamilies": [
+        "Tremolo",
+        "Modulation"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Depth",
+        "Rate",
+        "Shape"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound disappears too much during each pulse.",
+      "whatThisChanges": "Tremolo depth controls how far volume moves up and down.",
+      "tradeoff": "Deep tremolo is rhythmic and obvious. Shallow tremolo is gentle movement.",
+      "fix": "Reduce depth or soften the waveform.",
+      "creativeKeep": "Deep chop is intentional for rhythmic guitar, synth, and stutter effects.",
+      "listenFor": "Play sustained chords in time with a beat.",
+      "keepConfirmCopy": "Keep the chop? It will act like rhythm, not subtle movement.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "module_order_creates_unwanted_behavior",
+      "title": "Module order changes the musical result",
+      "pluginFamilies": [
+        "Hybrid",
+        "Sandbox",
+        "Multi-FX"
+      ],
+      "repairFamily": "SignalFlow",
+      "typicalControls": [
+        "Module Order",
+        "Before/After",
+        "Signal Flow"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The same modules sound unexpectedly different because of their order.",
+      "whatThisChanges": "Signal flow decides which processor hears the output of another processor.",
+      "tradeoff": "Drive before compression behaves differently from compression before drive.",
+      "fix": "Choose an order that matches the intended musical behavior and save it.",
+      "creativeKeep": "Unusual order is a valid sandbox choice if the creator understands it.",
+      "listenFor": "A/B module order on drums, bass, and vocals.",
+      "keepConfirmCopy": "Keep this order? It is part of the plugin identity.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ms.mid_gets_hollow",
+      "title": "Mid channel gets hollow",
+      "pluginFamilies": [
+        "M/S",
+        "Imaging",
+        "EQ",
+        "Hybrid"
+      ],
+      "repairFamily": "StereoTone",
+      "typicalControls": [
+        "Mid EQ",
+        "Width",
+        "Side Level",
+        "Mono Maker"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "Lead vocal, kick, bass, or snare loses body in the center.",
+      "whatThisChanges": "Mid processing controls the center content of the stereo image.",
+      "tradeoff": "Sculpting mid can make space. Too much weakens the song core.",
+      "fix": "Restore mid body or reduce excessive side emphasis.",
+      "creativeKeep": "A hollow center can be an effect, but not a normal mix tool default.",
+      "listenFor": "Use centered vocals, kick, bass, and mono checks.",
+      "keepConfirmCopy": "Keep the hollow center? The mix core may feel weak.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ms.side_too_bright",
+      "title": "Sides get too bright",
+      "pluginFamilies": [
+        "M/S",
+        "Imaging",
+        "EQ",
+        "Exciter"
+      ],
+      "repairFamily": "StereoTone",
+      "typicalControls": [
+        "Side Air",
+        "Width",
+        "M/S EQ",
+        "Exciter"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The stereo edges sparkle or hiss more than the center.",
+      "whatThisChanges": "Side processing changes only the left-right difference information.",
+      "tradeoff": "Bright sides feel wide. Too much side brightness distracts and can get phasey.",
+      "fix": "Lower side air/exciter or balance side EQ with the mid.",
+      "creativeKeep": "Bright sides can be intentional for wide pop or ambient effects.",
+      "listenFor": "Compare stereo, mono, headphones, and small speakers.",
+      "keepConfirmCopy": "Keep bright sides? It may sound wide but less solid.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "multiband.band_pumping",
+      "title": "One band pumps the tone",
+      "pluginFamilies": [
+        "Multiband",
+        "Dynamic EQ",
+        "Compressor"
+      ],
+      "repairFamily": "ToneDynamics",
+      "typicalControls": [
+        "Band Threshold",
+        "Band Release",
+        "Range",
+        "Crossover"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Bass, mids, or highs move separately in a distracting way.",
+      "whatThisChanges": "Each band can compress independently from the others.",
+      "tradeoff": "Independent bands solve problems. Too much movement sounds unnatural.",
+      "fix": "Reduce band range or smooth timing.",
+      "creativeKeep": "Band pumping can be a creative tonal movement effect.",
+      "listenFor": "Use full mix, drum bus, bass, and bright vocals.",
+      "keepConfirmCopy": "Keep the moving band? It will be audible tone animation.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "multiband.crossover_phase_dip",
+      "title": "Crossover creates a tonal dip",
+      "pluginFamilies": [
+        "Multiband",
+        "Compressor",
+        "EQ"
+      ],
+      "repairFamily": "Phase",
+      "typicalControls": [
+        "Crossover",
+        "Band Split",
+        "Linear Phase",
+        "Band Mix"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "A frequency range gets weaker around the band split.",
+      "whatThisChanges": "Crossovers split audio into bands that must recombine cleanly.",
+      "tradeoff": "Multiband control is powerful. Bad recombination changes the tone even when idle.",
+      "fix": "Use a matched crossover design or adjust band alignment.",
+      "creativeKeep": "A crossover dip should not happen when the processor is idle.",
+      "listenFor": "Bypass band processing and compare split/recombined audio to dry.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "multiband.expander_splits_transients",
+      "title": "Multiband transient splits apart",
+      "pluginFamilies": [
+        "Multiband",
+        "Compressor",
+        "Transient Shaper"
+      ],
+      "repairFamily": "Phase",
+      "typicalControls": [
+        "Crossover",
+        "Band Timing",
+        "Attack",
+        "Release"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "A drum hit feels like lows, mids, and highs arrive separately.",
+      "whatThisChanges": "Band timing must preserve the feeling of one coherent transient.",
+      "tradeoff": "Band-specific dynamics are powerful, but timing mismatches break punch.",
+      "fix": "Align band latency/timing or use gentler crossover settings.",
+      "creativeKeep": "Split transients usually feel broken, not creative.",
+      "listenFor": "Use kick, snare, percussion, and slap bass.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "oversampling.cpu_too_high",
+      "title": "Quality mode uses too much CPU",
+      "pluginFamilies": [
+        "Distortion",
+        "Reverb",
+        "Pitch",
+        "Hybrid"
+      ],
+      "repairFamily": "Performance",
+      "typicalControls": [
+        "Quality",
+        "Oversampling",
+        "Eco Mode",
+        "Draft Mode"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin may crackle, drop out, or feel heavy in larger sessions.",
+      "whatThisChanges": "Quality modes trade CPU cost for smoother or cleaner sound.",
+      "tradeoff": "More quality can sound better. Lower CPU keeps sessions playable.",
+      "fix": "Add an Eco/Live mode or lower the default quality cost.",
+      "creativeKeep": "High CPU can be acceptable for offline mastering modes.",
+      "listenFor": "Run multiple instances and test live playing plus offline export.",
+      "keepConfirmCopy": "Keep the heavy mode? It should be labeled as high-quality or offline.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "oversampling.mode_changes_latency_unannounced",
+      "title": "Quality mode changes latency",
+      "pluginFamilies": [
+        "Distortion",
+        "Limiter",
+        "Clipper",
+        "Hybrid"
+      ],
+      "repairFamily": "Latency",
+      "typicalControls": [
+        "Oversampling",
+        "Quality",
+        "Latency Mode"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "Switching quality mode makes the plugin feel later or changes parallel blend.",
+      "whatThisChanges": "Oversampling can add delay that must be reported and compensated.",
+      "tradeoff": "Higher quality reduces artifacts. Unannounced latency breaks timing trust.",
+      "fix": "Report latency per mode and warn users when modes affect live feel.",
+      "creativeKeep": "Latency is fine when labeled and compensated.",
+      "listenFor": "Switch quality modes while checking parallel dry/wet alignment.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "pitch.formant_unnatural",
+      "title": "Voice shape sounds unnatural",
+      "pluginFamilies": [
+        "Pitch",
+        "Vocal",
+        "Formant"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Formant",
+        "Pitch",
+        "Preserve Voice"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The voice sounds chipmunk, monster, hollow, or fake.",
+      "whatThisChanges": "Formant controls vocal body separately from pitch.",
+      "tradeoff": "Natural formants keep identity. Extreme formants create character.",
+      "fix": "Move formant toward a more natural vocal body.",
+      "creativeKeep": "Extreme formants are valid for character voices and effects.",
+      "listenFor": "Use spoken words and sung vowels.",
+      "keepConfirmCopy": "Keep the voice shape? It is a character choice.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "pitch.harmony_too_loud",
+      "title": "Harmony overpowers the lead",
+      "pluginFamilies": [
+        "Harmonizer",
+        "Pitch",
+        "Vocal"
+      ],
+      "repairFamily": "Balance",
+      "typicalControls": [
+        "Harmony Level",
+        "Wet",
+        "Blend",
+        "Voice Level"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Generated harmonies pull attention away from the main line.",
+      "whatThisChanges": "Harmony level controls how much generated pitch is mixed in.",
+      "tradeoff": "Louder harmonies sound dramatic. Lower harmonies support the lead.",
+      "fix": "Lower harmony level or narrow harmony range.",
+      "creativeKeep": "Dominant harmonies are valid for special FX and stacked vocal presets.",
+      "listenFor": "Use a lead vocal or monophonic synth phrase.",
+      "keepConfirmCopy": "Keep the loud harmony? It becomes part of the lead sound.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "pitch.tracking_glitches",
+      "title": "Pitch tracking glitches",
+      "pluginFamilies": [
+        "Pitch",
+        "Harmonizer",
+        "Vocal"
+      ],
+      "repairFamily": "Tracking",
+      "typicalControls": [
+        "Tracking",
+        "Key",
+        "Formant",
+        "Quality"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Pitch jumps, warbles, or chooses wrong notes.",
+      "whatThisChanges": "Pitch tracking decides what note the plugin thinks it hears.",
+      "tradeoff": "Fast tracking reacts quickly. Smoother tracking avoids jumps.",
+      "fix": "Tune tracking speed, key/scale, or quality mode.",
+      "creativeKeep": "Glitchy pitch can be intentional for robotic or experimental effects.",
+      "listenFor": "Use vocals, bass, and monophonic synth lines.",
+      "keepConfirmCopy": "Keep the glitches? It should sound intentional, not broken.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "preset.default_not_safe_starting_point",
+      "title": "Default preset is not a safe start",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Defaults",
+      "typicalControls": [
+        "Default Preset",
+        "Init",
+        "Startup State"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin opens loud, extreme, unstable, or confusing.",
+      "whatThisChanges": "The default preset teaches users what normal behavior feels like.",
+      "tradeoff": "Bold defaults show personality. Safe defaults earn trust first.",
+      "fix": "Make the default clear, level-safe, and representative of the plugin.",
+      "creativeKeep": "An extreme default can work for a dedicated special-effect plugin.",
+      "listenFor": "Load a fresh instance and listen before touching anything.",
+      "keepConfirmCopy": "Keep the bold default? It should be part of the product identity.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "preset.name_does_not_match_sound",
+      "title": "Preset name promises the wrong thing",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Education",
+      "typicalControls": [
+        "Preset Name",
+        "Tags",
+        "Description"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "A preset named Clean, Warm, Wide, or Safe behaves differently than expected.",
+      "whatThisChanges": "Preset names and tags tell users when to choose a sound.",
+      "tradeoff": "Creative names can be fun. Misleading names make browsing harder.",
+      "fix": "Rename the preset or adjust the sound to match the promise.",
+      "creativeKeep": "Abstract names are okay when they do not imply a technical behavior.",
+      "listenFor": "Browse presets by name and verify each one delivers what it says.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "preset.preset_change_click",
+      "title": "Preset change clicks",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "PresetTransition",
+      "typicalControls": [
+        "Preset Smoothing",
+        "State Reset",
+        "Crossfade"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Switching presets creates a click or pop.",
+      "whatThisChanges": "Preset smoothing prevents sudden audio state changes.",
+      "tradeoff": "Instant switching is quick. Smooth switching prevents artifacts.",
+      "fix": "Crossfade or smooth state changes on preset switch.",
+      "creativeKeep": "Preset switching should not pop.",
+      "listenFor": "Switch presets during sustained audio and silence.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "preset.preset_change_level_jump",
+      "title": "Preset change jumps in volume",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "PresetTransition",
+      "typicalControls": [
+        "Preset Output",
+        "Smooth Preset Change",
+        "Output"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Switching presets creates a sudden loudness jump.",
+      "whatThisChanges": "Preset output and transition smoothing decide how safe browsing feels.",
+      "tradeoff": "Bold presets can have different energy. Huge jumps interrupt workflow.",
+      "fix": "Normalize preset output or smooth transitions.",
+      "creativeKeep": "A boost preset can be louder if named clearly.",
+      "listenFor": "Click through presets while audio loops.",
+      "keepConfirmCopy": "Keep the jump? Users may be surprised while browsing.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "preset.recall_does_not_restore_state",
+      "title": "Preset does not recall correctly",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Recall",
+      "typicalControls": [
+        "Preset Save",
+        "Preset Recall",
+        "State"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Reloading a preset does not bring back the same sound.",
+      "whatThisChanges": "Preset recall restores every saved authored parameter and hidden state.",
+      "tradeoff": "There is no musical upside to unreliable recall.",
+      "fix": "Save and restore all parameters, modes, seeds, and hidden states used by the sound.",
+      "creativeKeep": "Generative behavior still needs explicit seed or free-random labeling.",
+      "listenFor": "Save, reload, switch away, switch back, and compare.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "random.lfo_random_not_repeatable",
+      "title": "Random movement does not recall the same way",
+      "pluginFamilies": [
+        "Modulation",
+        "Granular",
+        "Lo-Fi",
+        "Hybrid"
+      ],
+      "repairFamily": "Recall",
+      "typicalControls": [
+        "Random",
+        "Seed",
+        "Chaos",
+        "Humanize"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The same preset sounds different every time it loads.",
+      "whatThisChanges": "Random seed behavior controls whether chaos is repeatable or fresh each time.",
+      "tradeoff": "Fresh random feels alive. Repeatable random keeps presets reliable.",
+      "fix": "Save a seed per preset or label the movement as free random.",
+      "creativeKeep": "Non-repeatable random is valid for generative and ambient tools.",
+      "listenFor": "Reload the same preset multiple times and compare movement.",
+      "keepConfirmCopy": "Keep free random? The preset will not sound exactly the same twice.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "random.preset_chaos_too_extreme",
+      "title": "Randomizer creates unsafe settings",
+      "pluginFamilies": [
+        "All",
+        "Sandbox",
+        "Generative"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Randomize",
+        "Chaos",
+        "Safe Range",
+        "Macro"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Random presets can create clipping, silence, runaway feedback, or unusable extremes.",
+      "whatThisChanges": "Randomizers need safe ranges so creative exploration stays playable.",
+      "tradeoff": "Wide randomization discovers surprises. Safe bounds prevent broken sounds.",
+      "fix": "Limit random ranges and exclude unsafe combinations.",
+      "creativeKeep": "Chaos should still stay inside release-safe boundaries.",
+      "listenFor": "Generate many random presets and run safety QC on each.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb_pre_delay_wrong",
+      "title": "Space starts too soon or too late",
+      "pluginFamilies": [
+        "Reverb",
+        "Space",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Pre-delay",
+        "Early Reflections",
+        "Size"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The reverb either swallows the source immediately or feels detached from it.",
+      "whatThisChanges": "Pre-delay controls the gap between the dry sound and the start of the reverb.",
+      "tradeoff": "Short pre-delay blends the sound into the room. Longer pre-delay keeps the source clearer.",
+      "fix": "Adjust pre-delay until the source stays clear but still feels connected to the space.",
+      "creativeKeep": "Extreme pre-delay can be intentional for slap-like ambience or special effects.",
+      "listenFor": "Listen to vocal clarity, snare impact, and the moment the room appears.",
+      "keepConfirmCopy": "Keep this space timing? It can be a vibe, but may feel detached or blurry.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "reverb.early_reflections_too_loud",
+      "title": "Room slap is too loud",
+      "pluginFamilies": [
+        "Reverb",
+        "Room",
+        "Ambience"
+      ],
+      "repairFamily": "Space",
+      "typicalControls": [
+        "Early Reflections",
+        "Room",
+        "Pre-delay"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The first room bounce sounds like a slap or echo.",
+      "whatThisChanges": "Early reflections create the first sense of room size and walls.",
+      "tradeoff": "Louder reflections define space. Softer reflections feel smoother.",
+      "fix": "Lower early reflections or adjust room size/pre-delay.",
+      "creativeKeep": "Strong early reflections can define small room or slap ambience.",
+      "listenFor": "Use snare, vocal, and handclaps.",
+      "keepConfirmCopy": "Keep the room slap? It will be part of the groove.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.low_end_boom",
+      "title": "Reverb gets boomy",
+      "pluginFamilies": [
+        "Reverb",
+        "Space"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Low Cut",
+        "Damping",
+        "Low Multiplier",
+        "Tone"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The reverb adds low cloud or rumble.",
+      "whatThisChanges": "Low damping and low cut decide how much bass lives in the tail.",
+      "tradeoff": "More low end feels huge. Less low end keeps mixes clear.",
+      "fix": "Raise reverb low cut or reduce low-frequency decay.",
+      "creativeKeep": "Boomy space can be intentional for cinematic, dub, or sound design presets.",
+      "listenFor": "Use kicks, toms, bass, and low vocals.",
+      "keepConfirmCopy": "Keep the boom? It may muddy the mix.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.metallic_ringing",
+      "title": "Reverb rings metallic",
+      "pluginFamilies": [
+        "Reverb",
+        "Plate",
+        "Spring",
+        "Hybrid"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Diffusion",
+        "Damping",
+        "Size",
+        "Modulation"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The tail has metallic notes or ringing frequencies.",
+      "whatThisChanges": "Diffusion, damping, and modulation shape how smooth the tail feels.",
+      "tradeoff": "More character can sound vintage. Smoother tails sound natural.",
+      "fix": "Increase diffusion/modulation or damp ringing frequencies.",
+      "creativeKeep": "Metallic reverb is valid for plates, springs, and sound design.",
+      "listenFor": "Send snare, vocal, and short clicks into the reverb.",
+      "keepConfirmCopy": "Keep the ring? It should feel like plate/spring character.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.modulation_seasick",
+      "title": "Reverb movement feels seasick",
+      "pluginFamilies": [
+        "Reverb",
+        "Modulated Reverb"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Mod Depth",
+        "Mod Rate",
+        "Chorus",
+        "Spin"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The tail wobbles, swims, or pulls pitch too obviously.",
+      "whatThisChanges": "Reverb modulation moves the delay network to avoid static ringing.",
+      "tradeoff": "More modulation is lush. Too much distracts from the source.",
+      "fix": "Reduce modulation depth or slow the rate.",
+      "creativeKeep": "Heavy modulation is valid for ambient and dream-pop wash.",
+      "listenFor": "Use sustained vocals, pads, piano, and guitar swells.",
+      "keepConfirmCopy": "Keep the swim? It is a strong space character.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.predelay_detached",
+      "title": "Space feels detached",
+      "pluginFamilies": [
+        "Reverb",
+        "Space"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Pre-delay",
+        "Size",
+        "Early Reflections"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The reverb arrives late enough to feel separate from the source.",
+      "whatThisChanges": "Pre-delay sets the gap before the room appears.",
+      "tradeoff": "More pre-delay keeps the source clear. Too much disconnects the space.",
+      "fix": "Shorten pre-delay until the room feels connected.",
+      "creativeKeep": "Long pre-delay can create rhythmic slap ambience.",
+      "listenFor": "Use vocals, snare, and short stabs.",
+      "keepConfirmCopy": "Keep the detached space? It should be rhythmically intentional.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.shimmer_too_loud",
+      "title": "Shimmer takes over",
+      "pluginFamilies": [
+        "Reverb",
+        "Pitch",
+        "Shimmer"
+      ],
+      "repairFamily": "Balance",
+      "typicalControls": [
+        "Shimmer",
+        "Pitch Level",
+        "Feedback",
+        "Tone"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The pitched reverb becomes louder than the original space.",
+      "whatThisChanges": "Shimmer level controls how much pitched signal feeds the reverb.",
+      "tradeoff": "More shimmer feels magical. Less shimmer keeps the source clear.",
+      "fix": "Lower shimmer level or feedback.",
+      "creativeKeep": "Huge shimmer is intentional for ambient and cinematic effects.",
+      "listenFor": "Use vocals, guitar swells, and pads.",
+      "keepConfirmCopy": "Keep the shimmer cloud? It may dominate the sound.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.tail_builds_unstable",
+      "title": "Reverb keeps building",
+      "pluginFamilies": [
+        "Reverb",
+        "Space",
+        "Hybrid"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Decay",
+        "Feedback",
+        "Freeze",
+        "Damping",
+        "Safety Limit"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "The reverb grows, blooms, or piles up instead of fading.",
+      "whatThisChanges": "Decay and damping control how energy leaves the reverb.",
+      "tradeoff": "Big bloom can be musical. Uncontrolled buildup is unsafe or muddy.",
+      "fix": "Reduce regeneration, lower decay, add damping, or cap the tail.",
+      "creativeKeep": "Infinite/freeze modes must be explicit performance modes with safety controls.",
+      "listenFor": "Feed a short hit into the reverb and listen for whether the tail fades.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "tail grows forever",
+        "output clips",
+        "freeze behavior is not labeled"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "reverb.tail_too_long",
+      "title": "Reverb tail hangs too long",
+      "pluginFamilies": [
+        "Reverb",
+        "Space",
+        "Hybrid"
+      ],
+      "repairFamily": "Timing",
+      "typicalControls": [
+        "Decay",
+        "Size",
+        "Damping",
+        "Tail Limit"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "The space keeps ringing after the source should be clear.",
+      "whatThisChanges": "Decay controls how long the reverb tail lasts.",
+      "tradeoff": "Long decay feels huge and cinematic. Shorter decay keeps the mix cleaner.",
+      "fix": "Shorten decay or add damping until the tail clears naturally.",
+      "creativeKeep": "Long tails are intentional for ambient, cinematic, and wash effects.",
+      "listenFor": "Listen after vocals, snares, and stabs stop.",
+      "keepConfirmCopy": "Keep the long tail? It can be beautiful, but may blur the next phrase.",
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "routing.channel_swap",
+      "title": "Left and right are swapped",
+      "pluginFamilies": [
+        "Stereo",
+        "Imaging",
+        "Utility"
+      ],
+      "repairFamily": "Routing",
+      "typicalControls": [
+        "L/R Mode",
+        "M/S Mode",
+        "Channel Map"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Left-side material comes out on the right, or stereo placement feels reversed.",
+      "whatThisChanges": "Channel routing decides where left, right, mid, and side signals go.",
+      "tradeoff": "Creative channel tricks should be explicit effects, not hidden mistakes.",
+      "fix": "Correct the channel map so left and right stay where users expect.",
+      "creativeKeep": "A swap can be a special effect only if the control clearly says Swap.",
+      "listenFor": "Use left-only and right-only test signals.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "routing.latency_added_unexpected",
+      "title": "Sound feels late",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Latency",
+      "typicalControls": [
+        "Lookahead",
+        "Oversampling",
+        "Latency Mode",
+        "Quality"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The processed sound feels delayed or out of time with the dry signal.",
+      "whatThisChanges": "Lookahead, oversampling, and some effects add processing delay.",
+      "tradeoff": "More quality can sound cleaner. Less latency feels tighter live.",
+      "fix": "Compensate latency or use a low-latency mode.",
+      "creativeKeep": "Latency can be acceptable for mastering/offline modes if labeled.",
+      "listenFor": "Compare dry and processed transients in parallel.",
+      "keepConfirmCopy": "Keep the latency? It may not feel good for live playing.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "routing.polarity_inverted",
+      "title": "Polarity flips unexpectedly",
+      "pluginFamilies": [
+        "All",
+        "Mix",
+        "Utility"
+      ],
+      "repairFamily": "Routing",
+      "typicalControls": [
+        "Polarity",
+        "Phase",
+        "Routing"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound cancels when mixed with the original or feels hollow.",
+      "whatThisChanges": "Polarity flips the waveform upside down.",
+      "tradeoff": "Polarity flip is useful as a deliberate utility. Hidden flips break blending.",
+      "fix": "Correct polarity or label the flip clearly.",
+      "creativeKeep": "Intentional polarity flip is valid for utility and creative phase effects.",
+      "listenFor": "Blend with dry signal and check mono.",
+      "keepConfirmCopy": "Keep the flip? It must be labeled as a feature.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "routing.silence_on_preset",
+      "title": "Preset goes silent",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Output",
+        "Mix",
+        "Routing",
+        "Bypass",
+        "Module Enable"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "A preset or setting produces no sound when it should pass audio.",
+      "whatThisChanges": "Routing and output controls decide whether signal reaches the end of the plugin.",
+      "tradeoff": "Mute effects should be explicit and labeled. Accidental silence is a broken preset.",
+      "fix": "Restore the signal path or output level.",
+      "creativeKeep": "Intentional silence belongs in a gate, stutter, or mute effect with clear labeling.",
+      "listenFor": "Play steady audio and switch through presets.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "safety.bypass_pop",
+      "title": "Bypass pops",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Bypass",
+      "typicalControls": [
+        "Bypass",
+        "Soft Bypass",
+        "Crossfade"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Turning the plugin on/off creates a click or pop.",
+      "whatThisChanges": "Bypass smoothing avoids sudden waveform or level changes.",
+      "tradeoff": "Instant bypass is fast. Smooth bypass protects speakers and ears.",
+      "fix": "Crossfade or smooth bypass transitions.",
+      "creativeKeep": "Bypass should not pop.",
+      "listenFor": "Toggle bypass during silence, sustained notes, and loud audio.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.denormal_reverb_tail",
+      "title": "Quiet tails cause CPU spikes",
+      "pluginFamilies": [
+        "Reverb",
+        "Delay",
+        "Filter",
+        "All"
+      ],
+      "repairFamily": "Performance",
+      "typicalControls": [
+        "Denormal Guard",
+        "Tail",
+        "Feedback",
+        "Damping"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "CPU rises or crackles appear when the sound is nearly silent.",
+      "whatThisChanges": "Denormal protection keeps tiny quiet numbers from slowing DSP math.",
+      "tradeoff": "There is no musical downside to stable denormal protection.",
+      "fix": "Add denormal guards in feedback, filters, and tails.",
+      "creativeKeep": "CPU instability should not ship.",
+      "listenFor": "Run silence after long reverb/delay tails and watch CPU.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.headphone_spike",
+      "title": "Setting can create a headphone spike",
+      "pluginFamilies": [
+        "All",
+        "Feedback",
+        "Resonator",
+        "Delay"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Limiter",
+        "Safety",
+        "Feedback",
+        "Resonance"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "A setting can suddenly blast a loud tone, pop, or squeal.",
+      "whatThisChanges": "Safety limiting prevents accidental dangerous output while preserving creative range.",
+      "tradeoff": "No creative feature should surprise users with unsafe level.",
+      "fix": "Add hard safety caps, ramping, and feedback/resonance bounds.",
+      "creativeKeep": "Dangerous spikes cannot be kept for release.",
+      "listenFor": "Stress all maximum feedback, resonance, drive, and preset switching combinations.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "instant full-scale spike",
+        "unbounded resonance",
+        "unsafe headphone output"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.memory_growth_tail",
+      "title": "Effect memory grows over time",
+      "pluginFamilies": [
+        "Delay",
+        "Reverb",
+        "Granular",
+        "Looper"
+      ],
+      "repairFamily": "Performance",
+      "typicalControls": [
+        "Buffer",
+        "Tail",
+        "Freeze",
+        "Clear"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Long sessions may slow down, crackle, or eventually fail.",
+      "whatThisChanges": "Buffers and tails need fixed limits so the plugin stays stable.",
+      "tradeoff": "Long captures are musical. Unbounded memory is not safe.",
+      "fix": "Cap buffer length and clear unused stored audio.",
+      "creativeKeep": "Infinite capture needs explicit limits and user feedback.",
+      "listenFor": "Run long feedback, freeze, and looper tests for several minutes.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.nan_or_infinite_output",
+      "title": "Audio engine becomes unstable",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Safety Limit",
+        "Feedback",
+        "Drive",
+        "Filter Resonance"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin may blast, stop, crackle, or break the audio stream.",
+      "whatThisChanges": "Safety guards prevent math and feedback from creating impossible audio values.",
+      "tradeoff": "There is no musical benefit to unstable output values.",
+      "fix": "Add or adjust safety limits so the engine stays stable.",
+      "creativeKeep": "Extreme sound design still needs stable output.",
+      "listenFor": "Stress test high feedback, high resonance, high drive, and preset changes.",
+      "keepConfirmCopy": null,
+      "mustFixIf": [
+        "NaN",
+        "Infinity",
+        "audio engine crash",
+        "unsafe output spike"
+      ],
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.offline_render_differs",
+      "title": "Export sounds different from playback",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "RenderConsistency",
+      "typicalControls": [
+        "Offline Mode",
+        "Quality",
+        "Random Seed"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Exported audio does not match what the user heard during playback.",
+      "whatThisChanges": "Render consistency keeps live playback and bounced audio aligned.",
+      "tradeoff": "Offline can use higher quality, but it should not surprise the user.",
+      "fix": "Make offline mode deterministic or clearly expose different render quality.",
+      "creativeKeep": "Unexpected render differences should not ship.",
+      "listenFor": "Compare real-time playback to offline export.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.sample_rate_changes_tone",
+      "title": "Tone changes at different sample rates",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Quality",
+      "typicalControls": [
+        "Sample Rate Handling",
+        "Oversampling",
+        "Filter Coefficients"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin sounds different at 44.1, 48, or 96 kHz.",
+      "whatThisChanges": "Sample-rate-aware DSP keeps timing and filters consistent.",
+      "tradeoff": "Analog models may vary slightly, but core tone should stay predictable.",
+      "fix": "Normalize timing/filter math across sample rates.",
+      "creativeKeep": "Large sample-rate tone changes are confusing and should be fixed.",
+      "listenFor": "Render the same preset at multiple sample rates.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.silence_on_preset",
+      "title": "Preset goes silent",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Output",
+        "Mix",
+        "Routing",
+        "Bypass",
+        "Module Enable"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "A preset produces no sound when it should pass audio.",
+      "whatThisChanges": "Routing and output controls decide whether signal reaches the end of the plugin.",
+      "tradeoff": "Mute effects should be explicit and labeled. Accidental silence is broken.",
+      "fix": "Restore the signal path or output level.",
+      "creativeKeep": "Intentional silence belongs in a gate, stutter, or mute effect with clear labeling.",
+      "listenFor": "Play steady audio and switch through presets.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "safety.subsonic_rumble",
+      "title": "Plugin creates subsonic rumble",
+      "pluginFamilies": [
+        "All",
+        "Reverb",
+        "Distortion",
+        "Modulation"
+      ],
+      "repairFamily": "Safety",
+      "typicalControls": [
+        "Low Cut",
+        "DC Filter",
+        "Sub Filter",
+        "Output"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": false,
+      "whatYouHear": "The mix may lose headroom or move speakers even when bass is not obvious.",
+      "whatThisChanges": "Subsonic filtering removes energy below the useful musical range.",
+      "tradeoff": "Deep low end is powerful. Unheard rumble wastes headroom.",
+      "fix": "Add subsonic filtering or control low-frequency buildup.",
+      "creativeKeep": "Sub bass should be intentional and audible enough to manage.",
+      "listenFor": "Use spectrum view plus kick, bass, and full-mix tests.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "sequencer.step_clicks",
+      "title": "Step changes click",
+      "pluginFamilies": [
+        "Sequencer",
+        "Stutter",
+        "Gate",
+        "Modulation"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Step Smooth",
+        "Gate",
+        "Shape",
+        "Attack"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Each step creates hard clicks or sharp edges.",
+      "whatThisChanges": "Step smoothing shapes how abruptly sequenced values change.",
+      "tradeoff": "Hard steps sound rhythmic. Smooth steps avoid clicks.",
+      "fix": "Add short smoothing or attack time to step transitions.",
+      "creativeKeep": "Hard clicks can be valid for glitch percussion if intentional.",
+      "listenFor": "Run sustained pads, bass, and noise through the sequencer.",
+      "keepConfirmCopy": "Keep hard steps? It becomes a rhythmic artifact.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "sidechain.external_input_missing",
+      "title": "Sidechain input does nothing",
+      "pluginFamilies": [
+        "Compressor",
+        "Gate",
+        "Ducker",
+        "Hybrid"
+      ],
+      "repairFamily": "Routing",
+      "typicalControls": [
+        "External Sidechain",
+        "Key Input",
+        "Listen",
+        "Detector"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "External sidechain mode does not react to the key signal.",
+      "whatThisChanges": "External sidechain lets another track trigger the processor.",
+      "tradeoff": "Sidechain routing is a contract with the host and user.",
+      "fix": "Connect the external sidechain to the detector and expose clear status.",
+      "creativeKeep": "A sidechain switch that does nothing should not ship.",
+      "listenFor": "Use kick-to-bass ducking or key-gated noise.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "sidechain.listen_monitor_wrong_signal",
+      "title": "Sidechain listen plays the wrong signal",
+      "pluginFamilies": [
+        "Compressor",
+        "Gate",
+        "De-Esser",
+        "Dynamic EQ"
+      ],
+      "repairFamily": "Monitoring",
+      "typicalControls": [
+        "Sidechain Listen",
+        "Audition",
+        "Monitor"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The audition button does not play the signal controlling the processor.",
+      "whatThisChanges": "Listen mode helps users hear what the detector is reacting to.",
+      "tradeoff": "Monitoring does not change tone, but it teaches users how to tune the effect.",
+      "fix": "Route listen mode to the actual detector input.",
+      "creativeKeep": "Wrong listen routing breaks learning and trust.",
+      "listenFor": "Toggle listen while changing sidechain filter or external input.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "spectral.musical_noise",
+      "title": "Spectral processing adds watery artifacts",
+      "pluginFamilies": [
+        "Spectral",
+        "Noise Reduction",
+        "Pitch"
+      ],
+      "repairFamily": "Quality",
+      "typicalControls": [
+        "Quality",
+        "Smoothing",
+        "Reduction",
+        "Window"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound gets watery, chirpy, or filled with tiny warbles.",
+      "whatThisChanges": "Spectral smoothing controls how aggressively bins change over time.",
+      "tradeoff": "More processing removes more problem sound. Less processing sounds natural.",
+      "fix": "Reduce amount or increase smoothing/quality.",
+      "creativeKeep": "Watery artifacts can be a deliberate sci-fi texture.",
+      "listenFor": "Use vocals, cymbals, room noise, and sustained notes.",
+      "keepConfirmCopy": "Keep the watery artifacts? It should be presented as character.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "spectral.smearing_too_much",
+      "title": "Spectral effect smears detail",
+      "pluginFamilies": [
+        "Spectral",
+        "Freeze",
+        "Pitch",
+        "Reverb"
+      ],
+      "repairFamily": "Clarity",
+      "typicalControls": [
+        "Window Size",
+        "Blur",
+        "Smooth",
+        "Freeze"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Transients and words lose definition and turn into a cloud.",
+      "whatThisChanges": "Spectral windowing trades time detail for frequency detail.",
+      "tradeoff": "More smear creates pads and washes. Less smear preserves articulation.",
+      "fix": "Reduce blur/window size or blend in more dry signal.",
+      "creativeKeep": "Smearing is valid for ambient, drone, and frozen textures.",
+      "listenFor": "Use vocals, drums, piano, and plucked instruments.",
+      "keepConfirmCopy": "Keep the smear? It turns clear audio into texture.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "state.bypass_does_not_preserve_tail",
+      "title": "Bypass cuts off musical tails",
+      "pluginFamilies": [
+        "Delay",
+        "Reverb",
+        "Granular",
+        "Hybrid"
+      ],
+      "repairFamily": "Bypass",
+      "typicalControls": [
+        "Bypass",
+        "Tail",
+        "Spillover",
+        "Fade"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Echoes, reverb, or textures stop abruptly when bypass is touched.",
+      "whatThisChanges": "Tail behavior decides whether time-based effects ring out after bypass.",
+      "tradeoff": "Cutting tails is clean and instant. Spillover sounds smoother.",
+      "fix": "Add tail spillover or fade tails on bypass.",
+      "creativeKeep": "Hard tail cuts can be intentional for rhythmic mute effects.",
+      "listenFor": "Bypass during long reverb, delay, and freeze tails.",
+      "keepConfirmCopy": "Keep the hard cut? It should feel like a performance mute.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "state.bypass_leaks_wet_signal",
+      "title": "Bypass still leaks effect",
+      "pluginFamilies": [
+        "All",
+        "Delay",
+        "Reverb",
+        "Modulation"
+      ],
+      "repairFamily": "Bypass",
+      "typicalControls": [
+        "Bypass",
+        "Wet",
+        "Tail",
+        "Mute"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "The plugin still changes the audio after bypass is enabled.",
+      "whatThisChanges": "Bypass should clearly define whether audio is fully off or tail-only.",
+      "tradeoff": "Tail spillover is musical. Unlabeled wet leakage is confusing.",
+      "fix": "Mute wet processing on bypass or label tail spillover explicitly.",
+      "creativeKeep": "Bypass leakage should not be hidden.",
+      "listenFor": "Bypass during wet effects and compare to a true dry path.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "stereo.link_unstable_center",
+      "title": "Center image moves",
+      "pluginFamilies": [
+        "Dynamics",
+        "Stereo",
+        "Hybrid"
+      ],
+      "repairFamily": "StereoLink",
+      "typicalControls": [
+        "Link",
+        "Mode",
+        "M/S",
+        "L/R"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The vocal, kick, bass, or center image leans left or right while processing.",
+      "whatThisChanges": "Stereo link decides whether both sides react together or independently.",
+      "tradeoff": "Linked sounds stable. Independent can sound wider or more animated.",
+      "fix": "Use linked mode for stable stereo bus behavior.",
+      "creativeKeep": "Independent movement can be intentional for colorful stereo compression.",
+      "listenFor": "Listen to center sounds while processing hard.",
+      "keepConfirmCopy": "Keep the moving center? It may pull the mix image around.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "stereo.ms_decode_wrong",
+      "title": "M/S image decodes wrong",
+      "pluginFamilies": [
+        "M/S",
+        "Stereo",
+        "Imaging"
+      ],
+      "repairFamily": "Routing",
+      "typicalControls": [
+        "M/S",
+        "Mid",
+        "Side",
+        "Decode"
+      ],
+      "riskLevel": "must_fix",
+      "canKeepIntentional": false,
+      "whatYouHear": "Center and sides feel swapped, hollow, or unstable.",
+      "whatThisChanges": "M/S routing converts left/right into middle and side information and back.",
+      "tradeoff": "M/S is powerful, but wrong decode breaks stereo trust.",
+      "fix": "Correct encode/decode routing and polarity.",
+      "creativeKeep": "Broken M/S routing should not ship as a hidden behavior.",
+      "listenFor": "Use center vocal, side ambience, and mono checks.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "stereo.widener_delays_one_side",
+      "title": "Widener delays one side too much",
+      "pluginFamilies": [
+        "Imaging",
+        "Stereo",
+        "Chorus"
+      ],
+      "repairFamily": "Stereo",
+      "typicalControls": [
+        "Width",
+        "Delay",
+        "Haas",
+        "Mono Safe"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The sound gets wide but loses punch or shifts to one side.",
+      "whatThisChanges": "Haas widening delays one side to create width.",
+      "tradeoff": "More delay feels wide. Too much harms mono and center focus.",
+      "fix": "Reduce side delay or add mono-safe width limiting.",
+      "creativeKeep": "Haas width can be useful for special effects and headphones.",
+      "listenFor": "Check mono, headphones, and centered percussion.",
+      "keepConfirmCopy": "Keep the Haas width? It may weaken mono playback.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "stutter.slice_boundary_clicks",
+      "title": "Stutter slices click",
+      "pluginFamilies": [
+        "Stutter",
+        "Glitch",
+        "Looper",
+        "Granular"
+      ],
+      "repairFamily": "Smoothing",
+      "typicalControls": [
+        "Slice",
+        "Crossfade",
+        "Window",
+        "Gate"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "Looped slices create ticks at the repeat point.",
+      "whatThisChanges": "Slice windows and crossfades smooth cut boundaries.",
+      "tradeoff": "Sharp slices are punchy. Crossfades are cleaner.",
+      "fix": "Add micro-crossfades at slice boundaries.",
+      "creativeKeep": "Clicks can be a glitch style if the user chose it.",
+      "listenFor": "Use sustained audio and rhythmic loops at several slice lengths.",
+      "keepConfirmCopy": "Keep the slice clicks? It should be an obvious glitch aesthetic.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "subharmonic_generator_overdoes_low_end",
+      "title": "Sub generator adds too much bass",
+      "pluginFamilies": [
+        "Subharmonic",
+        "Bass",
+        "Enhancer"
+      ],
+      "repairFamily": "ToneSafety",
+      "typicalControls": [
+        "Sub",
+        "Octave",
+        "Low Mix",
+        "Drive"
+      ],
+      "riskLevel": "strong_warning",
+      "canKeepIntentional": true,
+      "whatYouHear": "The low end gets huge but loose, boomy, or speaker-risky.",
+      "whatThisChanges": "Subharmonic generation adds lower notes below the source.",
+      "tradeoff": "More sub feels powerful. Too much steals headroom and muddies playback.",
+      "fix": "Lower sub amount, add a limiter, or restrict it to bass-friendly presets.",
+      "creativeKeep": "Big sub is valid for 808, bass, and sound-system effects.",
+      "listenFor": "Use kick, bass, club loops, and small-speaker checks.",
+      "keepConfirmCopy": "Keep the sub weight? It needs safe headroom.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "tape_noise_hiss_too_loud",
+      "title": "Tape hiss is too loud",
+      "pluginFamilies": [
+        "Tape",
+        "Lo-Fi",
+        "Color"
+      ],
+      "repairFamily": "Noise",
+      "typicalControls": [
+        "Noise",
+        "Hiss",
+        "Age",
+        "Noise Gate"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Hiss becomes obvious during quiet sections or after playback stops.",
+      "whatThisChanges": "Noise level controls the modeled machine hiss mixed into the signal.",
+      "tradeoff": "Hiss adds realism. Too much distracts and raises the noise floor.",
+      "fix": "Lower default hiss or add a noise level control.",
+      "creativeKeep": "Hiss can be part of cassette, VHS, and sample-pack character.",
+      "listenFor": "Listen during silence, fades, and sparse vocals.",
+      "keepConfirmCopy": "Keep the hiss? It should feel like texture, not a defect.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "tape_wow_flutter_unstable",
+      "title": "Tape pitch drifts too much",
+      "pluginFamilies": [
+        "Tape",
+        "Lo-Fi",
+        "Delay"
+      ],
+      "repairFamily": "Movement",
+      "typicalControls": [
+        "Wow",
+        "Flutter",
+        "Stability",
+        "Age"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Sustained notes wobble, swim, or feel seasick.",
+      "whatThisChanges": "Wow and flutter model slow and fast tape-speed movement.",
+      "tradeoff": "More drift feels old and unstable. Less drift keeps pitch usable.",
+      "fix": "Lower wow/flutter or make the default more stable.",
+      "creativeKeep": "Heavy drift is valid for lo-fi, VHS, and psychedelic effects.",
+      "listenFor": "Use piano, pad chords, vocals, and sustained guitar.",
+      "keepConfirmCopy": "Keep the drift? It turns pitch instability into the sound.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "tape.head_bump_too_big",
+      "title": "Tape low end blooms too much",
+      "pluginFamilies": [
+        "Tape",
+        "Saturation",
+        "Color"
+      ],
+      "repairFamily": "Tone",
+      "typicalControls": [
+        "Head Bump",
+        "Bass",
+        "Tape Speed",
+        "Low Trim"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Kick, bass, and low notes get oversized or cloudy.",
+      "whatThisChanges": "Head bump models the low-frequency rise that tape machines can add.",
+      "tradeoff": "More bump feels warm and vintage. Too much eats headroom and muddies the mix.",
+      "fix": "Lower head bump or add a low trim after tape.",
+      "creativeKeep": "Big tape low end can be intentional for dub, hip-hop, and vintage drum sounds.",
+      "listenFor": "Use kick, bass, toms, and full mix loops.",
+      "keepConfirmCopy": "Keep the big tape bloom? It will make the low end larger by design.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "transient.attack_overhyped",
+      "title": "Transient attack is overhyped",
+      "pluginFamilies": [
+        "Transient Shaper",
+        "Drum Processor"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Attack",
+        "Punch",
+        "Transient",
+        "Clip"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "Hits get clicky, pokey, or unnatural.",
+      "whatThisChanges": "Attack shaping boosts or reduces the front edge of sounds.",
+      "tradeoff": "More attack adds punch. Too much becomes click and harshness.",
+      "fix": "Lower attack amount or soften the transient shape.",
+      "creativeKeep": "Extreme attack is useful for drum design and aggressive samples.",
+      "listenFor": "Use kick, snare, percussion, and picked bass.",
+      "keepConfirmCopy": "Keep the extra punch? It may become clicky.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "transient.sustain_too_long",
+      "title": "Sustain makes sounds ring",
+      "pluginFamilies": [
+        "Transient Shaper",
+        "Drum Processor"
+      ],
+      "repairFamily": "Dynamics",
+      "typicalControls": [
+        "Sustain",
+        "Body",
+        "Tail",
+        "Release"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Drums, rooms, or notes hang longer than expected.",
+      "whatThisChanges": "Sustain shaping raises or lowers the body after the attack.",
+      "tradeoff": "More sustain adds size. Less sustain tightens the groove.",
+      "fix": "Lower sustain or shorten the tail control.",
+      "creativeKeep": "Long sustain is useful for big drums and ambient hits.",
+      "listenFor": "Use snare, toms, room mics, and acoustic guitar.",
+      "keepConfirmCopy": "Keep the long tail? It will fill more space.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ui.audition_target_missing",
+      "title": "User does not know what to listen for",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Education",
+      "typicalControls": [
+        "Tooltip",
+        "Audition",
+        "Before/After",
+        "Learn"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The creator sees a warning but does not know how to judge the change.",
+      "whatThisChanges": "Audition guidance tells the user what audio source and listening target prove the fix.",
+      "tradeoff": "A repair UI should teach the ear, not only move controls.",
+      "fix": "Attach a listening target to every fix and every keep decision.",
+      "creativeKeep": "Creative choices still need an audition target.",
+      "listenFor": "Use source-specific examples like vocal S sounds, kick hits, bass notes, or stereo mono checks.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ui.control_name_too_technical",
+      "title": "Control name is too technical",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Education",
+      "typicalControls": [
+        "Label",
+        "Tooltip",
+        "Learn Text"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The user cannot connect the control name to what they hear.",
+      "whatThisChanges": "Labels and tooltips teach what the plugin is doing.",
+      "tradeoff": "Technical names are precise. Music names are easier to use.",
+      "fix": "Use music-first names with technical detail hidden in an advanced drawer.",
+      "creativeKeep": "Technical labels are okay in advanced mode, not the main musician flow.",
+      "listenFor": "Ask whether a non-engineer can predict what the knob changes.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ui.default_knob_position_misleading",
+      "title": "Default knob position is misleading",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Defaults",
+      "typicalControls": [
+        "Any"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": true,
+      "whatYouHear": "The plugin opens in a more extreme state than the knobs visually suggest.",
+      "whatThisChanges": "Default positions teach users what the normal starting sound is.",
+      "tradeoff": "Bold defaults show personality. Neutral defaults build trust.",
+      "fix": "Set defaults so first sound matches visual expectation.",
+      "creativeKeep": "Extreme defaults can define a signature effect plugin.",
+      "listenFor": "Load the plugin fresh and listen before touching anything.",
+      "keepConfirmCopy": "Keep the bold default? It may surprise users.",
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ui.keep_intentional_requires_lesson",
+      "title": "Creative keep needs a lesson",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "Education",
+      "typicalControls": [
+        "Keep This Sound",
+        "Confirm Intent"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "The creator may keep a risky sound without understanding the tradeoff.",
+      "whatThisChanges": "The keep path records artistic intent after teaching the sonic consequence.",
+      "tradeoff": "Freedom matters, but informed freedom is the product goal.",
+      "fix": "Before accepting a keep, show what the user is choosing in plain musical terms.",
+      "creativeKeep": "The behavior can be kept only after the lesson is acknowledged.",
+      "listenFor": "Use the audition target tied to that issue.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v3"
+    },
+    {
+      "knowledgeId": "ui.knob_label_mismatch",
+      "title": "Knob name does not match sound",
+      "pluginFamilies": [
+        "All"
+      ],
+      "repairFamily": "ControlMeaning",
+      "typicalControls": [
+        "Any"
+      ],
+      "riskLevel": "review_recommended",
+      "canKeepIntentional": false,
+      "whatYouHear": "Turning a knob changes something different than the label suggests.",
+      "whatThisChanges": "Control labels teach the user what they are shaping.",
+      "tradeoff": "Creative controls can be abstract, but they still need predictable meaning.",
+      "fix": "Rename the control or remap it so the label matches the audible behavior.",
+      "creativeKeep": "Abstract names like Vibe or Smash are acceptable if the behavior is intentionally broad.",
+      "listenFor": "Turn the knob slowly and describe what actually changes.",
+      "keepConfirmCopy": null,
+      "sourcePack": "v1"
+    },
+    {
+      "knowledgeId": "vinyl_crackle_too_loud",
+      "title": "Vinyl crackle distracts",
+      "pluginFamilies": [
+        "Vinyl",
+        "Lo-Fi",
+        "Texture"
+      ],
+      "repairFamily": "Noise",
+      "typicalControls": [
+        "Crackle",
+        "Dust",
+        "Age",
+        "Noise"
+      ],
+      "riskLevel": "safe_creative",
+      "canKeepIntentional": true,
+      "whatYouHear": "Clicks and crackles pull attention away from the music.",
+      "whatThisChanges": "Crackle level controls how much record-surface noise is added.",
+      "tradeoff": "More crackle adds nostalgia. Less crackle keeps the source clear.",
+      "fix": "Lower crackle amount or make it preset-specific.",
+      "creativeKeep": "Crackle is valid for lo-fi beats, intros, and texture presets.",
+      "listenFor": "Use sparse piano, vocals, drums, and silence.",
+      "keepConfirmCopy": "Keep the crackle? It becomes part of the arrangement.",
+      "sourcePack": "v3"
+    }
+  ]
+}
