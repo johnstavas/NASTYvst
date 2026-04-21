@@ -1,262 +1,442 @@
-// Build QC_Rack_Audit.docx — session close-out audit of the QC rack system.
-// Run: node build_qc_rack_audit.cjs
+// Build QC Rack Audit document for the current session's work.
+// Output: C:\Users\HEAT2\Desktop\Shags VST\QC_Rack_Audit.docx
+// Usage: node build_qc_rack_audit_session.cjs
 
 const fs = require('fs');
 const path = require('path');
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  AlignmentType, LevelFormat, HeadingLevel, BorderStyle, WidthType,
-  ShadingType, PageBreak,
+  AlignmentType, PageOrientation, LevelFormat, HeadingLevel,
+  BorderStyle, WidthType, ShadingType, PageNumber,
+  Header, Footer, PageBreak, TabStopType, TabStopPosition,
 } = require('docx');
 
-const border = { style: BorderStyle.SINGLE, size: 1, color: "BFBFBF" };
+// ---------- style helpers ----------
+const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
 const borders = { top: border, bottom: border, left: border, right: border };
 
-const p = (text, opts = {}) => new Paragraph({
-  spacing: { after: 120 }, ...opts,
-  children: [new TextRun({ text, ...(opts.run || {}) })],
-});
-const h1 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(text)] });
-const h2 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(text)] });
-const h3 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun(text)] });
-const bullet = (text, level = 0) => new Paragraph({
-  numbering: { reference: "bullets", level },
-  spacing: { after: 60 },
-  children: [new TextRun(text)],
-});
-const code = (text) => new Paragraph({
-  spacing: { after: 100 },
-  shading: { fill: "F2F2F2", type: ShadingType.CLEAR },
-  children: [new TextRun({ text, font: "Consolas", size: 20 })],
-});
+const bodyFont = 'Arial';
 
-const cell = (text, { bold: isBold = false, fill = null, width = 3120 } = {}) => new TableCell({
-  borders,
-  width: { size: width, type: WidthType.DXA },
-  margins: { top: 80, bottom: 80, left: 120, right: 120 },
-  ...(fill ? { shading: { fill, type: ShadingType.CLEAR } } : {}),
-  children: [new Paragraph({ children: [new TextRun({ text, bold: isBold, size: 20 })] })],
-});
-const headerRow = (labels, widths) => new TableRow({
-  children: labels.map((l, i) => cell(l, { bold: true, fill: "D9E2F3", width: widths[i] })),
-});
-const dataRow = (vals, widths) => new TableRow({
-  children: vals.map((v, i) => cell(v, { width: widths[i] })),
-});
+function p(text, opts = {}) {
+  return new Paragraph({
+    spacing: { after: 120 },
+    ...opts,
+    children: [new TextRun({ text, font: bodyFont, size: 22, ...(opts.run || {}) })],
+  });
+}
+
+function pRuns(runs, opts = {}) {
+  return new Paragraph({
+    spacing: { after: 120 },
+    ...opts,
+    children: runs.map(r => new TextRun({ font: bodyFont, size: 22, ...r })),
+  });
+}
+
+function h1(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_1,
+    spacing: { before: 360, after: 180 },
+    children: [new TextRun({ text, font: bodyFont, size: 36, bold: true })],
+  });
+}
+function h2(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
+    spacing: { before: 280, after: 140 },
+    children: [new TextRun({ text, font: bodyFont, size: 28, bold: true })],
+  });
+}
+function h3(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_3,
+    spacing: { before: 200, after: 100 },
+    children: [new TextRun({ text, font: bodyFont, size: 24, bold: true })],
+  });
+}
+
+function bullet(text, level = 0) {
+  return new Paragraph({
+    numbering: { reference: 'bullets', level },
+    spacing: { after: 80 },
+    children: [new TextRun({ text, font: bodyFont, size: 22 })],
+  });
+}
+
+function bulletRuns(runs, level = 0) {
+  return new Paragraph({
+    numbering: { reference: 'bullets', level },
+    spacing: { after: 80 },
+    children: runs.map(r => new TextRun({ font: bodyFont, size: 22, ...r })),
+  });
+}
+
+function code(text) {
+  // Represent multi-line code as a shaded paragraph block (one paragraph per line).
+  const lines = text.split('\n');
+  return lines.map((ln, i) => new Paragraph({
+    spacing: { after: i === lines.length - 1 ? 160 : 0 },
+    shading: { type: ShadingType.CLEAR, fill: 'F4F4F4' },
+    children: [new TextRun({ text: ln || ' ', font: 'Consolas', size: 18 })],
+  }));
+}
+
+function headerCell(text, width) {
+  return new TableCell({
+    borders,
+    width: { size: width, type: WidthType.DXA },
+    shading: { type: ShadingType.CLEAR, fill: 'D5E8F0' },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    children: [new Paragraph({ children: [new TextRun({ text, bold: true, font: bodyFont, size: 22 })] })],
+  });
+}
+function bodyCell(text, width) {
+  return new TableCell({
+    borders,
+    width: { size: width, type: WidthType.DXA },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    children: [new Paragraph({ children: [new TextRun({ text, font: bodyFont, size: 22 })] })],
+  });
+}
+
+function simpleTable(headers, rows, columnWidths) {
+  const total = columnWidths.reduce((a, b) => a + b, 0);
+  return new Table({
+    width: { size: total, type: WidthType.DXA },
+    columnWidths,
+    rows: [
+      new TableRow({
+        tableHeader: true,
+        children: headers.map((h, i) => headerCell(h, columnWidths[i])),
+      }),
+      ...rows.map(r => new TableRow({
+        children: r.map((c, i) => bodyCell(c, columnWidths[i])),
+      })),
+    ],
+  });
+}
+
+// ---------- content ----------
+const today = '2026-04-20';
 
 const children = [];
 
+// Title block
 children.push(new Paragraph({
-  alignment: AlignmentType.CENTER, spacing: { after: 240 },
-  children: [new TextRun({ text: "QC Rack Audit", bold: true, size: 44 })],
-}));
-children.push(new Paragraph({
-  alignment: AlignmentType.CENTER, spacing: { after: 360 },
-  children: [new TextRun({ text: "Session close-out — ManChild passes QC rack clean", italics: true, size: 26, color: "595959" })],
+  alignment: AlignmentType.CENTER,
+  spacing: { before: 0, after: 120 },
+  children: [new TextRun({ text: 'QC Rack System — Session Audit', font: bodyFont, size: 48, bold: true })],
 }));
 children.push(new Paragraph({
-  alignment: AlignmentType.CENTER, spacing: { after: 480 },
-  children: [new TextRun({ text: "Captured 2026-04-20 · Build 627263f-dirty · v1.0.0", size: 20, color: "7F7F7F" })],
+  alignment: AlignmentType.CENTER,
+  spacing: { after: 80 },
+  children: [new TextRun({ text: 'Shags VST · QC Harness Work Unit', font: bodyFont, size: 24, color: '555555' })],
+}));
+children.push(new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { after: 360 },
+  children: [new TextRun({ text: `Date: ${today}`, font: bodyFont, size: 22, italics: true, color: '555555' })],
 }));
 
-children.push(h1("1. Milestone"));
-children.push(p("ManChild (Fairchild 670 vari-mu compressor emulation, engine_v1) is the first plugin in the Shags VST catalog to pass the QC rack with a clean verdict. 80 snapshots captured across 41 presets, zero findings, two Diagnostics-only INFO cards."));
-children.push(p("This close-out validates the Tier 1 harness end-to-end: QC preset generator, split-snap capture, severity-branched analyzer rules, artist-friendly report. The design-intent carve-out pattern (capability flag + rule gate -> INFO/cannot_verify narrative) was applied three times in one session and is now a reusable architectural move for the remaining plugins."));
+// Executive summary
+children.push(h1('1. Executive Summary'));
+children.push(p(
+  'This document audits the QC rack (Quality Control harness) work completed in the current session. ' +
+  'The session advanced three parallel work units: (a) completion of a T3 capability-gated rule-body ' +
+  'batch in the analyzer, (b) delivery of Knowledge Phase A — the invisible plumbing that attaches a ' +
+  'deterministic knowledgeId and knowledgeSource to every finding — and (c) start of Lofi Loofy plugin ' +
+  'onboarding, including a dry-run Node preview harness and the F1 Dream-mix dual-writer fix.'
+));
+children.push(p(
+  'Nothing in this session changes end-user UI. Phase A shipped dark; the Ear Lesson render path ' +
+  'remains gated behind ENABLE_EAR_LESSONS=false until Phase B dogfoods against the ManChild hot path. ' +
+  'The Lofi Loofy F1 fix is localized to the engine and is behavior-preserving at mix centre.'
+));
 
-children.push(h2("Sweep progression"));
-children.push(new Table({
-  width: { size: 9360, type: WidthType.DXA },
-  columnWidths: [2160, 1800, 1800, 3600],
-  rows: [
-    headerRow(["Time", "Verdict", "Issues", "Signal"], [2160, 1800, 1800, 3600]),
-    dataRow(["08:36:15", "Not ready (FAIL)", "1 FAIL", "mix_null_series residual -16.5 dB"], [2160, 1800, 1800, 3600]),
-    dataRow(["08:41:24", "Almost there (WARN)", "1 WARN", "peak_above_input +1.6 dB on VAR preset"], [2160, 1800, 1800, 3600]),
-    dataRow(["08:46:02", "Looks good (PASS)", "0 issues", "Clean sweep — 80/80 snapshots"], [2160, 1800, 1800, 3600]),
+// Scope
+children.push(h2('1.1 Scope of this audit'));
+children.push(bullet('T3 rule body completion (fft_frame_phase) and Knowledge Phase A plumbing inside src/qc-harness/'));
+children.push(bullet('New knowledge sub-module: knowledgeLoader, ruleKnowledgeMap, capabilityToFamily, earLessonsFlag'));
+children.push(bullet('Lofi Loofy onboarding: capabilities/paramSchema preview script, F1 (DreamTarget mix dual-write) engine fix'));
+children.push(bullet('Cross-cutting: ship-blocker and backlog ledgers remain source of truth; this doc does not replace them'));
+
+// Tier architecture
+children.push(h1('2. Tier Architecture (T1–T7)'));
+children.push(p(
+  'The QC preset sweep is tiered to separate ship-blocker checks from capability- and time-gated checks. ' +
+  'Tier selection flows from the engine\'s declared capabilities and paramSchema; the harness never hard-codes ' +
+  'per-plugin presets.'
+));
+children.push(simpleTable(
+  ['Tier', 'Role', 'Gate', 'Ship impact'],
+  [
+    ['T1', 'Core invariants — bypass, DC, denormal, louder-than-input', 'Always runs', 'Hard ship-blocker — any FAIL blocks publish'],
+    ['T2', 'Bench sanity — stereo hygiene, pathological inputs, preset round-trip', 'Always runs', 'Blocker for the affected plugin family'],
+    ['T3', 'Capability-gated measurement (FFT, LPC, WDF, pitch, sidechain, bands, TP)', 'capabilities[flag] === true', 'Blocker when capability is declared'],
+    ['T4', 'Long-running / drift / series identity captures', 'includeLong === true', 'Warn-tier; escalates on repeat'],
+    ['T5–T7', 'Reserved — UX/regression, golden-file, cross-plugin topology', 'Future', 'Not yet wired'],
   ],
-}));
-children.push(p(""));
+  [700, 3500, 2500, 2660],
+));
+children.push(p(''));
+children.push(h3('Probe-presence pattern'));
+children.push(p(
+  'T3 rules are activated by filtering ctx.qcSnaps by ruleId and bailing if the filtered set is empty. ' +
+  'This replaces direct capability-vocabulary gating, which drifts as new flags appear.'
+));
+children.push(h3('Three-tier threshold pattern'));
+children.push(p(
+  'Every analyzer rule returns one of: non-finite → FAIL, specific failure window → FAIL, middle range → WARN, ' +
+  'clean → INFO. This keeps downstream UX uniform across rule families.'
+));
 
-children.push(h1("2. QC Rack Architecture"));
-children.push(p("The rack is a three-layer pipeline. Each layer is independently testable and swappable."));
-
-children.push(h2("Layer A — Preset generator"));
-children.push(p("File: src/qc-harness/qcPresets.js"));
-children.push(bullet("Emits QC presets per variant (Tier 1 = boundary sweeps, reset, Mix=0, series-null)."));
-children.push(bullet("Capability-gated: qc_t1_mix_null_series is only emitted when capabilities.nonlinearStages > 0."));
-children.push(bullet("Each preset carries ruleId + meta so the analyzer knows how to grade the resulting snap."));
-
-children.push(h2("Layer B — Capture + analyzer"));
-children.push(p("Files: src/qc-harness/Analyzer.jsx, qcAnalyzer.js, seriesRender.js, sources.js"));
-children.push(bullet("Analyzer.jsx orchestrates the sweep, applies each preset, captures split-snaps, and dispatches special-case renders (e.g. series-null)."));
-children.push(bullet("qcAnalyzer.js holds RULE_META and the rule bodies. Rules declare severity branches via bySeverity.info for design-intent carve-outs."));
-children.push(bullet("seriesRender.js runs the two-instance OfflineAudioContext render — the canonical test for coloration-bearing plugins per dry_wet_mix_rule.md section 5."));
-children.push(bullet("sources.js provides the calibrated pink-noise source (-18 dBFS RMS, Voss-McCartney)."));
-
-children.push(h2("Layer C — Report renderer"));
-children.push(p("Renders Markdown QC audit reports. Findings (FAIL/WARN) vs Diagnostics (INFO) split. Artist-facing copy on top, developer notes collapsed underneath."));
-
-children.push(h1("3. What was built this session"));
-
-children.push(h2("3.1 mix_null_series — the series-null test"));
-children.push(p("The canonical test for plugins whose dry leg is colored by design (tubes, tape, transformers). Cannot be caught by a single-instance phase-invert null because the coloration is always on."));
-children.push(p("Mechanic: render two copies of the plugin in series, with the second instance at Mix=0, and compare to a single-instance reference at the same params. Clean bypass passes; a dry-leg leak does not."));
-
-children.push(h3("New file: src/qc-harness/seriesRender.js (~160 lines)"));
-children.push(bullet("Shared pre-generated pink-noise Float32Array (Math.random not seedable across OfflineAudioContexts)."));
-children.push(bullet("Voss-McCartney pink generator, calibrated to -18 dBFS RMS to match sources.js."));
-children.push(bullet("Ref pass: one engine, qp.params. Test pass: two engines in series, both at qp.params (second has Mix=0)."));
-children.push(bullet("residualDb() — channel-averaged RMS of (test - ref) over post-settle window (skipSec default 0.5)."));
-children.push(bullet("Factory signature: createManChildEngineV1(audioCtx) accepts any BaseAudioContext, including OfflineAudioContext."));
-
-children.push(h3("Analyzer.jsx hook"));
-children.push(code(`if (qp.ruleId === 'mix_null_series') {
-  let factory = null;
-  if (productId === 'manchild' && variantId === 'engine_v1') {
-    const mod = await import('../manChild/manChildEngine.v1.js');
-    factory = mod.createManChildEngineV1;
-  }
-  if (factory) {
-    const { rmsDb, lagNotes } = await renderSeriesNull({
-      factory, params: qp.params, sampleRate: ctx.sampleRate,
-    });
-    snap.measurements.seriesNullRmsDb = rmsDb;
-  }
-}`));
-children.push(p("Tech debt: the productId/variantId switch is hardcoded — needs a variant registry before Lofi Loofy is wired."));
-
-children.push(h2("3.2 Design-intent carve-out pattern"));
-children.push(p("When a rule fires because of a declared design choice — not a bug — the plugin declares a capability flag, the rule self-disables to INFO severity, and the report shows an artist-friendly explanation of why the test does not apply."));
-children.push(p("This pattern was applied three times in one session:"));
-
-children.push(new Table({
-  width: { size: 9360, type: WidthType.DXA },
-  columnWidths: [2400, 2400, 4560],
-  rows: [
-    headerRow(["Capability flag", "Affected rule", "Carve-out reason"], [2400, 2400, 4560]),
-    dataRow(["nonlinearStages: 2", "mix_null", "Absolute phase-invert null cannot apply to coloration-bearing plugins (dry_wet_mix_rule.md section 2)."], [2400, 2400, 4560]),
-    dataRow(["dryLegHasColoration: true", "mix_null_series", "Hardware-faithful emulation — 6386 twin-triode push-pull stage is always in-circuit, same as the real Fairchild."], [2400, 2400, 4560]),
-    dataRow(["compressorTopology: 'vari-mu'", "peak_above_input", "Vari-mu topology has slow attack by design (DAFx Ch.4). Transient leakage is expected; gate relaxed from +1.0 dB to +2.5 dB."], [2400, 2400, 4560]),
+// T3 completion
+children.push(h1('3. T3 Rule Body Completion'));
+children.push(h2('3.1 fft_frame_phase (T3.8)'));
+children.push(p(
+  'Replaced the fft_frame_phase stub in src/qc-harness/qcAnalyzer.js with a probe-presence body that reads ' +
+  'per-frame SNR snapshots, derives FAIL/WARN/INFO against the three-tier envelope, and emits a normalized ' +
+  'finding with knowledgeId attached downstream by the Phase A enrichment loop.'
+));
+children.push(h2('3.2 Status of the broader T3 batch'));
+children.push(simpleTable(
+  ['Rule', 'Status', 'Notes'],
+  [
+    ['fft_frame_phase', 'Landed this session', 'Three-tier; uses fftFrameSnrDb'],
+    ['lpc_stability', 'Pending', 'Uses lpcPeakGrowthDb; awaiting probe coverage'],
+    ['wdf_convergence', 'Pending', 'Uses wdfPeakDb'],
+    ['pitch_idle', 'Pending', 'Uses pitchIdleHz'],
+    ['band_reconstruction', 'Pending', 'Multiband sum vs. input null'],
+    ['sidechain_regime', 'Blocked', 'Requires 2-input runtime adapter + plugin scInput contract; no plugin exposes scInput yet'],
+    ['os_boundary', 'Pending', 'Oversampling boundary artifacts'],
+    ['series_identity (capture)', 'Pending', 'T4 long capture body'],
+    ['long_session_drift', 'Pending', 'T4'],
   ],
-}));
-children.push(p(""));
+  [2600, 1800, 4960],
+));
 
-children.push(h3("Severity branch (bySeverity) — the mechanic"));
-children.push(p("RULE_META entries can declare per-severity overrides. When a rule returns {severity:'info', ...}, the analyzer merges the info branch over the defaults before rendering the card."));
-children.push(code(`RULE_META['mix_null_series'] = {
-  // FAIL defaults
-  title: "Mix=0 isn't a clean bypass",
-  tryThis: "Trace what the worklet does when Mix=0...",
-  bySeverity: {
-    info: {
-      title: "Series-null check — not applicable to this plugin",
-      tryThis: "Nothing to fix. If you want to sanity-check it yourself: A/B...",
-    }
-  }
-};`));
+// Knowledge Phase A
+children.push(h1('4. Knowledge Phase A — Invisible Plumbing'));
+children.push(p(
+  'Phase A attaches a deterministic knowledgeId and knowledgeSource to every finding, unconditionally. ' +
+  'Phase B (future) will render Ear Lessons beside the active finding when ENABLE_EAR_LESSONS flips on. ' +
+  'Phase C (future) will add the searchable drawer. The feature flag only gates rendering; attachment is ' +
+  'always on so the 50+ plugin sweep does not need a second pass once Phase B ships.'
+));
 
-children.push(h2("3.3 Topology-aware gate for peak_above_input"));
-children.push(code(`const topology = snaps[0]?.capabilities?.compressorTopology ?? null;
-const gateDb = topology === 'vari-mu' ? 2.5 : 1.0;`));
-children.push(p("Flappy WARNs across sweeps (Side Control +1.2, VAR Vocal Breath +1.6) were not noise — they were vari-mu transient leakage on different presets each run. The gate now reflects the topology's design intent."));
-
-children.push(h2("3.4 ManChild engine: capability declarations"));
-children.push(p("File: src/manChild/manChildEngine.v1.js"));
-children.push(code(`capabilities: {
-  nonlinearStages: 2,
-  dryLegHasColoration: true,    // 6386 tubes always in-circuit
-  compressorTopology: 'vari-mu', // slow attack by design
-}`));
-
-children.push(new Paragraph({ children: [new PageBreak()] }));
-children.push(h1("4. Evidence — final clean sweep (08:46:02)"));
-
-children.push(new Table({
-  width: { size: 9360, type: WidthType.DXA },
-  columnWidths: [3120, 3120, 3120],
-  rows: [
-    headerRow(["Metric", "Typical", "Range"], [3120, 3120, 3120]),
-    dataRow(["Presets applied", "80", "41/41"], [3120, 3120, 3120]),
-    dataRow(["Spectral delta", "-20.09 dB", "-21.58 ... -18.91 dB"], [3120, 3120, 3120]),
-    dataRow(["Loudness change", "-1.18 dB", "-8.65 ... +0.07 dB"], [3120, 3120, 3120]),
-    dataRow(["Peak change", "-1.41 dB", "-9.17 ... -0.16 dB"], [3120, 3120, 3120]),
-    dataRow(["Gain reduction", "-8.18 dB", "variance 16.97 dB"], [3120, 3120, 3120]),
+children.push(h2('4.1 New files'));
+children.push(simpleTable(
+  ['Path', 'Role'],
+  [
+    ['src/qc-harness/knowledge/knowledgeLoader.js', 'O(1) card lookup, families-covered set, safe-card enforcement (must_fix → canKeepIntentional=false)'],
+    ['src/qc-harness/knowledge/ruleKnowledgeMap.js', '35 ruleId → knowledgeId mappings; diagnostic rules → null'],
+    ['src/qc-harness/knowledge/capabilityToFamily.js', 'Capability flag → pluginFamily[] bridge (drawer filtering only)'],
+    ['src/qc-harness/knowledge/earLessonsFlag.js', 'ENABLE_EAR_LESSONS feature flag (default off)'],
   ],
-}));
-children.push(p(""));
+  [4760, 4600],
+));
 
-children.push(h2("Diagnostic-only measurements (no findings)"));
-children.push(bullet("Aligned null at Mix=0: -53.5 dB @ lag=192 samp (integer-sample floor, consistent across runs)."));
-children.push(bullet("Series null vs single-instance: -16.5 dB (declared expected via dryLegHasColoration flag)."));
+children.push(h2('4.2 Resolution order for finding.knowledgeId'));
+children.push(bullet('userFix override — any explicit knowledgeId attached by a rule body wins (knowledgeSource = "override")'));
+children.push(bullet('RULE_META default — RULE_KNOWLEDGE_MAP lookup by rule id (knowledgeSource = "rule")'));
+children.push(bullet('Fallback — no mapping; knowledgeId = null, knowledgeSource = "fallback"'));
 
-children.push(h1("5. Pending work"));
+children.push(h2('4.3 Enrichment loop (qcAnalyzer.js)'));
+children.push(...code(
+`for (const f of findings) {
+  if (typeof f.knowledgeId === 'string' && f.knowledgeId) {
+    if (!f.knowledgeSource) f.knowledgeSource = 'override';
+    continue;
+  }
+  const ruleDefault = getDefaultKnowledgeIdForRule(f.rule);
+  if (ruleDefault) {
+    f.knowledgeId = ruleDefault;
+    f.knowledgeSource = 'rule';
+  } else {
+    f.knowledgeId = null;
+    f.knowledgeSource = 'fallback';
+  }
+}`
+));
 
-children.push(h2("Capture-layer extensions (Tier 1 hooks still pending)"));
-children.push(bullet("bypass_exact — bit-exact null floor"));
-children.push(bullet("impulse_ir — impulse tail capture"));
-children.push(bullet("fb_runaway — finite-output bound"));
-children.push(bullet("latency_report — declared vs measured latency"));
-children.push(bullet("pathological_stereo — per-channel stereo stress"));
-children.push(bullet("denormal_tail — CPU-time / subnormal floor"));
-children.push(bullet("mix_identity — reference wet-only path"));
+children.push(h2('4.4 Strict scope rules'));
+children.push(bulletRuns([
+  { text: 'Active Ear Lesson: ', bold: true }, { text: 'exact knowledgeId lookup only — never fuzzy/capability-based.' },
+]));
+children.push(bulletRuns([
+  { text: 'Related cards / drawer: ', bold: true }, { text: 'capabilityToFamily + measurement tags, never for active lesson.' },
+]));
+children.push(bulletRuns([
+  { text: 'Phase A never renders. ', bold: true }, { text: 'ENABLE_EAR_LESSONS is read only by render paths; never by the attachment loop.' },
+]));
 
-children.push(h2("Generalization"));
-children.push(bullet("Analyzer.jsx factory lookup: replace hardcoded productId === 'manchild' guard with a variant registry (blocks Lofi Loofy series test)."));
-children.push(bullet("Tier 1 copy templates: substitute productId / character type into literal 'src/<product>/<product>Engine.js' dev-notes paths."));
-children.push(bullet("Roll variant_drift + capabilities{} block onto remaining legacy plugins."));
+// Lofi Loofy
+children.push(h1('5. Lofi Loofy Onboarding'));
+children.push(h2('5.1 Dry-run preview harness'));
+children.push(p(
+  'scripts/qc-preview-lofiloofy.mjs extracts capabilities and paramSchema from ' +
+  'lofiLoofyEngine.v1.js via a balanced-brace parser, then imports qcPresets.js via a base64 data: URL ' +
+  'to sidestep the project lacking "type":"module" in package.json. It lists the presets the browser ' +
+  'sweep will emit, by tier and rule, without constructing an AudioContext.'
+));
+children.push(h3('Preset counts (includeLong = false)'));
+children.push(simpleTable(
+  ['Tier', 'Count'],
+  [['T1', '5'], ['T2', '11'], ['T3', '1'], ['T4', '5']],
+  [2000, 7360],
+));
 
-children.push(h2("Next plugin candidates"));
-children.push(bullet("Lofi Loofy — 10-family hardest test; will exercise the harness width."));
-children.push(bullet("Panther Buss — SVG reactive glow + metering stress."));
+children.push(h2('5.2 F1 — DreamTarget mix dual-write fix'));
+children.push(p(
+  'Pre-fix, the Dream modulator\'s case "mix" wrote directly to dryGain / wetGain — the same gain nodes the ' +
+  'user\'s Mix knob owns. That is a DEV_RULES B4 violation (one writer per gain node). The engine\'s own ' +
+  'comment at line 836–838 specified the prescribed fix: add a dedicated series mixMod gain node and write ' +
+  'that instead.'
+));
+children.push(h3('Changes'));
+children.push(bullet('Added dryMixMod / wetMixMod gain nodes (unity at rest); added both to channel-config loop'));
+children.push(bullet('Rewired dry path: dryCompensate → dryGain → dryMixMod → preOut'));
+children.push(bullet('Rewired wet path: wetGain → wetMixMod → preOut (summing alongside dry)'));
+children.push(bullet('Replaced Dream case "mix" with equal-power swing writing dryMixMod / wetMixMod only'));
 
-children.push(h2("Docs"));
-children.push(bullet("Write qc_antifragility_protocol.md — the anti-whack-a-mole doc capturing the carve-out pattern formally."));
-children.push(bullet("Build Layer C userFix database — artist-language copy keyed by ruleId × severity."));
+children.push(h3('Dream swing (equal-power, ±0.35 breathing around centre)'));
+children.push(...code(
+`case 'mix': {
+  const swing = Math.max(-0.45, Math.min(0.45, m * 0.35));
+  const bias  = 0.5 + swing;
+  const refD  = Math.cos(0.5 * Math.PI * 0.5); // √2/2
+  const dMod  = Math.cos(bias * Math.PI * 0.5) / refD;
+  const wMod  = Math.sin(bias * Math.PI * 0.5) / refD;
+  dryMixMod.gain.setTargetAtTime(dMod, now, tau);
+  wetMixMod.gain.setTargetAtTime(wMod, now, tau);
+  break;
+}`
+));
 
-children.push(h1("6. Takeaways"));
-children.push(bullet("One plugin through clean validates the whole rack. 80 snapshots, three rule patches, three capability flags — all traceable to DAFx / dry_wet_mix_rule / manchild_lessons."));
-children.push(bullet("The carve-out pattern beats whack-a-mole. Every time a rule fires on design intent, the fix is: declare the capability, gate the rule, write the INFO card. No rule deletions. No per-preset exceptions."));
-children.push(bullet("Artist-facing copy is the product. Developer notes collapse under <details>. The top of the report must read like a mastering assistant."));
-children.push(bullet("First plugin DONE. ManChild is the reference implementation for every plugin that follows."));
+children.push(h2('5.3 Known issues still open on Lofi Loofy'));
+children.push(simpleTable(
+  ['ID', 'Severity', 'Description', 'Plan'],
+  [
+    ['F1', '🔴 FIXED', 'DreamTarget "mix" dual-write (DEV_RULES B4)', 'Landed this session — CONFORMANCE_REPORT §8.2 to update'],
+    ['F2', '⚠️  WARN', 'Width=0 is not exact mono (pan-law residual)', 'Tracked; revisit during sweep'],
+    ['F3', '⚠️  WARN', 'reverbSend / noiseGain / crackleGain missing from getState', 'Tracked; non-shipping'],
+    ['B1', '🔴 BLOCKER', 'External parallel dry/wet mix topology — violates Dry/Wet Mix Rule', 'Requires worklet refactor; scheduled as its own work unit'],
+  ],
+  [700, 1200, 4000, 3460],
+));
 
+// Ship gates
+children.push(h1('6. Ship Gates Unchanged'));
+children.push(p(
+  'This session did not modify the ship-blocker list. T1 zero-FAIL, Dry/Wet Mix Rule, bypass contract, ' +
+  'DC rejection under FB, feedback-runaway guard, and denormal tail remain the hard gates before marketplace ' +
+  'publish. Conditional gates (per reverb / multiband / stereo / sidechain / latency class) likewise unchanged.'
+));
+children.push(p(
+  'Lofi Loofy cannot ship until Blocker #1 (external dry/wet topology) is resolved. The F1 fix does not ' +
+  'advance that gate; it removes a separate B4 violation that would have produced a WARN in the sweep.'
+));
+
+// Backlog delta
+children.push(h1('7. Backlog Delta'));
+children.push(simpleTable(
+  ['Item', 'Before session', 'After session'],
+  [
+    ['fft_frame_phase rule body', 'Stub', 'Landed'],
+    ['Knowledge Phase A plumbing', 'Not started', 'Landed (dark, flag-gated)'],
+    ['Lofi Loofy preview harness', 'Not started', 'Landed (Node CLI)'],
+    ['Lofi Loofy F1', 'Open (B4 violation)', 'Fixed — pending commit + report update'],
+    ['Lofi Loofy sweep', 'Pending', 'Pending (browser-only)'],
+    ['Flap Jack Man / Panther Buss onboarding', 'Pending', 'Pending'],
+    ['sidechain_regime T3 body', 'Pending', 'Blocked (runtime adapter + scInput contract)'],
+    ['Knowledge Phase B (render)', 'Not started', 'Ready — gated on flag'],
+  ],
+  [3500, 2930, 2930],
+));
+
+// Follow-ups
+children.push(h1('8. Immediate Follow-ups'));
+children.push(bullet('Syntax-check modified src/lofiLoofy/lofiLoofyEngine.js and commit F1 fix'));
+children.push(bullet('Update src/lofiLoofy/CONFORMANCE_REPORT.md §8.2 — move F1 from open-deviation to fixed with commit ref'));
+children.push(bullet('Confirm with user: pivot to Flap Jack Man or Panther Buss onboarding rather than tackling Lofi Loofy Blocker #1 worklet refactor in the same work unit'));
+children.push(bullet('Once a plugin with clean dry/wet topology is sweeping green: dogfood Knowledge Phase B by flipping ENABLE_EAR_LESSONS against the ManChild hot path'));
+
+// Appendix
+children.push(h1('Appendix A — Files touched / created this session'));
+children.push(simpleTable(
+  ['Path', 'Change'],
+  [
+    ['src/qc-harness/qcAnalyzer.js', 'fft_frame_phase rule body + Phase A enrichment loop + import'],
+    ['src/qc-harness/knowledge/knowledgeLoader.js', 'NEW — O(1) card lookup'],
+    ['src/qc-harness/knowledge/ruleKnowledgeMap.js', 'NEW — 35 ruleId mappings'],
+    ['src/qc-harness/knowledge/capabilityToFamily.js', 'NEW — capability → family bridge'],
+    ['src/qc-harness/knowledge/earLessonsFlag.js', 'NEW — default-off feature flag'],
+    ['scripts/qc-preview-lofiloofy.mjs', 'NEW — Node CLI dry-run preset preview'],
+    ['src/lofiLoofy/lofiLoofyEngine.js', 'F1 fix — dryMixMod/wetMixMod series gain nodes'],
+    ['../Codex_VST_help/Audio React/AudioReactive_Engine_Handoff_v1.md', 'NEW — Codex handoff brief'],
+  ],
+  [5000, 4360],
+));
+
+// ---------- document ----------
 const doc = new Document({
+  creator: 'Claude',
+  title: 'QC Rack System — Session Audit',
   styles: {
-    default: { document: { run: { font: "Arial", size: 22 } } },
+    default: { document: { run: { font: bodyFont, size: 22 } } },
     paragraphStyles: [
-      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
-        run: { size: 32, bold: true, font: "Arial", color: "1F3864" },
+      { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+        run: { size: 36, bold: true, font: bodyFont },
         paragraph: { spacing: { before: 360, after: 180 }, outlineLevel: 0 } },
-      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
-        run: { size: 26, bold: true, font: "Arial", color: "2E75B6" },
-        paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 1 } },
-      { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
-        run: { size: 22, bold: true, font: "Arial", color: "404040" },
-        paragraph: { spacing: { before: 180, after: 80 }, outlineLevel: 2 } },
+      { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+        run: { size: 28, bold: true, font: bodyFont },
+        paragraph: { spacing: { before: 280, after: 140 }, outlineLevel: 1 } },
+      { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+        run: { size: 24, bold: true, font: bodyFont },
+        paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 2 } },
     ],
   },
   numbering: {
-    config: [{
-      reference: "bullets",
-      levels: [
-        { level: 0, format: LevelFormat.BULLET, text: "\u2022", alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
-        { level: 1, format: LevelFormat.BULLET, text: "\u25E6", alignment: AlignmentType.LEFT,
-          style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
-      ],
-    }],
+    config: [
+      { reference: 'bullets',
+        levels: [
+          { level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+          { level: 1, format: LevelFormat.BULLET, text: '\u25E6', alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
+        ] },
+    ],
   },
   sections: [{
     properties: {
       page: {
-        size: { width: 12240, height: 15840 },
+        size: { width: 12240, height: 15840 }, // US Letter
         margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
       },
+    },
+    headers: {
+      default: new Header({ children: [new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        children: [new TextRun({ text: 'Shags VST · QC Rack Audit', font: bodyFont, size: 18, color: '888888' })],
+      })] }),
+    },
+    footers: {
+      default: new Footer({ children: [new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({ text: 'Page ', font: bodyFont, size: 18, color: '888888' }),
+          new TextRun({ children: [PageNumber.CURRENT], font: bodyFont, size: 18, color: '888888' }),
+          new TextRun({ text: ' of ', font: bodyFont, size: 18, color: '888888' }),
+          new TextRun({ children: [PageNumber.TOTAL_PAGES], font: bodyFont, size: 18, color: '888888' }),
+        ],
+      })] }),
     },
     children,
   }],
 });
 
 Packer.toBuffer(doc).then(buf => {
-  const out = path.join(__dirname, "QC_Rack_Audit.docx");
+  const out = path.join(__dirname, 'QC_Rack_Audit.docx');
   fs.writeFileSync(out, buf);
-  console.log("Wrote", out, "(" + buf.length + " bytes)");
+  console.log('wrote', out, buf.length, 'bytes');
 });
