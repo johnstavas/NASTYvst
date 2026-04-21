@@ -1,0 +1,1605 @@
+Perfect. Now I have all the necessary code. Let me compile a comprehensive technical audit document.
+
+---
+
+## TECHNICAL AUDIT: SHAGS VST DSP CORE AND PRODUCT LAYER
+
+### OVERVIEW
+The Shags VST employs a unified FX architecture built around the `FxProcessor` AudioWorklet. A single module palette (16 DSP modules) is configured and reconfigured at runtime by 12 product-layer wrappers, each offering distinct musical interfaces. The system is designed for zero core edits across multiple products and makes heavy use of composition and parameter mapping.
+
+---
+
+## FILE: src/core/dspWorklet.js
+
+### EXPORTS
+- `WORKLET_SOURCE` (String): The entire FxProcessor class and supporting DSP code, injected as a Blob into the AudioWorklet context.
+
+### PRIMITIVES
+
+#### ParamSmoother
+**Purpose**: Two-stage parameter smoother to eliminate zipper noise and control-rate discontinuities.
+- **Constructor Parameters**:
+  - `initial` (default: 0)
+  - `blockTauMs` (default: 25): Block-rate time constant in milliseconds
+  - `sampleTauMs` (default: 5): Sample-rate time constant in milliseconds
+- **Key Methods**:
+  - `prepare(sr, blockSize)`: Computes block and sample exponential coefficients from tau values
+  - `setTarget(v)`: Guard-checked via `Number.isFinite(v)`; rejects NaN/Infinity at boundary
+  - `snap(v)`: Instant jump to target (used on preset loads)
+  - `tickBlock()`: Called once per 128-sample block; pulls `block` toward `target` via `_aBlock` coefficient
+  - `tickSample()`: Called per sample; pulls `value` toward `block` via `_aSample` coefficient
+- **Coefficients**:
+  - `_aBlock = 1 - exp(-(1 / (blockHz · blockTauMs/1000)))`
+  - `_aSample = 1 - exp(-(1 / (sr · sampleTauMs/1000)))`
+  - Defaults (48 kHz, 128-sample block): `_aBlock ≈ 0.04`, `_aSample ≈ 0.005`
+
+#### DelayLine
+**Purpose**: Circular buffer with 3rd-order Lagrange fractional interpolation and smoothed time-varying read pointer.
+- **Constructor Parameters**:
+  - `maxSeconds` (default: 4): Maximum delay capacity
+- **Buffer Size**: `ceil(sr · maxSeconds) + 4` samples (4-sample padding for Lagrange window)
+- **Read Method**: Uses 3rd-order Lagrange weights on 4-sample window centered at fractional delay offset
+  - Lagrange coefficients: `c0 = -(1/6)·f·(f-1)·(f-2)`, `c1 = (1/2)·(f+1)·(f-1)·(f-2)`, etc.
+  - Guard: clamps delay `d` to `[0, N-4]` samples to keep window in bounds
+  - Handles NaN read pointers: `if (!(d >= 0)) d = 0`
+
+#### OnePoleLP / OnePoleHP
+**Purpose**: 1-pole low-pass and high-pass filters
+- **OnePoleLP**:
+  - Coefficient: `a = 1 - exp(-2π·hz/sr)`
+  - State: `z` (single-pole accumulator)
+  - Transfer: `z[n] += a·(x[n] - z[n])`; output `z`
+- **OnePoleHP**:
+  - Coefficient: `a = 1/(1 + 2π·hz/sr)`
+  - States: `zx`, `zy` (two-tap history)
+  - Transfer: `y = a·(zy + x - zx)`, then `zx = x`, `zy = y`
+
+#### LFO
+**Purpose**: Waveform oscillator with phase-stable rate changes.
+- **Waveform Shapes**:
+  - 0: Sine (default)
+  - 1: Triangle (anti-aliased ramp)
+  - 2: Square
+  - 3: Sample & Hold (updates every ~`sr/hz` samples)
+- **Phase Accumulation**: `phase += hz/sr` per tick, wrapped at 1.0
+- **S&H Sample Count**: `max(1, (sr / max(0.01, hz)) | 0)` samples per hold
+
+#### DcBlock
+**Purpose**: Single-pole DC blocking filter.
+- **Coefficient**: `r = 0.995` (fixed)
+- **Transfer**: `y[n] = x[n] - x[n-1] + r·y[n-1]`
+
+#### softSat(x)
+**Purpose**: Cheap rational soft saturation (normalization via absolute value).
+- **Formula**: `x / (1 + |x|)` (bounded to approximately ±0.5)
+- **Used In**: Feedback paths of DelayModule and TapeMultiTapModule
+
+---
+
+### IDspModule (Interface Contract)
+All 16 concrete modules inherit from this base class.
+
+**Required Methods**:
+- `prepare(sr, maxBlock, channels)`: Called once at worklet startup
+- `reset()`: Clears all state (filters, delay lines, envelopes)
+- `process(inL, inR, outL, outR, n)`: Per-block audio processing (operates in-place)
+- `latencySamples()`: Returns PDC latency (typically 0 for FxProcessor modules)
+- `tailSamples()`: Returns offline render tail estimate
+
+**Parameter Schema**:
+- `this.params = { name: ParamSmoother(...), ... }`
+- Per-block pattern: `for (const k in P) P[k].tickBlock();`
+- Per-sample pattern: `P[name].tickSample()`
+
+---
+
+### MODULE 0: DelayModule
+
+**Purpose**: High-quality stereo delay substrate for time-based plugins (TapeDelay, Echoform, Playbox, Drift).
+
+**Parameters** (12 total):
+```
+timeL          [0.005–3.0 s]      default: 0.300 s,    smoother: 50/25 ms
+timeR          [0.005–3.0 s]      default: 0.300 s,    smoother: 50/25 ms
+feedback       [0.0–0.97]         default: 0.45,       smoother: 25/5 ms
+stereoMode     [0.0–2.0]          default: 0.0,        smoother: 25/5 ms (0=stereo, 1=ping-pong, 2=cross-feed)
+wowDepth       [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+wowRate        [0.05–4.0 Hz]      default: 0.6 Hz,     smoother: 25/5 ms
+flutterDepth   [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+flutterRate    [1.0–18.0 Hz]      default: 7.0 Hz,     smoother: 25/5 ms
+damp           [0.0–1.0]          default: 0.5,        smoother: 25/5 ms
+lowCut         [20–600 Hz]        default: 80 Hz,      smoother: 25/5 ms
+drive          [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+mix            [0.0–1.0]          default: 0.35,       smoother: 25/5 ms
+```
+
+**Algorithm Summary**:
+1. **Modulation**: Combines slow wow (6 ms peak) and fast flutter (1 ms peak)
+   - Wow: sine LFO, depth in samples = `wowDepth · 0.006 sec`
+   - Flutter: triangle LFO, depth in samples = `flutterDepth · 0.001 sec`
+2. **Stereo Modes**:
+   - 0 (Stereo): independent L/R, writeL = in_L + fb_L, writeR = in_R + fb_R
+   - 1 (Ping-pong): cross-fed, writeL = in_L + fb_R, writeR = in_R + fb_L
+   - 2 (Cross-feed): blend, writeL = in_L + 0.5·(fb_L + fb_R)
+3. **Damping**: Low-pass in feedback path
+   - Frequency range: `1200 + (1 - damp) · (18000 - 1200)` = 1200–18000 Hz
+4. **Drive**: Soft saturation in feedback
+   - Saturation gain: `k = 1 + 4·drive`
+   - Formula: `softSat(fb_sample · k)`
+5. **Low-Cut**: High-pass in feedback path
+   - Fixed parameter frequency from `lowCut` param (Hz)
+6. **Output**: Equal-power dry/wet crossfade
+   - dryGain = `cos(mix · π/2)`, wetGain = `sin(mix · π/2)`
+7. **DC Block**: Applied to all outputs
+   - Coefficient: `r = 0.995`
+
+**Constants**:
+- Min delay samples: `max(2, ...)`
+- Delay line capacity: 4 seconds (default)
+- Tail estimate: 8 seconds @ 96% feedback
+
+**Latency**: 0 samples (no look-ahead)
+
+---
+
+### MODULE 1 & 8: DiffuserModule
+
+**Purpose**: Short Schroeder allpass diffusion (pre-diffusion for reverbs, BLUR primitive).
+
+**Parameters** (2 total):
+```
+amount         [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+size           [0.0–1.0]          default: 0.5,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+- 4 cascaded allpass filters per channel
+- **Base Lengths** (samples @ 48 kHz): `[47, 113, 337, 631]` (~1, 3, 7, 13 ms)
+- **Scaled Length**: `base · (0.5 + size · 1.5)` = 0.5x to 2x base
+- **L/R Offset**: Right channel length = `left_length · 1.07` (decorrelation)
+- **Allpass Gain** (Gardner form): `g = min(0.78, amount · 0.78)`
+  - Canonical: `y = d - v·g`, where `v = x + d·g`, `d = buffer[rp]`
+
+**Preallocated Buffer Sizes**: `base · 4 + 8` samples per stage
+
+---
+
+### MODULE 2: ToneModule
+
+**Purpose**: Generic LP/HP shaping with optional 2-pole cascade.
+
+**Parameters** (3 total):
+```
+lpHz           [1800–18000 Hz]    default: 16000 Hz,   smoother: 25/5 ms
+hpHz           [20–800 Hz]        default: 20 Hz,      smoother: 25/5 ms
+stages         [1.0–2.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Signal Chain**: HP → (LP stage 1) → (LP stage 2, if stages ≥ 1.5)
+
+**Constants**:
+- Min frequency guards: lpHz ≥ 200 Hz, hpHz ≥ 10 Hz
+
+---
+
+### MODULE 3: TapeMultiTapModule
+
+**Purpose**: Single-tape 3-head multi-tap delay with transport modulation (TapeDelay primitive).
+
+**Parameters** (12 total):
+```
+time1, time2, time3  [0.020–1.2 s]    defaults: 0.167, 0.334, 0.501 s,  smoother: 50/25 ms
+vol1, vol2, vol3     [0.0–1.0]        default: 0.75,                    smoother: 25/5 ms
+on1, on2, on3        [0.0–1.0]        defaults: 1, 0, 0,                smoother: 25/5 ms
+feedback             [0.0–0.96]       default: 0.40,                    smoother: 25/5 ms
+damp                 [0.0–1.0]        default: 0.5,                     smoother: 25/5 ms
+lowCut               [20–600 Hz]      default: 80 Hz,                   smoother: 25/5 ms
+drive                [0.0–1.0]        default: 0.30,                    smoother: 25/5 ms
+wowDepth             [0.0–1.0]        default: 0.35,                    smoother: 25/5 ms
+wowRate              [0.05–4.0 Hz]    default: 0.7 Hz,                  smoother: 25/5 ms
+fltDepth             [0.0–1.0]        default: 0.0,                     smoother: 25/5 ms
+fltRate              [1.0–18.0 Hz]    default: 7.0 Hz,                  smoother: 25/5 ms
+spread               [0.0–1.0]        default: 0.5,                     smoother: 25/5 ms
+mix                  [0.0–1.0]        default: 1.0,                     smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Transport**: Shared modulation on all 3 taps
+   - `modSec = wow·wowDepth·0.005 + flutter·fltDepth·0.0008`
+2. **Pan Spread**: Each head positioned left/center/right, scaled by `spread` 0..1
+   - Head 1 pan: `[1 - 0.5·spread, 1 - 1.0·spread]`
+   - Head 2 pan: `[1, 1]` (center)
+   - Head 3 pan: `[1 - 1.0·spread, 1 - 0.5·spread]`
+3. **Feedback Path**: Sum of all 3 taps → HP → LP → softSat(·(1+4·drive)) → ·feedback
+4. **Damping**: `1200 + (1 - damp)·16800` = 1200–17800 Hz LP cutoff
+
+**Delay Line Capacity**: 2.6 seconds per channel
+
+---
+
+### MODULE 4: TapeCharacterModule
+
+**Purpose**: Tape voice coloration (hiss, hum, transformer, age, program compression, stereo drift).
+
+**Parameters** (8 total):
+```
+hiss           [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+hum            [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+humHz          [50–60 Hz]         default: 60,         smoother: 25/5 ms
+xfmrDrive      [0.0–1.0]          default: 0.25,       smoother: 25/5 ms
+xfmrColor      [0.0–1.0]          default: 0.30,       smoother: 25/5 ms
+compAmount     [0.0–1.0]          default: 0.30,       smoother: 25/5 ms
+age            [0.0–1.0]          default: 0.20,       smoother: 25/5 ms
+stereoDrift    [0.0–1.0]          default: 0.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Soft Program Compression** (mono detector, stereo-linked GR)
+   - Attack: ~30 ms, Release: ~250 ms
+   - Gain reduction @ env=1, cA=1: ~3 dB (soft knee: `gr = 1 / (1 + cA·env·0.7)`)
+2. **Transformer**: Tilt-LP + soft saturation
+   - Tilt freq: `1200 + (1 - xfmrColor)·6000` = 1200–7200 Hz
+   - Blend: `0.7·original + 0.3·LP_processed`
+   - Saturation: `softSat(·(1 + 2.5·xfmrDrive))`
+3. **Age Tone**: HF rolloff + LF tightening
+   - LP freq: `18000 - age·12000` = 18000–6000 Hz
+   - HP freq: `80 - age·40` = 80–40 Hz
+4. **Hiss** (pink-ish): Two-stage LP cascade on white noise
+   - Cascade freqs: 8 kHz (stage 1), 2.2 kHz (stage 2)
+   - Level: `hiss · 0.012` (~-38 dBFS @ hiss=1)
+5. **Hum**: Fundamental + 3rd harmonic
+   - Phases: `_humP`, `_humP3` accumulated at `2π·humHz/sr`, `3·humInc` respectively
+   - Level: `(sin(humP) + 0.35·sin(humP3)) · hum · 0.006`
+6. **Stereo Drift**: Very-slow random-walk gain mismatch
+   - Refresh interval: ~80 ms (`sr · 0.08` samples)
+   - Wobble depth: ±4% (`sD · 0.04`)
+
+---
+
+### MODULE 5: CombBankModule
+
+**Purpose**: 4-parallel feedback combs (Freeverb topology, modulation externally applied).
+
+**Parameters** (9 total):
+```
+fb             [0.0–0.95]         default: 0.7,        smoother: 25/5 ms
+crossfeed      [0.0–0.5]          default: 0.0,        smoother: 25/5 ms
+damp           [0.0–0.95]         default: 0.3,        smoother: 25/5 ms
+sizeScale      [0.3–2.0]          default: 1.0,        smoother: 50/25 ms
+mod0, mod1,    [-1.0–1.0]         default: 0.0,        smoother: 25/5 ms
+mod2, mod3                                              (externally written by product layer)
+mix            [0.0–1.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Base Comb Times** (ms @ 48 kHz): `[35.3, 36.7, 33.8, 32.2]` (Freeverb-derived, ~23 samples R-offset)
+2. **Scaled Lengths**: `base_ms · sizeScale · 0.001 · sr` samples
+3. **Modulation**: `modulation_samples = mod[k] · 64` (±64 samples max per comb)
+4. **Damping** (Freeverb-style): `lp[n] = lp[n-1]·damp + delayed_sample·(1 - damp)`
+5. **Crossfeed at Write**: Input blended as `(1-crossfeed)·own + crossfeed·other`
+6. **Feedback**: `fb` applied equally to all combs, shared state
+
+**Max Modulation Range**: 64 samples (±2.67 ms @ 48 kHz)
+
+---
+
+### MODULE 6: TiltEqModule
+
+**Purpose**: Bipolar tilt EQ around fixed crossover frequency.
+
+**Parameters** (2 total):
+```
+tilt           [0.0–1.0]          default: 0.5,        smoother: 25/5 ms (0.5 = neutral)
+crossover      [200–4000 Hz]      default: 1000 Hz,    smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Tilt Mapping**: `tilt_signed = (tilt - 0.5) · 2` = -1..+1
+2. **Gain Slopes**:
+   - Low gain: `1 - tilt_signed·0.7` (±70% swing)
+   - High gain: `1 + tilt_signed·0.7`
+3. **Crossover Split**: 1-pole LP at `crossover` freq, HP = dry - LP
+
+---
+
+### MODULE 7: FdnReverbModule
+
+**Purpose**: 8-channel Householder Feedback Delay Network (generic late-field engine).
+
+**Parameters** (7 total):
+```
+decay          [0.2–12.0 s]       default: 2.5 s,      smoother: 50/25 ms
+sizeScale      [0.3–2.0]          default: 1.0,        smoother: 50/25 ms
+dampHz         [1500–18000 Hz]    default: 6000 Hz,    smoother: 25/5 ms
+modDepth       [0.0–1.0]          default: 0.3,        smoother: 25/5 ms
+modRate        [0.05–3.0 Hz]      default: 0.5 Hz,     smoother: 25/5 ms
+inputGain      [0.0–1.0]          default: 0.5,        smoother: 25/5 ms
+mix            [0.0–1.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Delay Line Topology** (8 channels, prime-adjacent spacing):
+   - Base times (ms): `[23.6, 31.7, 38.9, 47.3, 56.1, 65.7, 71.2, 83.5]`
+   - Scaled: `base_ms · sizeScale · 0.001 · sr` samples
+2. **Feedback Gain** (RT60 formula):
+   - `g[k] = min(0.999, 10^(-3·D/(decay·sr)))`
+   - Where D = delay in samples
+3. **Modulation**: Per-channel sine LFO @ `modRate` Hz, depth = `modDepth · 24` samples
+   - LFO phase for channel k initialized to `k · 0.618` (golden ratio decorrelation)
+4. **Householder Matrix**: 8×8 unitary reflector (O(N) operation)
+   - `f = sum(all_channels) · 2/N`
+   - `output[k] -= f` (reflection formula)
+5. **Input Spray**: Mono mix fed with first-row Householder signs: `[+, +, +, −, +, −, −, +]`
+6. **Output Mix**: Even channels (0,2,4,6) → L, Odd channels (1,3,5,7) → R
+7. **Damping**: 1-pole LP in each line's feedback path (per-channel)
+   - Frequency: `dampHz` parameter
+
+**Max Modulation**: 24 samples (±1 ms @ 48 kHz)
+**Tail Estimate**: 12 seconds
+
+---
+
+### MODULE 9: WidthModule
+
+**Purpose**: Generic stereo M/S width control (0=mono, 1=stereo, 2=super-wide).
+
+**Parameters** (1 total):
+```
+width          [0.0–2.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **M/S Decode**: `m = (L + R)·0.5`, `s = (L - R)·0.5`
+2. **Width Scale**: `s_out = s · width`
+3. **Re-encode**: `L_out = m + s_out`, `R_out = m - s_out`
+
+---
+
+### MODULE 10: EarlyReflectionsModule
+
+**Purpose**: Multi-tap stereo FIR generator (generic ER cluster, no feedback).
+
+**Parameters** (4 total):
+```
+size           [0.3–2.0]          default: 1.0,        smoother: 25/5 ms
+spread         [0.0–1.0]          default: 0.7,        smoother: 25/5 ms
+density        [0.0–1.0]          default: 0.8,        smoother: 25/5 ms
+mix            [0.0–1.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **8 Taps per Channel**:
+   - Base times (ms): `[11.3, 17.9, 24.1, 31.7, 43.3, 55.7, 67.1, 83.9]`
+   - L→R offsets (ms): `[0.6, 1.4, 2.1, 3.0, 3.8, 2.7, 4.6, 5.3]`
+   - Tap gains: `[1.00, 0.82, 0.70, 0.60, 0.50, 0.42, 0.35, 0.28]` (geometric falloff)
+2. **Density Ramp**: Tap k fully active when `density·N > k+1`, fades over 1 unit
+   - `activation[k] = max(0, min(1, density·N - k))`
+   - `effective_gain[k] = base_gain[k] · activation[k]`
+3. **Scaled Delays**:
+   - Left: `base_ms[k] · size · 0.001 · sr`
+   - Right: `(base_ms[k] + spread·offset_ms[k]) · size · 0.001 · sr`
+4. **Output Trim**: Sum of all taps scaled by 0.55 (prevents clipping on summation)
+
+**Delay Line Capacity**: 300 ms per channel
+
+---
+
+### MODULE 11: EnvelopeFollowerModule
+
+**Purpose**: Audio pass-through + control-rate sidechain level output (~50 Hz).
+
+**Parameters** (3 total):
+```
+attackMs       [0.5–200 ms]       default: 5 ms,       smoother: 50/25 ms
+releaseMs      [5–2000 ms]        default: 120 ms,     smoother: 50/25 ms
+sense          [0.0–4.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Peak Envelope Tracking**: Max of (L, R)
+   - Attack coefficient: `exp(-1 / (attackMs · 0.001 · sr))`
+   - Release coefficient: `exp(-1 / (releaseMs · 0.001 · sr))`
+   - Asymmetric follower: attack on rise, release on fall
+2. **Output Scaling**: `env · sense` (0..4 range for downstream usage)
+3. **Port Messaging**: Posts `{type: 'envLevel', value: ...}` at ~50 Hz (every `sr/50` samples)
+4. **Audio Path**: Passthrough (unchanged)
+
+---
+
+### MODULE 12: CompressorModule
+
+**Purpose**: Generic VCA-style dynamics processor (feedforward, stereo-linkable).
+
+**Parameters** (9 total):
+```
+threshold      [-60–6 dB]         default: -18 dB,     smoother: 25/5 ms
+ratio          [1.0–30]           default: 4,          smoother: 50/25 ms
+knee           [0–24 dB]          default: 6 dB,       smoother: 50/25 ms
+attackMs       [0.1–200 ms]       default: 10 ms,      smoother: 50/25 ms
+releaseMs      [5–2000 ms]        default: 120 ms,     smoother: 50/25 ms
+makeupDb       [-12–24 dB]        default: 0 dB,       smoother: 25/5 ms
+detectMode     [0.0–2.0]          default: 0,          smoother: 50/25 ms (0=peak, 1=rms, 2=hybrid)
+stereoLink     [0.0–1.0]          default: 1,          smoother: 50/25 ms
+mix            [0.0–1.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Level Detector**:
+   - Peak: absolute value
+   - RMS: exponential accumulator on x², window tied to attack time (1..50 ms)
+   - Hybrid: `max(peak, √2 · rms)`
+2. **Stereo Link**:
+   - MAX_LINK: both channels see worst-case level (standard behavior)
+   - Independent: per-channel detection (unlinked)
+3. **Gain Computer** (soft-knee):
+   - Linear region: over < -knee/2 → GR = 0
+   - Knee region: -knee/2 ≤ over ≤ +knee/2 → `GR = (1/ratio - 1) · (over + knee/2)² / (2·knee)`
+   - Compressed: over > +knee/2 → `GR = (1/ratio - 1) · over`
+4. **Gain Smoothing** (dB domain, asymmetric):
+   - Attack on gain drop: coefficient `exp(-1 / (attackMs · 0.001 · sr))`
+   - Release on recovery: coefficient `exp(-1 / (releaseMs · 0.001 · sr))`
+5. **RMS Window**: Clamped to `max(1, min(50, attackMs · 0.5))` ms
+
+**Safety**: Gain reduction clamped to GR ≤ 0 dB; NaN contamination triggers reset to 0
+
+---
+
+### MODULE 13: LimiterModule
+
+**Purpose**: Transparent brick-wall peak limiter with optional lookahead.
+
+**Parameters** (4 total):
+```
+ceiling        [-24–0 dB]         default: -0.3 dB,    smoother: 25/5 ms
+releaseMs      [1–1000 ms]        default: 80 ms,      smoother: 50/25 ms
+lookaheadMs    [0.0–5.0 ms]       default: 2.0 ms,     smoother: 50/25 ms
+mix            [0.0–1.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Algorithm**:
+1. **Lookahead Buffer**: Circular delay of `round(lookaheadMs · sr / 1000)` samples
+   - Max buffer: `ceil(sr · 0.005) + 4` samples (5 ms capacity)
+   - Stored latency: `_latency = round(lookaheadMs · sr / 1000)`
+2. **Attack Time**:
+   - When lookahead > 0: ~40% of lookahead (`max(0.1, laMs · 0.4)` ms)
+   - When lookahead = 0: fixed 0.05 ms (zero-latency fallback)
+3. **Gain Computer**: Hard-knee, ratio=100 (brick-wall)
+4. **GR Smoother**: Asymmetric (attack/release) in dB domain
+5. **Peak Detection**: Mono max of (L, R)
+
+**Safety Clamp**: GR ≤ 0 dB
+
+---
+
+### MODULE 14: SaturatorModule
+
+**Purpose**: Nonlinear saturation with ADAA-1 anti-aliasing.
+
+**Parameters** (6 total):
+```
+drive          [0.0–48 dB]        default: 12 dB,      smoother: 25/5 ms
+curve          [0.0–2.0]          default: 0,          smoother: 50/25 ms (0=tanh, 1=hard-clip, 2=tube)
+asym           [0.0–1.0]          default: 0.35,       smoother: 50/25 ms
+outputDb       [-24–12 dB]        default: 0 dB,       smoother: 25/5 ms
+aa             [0.0–1.0]          default: 1,          smoother: 50/25 ms (0=off, 1=ADAA-1)
+mix            [0.0–1.0]          default: 1.0,        smoother: 25/5 ms
+```
+
+**Saturation Curves** (with closed-form antiderivatives):
+
+0. **Soft (tanh)**:
+   - `f(x) = tanh(x)`
+   - `F(x) = log(cosh(x))`
+   - Implemented safely: `F(x) = |x| + log(1 + exp(-2|x|)) - log(2)`
+
+1. **Hard (clip)**:
+   - `f(x) = clip(x, -1, 1)`
+   - `F(x) = x² / 2` for |x| < 1, `|x| - 0.5` for |x| ≥ 1
+
+2. **Tube (asymmetric tanh)**:
+   - Positive side: `f(x) = tanh(kPos · x)`, `F(x) = log(cosh(kPos·x)) / kPos²`
+   - Negative side: `f(x) = tanh(kNeg · x)`, `F(x) = log(cosh(kNeg·x)) / kNeg²`
+   - `kPos = 1 + asym`, `kNeg = max(0.25, 1 - 0.5·asym)`
+
+**ADAA-1 Algorithm**:
+- `y = (F(x) - F(x_prev)) / (x - x_prev)` when `|Δx| > 1e-6`
+- Fallback: `f((x + x_prev) / 2)` when difference < 1e-6
+- NaN guard: fallback to direct `f(x)` if division yields non-finite
+
+**Pre-gain**: `10^(driveDb / 20)`
+**Post-gain**: `10^(outputDb / 20)`
+**DC Block**: 1-pole HP @ 20 Hz, coefficient `exp(-2π·20/sr)`
+
+---
+
+### MODULE 15: EqModule
+
+**Purpose**: 5-band RBJ biquad EQ (HP → LS → Peak → HS → LP).
+
+**Parameters** (14 total):
+```
+hpOn           [0.0–1.0]          default: 0,          smoother: 50/25 ms
+hpFreq         [20–1000 Hz]       default: 80 Hz,      smoother: 50/25 ms
+hpQ            [0.3–2.0]          default: 0.707,      smoother: 50/25 ms
+lsFreq         [30–400 Hz]        default: 120 Hz,     smoother: 50/25 ms
+lsGain         [-18–18 dB]        default: 0 dB,       smoother: 50/25 ms
+lsQ            [0.3–2.0]          default: 0.707,      smoother: 50/25 ms
+pkFreq         [100–10000 Hz]     default: 1000 Hz,    smoother: 50/25 ms
+pkGain         [-18–18 dB]        default: 0 dB,       smoother: 50/25 ms
+pkQ            [0.3–10.0]         default: 1.0,        smoother: 50/25 ms
+hsFreq         [1000–16000 Hz]    default: 6000 Hz,    smoother: 50/25 ms
+hsGain         [-18–18 dB]        default: 0 dB,       smoother: 50/25 ms
+hsQ            [0.3–2.0]          default: 0.707,      smoother: 50/25 ms
+lpFreq         [2000–20000 Hz]    default: 18000 Hz,   smoother: 50/25 ms
+lpOn           [0.0–1.0]          default: 0,          smoother: 50/25 ms
+lpQ            [0.3–2.0]          default: 0.707,      smoother: 50/25 ms
+```
+
+**Filter Design**:
+- All sections use RBJ cookbook coefficients (biquad DF-II transposed)
+- Bypass: When gain < ±0.01 dB for Peak/LS/HS, coefficients set to pass-through
+- Frequency guards: clamped to `[1, sr·0.499]` Hz
+
+**Per-Channel State** (5 biquads):
+- 2 delay registers per biquad: `sL1, sL2` (L), `sR1, sR2` (R)
+
+---
+
+### FxProcessor (AudioWorkletProcessor Host)
+
+**Static Parameter Descriptors**:
+```
+bypass        k-rate, default: 0, range: [0, 1]
+engineMix     k-rate, default: 1, range: [0, 1]
+morph         k-rate, default: 0.5, range: [0, 1]
+```
+
+**Module Palette** (16 modules, stable indices):
+```
+0:  DelayModule
+1:  DiffuserModule
+2:  ToneModule
+3:  TapeMultiTapModule
+4:  TapeCharacterModule
+5:  CombBankModule
+6:  TiltEqModule
+7:  FdnReverbModule
+8:  DiffuserModule (second, for A/B morph)
+9:  WidthModule
+10: EarlyReflectionsModule
+11: EnvelopeFollowerModule
+12: CompressorModule
+13: LimiterModule
+14: SaturatorModule
+15: EqModule
+```
+
+**Chain Architecture**:
+- `chain` array contains either:
+  - Integer: serial module index
+  - `{parallel: [[idxA...], [idxB...]]}`: two sub-chains crossfaded by `morph` param
+- Parallel branches use equal-power crossfade: `aGain = cos(morph·π/2)`, `bGain = sin(morph·π/2)`
+
+**Engine-Level Mix**:
+- When `useEngineMix = true`, dry input is saved at block entry
+- After chain processing, final output = `dry·cos(engineMix·π/2) + wet·sin(engineMix·π/2)`
+- Used when internal module mixes are pinned to 1.0 (all modules run wet)
+
+**Message Protocol** (Main thread → Worklet):
+```
+{type: 'param', module: idx, name: 'paramName', value: dspValue, snap: boolean}
+{type: 'reset'}
+{type: 'setChain', indices: [...]}
+{type: 'engineMixMode', on: boolean}
+```
+
+**Postback Protocol** (Worklet → Main thread):
+```
+{type: 'envLevel', value: envelopeValue}
+```
+
+---
+
+## FILE: src/core/fxEngine.js
+
+### EXPORTS
+
+#### `MODULE` (Enum)
+```javascript
+{
+  DELAY:               0,
+  DIFFUSER:            1,
+  TONE:                2,
+  TAPE_MULTITAP:       3,
+  TAPE_CHARACTER:      4,
+  COMB_BANK:           5,
+  TILT_EQ:             6,
+  FDN_REVERB:          7,
+  DIFFUSER_B:          8,
+  WIDTH:               9,
+  EARLY_REFLECTIONS:   10,
+  ENVELOPE_FOLLOWER:   11,
+  COMPRESSOR:          12,
+  LIMITER:             13,
+  SATURATOR:           14,
+  EQ:                  15,
+}
+```
+
+#### Parameter Definition Maps
+
+Each product uses a subset of these maps. Format:
+```javascript
+paramName: defineParam({
+  id:      'paramName',
+  min:     minValue,
+  max:     maxValue,
+  default: defaultValue,
+  skew:    'linear' | 'exp' | 'log',  // normalized 0..1 → min..max curve
+  unit:    'Hz' | 'dB' | 's' | '',
+})
+```
+
+**SKEW FUNCTIONS**:
+- `linear(n) = n`
+- `exp(n) = n²`
+- `log(n) = √n`
+
+**DELAY_PARAMS**:
+```
+timeL        [0.005–3.0 s]      default: 0.300 s,    skew: exp
+timeR        [0.005–3.0 s]      default: 0.300 s,    skew: exp
+feedback     [0.0–0.97]         default: 0.45,       skew: linear
+stereoMode   [0.0–2.0]          default: 0.0,        skew: linear
+wowDepth     [0.0–1.0]          default: 0.0,        skew: linear
+wowRate      [0.05–4.0 Hz]      default: 0.6 Hz,     skew: exp
+flutterDepth [0.0–1.0]          default: 0.0,        skew: linear
+flutterRate  [1.0–18.0 Hz]      default: 7.0 Hz,     skew: exp
+damp         [0.0–1.0]          default: 0.5,        skew: linear
+lowCut       [20–600 Hz]        default: 80 Hz,      skew: exp
+drive        [0.0–1.0]          default: 0.0,        skew: linear
+mix          [0.0–1.0]          default: 0.35,       skew: linear
+```
+
+**DIFFUSER_PARAMS**:
+```
+amount       [0.0–1.0]          default: 0.0,        skew: linear
+size         [0.0–1.0]          default: 0.5,        skew: linear
+```
+
+**TONE_PARAMS**:
+```
+lpHz         [1800–18000 Hz]    default: 16000 Hz,   skew: exp
+hpHz         [20–800 Hz]        default: 20 Hz,      skew: exp
+stages       [1.0–2.0]          default: 1.0,        skew: linear
+```
+
+**TAPE_MULTITAP_PARAMS** (13 total):
+```
+time1, time2, time3  [0.020–1.2 s]    defaults: 0.167, 0.334, 0.501,  skew: exp
+vol1, vol2, vol3     [0.0–1.0]        default: 0.75
+on1, on2, on3        [0.0–1.0]        defaults: 1, 0, 0
+feedback             [0.0–0.96]       default: 0.40
+damp                 [0.0–1.0]        default: 0.5
+lowCut               [20–600 Hz]      default: 80 Hz,      skew: exp
+drive                [0.0–1.0]        default: 0.30
+wowDepth             [0.0–1.0]        default: 0.35
+wowRate              [0.05–4.0 Hz]    default: 0.7 Hz,     skew: exp
+fltDepth             [0.0–1.0]        default: 0.0
+fltRate              [1.0–18.0 Hz]    default: 7.0 Hz,     skew: exp
+spread               [0.0–1.0]        default: 0.5
+mix                  [0.0–1.0]        default: 1.0
+```
+
+**TAPE_CHARACTER_PARAMS**:
+```
+hiss         [0.0–1.0]          default: 0.0
+hum          [0.0–1.0]          default: 0.0
+humHz        [50–60 Hz]         default: 60
+xfmrDrive    [0.0–1.0]          default: 0.25
+xfmrColor    [0.0–1.0]          default: 0.30
+compAmount   [0.0–1.0]          default: 0.30
+age          [0.0–1.0]          default: 0.20
+stereoDrift  [0.0–1.0]          default: 0.0
+```
+
+**COMB_BANK_PARAMS**:
+```
+fb           [0.0–0.95]         default: 0.7
+crossfeed    [0.0–0.5]          default: 0.0
+damp         [0.0–0.95]         default: 0.3
+sizeScale    [0.3–2.0]          default: 1.0,        skew: exp
+mod0, mod1,  [-1.0–1.0]         default: 0.0
+mod2, mod3
+mix          [0.0–1.0]          default: 1.0
+```
+
+**TILT_EQ_PARAMS**:
+```
+tilt         [0.0–1.0]          default: 0.5
+crossover    [200–4000 Hz]      default: 1000 Hz,    skew: exp
+```
+
+**FDN_REVERB_PARAMS**:
+```
+decay        [0.2–12.0 s]       default: 2.5 s,      skew: exp
+sizeScale    [0.3–2.0]          default: 1.0
+dampHz       [1500–18000 Hz]    default: 6000 Hz,    skew: exp
+modDepth     [0.0–1.0]          default: 0.3
+modRate      [0.05–3.0 Hz]      default: 0.5 Hz,     skew: exp
+inputGain    [0.0–1.0]          default: 0.5
+mix          [0.0–1.0]          default: 1.0
+```
+
+**WIDTH_PARAMS**:
+```
+width        [0.0–2.0]          default: 1.0
+```
+
+**EARLY_REFLECTIONS_PARAMS**:
+```
+size         [0.3–2.0]          default: 1.0
+spread       [0.0–1.0]          default: 0.7
+density      [0.0–1.0]          default: 0.8
+mix          [0.0–1.0]          default: 1.0
+```
+
+**ENVELOPE_FOLLOWER_PARAMS**:
+```
+attackMs     [0.5–200 ms]       default: 5 ms,       skew: exp
+releaseMs    [5–2000 ms]        default: 120 ms,     skew: exp
+sense        [0.0–4.0]          default: 1.0
+```
+
+**COMPRESSOR_PARAMS**:
+```
+threshold    [-60–6 dB]         default: -18 dB
+ratio        [1.0–30]           default: 4
+knee         [0–24 dB]          default: 6 dB
+attackMs     [0.1–200 ms]       default: 10 ms,      skew: exp
+releaseMs    [5–2000 ms]        default: 120 ms,     skew: exp
+makeupDb     [-12–24 dB]        default: 0 dB
+detectMode   [0.0–2.0]          default: 0.0
+stereoLink   [0.0–1.0]          default: 1.0
+mix          [0.0–1.0]          default: 1.0
+```
+
+**LIMITER_PARAMS**:
+```
+ceiling      [-24–0 dB]         default: -0.3 dB
+releaseMs    [1–1000 ms]        default: 80 ms,      skew: exp
+lookaheadMs  [0.0–5.0 ms]       default: 2.0 ms
+mix          [0.0–1.0]          default: 1.0
+```
+
+**SATURATOR_PARAMS**:
+```
+drive        [0.0–48 dB]        default: 12 dB
+curve        [0.0–2.0]          default: 0.0
+asym         [0.0–1.0]          default: 0.35
+outputDb     [-24–12 dB]        default: 0.0 dB
+aa           [0.0–1.0]          default: 1.0
+mix          [0.0–1.0]          default: 1.0
+```
+
+**EQ_PARAMS** (14 total):
+```
+hpOn         [0.0–1.0]          default: 0.0
+hpFreq       [20–1000 Hz]       default: 80 Hz,      skew: exp
+hpQ          [0.3–2.0]          default: 0.707
+lsFreq       [30–400 Hz]        default: 120 Hz,     skew: exp
+lsGain       [-18–18 dB]        default: 0.0 dB
+lsQ          [0.3–2.0]          default: 0.707
+pkFreq       [100–10000 Hz]     default: 1000 Hz,    skew: exp
+pkGain       [-18–18 dB]        default: 0.0 dB
+pkQ          [0.3–10.0]         default: 1.0
+hsFreq       [1000–16000 Hz]    default: 6000 Hz,    skew: exp
+hsGain       [-18–18 dB]        default: 0.0 dB
+hsQ          [0.3–2.0]          default: 0.707
+lpFreq       [2000–20000 Hz]    default: 18000 Hz,   skew: exp
+lpOn         [0.0–1.0]          default: 0.0
+lpQ          [0.3–2.0]          default: 0.707
+```
+
+#### `createFxEngine(ctx)` → Engine API
+
+**Async Function** (registers worklet if not already registered).
+
+**Returns Object**:
+```javascript
+{
+  ctx, node, input, output,           // AudioContext, AudioWorkletNode, GainNodes
+  
+  // Main parameter API
+  setParam(moduleIdx, name, dspValue, opts={force, snap})
+  setParamNorm(moduleIdx, paramDef, normValue, opts)
+    // Converts 0..1 normalized value to DSP domain via paramDef.fromNorm()
+  
+  loadPreset(moduleIdx, paramMap, presetNorm)
+    // Bulk-loads preset normalized values into a module
+    // Snaps all params (no interpolation)
+  
+  reset()
+    // Sends {type: 'reset'} message; clears worklet state and dedup cache
+  
+  // Bypass control (AudioParam, sample-accurate, automatable)
+  setBypass(on)       // Sets bypass AudioParam to 0 or 1
+  
+  // Engine-level dry/wet crossfade
+  setEngineMix(v)     // Clamps v to [0, 1]; sample-accurate via AudioParam
+  setEngineMixMode(on) // Enables engine-level mix (useEngineMix = on)
+  
+  // Chain configuration
+  setChain(indices)   // Accepts array of module indices or {parallel:[[...], [...]]}
+  
+  // Morph parameter (equal-power crossfade for parallel branches)
+  setMorph(v)         // Clamps v to [0, 1]; sample-accurate via AudioParam
+  
+  // Minimal MIDI mapping
+  mapCC(cc, moduleIdx, paramDef)
+    // Routes CC controller to a specific param
+  handleMidiMessage(data)
+    // Processes [status, cc, value] bytes; routes to mapped params
+  
+  // Envelope subscription (for ReverbBus ducker, PlateX dynamics)
+  onEnvelopeLevel(callback) → unsubscribe()
+    // Callback fired when EnvelopeFollowerModule posts level (~50 Hz)
+  
+  // Parameter definitions (for UI binding)
+  params: {
+    [MODULE.DELAY]:         DELAY_PARAMS,
+    [MODULE.DIFFUSER]:      DIFFUSER_PARAMS,
+    // ... all 16 modules
+  },
+  
+  MODULE  // Export the MODULE enum
+}
+```
+
+**Parameter Guard**:
+- `setParam` rejects non-finite values at the boundary (control-layer guard matching worklet's ParamSmoother.setTarget)
+- Deduplication: skips redundant messages if `last.get(key) === dspValue` (unless `opts.force`)
+
+---
+
+## FILE: src/rack/analyzer.js
+
+### EXPORTS
+
+#### `createAnalyzer(ctx, sourceNode)` → Analyzer API
+
+**Purpose**: Visual-only inspection. Reads waveform, peak/RMS/LUFS, correlation, L/R level difference. All analysis runs on a silent branch (fan-out, no signal modification).
+
+**Returned Object**:
+```javascript
+{
+  sample() → {
+    wave: Float32Array(2048),       // Waveform buffer (time-domain)
+    peakDb: number,                 // Peak dBFS with hold + decay
+    rmsDb: number,                  // RMS dBFS (windowed)
+    lufs: number,                   // LUFS ~ (momentary, K-weighted approx)
+    clipping: boolean,              // True if peak ≥ 0.999 within last 300 ms
+    lrDiffDb: number,               // L/R peak difference (dB)
+    correlation: number,            // Pearson (−1..+1)
+  },
+  
+  dispose()                          // Disconnect analyzers
+}
+```
+
+**Architecture**:
+1. **Waveform + Peak/RMS** (mono analysis):
+   - Analyser node: `fftSize = 2048`, `smoothingTimeConstant = 0`
+   - Updates: `getFloatTimeDomainData(bufM)`
+2. **L/R Peak Difference** (stereo split):
+   - Separate analysers for L and R channels (fftSize 2048)
+   - Compute peak of each, report dB difference
+3. **Stereo Correlation**:
+   - Pearson coefficient: `(Σ L[i]·R[i]) / √(Σ L² · Σ R²)`
+   - Returns 1.0 if denominator < 1e-9 (silent signal guard)
+4. **K-Weighting (LUFS Approximation)**:
+   - HPF @ 38 Hz, Q=0.5
+   - High-shelf: +4 dB @ 1500 Hz
+   - Analyser on K-weighted signal: `fftSize = 4096`
+   - LUFS formula: `−0.691 + 10·log10(rms²)`
+
+**Constants**:
+- **Peak Hold**: Decays as `peakHold * 0.93` per sample tick
+- **Clip Hold**: 300 ms (`performance.now() + 300`)
+- **HPF for K-weighting**: Frequency 38 Hz, Q 0.5
+- **High-shelf for K-weighting**: Frequency 1500 Hz, gain 4 dB
+- **LUFS Offset**: −0.691 dB (BS.1770 reference)
+- **Correlation Guard**: Returns 1.0 if denominator < 1e-9
+
+**Helper Functions**:
+- `peakOf(buf)`: Max absolute value
+- `rmsOf(buf)`: √(Σ x² / N)
+- `correlationOf(L, R)`: Pearson coefficient
+- `toDb(v)`: `v > 1e-6 ? 20·log10(v) : -∞`
+
+#### `drawWave(c, buf, w, h, color)`
+
+**Purpose**: Canvas waveform drawing utility.
+
+**Algorithm**:
+1. Fill background: `#050a06` (dark)
+2. Center line: `#102018` (midline)
+3. Plot: Downsample buffer to canvas width, vertical amplitude scale
+   - `y = (1 - sample) · 0.5 · h` (inverted for normal canvas coordinates)
+
+#### `fmtDb(v)` → String
+
+**Purpose**: Format dB value for display.
+
+**Output**:
+- `-inf` for non-finite values
+- Sign-prefixed: `+1.2` or `−3.4` (1 decimal place)
+
+---
+
+## PRODUCT LAYER: src/core/products/
+
+### PRODUCT ARCHITECTURE PATTERN
+
+Each product file exports a single factory function:
+```javascript
+export function createProductName(fx) { ... }
+```
+
+Where `fx` is the FxEngine instance. Products:
+1. Call `fx.setChain([...])` to configure the active serial pipeline
+2. Call `fx.setEngineMixMode(true/false)` to enable engine-level crossfade
+3. Snap module internal parameters to sensible defaults (e.g., all mixes = 1.0)
+4. Define macros that map normalized 0..1 user controls to module parameter spreads
+5. Return a public API with setters for each macro, plus `getState()`, `loadPreset()`, etc.
+
+**State Object Pattern**:
+```javascript
+const defaults = { /* 0..1 normalized macro values */ };
+const state = { ...defaults };
+
+function applyMacro() {
+  // Maps state.macroName to one or more module params
+  // Uses helper functions: cb(...), fdn(...), etc. for setParam calls
+}
+
+const api = {
+  setMacroName: v => { state.macroName = v; applyMacro(); },
+  // ...
+  getState: () => ({ ...state }),
+  loadPreset: (preset) => {
+    Object.assign(state, defaults, preset || {});
+    applyMacro(); // or call each apply function
+  },
+};
+api.loadPreset({});  // Initialize
+return api;
+```
+
+---
+
+### PRODUCT: DRIFT (src/core/products/drift.js)
+
+**Chain**: `[MODULE.DELAY, MODULE.TONE]`
+**Engine Mix**: 0.5 (50% wet default)
+
+**Macros** (7 × 0..1):
+```
+motion      0.30   → Modulation depth (wow + flutter amplitude)
+speed       0.30   → Modulation rate (LFO speed)
+random      0.20   → Flutter depth (fast jitter)
+stereo      0.40   → Tap L/R offset decorrelation
+tone        0.60   → LP filter brightness (1.8k..16k Hz)
+depth       0.30   → Overall delay depth
+mix         0.50   → Engine-level wet/dry
+```
+
+**Parameter Mapping**:
+- **Motion/Speed/Depth/Random**:
+  - Base tap: 6 ms (fixed)
+  - `timeL = 0.006 s`, `timeR = 0.006 + stereo·0.004` (offset for decorrelation)
+  - `wowDepth = min(1, motion·depth·1.4)`, `wowRate = 0.2 + speed·2.5` (0.2..2.7 Hz)
+  - `flutterDepth = random·0.45`, `flutterRate = 3 + speed·9` (3..12 Hz)
+- **Tone**: `lpHz = 1800 + tone·14200` (1.8k..16k Hz)
+- **Stereo Mode**: Switches to cross-feed (mode 2) when stereo > 0.7
+
+**Static Config**:
+- Feedback: 0.0 (pure chorus, no recirculation)
+- Drive: 0.0 (no saturation)
+- Damp: 0.0 (irrelevant at fb=0)
+- LowCut: 20 Hz (no filtering)
+- StereoMode: 0 by default (switches via stereo macro)
+
+---
+
+### PRODUCT: ECHOFORM (src/core/products/echoform.js)
+
+**Chain**: `[MODULE.DELAY, MODULE.DIFFUSER, MODULE.TONE]`
+**Engine Mix**: 0.35 (35% wet default)
+
+**Macros** (9 × 0..1):
+```
+time        0.305  → Delay time (50ms..1200ms legacy curve)
+feedback    0.45   → Recirculation amount
+degrade     0.30   → HP/LP filter + drive combination
+motion      0.0    → Wow modulation
+blur        0.0    → Diffuser smearing
+tone        0.85   → Brightness (LP corner)
+width       1.0    → Stereo imaging (legacy WIDTH behavior)
+smooth      0.0    → Tone smoothness (adds 2nd LP stage)
+mix         0.35   → Engine-level wet
+```
+
+**Parameter Mapping**:
+- **Time**:
+  - Legacy: 50ms..1200ms
+  - `sec = 0.050 + time·1.150`
+  - R offset: `(width/2)·0.018 sec`, clamped ≥ 5ms
+- **Feedback**: `feedback·0.92` (cap like legacy)
+- **Degrade**:
+  - `damp = 0.40 + degrade·0.55` (0.4..0.95)
+  - `lowCut = 80 + degrade·180` (80..260 Hz)
+  - `drive = degrade·0.40` (0..0.40)
+- **Motion**:
+  - `wowDepth = motion·0.50`
+  - `wowRate = 0.5 + motion·3.0` (0.5..3.5 Hz)
+  - Flutter disabled (flutterDepth = 0)
+- **Blur**:
+  - 4-stage diffuser (not legacy 1-stage allpass)
+  - `amount = blur·0.55` (capped to 0.55 effective vs 0.7 legacy single)
+  - `size = 0.10 + blur·0.40` (0.1..0.5 stage scaling)
+- **Tone & Smooth**:
+  - Base: `2000 + tone·14000` (2k..16k Hz)
+  - Smooth scale: `1 - 0.5·min(1, smooth)`
+  - Stages: 2 if smooth > 0.05, else 1
+- **Width**:
+  - ≤ 1.0: mode 0 (stereo with detune via timeR offset)
+  - 1.0..1.5: mode 2 (cross-feed)
+  - > 1.5: mode 1 (ping-pong)
+
+---
+
+### PRODUCT: GRAVITY (src/core/products/gravity.js)
+
+**Chain**: `[MODULE.EARLY_REFLECTIONS, MODULE.FDN_REVERB, MODULE.TILT_EQ, MODULE.WIDTH]`
+**Engine Mix**: 0.40 (40% wet default)
+
+**Macros** (8 × 0..1):
+```
+gravity     0.55   → Balance ER vs FDN, darkness, density shift
+bloom       0.30   → Slow FDN swell (control-rate envelope)
+size        0.60   → Room size scaling
+decay       0.55   → Reverb tail length
+tone        0.45   → Tilt / dampHz brightness
+density     0.70   → Early reflections density
+width       1.15   → Stereo width
+mix         0.40   → Engine-level wet
+```
+
+**Parameter Mapping**:
+- **Gravity** (pulls ER vs FDN balance):
+  - Doesn't directly set a single param; controls multiple params together
+  - ER density shrinks: `density·(1.0 - 0.35·gravity)`
+  - Tone darkens: `max(0, tone - 0.30·gravity)`
+  - FDN dampHz: `2200·(15000/2200)^(max(0, tone - 0.25·gravity))`
+  - Coupled with decay/bloom via `applyDecayAndBloom()`
+- **Decay & Bloom**:
+  - Base decay: `0.6·(12/0.6)^decay` (0.6..12 s exp)
+  - Gravity multiplier: `1.0 + gravity·1.4` (up to 2.4×)
+  - Bloom envelope: `bloomEnv·gravity·4.0` (up to +4 s additive)
+  - Bloom swell: Control-rate timer (~50 ms tick)
+    - Attack: ~6 s constant @ bloom=1, rise coef = `1 - exp(-(TICK_MS/1000) / (1.5 + 6·(1-target)))`
+    - Release: ~2 s, release coef = `1 - exp(-(TICK_MS/1000) / 2.0)`
+- **Size**:
+  - ER: `0.6 + size·0.9` (0.6..1.5)
+  - ER spread: `0.5 + size·0.4` (0.5..0.9)
+  - FDN sizeScale: `0.6 + size·1.2` (0.6..1.8)
+- **Tone**: Coupled to gravity; controls tilt and dampHz together
+- **Density**: Modulated by gravity as noted above
+
+**Control-Rate Bloom Timer**:
+- Tick interval: 50 ms
+- When bloom ≤ 0.001 and bloomEnv < 1e-4: stops timer, resets bloomEnv to 0
+
+---
+
+### PRODUCT: MORPHREVERB (src/core/products/morphReverb.js)
+
+**Chain**: `[{parallel: [[MODULE.DIFFUSER], [MODULE.DIFFUSER_B]]}, MODULE.FDN_REVERB, MODULE.TILT_EQ, MODULE.WIDTH]`
+**Engine Mix**: 0.35 (35% wet default)
+**Morph AudioParam**: Crossfades between A (tight) and B (loose) diffuser branches (equal-power)
+
+**Macros** (8 × 0..1):
+```
+morph       0.50   → A/B diffuser balance (0=tight, 1=loose)
+size        0.55   → Comb lengths and tap times
+decay       0.50   → Reverb tail (0.4..9 s exp)
+tone        0.50   → Tilt + dampHz brightness
+density     0.60   → Pre-diffuser energy spread
+warp        0.30   → FDN modulation (internal pitch shimmer)
+width       1.00   → Stereo width (0..2)
+mix         0.35   → Engine-level wet
+```
+
+**Parameter Mapping**:
+- **Morph**: Direct to `fx.setMorph(state.morph)` (sample-accurate AudioParam)
+- **Diffuser Fixed Character**:
+  - A (tight): size=0.30, amount=0.75
+  - B (loose): size=0.90, amount=0.55
+  - **Size** scales around these: A: 0.20..0.55, B: 0.70..1.00
+    - `da('size', 0.20 + size·0.35)`
+    - `db('size', 0.70 + size·0.30)`
+- **Decay**: `0.4·(9/0.4)^decay` (0.4..9 s exp)
+- **Tone**: Couples tilt and FDN dampHz together
+  - `te('tilt', tone)`
+  - `fdn('dampHz', 2500·(16000/2500)^tone)` (2.5k..16k Hz)
+- **Density**: Pushes both diffusers together (keeps A/B contrast)
+  - `da('amount', 0.30 + density·0.65)`
+  - `db('amount', 0.15 + density·0.65)`
+- **Warp**: FDN modulation
+  - `fdn('modDepth', warp)`
+  - `fdn('modRate', 0.15 + warp·0.85)` (0.15..1 Hz)
+
+---
+
+### PRODUCT: NEARFAR (src/core/products/nearFar.js)
+
+**Chain**: `[MODULE.EARLY_REFLECTIONS, MODULE.FDN_REVERB, MODULE.TILT_EQ, MODULE.WIDTH]`
+**Engine Mix**: Dynamic (distance-dependent)
+
+**Macros** (5 × 0..1):
+```
+distance    0.40   → Psychoacoustic room distance (0=near, 1=far)
+size        0.50   → Independent room size offset
+damping     0.50   → Independent air-absorption (HF loss)
+width       1.00   → Stereo width trim
+mix         0.35   → Base wet level (scaled by distance)
+```
+
+**Parameter Mapping** (all recomputed in `applyAll()`):
+- **ER Mix**: `0.25 + distance·0.75` (near: weak, far: full)
+- **FDN Mix**: `0.10 + distance·0.90` (near: very weak tail, far: full)
+- **Size Composite**: `sizeEff = min(1, size·0.7 + distance·0.6)`
+  - ER size: `0.5 + sizeEff·0.9` (0.5..1.4)
+  - FDN sizeScale: `0.5 + sizeEff·1.3` (0.5..1.8)
+- **Decay**: `0.6·(6/0.6)^distance` (0.6..6 s exp, grows with distance)
+- **Tone (Tilt)**:
+  - Near (d=0): tilt ≈ 0.55 (slightly bright, direct HF)
+  - Far (d=1): tilt ≈ 0.30 (darker, air absorption)
+  - Damping bias: `−damping·0.10`
+- **Damping (HF Corner)**:
+  - Near: 14 kHz
+  - Far: 3 kHz
+  - `dampHz = 14000·(3000/14000)^distance·(1 - damping·0.25)`
+- **Width**:
+  - Near: 0.7 (localized)
+  - Far: 1.5 (enveloping)
+  - User trim: `(0.7 + distance·0.8)·width`, clamped [0, 2]
+- **Engine Mix**:
+  - Wet floor rises with distance: `0.5 + distance·0.5`
+  - Final: `mix · wetFloor`
+- **FDN Modulation** (grows with distance):
+  - `fdn('modDepth', 0.10 + distance·0.25)`
+  - `fdn('modRate', 0.15 + distance·0.25)`
+
+---
+
+### PRODUCT: ORBIT (src/core/products/orbit.js)
+
+**Chain**: `[MODULE.COMB_BANK, MODULE.DIFFUSER, MODULE.TILT_EQ]`
+**Engine Mix**: 0.35
+
+**Macros** (8 × 0..1):
+```
+motion      0.45   → Rotation speed (orbital phase rate)
+depth       0.55   → Modulation amplitude on combs
+path        [0-3]  → Motion topology (circle, figure-8, pendulum, chaos)
+size        0.55   → Comb and diffuser scaling
+tone        0.55   → Tilt brightness
+spread      0.60   → Comb crossfeed and diffusion
+feedback    0.55   → Comb fb level
+mix         0.35   → Engine-level wet
+```
+
+**Control-Rate Motion Rotator** (~60 Hz tick, 16 ms):
+1. **Phase Accumulation**: `phase += 2π·hz·(TICK_MS/1000)`, wrapped at 2π
+2. **Motion Rate**: `hz = 0.05·(4/0.05)^motion` (0.05..4 Hz exp)
+3. **Path Topologies** (4 combs = quadrants, π/2 offsets):
+   - 0 (Circle): `sin(phase + offset)` (uniform rotation)
+   - 1 (Figure-8): `sin(phase + off)` for k odd, `sin(2·phase + off)` for k even
+   - 2 (Pendulum): `sin(phase)·cos(offset·0.5)` (all combs share one axis)
+   - 3 (Chaos): Per-comb random walk with decay
+     - `chaosState[k] += (rand·2 - 1)·0.12 - chaosState[k]·0.015`
+     - Clamped [-1, 1]
+4. **Modulation Value**: `pathValue(k)·depth` written to `mod0..3` params
+5. **Relax When Inactive**: If depth ≤ 0.001 and motion ≤ 0.001, smooth mods toward 0 at 0.85 decay
+
+**Parameter Mapping**:
+- **Size**:
+  - `cb('sizeScale', 0.5 + size·1.3)` (0.5..1.8)
+  - `df('size', 0.25 + size·0.65)` (0.25..0.90)
+- **Tone**: `te('tilt', tone)`
+- **Spread**:
+  - Crossfeed: `spread·0.45`
+  - Diffusion: `0.30 + spread·0.55`
+  - Damp (tighter at low spread): `0.25 + (1 - spread)·0.25`
+- **Feedback**: `0.45 + feedback·0.45` (0.45..0.90)
+
+---
+
+### PRODUCT: PANTHERBUSS (src/core/products/pantherBuss.js)
+
+**Chain**: `[MODULE.EQ, MODULE.SATURATOR, MODULE.COMPRESSOR, MODULE.LIMITER]`
+**Engine Mix**: 1.0 (full processed chain)
+
+**Macros** (5 × 0..1):
+```
+drive       0.10   → Saturator drive + EQ pre-emphasis
+glue        0.20   → Compressor threshold/ratio/release coupling
+tone        0.50   → Bipolar low/high shelf tilt (0.5 = flat)
+output      0.50   → Makeup gain trim (−12..+12 dB)
+mix         1.00   → Engine-level parallel blend
+```
+
+**Fixed EQ Voicing**:
+- HP: 30 Hz, Q 0.707 (rumble trim)
+- LS: 120 Hz, Q 0.707 (tonal anchor)
+- Peak: 1800 Hz, Q 0.8 (presence anchor, gain 0 by default)
+- HS: 8000 Hz, Q 0.707
+- LP: Off (lpOn=0)
+
+**Parameter Mapping**:
+- **Drive**:
+  - Saturator: `drive·28` dB (0..28 dB range)
+  - Pre-emphasis: LS gain +1.5 dB, HS gain +2.0 dB @ drive=1
+  - Composes with TONE below (both write shelf gains)
+- **Tone** (Bipolar):
+  - LS Base: `(0.5 - tone)·6.0` (−3..+3 dB)
+  - HS Base: `(tone - 0.5)·6.0` (−3..+3 dB)
+  - Combined with DRIVE pre-emphasis: `_lsBase() + drive·1.5`, etc.
+- **Glue** (Compressor):
+  - Threshold: `−6 + (−14)·glue` (−6..-20 dB)
+  - Ratio: `1.3 + 1.7·glue` (1.3..3.0, soft range)
+  - Release: `400 - 280·glue` ms (400..120 ms, slower at low glue)
+- **Output**: `(output - 0.5)·24` dB makeup (−12..+12 dB, placed on comp makeup)
+
+**Fixed Compressor Config**:
+- detectMode: 2 (hybrid peak+RMS)
+- stereoLink: 1 (MAX_LINK)
+- attackMs: 20 ms
+- knee: 8 dB
+
+**Fixed Limiter Config**:
+- ceiling: −0.3 dB
+- lookaheadMs: 0.0 (zero-latency, sample-aligned with dry)
+- releaseMs: 120 ms
+
+---
+
+### PRODUCT: PLATEX (src/core/products/plateX.js)
+
+**Chain**: `[MODULE.ENVELOPE_FOLLOWER, MODULE.DIFFUSER, MODULE.COMB_BANK, MODULE.DIFFUSER_B, MODULE.TILT_EQ, MODULE.WIDTH]`
+**Engine Mix**: 0.35
+**Envelope Subscription**: Subscribes to EnvelopeFollower for dynamic feedback modulation
+
+**Macros** (8 × 0..1):
+```
+size        0.55   → Comb and diffuser lengths
+tone        0.55   → Tilt + comb damping
+diffusion   0.65   → Pre/post diffusion amounts
+tension     0.40   → Modal ring sharpness (fb edge)
+metal       0.25   → Mode exposure (reduce post-diff)
+dynamics    0.35   → Amplitude-dependent fb choke (plate physical response)
+width       1.10   → Stereo width
+mix         0.35   → Engine-level wet
+```
+
+**Envelope-Driven Dynamics**:
+- **Base Feedback**: `0.55 + tension·0.28 + metal·0.14` (0.55..0.97)
+- **Choke Factor**: `dynamics·min(1, envLvl·1.5)`
+- **Effective FB**: `max(0.10, min(0.97, baseFb·(1 - 0.45·choke)))`
+- Port subscription: updates fb whenever dynamics > 0.001
+
+**Parameter Mapping**:
+- **Size**:
+  - `cb('sizeScale', (0.4 + size·1.2)·(1 - 0.40·tension))`
+  - (Tension tightens combs further)
+  - Diffusers: A=0.25+size·0.40, B=0.70+size·0.25
+- **Tone**:
+  - Tilt: `tone`
+  - Damp: `max(0.05, 0.45 - tone·0.30 - metal·0.20)`
+- **Diffusion**:
+  - Pre (A): `0.30 + diffusion·0.60`
+  - Post (B): `max(0, (0.25 + diffusion·0.55)·(1 - 0.7·metal))`
+  - (Metal reduces post-diff to expose modes)
+- **Tension**:
+  - Scales comb lengths via sizeScale reduction
+  - Writes fb via `baseFb()`
+  - Re-applies tone/damp coupling
+- **Metal**:
+  - Increases fb (`baseFb()`)
+  - Reduces post-diffusion amount
+  - Reduces damp (brightens modes)
+
+**Fixed Envelope Config**:
+- attackMs: 5 ms
+- releaseMs: 180 ms
+
+---
+
+### PRODUCT: PLAYBOX (src/core/products/playbox.js)
+
+**Chain**: `[MODULE.DELAY, MODULE.TONE]` (reconfigured per chain selection)
+**Engine Mix**: 0.5
+
+**Macros** (5 × 0..1):
+```
+chain       [0-4]  → Active effect chain (selector)
+intensity   0.4    → Effect-specific depth parameter
+speed       0.3    → Rate parameter
+color       0.5    → Tone/feedback brightness
+mix         0.5    → Engine-level wet
+```
+
+**Chain Implementations**:
+
+**0. FLANGE** (3–6 ms modulated tap, fb=intensity, narrow LFO):
+```
+timeL/R:     0.002 + intensity·0.004 (2..6 ms)
+feedback:    intensity·0.85
+wowDepth:    0.5 + intensity·0.3
+wowRate:     0.1 + speed·4.0 (0.1..4.1 Hz)
+flutterDepth: 0 (no flutter)
+damp:        0.3 + (1-color)·0.5 (color brightens)
+stereoMode:  2 (cross-feed, jet flange)
+```
+
+**1. ECHO** (60–560 ms, fb=intensity, drive=intensity):
+```
+time:        0.060 + speed·0.500 (60..560 ms)
+feedback:    intensity·0.85
+drive:       intensity·0.20
+damp:        0.3 + (1-color)·0.55
+stereoMode:  1 (ping-pong)
+```
+
+**2. FILTER** (deferred; routes to ECHO placeholder)
+
+**3. WIDEN** (3–17 ms R-tap offset, no fb, Haas chorus):
+```
+timeL:       0.005 s (fixed)
+timeR:       0.005 + 0.003 + intensity·0.014 (5..17 ms)
+feedback:    0 (no recirculation)
+wowDepth:    intensity·0.15 (soft chorus modulation)
+wowRate:     0.2 + speed·1.5 (0.2..1.7 Hz)
+stereoMode:  2 (cross-feed)
+```
+
+**4. CRUSH** (deferred; bypass)
+
+**Tone Module** (all chains):
+- `lpHz = 1800 + color·14200` (1.8k..16k Hz)
+- `hpHz = 20`
+- `stages = 1`
+
+---
+
+### PRODUCT: REVERBBUS (src/core/products/reverbBus.js)
+
+**Chain**: `[MODULE.ENVELOPE_FOLLOWER, MODULE.EARLY_REFLECTIONS, MODULE.FDN_REVERB, MODULE.TILT_EQ, MODULE.WIDTH]`
+**Engine Mix**: Dynamic (envelope-ducked)
+**Envelope Subscription**: Subscribes for mix ducking under loud input
+
+**Macros** (8 × 0..1):
+```
+size        0.45   → Room size (bus-appropriate small-mid)
+decay       0.40   → Tail length (0.5..5 s exp)
+density     0.55   → ER density
+tone        0.55   → Tilt + dampHz brightness
+glue        0.50   → Bus-glue character (mod + ducker release)
+duck        0.50   → Input-dependent attenuation amount
+width       1.00   → Stereo width
+mix         0.22   → Base wet level (bus-sensible)
+```
+
+**Parameter Mapping**:
+- **Size** (bus-constrained):
+  - ER: `0.5 + size·0.8` (0.5..1.3)
+  - ER spread: `0.4 + size·0.4`
+  - FDN sizeScale: `0.5 + size·1.0` (0.5..1.5, no cathedral)
+- **Decay**: `0.5·(5/0.5)^decay` (0.5..5 s exp)
+- **Tone** (coupled with glue):
+  - Tilt: `max(0, tone - 0.10·glue)` (glue darkens slightly)
+  - DampHz: `3500·(14000/3500)^tone` (3.5k..14k, bus-friendly ceilings)
+- **Glue**:
+  - FDN modDepth: `0.10 + glue·0.30` (subtle chorus)
+  - FDN modRate: `0.12 + glue·0.35` (slow @ high glue)
+  - Envelope releaseMs: `140 + glue·260` (140..400 ms, longer release = glue)
+- **Ducking** (Smoothstep envelope saturation):
+  - `envSat = x·(3 - 2x)` where `x = min(1, envLvl·1.8)`
+  - Duck gain: `1 - duck·0.80·envSat`
+  - Engine mix post-applied: `mix · duckGain`
+
+**Fixed Envelope Config**:
+- attackMs: 8 ms
+- releaseMs: 220 ms (controlled by glue macro)
+
+---
+
+### PRODUCT: SMEAR (src/core/products/smear.js)
+
+**Chain**: `[MODULE.COMB_BANK, MODULE.TAPE_CHARACTER, MODULE.TILT_EQ]`
+**Engine Mix**: 0.30
+**Control-Rate Random Walk** (~30 Hz, 33 ms tick)
+
+**Macros** (6 × 0..1):
+```
+smear       0.40   → Comb feedback + crossfeed
+drift       0.20   → Random-walk LFO amplitude + tape wobble
+degrade     0.15   → Age/hiss/compression
+size        0.50   → Comb scaling
+tone        0.45   → Tilt
+mix         0.30   → Engine-level wet
+```
+
+**Control-Rate Random Walk**:
+- 4 comb length modulation targets (mod0..mod3)
+- Per comb: `target += (rand·2 - 1)·0.06 - target·0.01` (step & decay)
+- Smooth toward target: `value += (target·drift - value)·0.35`
+- Relaxation when drift ≤ 0.001: decay @ 0.85 per tick
+
+**Parameter Mapping**:
+- **Smear**:
+  - FB: `0.50 + smear·0.42` (0.50..0.92)
+  - Crossfeed: `smear·0.45`
+- **Drift** (controls walk amplitude + tape character):
+  - Damp: `min(0.85, 0.30 + drift·0.05)`
+  - StereoDrift: `drift·0.6`
+  - Random-walk is applied at control rate above
+- **Degrade**:
+  - Age: `degrade·0.85`
+  - Hiss: `degrade·0.35`
+  - CompAmount: `0.20 + degrade·0.50`
+- **Tone**: `te('tilt', tone)`
+
+**Fixed Tape Config**:
+- Hum: 0.0 (off)
+- XfmrDrive: 0.10
+- XfmrColor: 0.20
+
+---
+
+### PRODUCT: TAPEDELAY (src/core/products/tapeDelay.js)
+
+**Chain**: `[MODULE.TAPE_MULTITAP]` (optionally `+ MODULE.TAPE_CHARACTER + MODULE.TONE`)
+**Engine Mix**: 0.45
+
+**Macros** (17 + character controls, all × 0..1 or binary):
+```
+time1, time2, time3      [0.020–1.2 s]
+head1on, head2on, head3on [0/1]
+head1vol, head2vol, head3vol [0..1]
+feedback             [0..1]
+wow                  [0..1] → wowDepth + flutter
+treble               [0..1] → LP brightness
+bass                 [0..1] → HP frequency
+drive                [0..1]
+spread               [0..1]
+mix                  [0..1]
+
+characterEnabled     [0/1]
+hiss, hum            [0..1]
+humHz                [50/60]
+xfmrDrive, xfmrColor [0..1]
+comp, age            [0..1]
+stereoDrift          [0..1]
+```
+
+**Parameter Mapping**:
+- **Times**: Clamped to [0.020, 1.2] s
+- **Wow**:
+  - `wowDepth = wow·0.7`
+  - `wowRate = 0.4 + wow·1.2` (0.4..1.6 Hz)
+  - `fltDepth = wow·0.25` (subtle scrape flutter)
+  - `fltRate = 6 + wow·6` (6..12 Hz)
+- **Tone**:
+  - `lpHz = 1800 + treble·14200` (1.8k..16k Hz, 0=dark, 1=open)
+  - `hpHz = 20 + bass·380` (20..400 Hz, 0=full bass, 1=thin)
+  - Feedback lowCut mirrored: `60 + bass·200` (60..260 Hz)
+- **Character** (if enabled):
+  - Maps setHiss, setHum, etc. to module params
+  - Chain reconfigured: adds MODULE.TAPE_CHARACTER if characterEnabled
+
+---
+
+## FILE: src/rack/analyzer.js (DETAILED)
+
+See section above. Key constants:
+- FFT size (waveform/RMS): 2048 samples
+- FFT size (K-weighted): 4096 samples
+- HPF for K-weight: 38 Hz, Q=0.5
+- High-shelf for K-weight: 1500 Hz, +4 dB
+- LUFS constant: −0.691 dB
+- Peak hold decay: 0.93 per sample
+- Clip hold duration: 300 ms
+
+---
+
+## SUMMARY: MODULE TOPOLOGY & INFORMATION FLOW
+
+```
+[Input] ──────────────────┬──────────────────────────┬─────────────────── [Bypass]
+                          │                          │
+                     [Dry Stash]             [Chain Execution]
+                          │                          │
+                          │      ┌──────────────┐    │
+                          │      │ setChain()   │◄───┘
+                          │      │ postMessage  │
+                          │      └──────────────┘
+                          │
+                    [Engine Dry/Wet]
+                     (useEngineMix)
+                          │
+                          v
+              ┌───────────────────────┐
+              │   WORKLET MODULES     │
+              │ (16-module palette)   │
+              │  Module 0: Delay      │
+              │  Module 1: Diffuser   │
+              │  ...                  │
+              │  Module 15: EQ        │
+              └───────────────────────┘
+                          │
+                    [Output] ────► to DAC / post-bus
+```
+
+**Parameter Flow**:
+```
+Product Layer (Macro)
+  ↓
+setParam(moduleIdx, name, value)
+  ↓
+Main-thread boundary (dedup cache)
+  ↓
+port.postMessage({type: 'param', ...})
+  ↓
+Worklet FxProcessor.port.onmessage
+  ↓
+module.params[name].setTarget(value)  or  .snap(value)
+  ↓
+Per-block: tickBlock() → Per-sample: tickSample()
+  ↓
+Process loop (worklet audio callback)
+```
+
+---
+
+## CONSTANTS SUMMARY
+
+| Name | Value | Context |
+|------|-------|---------|
+| Sample Rate | 48000 Hz (assumes) | DelayLine, all filters, LFO |
+| Block Size | 128 samples | FxProcessor, ParamSmoother |
+| ParamSmoother blockTau | 25 ms | Time constants (except DelayModule: 50 ms) |
+| ParamSmoother sampleTau | 5 ms | (except DelayModule: 25 ms) |
+| DelayLine max | 4.0 sec | DelayModule, TapeMultiTapModule |
+| TapeMultiTapModule max | 2.6 sec | TapeDelay product |
+| CombBankModule max mod | 64 samples | ~2.67 ms @ 48k |
+| FdnReverbModule max mod | 24 samples | ~1 ms @ 48k |
+| EarlyReflectionsModule max | 0.3 sec | Reverb pre-delay |
+| FdnReverbModule max | 0.25 sec per line | Generous headroom |
+| Soft saturation | `x/(1+\|x\|)` | Feedback paths |
+| DC Block coefficient | 0.995 | All modules with output |
+| OnePoleLP/HP guard | 1e-6 (level floor) | Numerical stability |
+| Peak hold decay | 0.93 per sample | analyzer.js |
+| Clip threshold | 0.999 | analyzer.js |
+| Clip hold | 300 ms | analyzer.js |
+| Hiss level | `hiss · 0.012` | ~ -38 dBFS @ hiss=1 |
+| Hum level | `hum · 0.006` | Fundamental + 3rd |
+| DcBlock HP freq | 20 Hz | SaturatorModule |
+| LUFS offset | -0.691 dB | BS.1770 standard |
+| Correlation guard | 1e-9 | analyzer.js (silent handling) |
+
+---
+
+This technical audit documents the Shags VST architecture at the module and product layer level, with exact parameter ranges, constants, and algorithm summaries suitable for a comprehensive 20+ page reference document.

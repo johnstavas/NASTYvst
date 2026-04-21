@@ -157,13 +157,13 @@ export default function QcDrawer({ instanceId, instances, enginesRef, onClose, o
         />
 
         {/* Variant pill — only appears when the product has >1 variant in the
-            registry. Lets you A/B legacy vs engine_v1 without leaving the
+            registry. Lets you A/B prototype vs v1 without leaving the
             analyzer. Wired to the same switchInstanceVariant() that the
             QcWizard step 2 popup uses. */}
         {product && Object.keys(product.variants).length > 1 && (
           <VariantPill
             product={product}
-            currentVariantId={inst?.variantId || 'legacy'}
+            currentVersion={inst?.version || 'prototype'}
             onSwitch={onSwitchVariant}
           />
         )}
@@ -200,7 +200,7 @@ export default function QcDrawer({ instanceId, instances, enginesRef, onClose, o
             ctx={ctx}
             engine={engine}
             productId={product.productId}
-            variantId={inst.variantId || 'legacy'}
+            version={inst.version || 'prototype'}
             entries={entries}
             values={values}
             valuesRef={valuesRef}
@@ -217,7 +217,7 @@ export default function QcDrawer({ instanceId, instances, enginesRef, onClose, o
       ) : (
         <div style={emptyStyle}>
           {candidates.length === 0
-            ? 'No migrated plugins in the chain. Add Lofi Loofy, MANchild, Flap Jack Man, or Panther Buss (engine_v1) to use the QC harness.'
+            ? 'No migrated plugins in the chain. Add Lofi Loofy, MANchild, Flap Jack Man, or Panther Buss (v1) to use the QC harness.'
             : 'Pick a plugin above to run QC against its live engine.'}
         </div>
       )}
@@ -321,9 +321,9 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
   );
 }
 
-// ── variant pill — A/B legacy vs engine_v1 in place ──────────────────────
+// ── variant pill — A/B prototype vs v1 in place ──────────────────────────
 
-function VariantPill({ product, currentVariantId, onSwitch }) {
+function VariantPill({ product, currentVersion, onSwitch }) {
   const variants = Object.values(product.variants);
   return (
     <div style={{
@@ -334,13 +334,13 @@ function VariantPill({ product, currentVariantId, onSwitch }) {
       fontFamily: '"Courier New", monospace',
     }}>
       {variants.map(v => {
-        const isV1     = v.variantId === 'engine_v1';
-        const active   = v.variantId === currentVariantId;
+        const isV1     = v.version === 'v1';
+        const active   = v.version === currentVersion;
         const activeFg = isV1 ? '#7fff8f' : '#e0c080';
         const activeBg = isV1 ? 'rgba(30,100,40,0.35)' : 'rgba(120,80,20,0.35)';
         return (
-          <button key={v.variantId}
-            onClick={() => !active && onSwitch?.(v.variantId)}
+          <button key={v.version}
+            onClick={() => !active && onSwitch?.(v.version)}
             style={{
               cursor: active ? 'default' : 'pointer',
               padding: '5px 12px',
@@ -353,7 +353,7 @@ function VariantPill({ product, currentVariantId, onSwitch }) {
             }}
             title={active ? `currently running ${v.engineName}` : `switch to ${v.engineName}`}
           >
-            {active ? '▶ ' : ''}{v.variantId === 'legacy' ? 'LEGACY' : 'V1'}
+            {active ? '▶ ' : ''}{v.version === 'prototype' ? 'PROTO' : 'V1'}
           </button>
         );
       })}
@@ -386,7 +386,7 @@ function PluginPicker({ candidates, currentId, onPick }) {
         const p = getProduct(i.productId);
         return (
           <option key={i.id} value={i.id} style={{ background: '#0a0d12' }}>
-            {p?.displayLabel || i.productId} · {i.variantId || 'legacy'}
+            {p?.displayLabel || i.productId} · {i.version || 'prototype'}
           </option>
         );
       })}

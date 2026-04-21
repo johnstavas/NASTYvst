@@ -32,6 +32,114 @@
 const FAIL = 'fail', WARN = 'warn', OK = 'ok', INFO = 'info';
 const SEV_WEIGHT = { fail: 3, warn: 2, info: 1, ok: 0 };
 
+// ── Finding contract (v2 — post-γ, Codex UX alignment) ─────────────────────
+// A Finding is the unit the repair UX renders. Produced by analyzer rules,
+// enriched by userFix overrides, then handed to the Repair Drawer / QcStrip.
+//
+// Shape:
+//   identity:      { findingId, ruleId, severity }
+//   copy (core):   { title, meaning, fix, dev }
+//   copy (UX):     { short, whyItMatters, expectedBehavior,
+//                    beforeState, afterPassState, afterFailState,
+//                    verifyLabel, successStateText, failureStateText,
+//                    helperActionLabel, commitLabel, saveTarget,
+//                    whatToTouch, family, area, repairType }
+//   targeting:     { controlIds[], sectionId, capabilityId, uiTargets[] }
+//   verification:  { qcScopes: ('control'|'section'|'full')[] }
+//   state:         { repairState, verificationState,
+//                    lastRunId, dirtySince, lastSavedValue, verificationHistory[] }
+//   provenance:    { source, strategy, verifiedAgainst, date, by, proven }
+//
+// State machine (mirrored in migration/store.js):
+//   repairState:       open → editing → saved → verified | verified_partial
+//                               ↑                 ↓
+//                            reopened ←─────── failed_verification
+//                                              ↓
+//                                           resolved (finding-local, NOT approval)
+//   verificationState: idle | running | passed | partial | failed
+//
+// verificationHistory[] entries: { runId, scope, status, ts }
+// lastSavedValue: { [controlId]: { value, authoredHash, ts } }
+// Undo contract: pop lastSavedValue → re-derive verification from history
+//                at that authoredHash. Never blindly clear the finding.
+//
+// `resolved` is finding-local closure — it does NOT imply v1 approval.
+// Approval lives orthogonally in qc:approvals:v2 and gates promotion.
+//
+// Stable capability vocabulary (for match grammar + userFix routing):
+//   oversampling(number), feedback(bool), sidechain(bool), mix(bool),
+//   modulation(bool), reverb(bool), saturation(bool), fft(bool),
+//   lpc(bool), freeze(bool), pitch(bool), wdf(bool), bandsplit(number)
+
+export const REPAIR_STATES = Object.freeze({
+  OPEN: 'open',
+  EDITING: 'editing',
+  SAVED: 'saved',
+  VERIFIED: 'verified',
+  VERIFIED_PARTIAL: 'verified_partial',
+  FAILED_VERIFICATION: 'failed_verification',
+  REOPENED: 'reopened',
+  RESOLVED: 'resolved',
+});
+
+export const VERIFICATION_STATES = Object.freeze({
+  IDLE: 'idle',
+  RUNNING: 'running',
+  PASSED: 'passed',
+  PARTIAL: 'partial',
+  FAILED: 'failed',
+});
+
+export const QC_SCOPES = Object.freeze(['control', 'section', 'full']);
+
+// Default enrichment applied to every finding before handing to the UX.
+// Rules/overrides fill in real values; anything missing gets safe fallbacks.
+export function defaultFindingShape(ruleId, severity) {
+  return {
+    findingId: ruleId,      // rule-derived by default; overrides can refine
+    ruleId,
+    severity,
+    // copy — core
+    title: ruleId,
+    meaning: '',
+    fix: '',
+    dev: null,
+    // copy — UX
+    short: '',
+    whyItMatters: '',
+    expectedBehavior: '',
+    beforeState: '',
+    afterPassState: '',
+    afterFailState: '',
+    verifyLabel: 'Checking…',
+    successStateText: '',
+    failureStateText: '',
+    helperActionLabel: '',
+    commitLabel: 'Save',
+    saveTarget: '',
+    whatToTouch: '',
+    family: '',
+    area: '',
+    repairType: '',
+    // targeting
+    controlIds: [],
+    sectionId: null,
+    capabilityId: null,
+    uiTargets: [],
+    // verification
+    qcScopes: ['control', 'section', 'full'],
+    // state (store-owned; analyzer ships zero-state)
+    repairState: REPAIR_STATES.OPEN,
+    verificationState: VERIFICATION_STATES.IDLE,
+    lastRunId: null,
+    dirtySince: null,
+    lastSavedValue: {},
+    verificationHistory: [],
+    // provenance
+    provenance: null,
+  };
+}
+
 // ── Human-facing metadata for every rule ────────────────────────────────
 // The analyzer's rule IDs (e.g. `gr_meter_stuck`) are useful for diffs and
 // CI but unreadable to anyone who isn't already inside the code. For each
@@ -81,12 +189,12 @@ export const RULE_META = {
   variant_drift: {
     title:   "Preset didn't land — engine state ≠ preset declaration",
     meaning: "After applying a preset, the engine's live state doesn't match the values the preset declared. Usually means the running engine is a different module than the one the preset file belongs to (silent variant drift), or applyBulk dropped a field.",
-    fix:     "Check that the Orb loads its engine factory + preset dictionary from the same module as the variantId reports. Hardcoded `import './xEngine.js'` while the registry points at `.v1.js` = exact signature of this bug. Route the Orb through `registry.getVariant(productId, variantId)` or a dynamic import keyed on variantId. Second most common: preset field name typo or missing case in `applyBulk`.",
+    fix:     "Check that the Orb loads its engine factory + preset dictionary from the same module as the version reports. Hardcoded `import './xEngine.js'` while the registry points at `.v1.js` = exact signature of this bug. Route the Orb through `registry.getVariant(productId, version)` or a dynamic import keyed on version. Second most common: preset field name typo or missing case in `applyBulk`.",
     dev: {
-      files:  ["src/<product>/<Product>Orb.jsx → engine module import / dynamic loader", "src/migration/registry.js → variants.<id>.engineFactory", "src/<product>/<product>Engine.*.js → applyBulk switch + getPreset / getPresetNames"],
-      refs:   ["MEMORY.md → manchild_lessons.md (DEV_RULE D5 — terminal preset-flag-clear; silent drops)", "CONFORMANCE.md → M19 (setCharacter → engineState matches preset)", "store.js → defaultVariantFor (how variantId is chosen per instance)"],
+      files:  ["src/<product>/<Product>Orb.jsx → engine module import / dynamic loader", "src/migration/registry.js → variants.<version>.engineFactory", "src/<product>/<product>Engine.*.js → applyBulk switch + getPreset / getPresetNames"],
+      refs:   ["MEMORY.md → manchild_lessons.md (DEV_RULE D5 — terminal preset-flag-clear; silent drops)", "CONFORMANCE.md → M19 (setCharacter → engineState matches preset)", "store.js → defaultVersionFor (how version is chosen per instance)"],
       checks: ["Sweep report shows `engine.out=<A>dB` while preset source says `outDb:<B>` → wrong module loaded. Confirm Orb's import path matches the variant's engineFactory.", "Preset name in report doesn't exist in the expected preset file → Orb is reading presets from a different module than you're editing.", "applyBulk warns `unknown preset field 'X' ignored` in DevTools console → field name mismatch between preset author and engine."],
-      antipatterns: ["Hardcoding `import createXEngine from './xEngine.js'` in the Orb while also shipping an `xEngine.v1.js` in the registry — the registry label lies and every QC verdict becomes untrustworthy.", "Trusting the QC header's variantId without running the `variant_drift` rule — the header is a label, not a proof."],
+      antipatterns: ["Hardcoding `import createXEngine from './xEngine.js'` in the Orb while also shipping an `xEngine.v1.js` in the registry — the registry label lies and every QC verdict becomes untrustworthy.", "Trusting the QC header's version without running the `variant_drift` rule — the header is a label, not a proof."],
     },
   },
   gr_meter_stuck: {
@@ -109,6 +217,29 @@ export const RULE_META = {
       refs:   ["MEMORY.md → audio_engineer_mental_model.md (loudness compensation rules)", "MEMORY.md → dafx_zolzer_textbook.md Ch.4 (makeup gain formulas)", "MEMORY.md → pasp_through_design_lens.md (behavior-profile → DSP)"],
       checks: ["Sort the affected list by LUFS delta — the ones >+1.5 dB are almost always hand-authored overshoots.", "Compute `expected_makeup_dB = -avg(GR_dB)` per preset and diff vs stored value.", "Character presets (Tube Tone, Drive Tube) can be intentionally louder — flag expected vs actual outliers only."],
       antipatterns: ["Stacking preset makeup on top of auto-makeup without subtracting one.", "Trusting RMS for 'loudness' — use LUFS (already what the analyzer reports)."],
+    },
+  },
+  loudness_comp: {
+    // FAIL copy — fires as WARN when a character/NL plugin is SO much
+    // louder than input that makeup-gain is probably miswired, not
+    // intentional coloration uplift. Distinct from louder_than_input,
+    // which is muted on NL plugins (they're expected to add loudness
+    // under drive per audio_engineer_mental_model.md → loudness comp).
+    title:   "Character loudness uplift is too large",
+    meaning: "Plugins with nonlinear stages (tube, tape, saturator, clipper, amp sim) are expected to add some loudness under drive — that's part of the character. This plugin is adding MORE than the family typically should (> +6 LUFS). At that level it's usually a makeup-gain authoring mistake, not intentional uplift.",
+    fix:     "Review the output-trim / makeup stage in the engine. For character plugins the target is roughly loudness-matched output at unity drive (see audio_engineer_mental_model.md → loudness compensation rules). Large positive deltas usually mean auto-makeup is being stacked on top of a preset-stored makeup, or the drive stage's output hasn't been loudness-normalized.",
+    dev: {
+      files:  ["src/<product>/<product>Engine.js → output-trim / makeup stage", "src/<product>/<product>Presets.js → the affected preset entries"],
+      refs:   ["MEMORY.md → audio_engineer_mental_model.md (loudness compensation rules)", "MEMORY.md → pasp_through_design_lens.md (character family DSP recipes)", "MEMORY.md → dafx_zolzer_textbook.md Ch.4 (NL / tape / valve — output scaling)"],
+      checks: ["Plot LUFS delta vs drive amount — character plugins should roughly loudness-match, not slope up monotonically.", "If auto-makeup fires AND the preset also carries a makeup offset, confirm they aren't additive.", "Compare against a reference character plugin in the same family (Panther Buss, ManChild Drive Tube preset) — if this one's +3–4 dB hotter than peers, the makeup stage is the suspect."],
+      antipatterns: ["Treating 'character = always louder' as license — hardware character plugins are typically loudness-matched at design time.", "Letting the drive knob control both distortion amount AND output level without separate makeup compensation."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Character adds some loudness (expected)",
+        meaning: "This plugin has nonlinear stages (tube, tape, saturator) and is adding a small amount of loudness under drive — between +0.3 and +3 LUFS. That's the expected behavior for this plugin class; hardware character units do the same thing. It's worth knowing about but isn't a bug.",
+        fix:     "Nothing to fix. If you want tighter loudness matching at unity drive, review the output-trim / makeup stage in the engine, but most users expect a slight loudness boost from character plugins — removing it makes them feel 'weaker' in A/B comparisons.",
+      },
     },
   },
   peak_above_input: {
@@ -240,6 +371,338 @@ export const RULE_META = {
       refs:   ["MEMORY.md → manchild_lessons.md (setX target verification)", "MEMORY.md → dafx_zolzer_textbook.md Ch.4 (NL saturation — denormal behavior)"],
       checks: ["Clamp input at the setter boundary, not at the UI.", "Check for exponential denormals — subnormal floats in feedback paths cascade into Inf.", "Verify the param's schema min/max matches the setter's clamp."],
       antipatterns: ["UI-only clamping — automation and preset load both bypass it.", "Unbounded exp() or pow() inside processor — overflows to Inf."],
+    },
+  },
+
+  // ── Capture-hook consumers (measurements written by captureHooks.js) ──
+  // Each reads a specific measurement field from snapshots tagged with a
+  // matching `qc.ruleId`. When the field is missing (plugin has no factory
+  // route, or the hook threw), the rule self-disables to INFO/capture_pending.
+
+  impulse_ir: {
+    title:   "Impulse response produced non-finite samples",
+    meaning: "Sent a single-sample impulse through the plugin, expecting a decaying tail. Got NaN or Infinity in the output — a numerical explosion somewhere in the processing chain, usually a divide-by-zero or an unbounded recursion in a filter.",
+    fix:     "Audit filters and feedback paths for unchecked divisions and unclamped state. For biquads, guard against coefficient combinations that produce unstable poles; for FDN tails, clamp feedback gain below 1.0; for anything with `1/x` or `log`, guard the domain.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → filter + feedback state", "src/<product>/<product>Engine.js → coefficient computations"],
+      refs:   ["MEMORY.md → jos_pasp_physical_modeling.md (Von Neumann stability)", "MEMORY.md → dafx_zolzer_textbook.md Ch.2 (filter structures)"],
+      checks: ["Re-run on a clean impulse (all params at default) — does the NaN still appear?", "Bisect by disabling stages one at a time — which stage introduces the NaN?", "Check for `1 / (1 - x)` patterns where `x` can reach 1 at extreme param settings."],
+      antipatterns: ["Computing filter coefficients in the audio thread without clamping denominator near zero.", "Recursive feedback with no leak term — denormals cascade to Inf."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Impulse response captured — finite tail",
+        meaning: "The plugin's impulse response rendered cleanly with no NaN or Infinity values. Basic numerical-stability check — passed.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  bypass_exact: {
+    title:   "Bypass isn't actually bypassing",
+    meaning: "When the plugin's bypass is engaged, output should be bit-for-bit identical to input (within float precision, roughly −100 dB RMS residual). Instead it's well above that floor — something is still processing the signal even with bypass on.",
+    fix:     "Trace the bypass path. Contract: with bypass engaged, the worklet must route input straight to output without touching it — no filters, no oversampling, no makeup gain. Add a fast-path `if (bypass) return passthrough`, or route bypass at the graph level.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → bypass handling", "src/<product>/<product>Engine.js → bypass routing"],
+      refs:   ["MEMORY.md → dry_wet_mix_rule.md (bypass vs mix=0 distinction)", "MEMORY.md → manchild_lessons.md (bypass state discipline)"],
+      checks: ["Confirm the worklet has an `if (bypass) return passthrough` fast path.", "Verify no oversampling / anti-alias filter is left running during bypass — they add phase shift even without color.", "Check that bypass transitions don't leak audio during the ramp."],
+      antipatterns: ["Leaving OS filters running during bypass — adds phase shift.", "Using `mix=0` as a proxy for bypass — they're different contracts (see dry_wet_mix_rule.md)."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Bypass confirmed clean",
+        meaning: "Bypass is engaged and output matches input within float-precision noise. The plugin is truly silent when bypassed — the basic contract every DAW assumes.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  latency_report: {
+    title:   "Plugin reports the wrong latency",
+    meaning: "The plugin declares a latency value (used by DAWs for plugin-delay compensation) but the measured latency doesn't match. If it under-reports, tracks run late; if it over-reports, they run early. Either way, anything on a parallel bus through this plugin falls out of time.",
+    fix:     "Set `capabilities.latencySamples` to what the plugin actually introduces. Measure it with an impulse, compare to declared, iterate. For oversampled plugins, include the polyphase filter group delay. For lookahead limiters, declare the lookahead buffer length.",
+    dev: {
+      files:  ["src/<product>/<product>Engine.js → capabilities.latencySamples", "src/<product>/<product>Worklet.js → lookahead + OS filter delays"],
+      refs:   ["MEMORY.md → qc_family_map.md (Limiter — lookahead critical)", "MEMORY.md → dafx_zolzer_textbook.md Ch.2 (filter group delay)"],
+      checks: ["Render an impulse. First-arrival sample index = total latency.", "Include OS downsampler group delay (IIR polyphase ≈ OS/2 samples; FIR adds half-length).", "Include intentional lookahead; OS + lookahead both count."],
+      antipatterns: ["Declaring latency = 0 on a plugin using any non-zero-phase processing (nearly all non-trivial plugins have some)."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Latency report matches measured",
+        meaning: "The plugin's declared latency matches what we measured from an impulse — DAWs will compensate correctly.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  feedback_runaway: {
+    title:   "Feedback path produces runaway output",
+    meaning: "With feedback + drive at maximum, the plugin produced either non-finite samples (NaN/Inf) or peaks above +6 dBFS. At minimum this clips hard in any DAW; at worst it damages speakers. The feedback loop has no clamp protecting the output.",
+    fix:     "Add a stability margin. For delay/reverb, cap feedback gain at ≤0.99 and soft-clip the feedback tap. For nonlinear + feedback combinations (the dangerous case), ensure the NL stage saturates BEFORE the FB sum and include a subtle leak term so denormals can't cascade.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → feedback routing + saturator", "src/<product>/<product>Engine.js → feedback gain clamp"],
+      refs:   ["MEMORY.md → jos_pasp_dsp_reference.md (FDN stability)", "MEMORY.md → jos_pasp_physical_modeling.md (nonlinearity in feedback loops)", "MEMORY.md → dafx_zolzer_textbook.md Ch.2 (feedback delay networks)"],
+      checks: ["Clamp feedback gain at 0.99 — not 1.0, not 0.999.", "Soft-clip the feedback tap (tanh) BEFORE the FB sum.", "Add a tiny leak term (1e-4 × noise) to prevent denormal cascades."],
+      antipatterns: ["Unclamped FB gain — any preset at exactly 1.0 = infinite tail.", "Hard-clip on FB tap instead of soft-clip — aliasing compounds on every pass."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Feedback stress test passed",
+        meaning: "At max feedback and drive, the plugin stayed finite and bounded (peak < +6 dBFS). No runaway behavior under stress.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  pathological_stereo: {
+    title:   "Plugin mishandles extreme stereo input",
+    meaning: "Sent a pathological stereo signal (hard-panned, phase-inverted, or mono-summed) through the plugin. Output shows cross-channel bleed, sign-flips, or mono collapse that isn't declared in the plugin's stereo behavior.",
+    fix:     "Audit the stereo routing. L-only input should produce mostly-L output unless the plugin is declared a stereo enhancer. Side-only (L=−R) should stay side-heavy unless a mono-compat stage intentionally folds it. Hard-panned inputs must never cross to the silent channel.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → per-channel processing", "src/<product>/<product>Engine.js → stereo routing + channel splitters"],
+      refs:   ["MEMORY.md → dry_wet_mix_rule.md (stereo-aware mix)", "MEMORY.md → audio_engineer_mental_model.md (stereo systems)"],
+      checks: ["Per-channel processing must not sum into a shared accumulator.", "Sidechain taps must use correct channel identity (L/R, not swapped).", "Worklet declares 2-channel output explicitly (`outputChannelCount: [2]`)."],
+      antipatterns: ["Shared state for both channels when plugin should be per-channel — make linking explicit.", "Summing L+R for processing then duplicating to both outputs — hidden mono-collapse."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Stereo behavior as expected",
+        meaning: "The plugin handled the extreme stereo variant (hard-pan / side-only / mono) without cross-channel bleed or unexpected collapse.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  extreme_freq: {
+    title:   "Plugin misbehaves at DC or near-Nyquist",
+    meaning: "Drove the plugin with a sine tone at edge-case frequencies (DC, 10 Hz, and two rates just below Nyquist). The output either went non-finite (NaN/Inf) or the level shot up more than expected. Most commonly this is a filter coefficient going unstable near Nyquist, a resonator ringing up, or a divide-by-zero on DC input.",
+    fix:     "Audit filter coefficient computation near the Nyquist limit — bilinear transform coefficients lose precision as frequency approaches sr/2; many designs need a safety clamp (e.g. cutoff = min(cutoff, sr·0.45)). For DC, make sure no stage divides by a frequency-dependent denominator that goes to zero. For resonators, ensure Q or feedback gain has an absolute ceiling that works at all control-rate values.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → filter coeff update + resonator feedback path", "src/<product>/<product>Engine.js → parameter clamps on cutoff / freq"],
+      refs:   ["MEMORY.md → jos_pasp_dsp_reference.md (bilinear transform, stability bounds)", "MEMORY.md → dafx_zolzer_textbook.md Ch.2 (biquad stability at edges)"],
+      checks: ["Clamp cutoff frequencies to [10 Hz, sr·0.45] before coefficient computation.", "Guard resonator feedback at 1 − 1/Q with Q ≤ some finite max (e.g. Q ≤ 20).", "Protect against divide-by-zero: any `1 / freq` or `1 / (1 - cosθ)` term needs a floor.", "Assert output peak never exceeds input peak + 12 dB for a −18 dBFS sine at any test frequency."],
+      antipatterns: ["Computing biquad coeffs all the way up to sr/2 without a safety margin.", "Pure numerical tan(π·f/sr) without guarding f near sr/2 (returns Infinity).", "Resonator where Q is a raw user knob with no upper bound."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Edge-frequency sweep passed",
+        meaning: "At DC, 10 Hz, and both near-Nyquist rates the plugin stayed finite and output peak did not overshoot input by more than 3 dB. Filter coefficients and resonators are stable across the usable band.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  denormal_tail: {
+    title:   "Plugin generates denormal tail or won't go silent",
+    meaning: "After the input stops, the plugin keeps producing low-level audio (audible tail OR subnormal floats). Subnormals are particularly bad: mathematically near-zero but cause 10-100× CPU spikes on many DAWs. Either way, the plugin never reaches true silence.",
+    fix:     "Add a denormal guard to the processor. Pattern: add `1e-20` to feedback state before multiplying, or clamp with `|x| < 1e-30 ? 0 : x`. For filters, ensure the leak term keeps state bounded. For reverb tails, flush the delay lines when input RMS drops below a threshold for N seconds.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → filter state + feedback storage", "src/<product>/<product>Engine.js → silence detection"],
+      refs:   ["MEMORY.md → jos_pasp_dsp_reference.md (denormal handling)", "MEMORY.md → dafx_zolzer_textbook.md Ch.5 (FDN decay + numerical stability)"],
+      checks: ["Add `x = (Math.abs(x) < 1e-30) ? 0 : x` to filter state updates.", "For long tails, add a silence-detection fast path that zeroes state after N seconds.", "Don't rely on hardware FTZ flags — not all JS audio runtimes enable them."],
+      antipatterns: ["Relying on hardware FTZ — not portable.", "Letting reverb tail run forever — subnormals accumulate, CPU climbs steadily."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Denormal tail check passed",
+        meaning: "After signal ends, the tail decayed cleanly and no subnormals were detected. CPU-safe for long sessions.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  mix_identity: {
+    title:   "Plugin doesn't process at Mix=100",
+    meaning: "With wet/dry at fully wet, the plugin should be clearly processing. Instead, output is barely different from input — either the wet path is broken, or the plugin silently swapped back to dry at 100%.",
+    fix:     "Confirm the Mix=100 branch actually routes through the wet processing path. Common bug: mix formula like `out = dry*(1-m) + wet*m` where `m` saturates below 1.0, or wet path not initialized until first non-silent sample.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → dry/wet mix stage", "src/<product>/<product>Engine.js → wet-path initialization"],
+      refs:   ["MEMORY.md → dry_wet_mix_rule.md (Mix=100 = pure wet contract)"],
+      checks: ["Log the wet buffer's RMS during processing — is it zero?", "Confirm mix coefficient actually reaches 1.0 at knob=max (not 0.99, not 0.95).", "Check wet-path initialization — some plugins don't start until the first non-silent sample."],
+      antipatterns: ["Clamping mix at 0.95 to 'preserve dry presence' — breaks the Mix=100 contract silently.", "Deferred wet-path init that never fires under DAW silent-load."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Wet path confirmed active",
+        meaning: "At Mix=100 the output differs meaningfully from the input — the plugin is actually processing, not silently passing dry.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  mix_sanity: {
+    title:   "Mix knob misbehaves at the mid-point",
+    meaning: "At Mix=50 the output should sit between the Mix=0 (dry) and Mix=1 (wet) output levels — that's what a sane crossfade looks like. Instead the mid-point is either lining up with dry (the knob is probably stuck or wired wrong), lining up with wet (the crossfade only moves at the extremes), or poking well above the dry/wet envelope (the blend has a gain bump or is producing runaway peaks).",
+    fix:     "Check the dry/wet blend inside the worklet. Per MEMORY.md → dry_wet_mix_rule.md §1, the mix MUST be computed in the worklet with an equal-power cos/sin crossfade on the same-sample raw input vs the processed signal. External parallel dry legs comb-filter and will produce exactly this kind of mid-point drift. If peak overshoots input by > 12 dB at Mix=0.5, the blend formula is likely summing dry+wet linearly instead of cross-fading.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → dry/wet mix stage", "src/<product>/<product>Engine.js → setMix / mix parameter routing"],
+      refs:   ["MEMORY.md → dry_wet_mix_rule.md §1 (equal-power cos/sin, in-worklet only)", "DAFx Ch.2 (crossfade structures)"],
+      checks: ["Assert mid-point RMS sits inside [min(dry,wet), max(dry,wet)] ± a few dB.", "Assert peak at Mix=0.5 does not exceed input peak by > 12 dB.", "Assert mid does not exactly match dry when wet is materially different — if it does, the mix knob is not wired.", "Confirm the crossfade is equal-power (cos/sin), not linear summation."],
+      antipatterns: ["External parallel dry leg added as a sibling gain — comb-filters against the oversampled wet path.", "Linear `out = dry + wet*m` instead of an equal-power crossfade — gain bump at mid-point.", "Mix knob controls wet-path gain only, leaving dry always on — dry dominates, mid ≈ dry."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Mix-knob mid-point looks sane",
+        meaning: "At Mix=50 the output level sits inside the dry/wet envelope and no peaks blow up. The crossfade is behaving.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  sample_rate_matrix: {
+    title:   "Plugin behaves differently at different sample rates",
+    meaning: "Ran the plugin at 44.1 / 48 / 88.2 / 96 / 192 kHz and the output level (or stability) changes more than it should between rates. DAWs run at whatever the user's project is set to — if a plugin sounds fine at 48 kHz but blows up (or loses 6 dB) at 96 kHz, it will surprise people in real sessions.",
+    fix:     "Audit for hardcoded sample-rate constants and un-normalized filter coefficients. Every time-domain constant should be expressed in seconds and multiplied by `sampleRate` at init. Every filter coefficient should be computed from `sampleRate` (or `ctx.sampleRate` in worklet), not baked in. Oversamplers must scale their internal rate correctly — a hardcoded 2× of 44.1k doesn't work at 192k.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → filter coeff computation + delay-line lengths", "src/<product>/<product>Engine.js → init time-domain constants + OS factor"],
+      refs:   ["MEMORY.md → jos_pasp_dsp_reference.md (bilinear transform + SR compensation)", "MEMORY.md → dafx_zolzer_textbook.md Ch.2 (filter structures, SR-dependent coefficients)"],
+      checks: ["Compute all biquad/allpass coefficients from the runtime sampleRate — never cache across rate changes.", "Express delay-line lengths as `timeSeconds * sampleRate` (rounded), not fixed sample counts.", "Validate oversampling factor × base SR ≤ browser max SR (~384k) — guard against silent downgrade."],
+      antipatterns: ["Hardcoded `const FS = 48000;` anywhere in DSP code.", "Filter coefficient tables precomputed for one SR and reused at others.", "Oversampler that assumes a specific base rate — breaks at 88.2/96/192 k."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Sample-rate matrix passed",
+        meaning: "The plugin behaved consistently across 44.1 / 48 / 88.2 / 96 / 192 kHz — output level within 3 dB across all rates, no non-finite samples. SR-independent as it should be.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  monosum_null: {
+    title:   "Plugin fails mono-compatibility check",
+    meaning: "At neutral width with decorrelated stereo input, the mono sum (L+R)/2 of the output drops by more than 6 dB vs the per-channel RMS — much more than the ~3 dB drop that's normal for decorrelated stereo. This means L and R are partially anti-phase. When a broadcaster, phone speaker, or mono sum fold-down hits this signal, parts of it will disappear. A DAW-level mono check will expose this instantly.",
+    fix:     "Audit any stage that cross-feeds L and R with a sign flip: Haas-style 'width' macros, M/S matrices, all-pass phase shifters. For a plugin at width=1 (neutral), the stereo handling must be identity — no cross-channel sign flips, no phase rotation between channels. Width > 1 is where Haas/cross-feed starts; at ≤1 the stereo field must pass through unchanged.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → stereo routing + width stage", "src/<product>/<product>Engine.js → setWidth + channel cross-feed"],
+      refs:   ["MEMORY.md → audio_engineer_mental_model.md (Space system / stereo rules)", "MEMORY.md → dry_wet_mix_rule.md (stereo-aware mix)", "DAFx Ch.5 (spatial processing)"],
+      checks: ["At width=1.0, assert out_L === in_L and out_R === in_R samplewise (minus plugin coloration).", "If using M/S: at width=1.0, M and S recombine losslessly (S coefficient = 1).", "Avoid all-pass between L and R paths — introduces phase rotation that breaks mono fold-down."],
+      antipatterns: ["Using a Haas cross-feed at width=1 instead of pure passthrough — 'adds 3D' but dies in mono.", "Running a stereo decorrelator on the dry leg to 'enhance width' — breaks mono compat by design.", "Applying different phase rotations to L and R (all-pass with different coeffs) — silent mono killer."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Mono-compatibility confirmed",
+        meaning: "At neutral width with decorrelated stereo input, the mono sum stayed within the expected ~3 dB drop for decorrelated content. No hidden anti-phase behavior. The plugin will survive mono fold-down on radio, phone speakers, and broadcast.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  // ── T3 / T4 — advanced + pressure rules (capability-gated skeletons) ────
+  // These rules are registered but their detection bodies are stubs.
+  // Each stub surfaces an INFO "measurement pending" finding ONLY when
+  // the plugin declares the relevant capability, so a plugin that never
+  // advertises (say) `freeze` will never see `freeze_stability` fire.
+  // This keeps audits honest about coverage without false-positive noise.
+
+  freeze_stability: {
+    title:   "Freeze mode stability — measurement pending",
+    meaning: "Plugins with a freeze / infinite-hold capability should maintain bounded output energy when the input is silenced for long windows. This check is registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.4 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (freeze_stability rule)", "src/qc-harness/qcPresets.js (freeze-probe preset, TBD)"],
+      refs:  ["MEMORY.md → reverb_engine_architecture (RT60, FDN stability)"],
+      checks: ["Capability gate: capabilities.freeze === true"],
+      antipatterns: ["Enabling the probe before the preset + measurement path exists."],
+    },
+  },
+  sidechain_regime: {
+    title:   "Sidechain regime coverage — measurement pending",
+    meaning: "Plugins with a sidechain input should be probed across key/ducking regimes (self-key, external-key, silent-key) to catch path-swap bugs. Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.5 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (sidechain_regime rule)", "src/qc-harness/captureHooks.js (sidechain routing)"],
+      refs:  ["DAFX Zölzer Ch.4 (dynamics + sidechain topologies)"],
+      checks: ["Capability gate: capabilities.sidechain === true"],
+      antipatterns: ["Assuming self-key if the engine doesn't surface a routing switch."],
+    },
+  },
+  wdf_convergence: {
+    title:   "WDF solver convergence — measurement pending",
+    meaning: "Wave Digital Filter-based engines (diode clippers, transformer stages) should converge within a bounded iteration count across the parameter space. Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.9 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (wdf_convergence rule)", "src/<product>/*Worklet.js (WDF iteration counters, TBD)"],
+      refs:  ["DAFX Zölzer Ch.12 (virtual analog, WDF diode)", "JOS PASP (WDF deep + adaptors)"],
+      checks: ["Capability gate: capabilities.wdf === true", "Engine surfaces an iteration-count breadcrumb per block."],
+      antipatterns: ["Capping iterations silently and calling it convergence."],
+    },
+  },
+  band_reconstruction: {
+    title:   "Band-split reconstruction — measurement pending",
+    meaning: "Multi-band engines should reconstruct to within a tight tolerance of input when all bands are set to unity. Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.6 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (band_reconstruction rule)", "src/qc-harness/qcPresets.js (flat-bands preset, TBD)"],
+      refs:  ["DAFX Zölzer Ch.2 (filter banks, perfect reconstruction)"],
+      checks: ["Capability gate: capabilities.bandsplit > 0"],
+      antipatterns: ["Measuring reconstruction with nonlinearity still active — it must be bypassed for this test."],
+    },
+  },
+  lpc_stability: {
+    title:   "LPC / source-filter stability — measurement pending",
+    meaning: "LPC-based engines (vocoders, talk-box emulations, formant shifters) should produce stable poles across the parameter space. Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.7 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (lpc_stability rule)"],
+      refs:  ["DAFX Zölzer Ch.8 (LPC + source-filter)"],
+      checks: ["Capability gate: capabilities.lpc === true"],
+      antipatterns: ["Accepting any finite output as 'stable' without checking pole radii."],
+    },
+  },
+  fft_frame_phase: {
+    title:   "FFT frame phase coherence — measurement pending",
+    meaning: "FFT-based engines (phase vocoders, spectral processors) should maintain phase coherence across frame boundaries on steady-state input. Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.8 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (fft_frame_phase rule)"],
+      refs:  ["DAFX Zölzer Ch.7 (phase vocoder)"],
+      checks: ["Capability gate: capabilities.fft === true"],
+      antipatterns: ["Measuring on transient input — steady-state probe required."],
+    },
+  },
+  pitch_idle: {
+    title:   "Pitch engine idle noise — measurement pending",
+    meaning: "Pitch-shifting engines should sit silent on silent input (no residual pitch-grain noise floor). Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T3.10 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (pitch_idle rule)"],
+      refs:  ["JOS PASP (pitch + granular synthesis)"],
+      checks: ["Capability gate: capabilities.pitch === true"],
+      antipatterns: ["Gating the rule on 'no visible pitch shift' rather than probing with silence."],
+    },
+  },
+  os_boundary: {
+    title:   "Oversampling boundary behavior — measurement pending",
+    meaning: "Engines with oversampling should handle the OS-on/OS-off boundary cleanly (no click, no state bleed). Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T4.2 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (os_boundary rule)", "src/<product>/*Worklet.js (OS enable/disable paths)"],
+      refs:  ["MEMORY.md → manchild_lessons (adaptive oversampling thresholds)"],
+      checks: ["Capability gate: capabilities.oversampling > 1"],
+      antipatterns: ["Skipping the boundary transient and only measuring steady state on either side."],
+    },
+  },
+  series_identity: {
+    title:   "Series-identity invariance — measurement pending",
+    meaning: "Two instances of the same plugin in neutral-bypass series should produce within tolerance of one instance in neutral-bypass (no accumulating coloration unless dryLegHasColoration is declared). Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T4.3 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (series_identity rule)"],
+      refs:  ["MEMORY.md → dry_wet_mix_rule", "CONFORMANCE → dryLegHasColoration opt-in"],
+      checks: ["Gate: capabilities.dryLegHasColoration !== true (honest-bypass plugins only)"],
+      antipatterns: ["Running on a vari-mu / always-colored plugin and calling the coloration a bug."],
+    },
+  },
+  long_session_drift: {
+    title:   "Long-session parameter drift — measurement pending",
+    meaning: "Over a long capture window, no parameter should drift (e.g. runaway envelope followers, accumulating denormal rebound, clock drift). Registered but not yet measured.",
+    fix:     "No action required yet. Rule skeleton will be filled in during T4.4 implementation.",
+    dev: {
+      files: ["src/qc-harness/qcAnalyzer.js (long_session_drift rule)", "src/qc-harness/Analyzer.jsx (long-capture harness path)"],
+      refs:  ["MEMORY.md → manchild_lessons (30Hz throttled meter, disposal)"],
+      checks: ["Gate: long-capture probe preset present in bundle (capabilities-agnostic)"],
+      antipatterns: ["Confusing DAW-level drift with plugin-internal drift."],
     },
   },
 };
@@ -464,6 +927,12 @@ const RULES = [
   // catch audible overshoots, not measurement drift.
   (_, _snaps, ctx) => {
     const LUFS_AUDIBLE_EPS = 0.3;
+    // Character / NL plugins are expected to add loudness under drive —
+    // that's what loudness_comp (below) handles with family-aware tiers.
+    // Muting this rule for NL plugins avoids double-firing on every
+    // character preset.
+    const nlStages = ctx.pluginSnaps[0]?.capabilities?.nonlinearStages ?? 0;
+    if (nlStages > 0) return null;
     const hits = ctx.pluginSnaps.filter(s => finite(s?.measurements?.deltaLufsDb) && s.measurements.deltaLufsDb > LUFS_AUDIBLE_EPS);
     if (!hits.length) return null;
     // DIAG: also dump engineState.out so the MD report tells us whether
@@ -483,6 +952,60 @@ const RULES = [
       msg: `${hits.length} preset(s) are louder than the input (positive LUFS delta). `
          + `Review makeup-gain settings or confirm the gain-up is intentional.`,
       affected: hits.map(fmtHit),
+    };
+  },
+
+  // R5b — character / NL plugins are EXPECTED to add loudness under
+  // drive (tube, tape, saturator, clipper, amp sim). Flagging them with
+  // louder_than_input creates false positives on every character preset.
+  // This rule fires ONLY when `capabilities.nonlinearStages > 0`, with
+  // family-aware tiered severity:
+  //
+  //   > +6 LUFS  → WARN  (too hot, makeup-gain authoring bug suspected)
+  //   +3..+6    → INFO  (character uplift, on the high side of plausible)
+  //   +0.3..+3  → INFO  (character uplift, expected)
+  //   ≤ +0.3    → silent (within measurement noise / inaudible)
+  //
+  // Thresholds sourced from audio_engineer_mental_model.md (loudness
+  // compensation rules) and pasp_through_design_lens.md (character
+  // family recipes). Hardware character plugins are typically designed
+  // to loudness-match at unity drive; +3 LUFS is already noticeable,
+  // +6 is where users say "this plugin is just louder."
+  (_, _snaps, ctx) => {
+    const snaps = ctx.pluginSnaps;
+    if (!snaps.length) return null;
+    const nlStages = snaps[0]?.capabilities?.nonlinearStages ?? 0;
+    if (nlStages <= 0) return null;
+
+    const WARN_DB = 6.0;
+    const INFO_DB = 0.3;
+
+    const withDelta = snaps.filter(s => finite(s?.measurements?.deltaLufsDb));
+    const warnHits = withDelta.filter(s => s.measurements.deltaLufsDb > WARN_DB);
+    const infoHits = withDelta.filter(s =>
+      s.measurements.deltaLufsDb > INFO_DB && s.measurements.deltaLufsDb <= WARN_DB
+    );
+
+    if (!warnHits.length && !infoHits.length) return null;
+
+    const fmtHit = (s) => `${s.label} (+${s.measurements.deltaLufsDb.toFixed(1)} dB LUFS)`;
+
+    if (warnHits.length) {
+      return {
+        severity: WARN,
+        rule: 'loudness_comp',
+        msg: `${warnHits.length} preset(s) add > +${WARN_DB} LUFS above input on a character/NL plugin. `
+           + `Some uplift is expected for this family, but this level usually indicates a makeup-gain authoring issue.`,
+        affected: warnHits.map(fmtHit),
+      };
+    }
+
+    return {
+      severity: INFO,
+      rule: 'loudness_comp',
+      msg: `${infoHits.length} preset(s) add +${INFO_DB}–${WARN_DB} LUFS above input. `
+         + `Expected behavior for character/NL plugins (${nlStages} nonlinear stage${nlStages > 1 ? 's' : ''} declared).`,
+      affected: infoHits.map(fmtHit),
     };
   },
 
@@ -812,6 +1335,673 @@ const RULES = [
     };
   },
 
+  // ── Capture-hook consumers ─────────────────────────────────────────
+  // Each reads the specific measurement field written by captureHooks.js
+  // for a given QC preset ruleId. The pattern: gather probes by ruleId,
+  // self-disable to INFO/capture_pending when no measurement is present,
+  // fire WARN/FAIL on a threshold breach, INFO diagnostic otherwise.
+
+  // QC-R5 — impulse_ir. Non-finite output = numerical explosion in the
+  // filter or feedback chain. Hard failure, not context-dependent.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'impulse_ir');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.impulseFinite !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'impulse_ir',
+        msg: `capture_pending: impulse-IR measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const bad = withData.filter(s => s.measurements.impulseFinite === false);
+    if (bad.length) {
+      return {
+        severity: FAIL, rule: 'impulse_ir',
+        msg: `${bad.length} impulse-IR capture(s) produced NaN or Infinity — numerical explosion in the signal path.`,
+        affected: bad.map(s => `${s.label} (non-finite output)`),
+      };
+    }
+    return {
+      severity: INFO, rule: 'impulse_ir',
+      msg: `Impulse response finite across ${withData.length} capture(s). Numerical stability check passed.`,
+      affected: withData.map(s => {
+        const pk = s.measurements.impulsePeakDb;
+        const tl = s.measurements.impulseTailDb;
+        return `${s.label} (peak=${finite(pk) ? pk.toFixed(1)+'dB' : '—'}, tail60ms=${finite(tl) ? tl.toFixed(1)+'dB' : '—'})`;
+      }),
+    };
+  },
+
+  // QC-R6 — bypass_exact. Residual above the bit-exact floor means
+  // something is still processing even when bypass is engaged. −60 dB is
+  // the user-audible gate; the true float floor is ~−140 dB but we don't
+  // need to police that tightly.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'bypass_exact');
+    if (!probes.length) return null;
+    // Presence check (not finite()): −Infinity is a valid, *cleanest-possible*
+    // residual (bit-exact bypass ⇒ rmsToDb(0) = −Infinity). Only `undefined`
+    // means the capture hook didn't write the field.
+    const withData = probes.filter(s => s?.measurements?.bypassResidualDb !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'bypass_exact',
+        msg: `capture_pending: bypass-residual measurement not written. Check captureHooks.getEngineFactory for a factory route, and confirm the engine exposes \`setBypass\`.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB (bit-exact)';
+    const hits = withData.filter(s => s.measurements.bypassResidualDb > -60);
+    if (hits.length) {
+      return {
+        severity: WARN, rule: 'bypass_exact',
+        msg: `${hits.length} bypass capture(s) show residual > −60 dB — bypass is not a clean passthrough.`,
+        affected: hits.map(s => `${s.label} (residual=${fmtDb(s.measurements.bypassResidualDb)}, want < −60)`),
+      };
+    }
+    return {
+      severity: INFO, rule: 'bypass_exact',
+      msg: `Bypass residual is clean (< −60 dB) across ${withData.length} capture(s).`,
+      affected: withData.map(s => `${s.label} (residual=${fmtDb(s.measurements.bypassResidualDb)})`),
+    };
+  },
+
+  // QC-R7 — latency_report. |measured − declared| > 1 sample = phase
+  // alignment issue in the DAW. Tight gate is intentional: lookahead
+  // limiters must declare to the sample.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'latency_report');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => finite(s?.measurements?.measuredLatencySamples));
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'latency_report',
+        msg: `capture_pending: latency measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const hits = withData.filter(s => finite(s?.measurements?.latencyDeltaSamples)
+      && Math.abs(s.measurements.latencyDeltaSamples) > 1);
+    if (hits.length) {
+      return {
+        severity: WARN, rule: 'latency_report',
+        msg: `${hits.length} capture(s) show |declared − measured| > 1 sample — DAW plugin-delay compensation will be off.`,
+        affected: hits.map(s => {
+          const m = s.measurements;
+          return `${s.label} (declared=${m.declaredLatencySamples}, measured=${m.measuredLatencySamples}, Δ=${m.latencyDeltaSamples})`;
+        }),
+      };
+    }
+    return {
+      severity: INFO, rule: 'latency_report',
+      msg: `Declared latency matches measured across ${withData.length} capture(s).`,
+      affected: withData.map(s => {
+        const m = s.measurements;
+        return `${s.label} (declared=${m.declaredLatencySamples}, measured=${m.measuredLatencySamples})`;
+      }),
+    };
+  },
+
+  // QC-R8 — feedback_runaway. Non-finite or peak > +6 dBFS under max-FB
+  // max-drive = the plugin will blow speakers on some preset. Hard fail.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'feedback_runaway');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.fbRunawayFinite !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'feedback_runaway',
+        msg: `capture_pending: feedback-runaway measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const bad = withData.filter(s => s.measurements.fbRunawayBounded === false);
+    if (bad.length) {
+      return {
+        severity: FAIL, rule: 'feedback_runaway',
+        msg: `${bad.length} feedback-stress capture(s) produced non-finite or unbounded output (> +6 dBFS amplitude).`,
+        affected: bad.map(s => {
+          const m = s.measurements;
+          const pk = finite(m.fbRunawayPeakDb) ? m.fbRunawayPeakDb.toFixed(1)+' dB' : 'NaN';
+          return `${s.label} (finite=${m.fbRunawayFinite}, peak=${pk})`;
+        }),
+      };
+    }
+    return {
+      severity: INFO, rule: 'feedback_runaway',
+      msg: `Feedback stress test passed on ${withData.length} capture(s) — output bounded and finite.`,
+      affected: withData.map(s => `${s.label} (peak=${s.measurements.fbRunawayPeakDb.toFixed(1)} dB)`),
+    };
+  },
+
+  // QC-R8b — monosum_null. At neutral width with decorrelated stereo,
+  // the mono-sum (L+R)/2 should track the per-channel RMS minus ~3 dB
+  // (expected for independent L/R). A drop of > 6 dB = partial anti-phase
+  // = mono-compat hazard. Broadcast / phone / sum-to-mono will partly
+  // null the signal.
+  //
+  // Thresholds:
+  //   monosumCompatDb ≥ −4 dB  → INFO ok (−3 dB is ideal decorrelated)
+  //   −6 dB ≤ compatDb < −4 dB → WARN (worse than ideal; audit width stage)
+  //   compatDb < −6 dB         → FAIL (anti-phase; will die in mono)
+  //   non-finite samples       → FAIL (separate path; catastrophic)
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'monosum_null');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.monosumCompatDb !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'monosum_null',
+        msg: `capture_pending: monosum-null measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    // Catastrophic: non-finite samples in the render
+    const nonFinite = withData.filter(s => (s.measurements.monosumNonFinite || 0) > 0);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'monosum_null',
+        msg: `${nonFinite.length} monosum capture(s) produced non-finite samples under decorrelated stereo input.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite=${s.measurements.monosumNonFinite})`),
+      };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB';
+    const fails = withData.filter(s => {
+      const db = s.measurements.monosumCompatDb;
+      return Number.isFinite(db) ? db < -6 : true;  // −∞ counts as fail
+    });
+    if (fails.length) {
+      return {
+        severity: FAIL, rule: 'monosum_null',
+        msg: `${fails.length} capture(s) show mono-compat < −6 dB — anti-phase behavior at neutral width. Signal will partly cancel on mono fold-down.`,
+        affected: fails.map(s => `${s.label} (compat=${fmtDb(s.measurements.monosumCompatDb)}, L=${fmtDb(s.measurements.monosumOutLRmsDb)}, R=${fmtDb(s.measurements.monosumOutRRmsDb)})`),
+      };
+    }
+    const warns = withData.filter(s => {
+      const db = s.measurements.monosumCompatDb;
+      return Number.isFinite(db) && db >= -6 && db < -4;
+    });
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'monosum_null',
+        msg: `${warns.length} capture(s) show mono-compat between −6 dB and −4 dB — worse than the ~−3 dB expected for decorrelated stereo. Audit the width stage for cross-channel phase rotation.`,
+        affected: warns.map(s => `${s.label} (compat=${fmtDb(s.measurements.monosumCompatDb)})`),
+      };
+    }
+    return {
+      severity: INFO, rule: 'monosum_null',
+      msg: `Mono-compatibility confirmed on ${withData.length} capture(s) — mono-sum within ~3 dB of per-channel RMS.`,
+      affected: withData.map(s => `${s.label} (compat=${fmtDb(s.measurements.monosumCompatDb)})`),
+    };
+  },
+
+  // QC-R8c — sample_rate_matrix. Plugin ran at 44.1/48/88.2/96/192 kHz.
+  // Cross-SR level variance > 6 dB = broken SR-handling (hardcoded
+  // constants, un-normalized filter coeffs). Non-finite at any SR = FAIL.
+  (_, _snaps, ctx) => {
+    const fmt = (x) => finite(x) ? `${x.toFixed(1)} dB` : '—';
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'sample_rate_matrix');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.srTargetSampleRate !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'sample_rate_matrix',
+        msg: `capture_pending: sample-rate-matrix measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+
+    // Render errors (browser rejected SR) — surface as INFO, not failure.
+    // Some browsers cap at 96k; 192k can legitimately fail.
+    const rendered = withData.filter(s => s.measurements.srOutputFinite !== undefined);
+    const errored  = withData.filter(s => s.measurements.srRenderError);
+    if (rendered.length === 0) {
+      return {
+        severity: INFO, rule: 'sample_rate_matrix',
+        msg: `All ${withData.length} sample-rate probes failed to render — likely browser doesn't support offline rendering at these rates.`,
+        affected: withData.map(s => {
+          const sr = s.measurements.srTargetSampleRate;
+          const err = s.measurements.srRenderError || 'no-data';
+          return `${s.label} (sr=${sr}, ${err})`;
+        }),
+      };
+    }
+
+    // Catastrophic: non-finite output at any rate
+    const badFinite = rendered.filter(s => s.measurements.srOutputFinite === false);
+    if (badFinite.length) {
+      return {
+        severity: FAIL, rule: 'sample_rate_matrix',
+        msg: `${badFinite.length} sample-rate probe(s) produced non-finite output — plugin is broken at those rates.`,
+        affected: badFinite.map(s => `${s.label} (sr=${s.measurements.srTargetSampleRate} Hz, non-finite)`),
+      };
+    }
+
+    // Cross-SR level variance
+    const rmsVals = rendered
+      .map(s => s.measurements.srOutputRmsDb)
+      .filter(v => Number.isFinite(v));
+    if (rmsVals.length < 2) {
+      return {
+        severity: INFO, rule: 'sample_rate_matrix',
+        msg: `Only ${rmsVals.length} usable sample-rate probe(s) — not enough to cross-compare.`,
+        affected: rendered.map(s => `${s.label} (sr=${s.measurements.srTargetSampleRate} Hz, rms=${fmt(s.measurements.srOutputRmsDb)})`),
+      };
+    }
+    const minRms = Math.min(...rmsVals);
+    const maxRms = Math.max(...rmsVals);
+    const variance = maxRms - minRms;
+
+    const affectedDetail = rendered.map(s => {
+      const m = s.measurements;
+      return `${s.label} (sr=${m.srTargetSampleRate} Hz, out=${fmt(m.srOutputRmsDb)}, Δin/out=${fmt(m.srOutVsInDeltaDb)})`;
+    });
+
+    if (variance > 6) {
+      return {
+        severity: FAIL, rule: 'sample_rate_matrix',
+        msg: `Output RMS varies ${variance.toFixed(1)} dB across sample rates (${minRms.toFixed(1)} → ${maxRms.toFixed(1)} dB). Plugin has SR-dependent gain — hardcoded constants or un-normalized filter coefficients.`,
+        affected: affectedDetail,
+      };
+    }
+    if (variance >= 3) {
+      return {
+        severity: WARN, rule: 'sample_rate_matrix',
+        msg: `Output RMS varies ${variance.toFixed(1)} dB across sample rates — worse than expected but not catastrophic. Audit SR-dependent constants.`,
+        affected: affectedDetail,
+      };
+    }
+    const errTail = errored.length ? ` (${errored.length} rate(s) unsupported by browser, ignored)` : '';
+    return {
+      severity: INFO, rule: 'sample_rate_matrix',
+      msg: `Sample-rate matrix passed on ${rendered.length} rate(s) — variance ${variance.toFixed(1)} dB${errTail}.`,
+      affected: affectedDetail,
+    };
+  },
+
+  // QC-R8d — mix_sanity. At Mix=0.5 the output level should sit inside
+  // the [dry, wet] envelope and the mix-stage peak should not overshoot
+  // the input peak by more than ~12 dB. Failure modes caught:
+  //   * non-finite output       → FAIL (mid-point blew up)
+  //   * peak > input + 12 dB    → FAIL (linear dry+wet summation, not
+  //                                      an equal-power crossfade)
+  //   * mid ≈ dry and wet≠dry   → WARN (mix knob stuck / not wired)
+  //   * mid outside envelope by → WARN (envelopeDb > 3 dB above max, or
+  //       more than 3 dB                 more than 3 dB below min)
+  //   * otherwise               → INFO ok
+  //
+  // Gate is skipped (capture_pending → INFO) if measurements were never
+  // written — hook self-disables when mixName is absent or the engine
+  // factory can't be resolved.
+  (_, _snaps, ctx) => {
+    const fmt = (x) => finite(x) ? `${x.toFixed(1)} dB` : '−∞ dB';
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'mix_sanity');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.mixSanityMidRmsDb !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'mix_sanity',
+        msg: `capture_pending: mix-sanity measurement not written. Check captureHooks.getEngineFactory for a factory route, or confirm the plugin's paramSchema declares a mix parameter.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+
+    // Catastrophic: non-finite at the mid-point
+    const nonFinite = withData.filter(s => s.measurements.mixSanityFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'mix_sanity',
+        msg: `${nonFinite.length} mix-sanity capture(s) produced non-finite output at Mix=0.5.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite at mid-point)`),
+      };
+    }
+
+    // Catastrophic: peak overshoot — mid-point peak vs input RMS > +12 dB
+    const peakBombs = withData.filter(s => {
+      const m = s.measurements;
+      return finite(m.mixSanityMidPeakDb) && finite(m.mixSanityInRmsDb)
+        && (m.mixSanityMidPeakDb - m.mixSanityInRmsDb) > 12;
+    });
+    if (peakBombs.length) {
+      return {
+        severity: FAIL, rule: 'mix_sanity',
+        msg: `${peakBombs.length} capture(s) show mid-point peak more than 12 dB above input at Mix=0.5 — blend is summing dry+wet linearly instead of cross-fading.`,
+        affected: peakBombs.map(s => {
+          const m = s.measurements;
+          return `${s.label} (peak=${fmt(m.mixSanityMidPeakDb)}, in=${fmt(m.mixSanityInRmsDb)})`;
+        }),
+      };
+    }
+
+    // Mix knob stuck: mid ≈ dry when wet is materially different
+    const stuck = withData.filter(s => {
+      const m = s.measurements;
+      return finite(m.mixSanityDryWetSepDb) && finite(m.mixSanityMidVsDryDb)
+        && m.mixSanityDryWetSepDb > 1
+        && Math.abs(m.mixSanityMidVsDryDb) < 0.3;
+    });
+    if (stuck.length) {
+      return {
+        severity: WARN, rule: 'mix_sanity',
+        msg: `${stuck.length} capture(s) show Mix=0.5 output matching Mix=0 (dry) within 0.3 dB while wet differs by > 1 dB — mix knob appears not to be wired.`,
+        affected: stuck.map(s => {
+          const m = s.measurements;
+          return `${s.label} (mid−dry=${fmt(m.mixSanityMidVsDryDb)}, sep=${fmt(m.mixSanityDryWetSepDb)})`;
+        }),
+      };
+    }
+
+    // Envelope violation: mid sits far outside [min(dry,wet), max(dry,wet)]
+    const envViol = withData.filter(s => {
+      const env = s.measurements.mixSanityEnvelopeDb;
+      return finite(env) && Math.abs(env) > 3;
+    });
+    if (envViol.length) {
+      return {
+        severity: WARN, rule: 'mix_sanity',
+        msg: `${envViol.length} capture(s) show Mix=0.5 RMS more than 3 dB outside the dry/wet envelope — crossfade likely has a gain bump or missing equal-power scaling.`,
+        affected: envViol.map(s => {
+          const m = s.measurements;
+          return `${s.label} (mid=${fmt(m.mixSanityMidRmsDb)}, dry=${fmt(m.mixSanityDryRmsDb)}, wet=${fmt(m.mixSanityWetRmsDb)}, env=${fmt(m.mixSanityEnvelopeDb)})`;
+        }),
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'mix_sanity',
+      msg: `Mix mid-point sanity confirmed on ${withData.length} capture(s) — Mix=0.5 sits inside the dry/wet envelope with no peak runaway.`,
+      affected: withData.map(s => {
+        const m = s.measurements;
+        return `${s.label} (mid=${fmt(m.mixSanityMidRmsDb)}, dry=${fmt(m.mixSanityDryRmsDb)}, wet=${fmt(m.mixSanityWetRmsDb)})`;
+      }),
+    };
+  },
+
+  // QC-R9 — pathological_stereo. Two failure modes we can detect:
+  //   (a) L_only input → stereoPeakR >> −60 dB below stereoPeakL (cross-bleed)
+  //   (b) side_only input → stereoSideRmsDb collapses (unwanted mono-sum)
+  // All other variants are informational for now.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'pathological_stereo');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.stereoVariant !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'pathological_stereo',
+        msg: `capture_pending: pathological-stereo measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const hits = [];
+    for (const s of withData) {
+      const m = s.measurements;
+      if (m.stereoVariant === 'L_only'
+          && finite(m.stereoPeakLDb) && finite(m.stereoPeakRDb)
+          && (m.stereoPeakRDb - m.stereoPeakLDb) > -40) {
+        hits.push(`${s.label} (L-only input → R-peak=${m.stereoPeakRDb.toFixed(1)} dB vs L-peak=${m.stereoPeakLDb.toFixed(1)} dB — cross-channel bleed)`);
+      } else if (m.stereoVariant === 'R_only'
+          && finite(m.stereoPeakLDb) && finite(m.stereoPeakRDb)
+          && (m.stereoPeakLDb - m.stereoPeakRDb) > -40) {
+        hits.push(`${s.label} (R-only input → L-peak=${m.stereoPeakLDb.toFixed(1)} dB vs R-peak=${m.stereoPeakRDb.toFixed(1)} dB — cross-channel bleed)`);
+      } else if (m.stereoVariant === 'side_only'
+          && finite(m.stereoSideRmsDb) && finite(m.stereoMidRmsDb)
+          && (m.stereoMidRmsDb - m.stereoSideRmsDb) > 0) {
+        hits.push(`${s.label} (side-only input → M(${m.stereoMidRmsDb.toFixed(1)} dB) > S(${m.stereoSideRmsDb.toFixed(1)} dB) — unwanted mono-collapse)`);
+      }
+    }
+    if (hits.length) {
+      return {
+        severity: WARN, rule: 'pathological_stereo',
+        msg: `${hits.length} stereo variant(s) show unexpected channel behavior.`,
+        affected: hits,
+      };
+    }
+    return {
+      severity: INFO, rule: 'pathological_stereo',
+      msg: `Stereo variants (${withData.length} capture(s)) passed — no cross-bleed or mono-collapse detected.`,
+      affected: withData.map(s => {
+        const m = s.measurements;
+        return `${s.label} (L=${finite(m.stereoPeakLDb) ? m.stereoPeakLDb.toFixed(1)+'dB' : '—'}, R=${finite(m.stereoPeakRDb) ? m.stereoPeakRDb.toFixed(1)+'dB' : '—'})`;
+      }),
+    };
+  },
+
+  // QC-R9b — extreme_freq. DC / 10 Hz / near-Nyquist sine probes. Two
+  // failure modes caught:
+  //   (a) non-finite output (NaN/Inf — divide-by-zero, bilinear blow-up)
+  //   (b) peak overshoot: efGainDb > 12 dB = filter instability or
+  //       resonator ringing at the test frequency
+  // Middle band (3–12 dB overshoot) lands as WARN.
+  (_, _snaps, ctx) => {
+    const fmt = (x) => finite(x) ? `${x.toFixed(1)} dB` : '−∞ dB';
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'extreme_freq');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.efFreqHz !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'extreme_freq',
+        msg: `capture_pending: extreme-freq measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+
+    const fmtHz = (hz) => {
+      if (!Number.isFinite(hz)) return '—';
+      if (hz === 0) return 'DC';
+      if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
+      return `${hz.toFixed(1)} Hz`;
+    };
+
+    // Catastrophic: non-finite at any probe
+    const nonFinite = withData.filter(s => s.measurements.efFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'extreme_freq',
+        msg: `${nonFinite.length} edge-frequency probe(s) produced non-finite output — divide-by-zero or filter blow-up near DC or Nyquist.`,
+        affected: nonFinite.map(s => `${s.label} (f=${fmtHz(s.measurements.efFreqHz)}, non-finite)`),
+      };
+    }
+
+    // Runaway peak: > +12 dB vs input
+    const bombs = withData.filter(s => finite(s.measurements.efGainDb) && s.measurements.efGainDb > 12);
+    if (bombs.length) {
+      return {
+        severity: FAIL, rule: 'extreme_freq',
+        msg: `${bombs.length} edge-frequency probe(s) show output peak more than 12 dB above input — filter instability or resonator ringing.`,
+        affected: bombs.map(s => {
+          const m = s.measurements;
+          return `${s.label} (f=${fmtHz(m.efFreqHz)}, out-peak=${fmt(m.efOutPeakDb)}, gain=${fmt(m.efGainDb)})`;
+        }),
+      };
+    }
+
+    // Warning band: 3–12 dB overshoot
+    const warns = withData.filter(s => finite(s.measurements.efGainDb)
+      && s.measurements.efGainDb >= 3 && s.measurements.efGainDb <= 12);
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'extreme_freq',
+        msg: `${warns.length} edge-frequency probe(s) show output peak 3–12 dB above input — worth auditing filter coefficients at these rates.`,
+        affected: warns.map(s => {
+          const m = s.measurements;
+          return `${s.label} (f=${fmtHz(m.efFreqHz)}, gain=${fmt(m.efGainDb)})`;
+        }),
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'extreme_freq',
+      msg: `Edge-frequency sweep passed on ${withData.length} probe(s) — finite output, peak within 3 dB of input at every tested rate.`,
+      affected: withData.map(s => {
+        const m = s.measurements;
+        return `${s.label} (f=${fmtHz(m.efFreqHz)}, gain=${fmt(m.efGainDb)})`;
+      }),
+    };
+  },
+
+  // QC-R10 — denormal_tail. Two failure modes:
+  //   (a) subnormals present (tailSubnormalCount > 0) — CPU-killer on DAWs
+  //   (b) tailFinalRmsDb > −100 — plugin still producing audio 4s after stim
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'denormal_tail');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => finite(s?.measurements?.tailFinalRmsDb)
+      || s?.measurements?.tailSubnormalCount !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'denormal_tail',
+        msg: `capture_pending: denormal-tail measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const hits = withData.filter(s => {
+      const m = s.measurements;
+      return (m.tailSubnormalCount && m.tailSubnormalCount > 0)
+          || (finite(m.tailFinalRmsDb) && m.tailFinalRmsDb > -100)
+          || m.tailFinite === false;
+    });
+    if (hits.length) {
+      return {
+        severity: WARN, rule: 'denormal_tail',
+        msg: `${hits.length} silence-tail capture(s) detected subnormals, residual audio, or non-finite output.`,
+        affected: hits.map(s => {
+          const m = s.measurements;
+          const sub = m.tailSubnormalCount ?? 0;
+          const fin = finite(m.tailFinalRmsDb) ? m.tailFinalRmsDb.toFixed(1)+' dB' : '—';
+          return `${s.label} (subnormals=${sub}, final-RMS=${fin}, finite=${m.tailFinite})`;
+        }),
+      };
+    }
+    return {
+      severity: INFO, rule: 'denormal_tail',
+      msg: `Denormal tail check passed across ${withData.length} capture(s) — no subnormals, clean decay.`,
+      affected: withData.map(s => {
+        const m = s.measurements;
+        return `${s.label} (subnormals=${m.tailSubnormalCount ?? 0}, final-RMS=${finite(m.tailFinalRmsDb) ? m.tailFinalRmsDb.toFixed(1)+'dB' : '—'})`;
+      }),
+    };
+  },
+
+  // QC-R11 — mix_identity. At Mix=100 the plugin must actually process.
+  // If (out − in) residual < −60 dB the wet path is silent or passthrough.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'mix_identity');
+    if (!probes.length) return null;
+    // Presence check: −Infinity is meaningful here (out === in ⇒ wet path dead),
+    // so we must not reject it as "missing". Only `undefined` is missing.
+    const withData = probes.filter(s => s?.measurements?.mixIdentityResidualDb !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'mix_identity',
+        msg: `capture_pending: mix-identity measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB (identical to input)';
+    const hits = withData.filter(s => s.measurements.mixIdentityResidualDb < -60);
+    if (hits.length) {
+      return {
+        severity: WARN, rule: 'mix_identity',
+        msg: `${hits.length} Mix=100 capture(s) show residual < −60 dB vs input — wet path may be silent or passthrough.`,
+        affected: hits.map(s => {
+          const m = s.measurements;
+          return `${s.label} (residual=${fmtDb(m.mixIdentityResidualDb)}, outRMS=${finite(m.mixIdentityOutRmsDb) ? m.mixIdentityOutRmsDb.toFixed(1)+'dB' : '—'})`;
+        }),
+      };
+    }
+    return {
+      severity: INFO, rule: 'mix_identity',
+      msg: `Wet-path confirmed active at Mix=100 across ${withData.length} capture(s).`,
+      affected: withData.map(s => `${s.label} (residual=${fmtDb(s.measurements.mixIdentityResidualDb)})`),
+    };
+  },
+
+  // ── T3 / T4 — capability-gated stubs ────────────────────────────────────
+  // Each stub reads `snaps[0]?.capabilities` (every snap embeds a capability
+  // dict; the first is representative). Returns null when the capability is
+  // absent so the rule is silent on plugins that don't need it. Returns
+  // INFO "measurement pending" when the capability IS present, so audits
+  // surface coverage gaps honestly instead of hiding them.
+  //
+  // Implementation lands per-rule during Flap Jack Man / Panther Buss
+  // onboarding + the cross-plugin T3/T4 rollup.
+
+  // T3.4 freeze_stability
+  (_, snaps) => {
+    if (!(snaps[0]?.capabilities?.freeze === true)) return null;
+    return { severity: INFO, rule: 'freeze_stability',
+      msg: 'freeze_stability probe registered (capability declared); detection body pending T3.4 implementation.' };
+  },
+
+  // T3.5 sidechain_regime
+  (_, snaps) => {
+    if (!(snaps[0]?.capabilities?.sidechain === true)) return null;
+    return { severity: INFO, rule: 'sidechain_regime',
+      msg: 'sidechain_regime probe registered (capability declared); detection body pending T3.5 implementation.' };
+  },
+
+  // T3.6 band_reconstruction
+  (_, snaps) => {
+    const n = snaps[0]?.capabilities?.bandsplit ?? 0;
+    if (!(typeof n === 'number' && n > 0)) return null;
+    return { severity: INFO, rule: 'band_reconstruction',
+      msg: `band_reconstruction probe registered (bandsplit=${n}); detection body pending T3.6 implementation.` };
+  },
+
+  // T3.7 lpc_stability
+  (_, snaps) => {
+    if (!(snaps[0]?.capabilities?.lpc === true)) return null;
+    return { severity: INFO, rule: 'lpc_stability',
+      msg: 'lpc_stability probe registered (capability declared); detection body pending T3.7 implementation.' };
+  },
+
+  // T3.8 fft_frame_phase
+  (_, snaps) => {
+    if (!(snaps[0]?.capabilities?.fft === true)) return null;
+    return { severity: INFO, rule: 'fft_frame_phase',
+      msg: 'fft_frame_phase probe registered (capability declared); detection body pending T3.8 implementation.' };
+  },
+
+  // T3.9 wdf_convergence
+  (_, snaps) => {
+    if (!(snaps[0]?.capabilities?.wdf === true)) return null;
+    return { severity: INFO, rule: 'wdf_convergence',
+      msg: 'wdf_convergence probe registered (capability declared); detection body pending T3.9 implementation.' };
+  },
+
+  // T3.10 pitch_idle
+  (_, snaps) => {
+    if (!(snaps[0]?.capabilities?.pitch === true)) return null;
+    return { severity: INFO, rule: 'pitch_idle',
+      msg: 'pitch_idle probe registered (capability declared); detection body pending T3.10 implementation.' };
+  },
+
+  // T4.2 os_boundary
+  (_, snaps) => {
+    const os = snaps[0]?.capabilities?.oversampling ?? 1;
+    if (!(typeof os === 'number' && os > 1)) return null;
+    return { severity: INFO, rule: 'os_boundary',
+      msg: `os_boundary probe registered (oversampling=${os}×); detection body pending T4.2 implementation.` };
+  },
+
+  // T4.3 series_identity — honest-bypass plugins only
+  (_, snaps) => {
+    const caps = snaps[0]?.capabilities;
+    if (!caps) return null;
+    if (caps.dryLegHasColoration === true) return null; // by design, not a bug
+    return { severity: INFO, rule: 'series_identity',
+      msg: 'series_identity probe registered (honest-bypass plugin); detection body pending T4.3 implementation.' };
+  },
+
+  // T4.4 long_session_drift — fires if a long-capture probe snap exists
+  (_, _snaps, ctx) => {
+    const longSnap = (ctx.qcSnaps || []).find(s => s?.qc?.ruleId === 'long_capture');
+    if (!longSnap) return null;
+    return { severity: INFO, rule: 'long_session_drift',
+      msg: 'long_session_drift probe registered (long-capture snap present); detection body pending T4.4 implementation.' };
+  },
+
 ];
 
 // ── Public API ──────────────────────────────────────────────────────────
@@ -953,7 +2143,7 @@ export function reportToMarkdown(report, bundle) {
              : '✅ Looks good';
 
   const pid  = bundle?.product?.productId || '?';
-  const vid  = bundle?.product?.variantId  || '?';
+  const vid  = bundle?.product?.version    || '?';
   const when = bundle?.capturedAt || new Date().toISOString();
 
   L.push(`# QC Audit Report — ${pid} · ${vid}`);

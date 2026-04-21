@@ -125,12 +125,14 @@ function tier1(capabilities, paramSchema) {
     });
     presets.push({
       id: 'qc_t1_mix_50',
-      label: 'QC · T1 · Mix=50 (no-GR sanity)',
-      // Informational snapshot — the analyzer doesn't judge mix=50
-      // directly; it's here so a human eyeballing the audit can sanity-
-      // check the mid-point behavior.
+      label: 'QC · T1 · Mix=50 (mid-point sanity)',
+      // Emits a mix=0.5 capture; the hook (renderMixSanity) re-renders
+      // dry (Mix=0) and wet (Mix=1) references in the same sweep and
+      // compares. Meta carries mixName + neutral so the hook can build
+      // sibling param objects without re-resolving paramSchema.
       tier: 1, ruleId: 'mix_sanity', source: 'qc',
       params: { ...neutral, [mixName]: 0.5 },
+      meta: { mixName, neutralParams: { ...neutral } },
     });
   }
 
@@ -312,14 +314,27 @@ function tier3(capabilities, paramSchema) {
     });
   }
 
-  // Latency report match
+  // Latency report match.
+  //
+  // Fires whenever the plugin declares non-zero latency. `hasLookahead`
+  // propagates through `meta` so the analyzer can distinguish two modes:
+  //   - `hasLookahead === true` → intentional latency (lookahead limiter
+  //     prefetch buffer). Rule checks declared === measured, tight gate.
+  //   - `hasLookahead` absent/false → unusual: non-zero latency without
+  //     a declared lookahead stage is usually a mis-declaration (pipeline
+  //     delay not accounted for). Rule can warn on mere existence.
+  // Per qc_capability_flags.md §4 cross-flag interactions.
   if ((cap.latencySamples ?? 0) > 0) {
     presets.push({
       id: 'qc_t3_latency_report',
       label: 'QC · T3 · Latency report match',
       tier: 3, ruleId: 'latency_report', source: 'qc',
       params: { ...neutral },
-      meta: { signalSource: 'impulse', declaredLatency: cap.latencySamples },
+      meta: {
+        signalSource: 'impulse',
+        declaredLatency: cap.latencySamples,
+        hasLookahead: !!cap.hasLookahead,
+      },
     });
   }
 
@@ -406,7 +421,12 @@ function tier4(capabilities, paramSchema, { includeLong = false } = {}) {
     'bbd', 'tape', 'amp-sim', 'clipper', 'true-peak', 'convolution',
     'fft', 'wdf', 'filter-resonance',
   ];
-  const srSensitive = cap.hasTruePeak || cap.hasFFT || cap.hasWDF ||
+  // Structured-flag triggers — preferred over subcategory string match.
+  // `isClipper` ('hard' | 'soft') implies infinite-bandwidth aliasing
+  // (hard) or cumulative aliasing (soft) → SR matrix is always warranted.
+  // Keeps the generator decoupled from subcategory string conventions.
+  const isClipperAny = cap.isClipper === 'hard' || cap.isClipper === 'soft';
+  const srSensitive = cap.hasTruePeak || cap.hasFFT || cap.hasWDF || isClipperAny ||
     Array.from(subs).some(s => SR_SENSITIVE_TOKENS.some(tok => s.includes(tok)));
 
   // 4a. Sample-rate matrix

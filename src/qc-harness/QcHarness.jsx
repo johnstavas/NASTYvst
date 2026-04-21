@@ -25,16 +25,16 @@ import { ControlPanel } from './Controls.jsx';
 
 // ── component ───────────────────────────────────────────────────────────────
 
-export default function QcHarness({ productId, variantId }) {
+export default function QcHarness({ productId, version }) {
   const product = getProduct(productId);
   if (!product) {
     return <Shell><h1 style={{ color: '#ff7070' }}>Unknown product: {productId}</h1></Shell>;
   }
 
-  const initialVariant = variantId && product.variants[variantId] ? variantId
-                        : (product.variants.engine_v1 ? 'engine_v1' : 'legacy');
-  const [curVariant, setCurVariant] = useState(initialVariant);
-  const variant = product.variants[curVariant];
+  const initialVersion = version && product.variants[version] ? version
+                        : (product.variants.v1 ? 'v1' : 'prototype');
+  const [curVersion, setCurVersion] = useState(initialVersion);
+  const variant = product.variants[curVersion];
 
   const [ctx]       = useState(() => new (window.AudioContext || window.webkitAudioContext)());
   const [engine,  setEngine]  = useState(null);
@@ -83,7 +83,7 @@ export default function QcHarness({ productId, variantId }) {
       try { analyserRef.current?.disconnect(); } catch {}
       try { e?.dispose?.(); } catch {}
     };
-  }, [curVariant]);
+  }, [curVersion]);
 
   // Source lifecycle ────────────────────────────────────────────────────────
   function stopSource() {
@@ -225,7 +225,7 @@ export default function QcHarness({ productId, variantId }) {
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {Object.keys(product.variants).map(k => (
-            <Btn key={k} on={k === curVariant} onClick={() => setCurVariant(k)}>{k}</Btn>
+            <Btn key={k} on={k === curVersion} onClick={() => setCurVersion(k)}>{k}</Btn>
           ))}
         </div>
       </Header>
@@ -254,7 +254,7 @@ export default function QcHarness({ productId, variantId }) {
       {engine && (
         <Analyzer
           ctx={ctx} engine={engine}
-          productId={productId} variantId={curVariant}
+          productId={productId} version={curVersion}
           entries={entries} values={values} valuesRef={valuesRef} setParam={setParam}
           syncFromEngineState={syncFromEngineState}
           sourceKind={sourceKind} droppedName={droppedName}

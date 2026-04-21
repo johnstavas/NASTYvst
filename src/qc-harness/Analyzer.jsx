@@ -17,16 +17,58 @@ import { runConformanceChecks } from './conformanceChecks.js';
 import { analyzeAudit, reportToMarkdown, diffReports, RULE_META, HEADLINE_HINTS, humanSummary } from './qcAnalyzer.js';
 import { generateQcPresets, summarizeQcPresets } from './qcPresets.js';
 import { renderSeriesNull } from './seriesRender.js';
+import {
+  getEngineFactory,
+  renderImpulseIR,
+  renderBypassExact,
+  renderLatencyReport,
+  renderFbRunaway,
+  renderPathologicalStereo,
+  renderExtremeFreq,
+  renderDenormalTail,
+  renderMixIdentity,
+  renderMixSanity,
+  renderMonosumNull,
+  renderSampleRateMatrix,
+} from './captureHooks.js';
 
 // ── Approval / acknowledgment persistence ─────────────────────────────────
 //
 // Approve + Acknowledge both write a localStorage entry keyed by
-// productId+variantId+build.sha. Re-running QC on the same build leaves
+// productId+version+build.sha. Re-running QC on the same build leaves
 // the approval intact (you're re-verifying). Re-running after a rebuild
 // invalidates it (SHA changed → different binary → old approval doesn't
 // cover it). Approvals are a dev-facing paper trail; the real blessed
 // artifact is the .md file the user downloads and commits alongside.
-const APPROVAL_LS_KEY = 'qc:approvals:v1';
+const APPROVAL_LS_KEY    = 'qc:approvals:v2';
+const APPROVAL_LS_KEY_V1 = 'qc:approvals:v1';   // old pre-rename namespace
+const APPROVAL_MIGRATED  = 'qc:approvals:migratedFromV1';
+
+// One-shot migration: rewrite any v1-namespace approvals (keyed by the
+// old `legacy`/`engine_v1` variant strings) into the v2 namespace with
+// the new `prototype`/`v1` version strings. Idempotent.
+function _migrateApprovalsOnce() {
+  try {
+    if (localStorage.getItem(APPROVAL_MIGRATED) === '1') return;
+    const raw = localStorage.getItem(APPROVAL_LS_KEY_V1);
+    if (raw) {
+      const all = JSON.parse(raw || '{}');
+      const existing = JSON.parse(localStorage.getItem(APPROVAL_LS_KEY) || '{}');
+      for (const [k, v] of Object.entries(all)) {
+        const [pid, variant] = k.split(':');
+        const nextVersion = variant === 'legacy' ? 'prototype'
+                          : variant === 'engine_v1' ? 'v1'
+                          : variant;
+        const nextKey = `${pid}:${nextVersion}`;
+        if (existing[nextKey]) continue; // don't clobber v2 entries
+        existing[nextKey] = v;
+      }
+      localStorage.setItem(APPROVAL_LS_KEY, JSON.stringify(existing));
+    }
+    localStorage.setItem(APPROVAL_MIGRATED, '1');
+  } catch {}
+}
+if (typeof localStorage !== 'undefined') _migrateApprovalsOnce();
 
 function readApprovals() {
   try { return JSON.parse(localStorage.getItem(APPROVAL_LS_KEY) || '{}'); }
@@ -35,25 +77,25 @@ function readApprovals() {
 function writeApprovals(next) {
   try { localStorage.setItem(APPROVAL_LS_KEY, JSON.stringify(next)); } catch {}
 }
-function approvalKey(productId, variantId) {
-  return `${productId}:${variantId}`;
+function approvalKey(productId, version) {
+  return `${productId}:${version}`;
 }
-function readApproval(productId, variantId, sha) {
+function readApproval(productId, version, sha) {
   const all = readApprovals();
-  const entry = all[approvalKey(productId, variantId)];
+  const entry = all[approvalKey(productId, version)];
   if (!entry) return null;
   // Invalidate on SHA drift — a new build is a different binary.
   if (sha && entry.sha && sha !== entry.sha) return null;
   return entry;
 }
-function saveApproval(productId, variantId, entry) {
+function saveApproval(productId, version, entry) {
   const all = readApprovals();
-  all[approvalKey(productId, variantId)] = entry;
+  all[approvalKey(productId, version)] = entry;
   writeApprovals(all);
 }
-function clearApproval(productId, variantId) {
+function clearApproval(productId, version) {
   const all = readApprovals();
-  delete all[approvalKey(productId, variantId)];
+  delete all[approvalKey(productId, version)];
   writeApprovals(all);
 }
 
@@ -68,12 +110,12 @@ function triggerMdDownload(fname, md) {
 // so the downloaded file carries the decision on its face — not just as
 // a filename suffix. Any reader of the .md sees "APPROVED by … on …"
 // at the top before they scroll to the verdict.
-function buildDecisionMarkdown({ md, decision, productId, variantId, sha, reason }) {
+function buildDecisionMarkdown({ md, decision, productId, version, sha, reason }) {
   const lines = [];
   const stamp = new Date().toISOString();
   const heading = decision === 'approved' ? '✅ APPROVED' : '⚠️ ACKNOWLEDGED (shipping with findings)';
   lines.push(`> **${heading}**`);
-  lines.push(`> ${productId} · ${variantId} · build \`${sha || 'unknown'}\``);
+  lines.push(`> ${productId} · ${version} · build \`${sha || 'unknown'}\``);
   lines.push(`> Decision recorded: ${stamp}`);
   if (reason) lines.push(`> Reason: ${reason}`);
   lines.push('');
@@ -420,7 +462,7 @@ function createKWeightedChain(ctx) {
 }
 
 export default function Analyzer({
-  ctx, engine, productId, variantId,
+  ctx, engine, productId, version,
   entries = [], values = {}, valuesRef, setParam, syncFromEngineState,
   sourceKind, droppedName,
 }) {
@@ -690,7 +732,7 @@ export default function Analyzer({
         version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '?',
         time:    typeof __BUILD_TIME__  !== 'undefined' ? __BUILD_TIME__  : '',
       },
-      product:  { productId, variantId },
+      product:  { productId, version },
       stimulus: { type: sourceKind || null, file: droppedName || null },
       preset:   { requestedName: requestedPresetName, found: presetFound,
                   applySucceeded: presetApplySucceeded },
@@ -714,7 +756,7 @@ export default function Analyzer({
     if (!frozen) setFrozen(true);
     const snap = buildSnapshot();
     const ts = snap.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
-    const fname = `qc_${productId}_${variantId}_${ts}.json`;
+    const fname = `qc_${productId}_${version}_${ts}.json`;
     const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -733,8 +775,8 @@ export default function Analyzer({
       if (snap.product?.productId && snap.product.productId !== productId) {
         warns.push(`product mismatch: snap=${snap.product.productId} current=${productId}`);
       }
-      if (snap.product?.variantId && snap.product.variantId !== variantId) {
-        warns.push(`variant mismatch: snap=${snap.product.variantId} current=${variantId} — applying anyway`);
+      if (snap.product?.version && snap.product.version !== version) {
+        warns.push(`variant mismatch: snap=${snap.product.version} current=${version} — applying anyway`);
       }
       let applied = 0, skipped = 0;
       for (const [name, v] of Object.entries(snap.params)) {
@@ -784,7 +826,7 @@ export default function Analyzer({
       sha:     typeof __BUILD_SHA__   !== 'undefined' ? __BUILD_SHA__   : 'dev',
       version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '?',
     },
-    product: { productId, variantId },
+    product: { productId, version },
     source:  { kind: sourceKind || null, name: droppedName || null },
     snapshots: (auditOverride || audit).map(a => ({ label: a.label, ...a.snap })),
   });
@@ -793,7 +835,7 @@ export default function Analyzer({
     if (audit.length === 0) return;
     const bundle = buildAuditBundle();
     const ts = bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
-    const fname = `qc_audit_${productId}_${variantId}_${ts}.json`;
+    const fname = `qc_audit_${productId}_${version}_${ts}.json`;
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = fname; a.click();
@@ -812,7 +854,7 @@ export default function Analyzer({
   // can show a run-history strip and we can diff the new run against the
   // most recent one automatically after RE-RUN.
   const [analysis, setAnalysis] = useState(null); // { report, bundle, diff } | null
-  const [history,  setHistory]  = useState([]);   // [{ at, verdict, variantId, findingKeys }]
+  const [history,  setHistory]  = useState([]);   // [{ at, verdict, version, findingKeys }]
 
   // Variant-gate confirm popup. Asked before any ANALYZE or RE-RUN so the
   // user sees "you're about to analyze LEGACY / ENGINE V1" in plain text
@@ -831,11 +873,11 @@ export default function Analyzer({
     const report = analyzeAudit(bundle);
     // Diff only against the most recent run of the SAME variant — diffing
     // Legacy vs V1 would be nonsensical (they're different engines).
-    const prev = history.find(h => h.variantId === variantId) || null;
+    const prev = history.find(h => h.version === version) || null;
     const diff = prev ? diffReports(prev, report) : null;
     setAnalysis({ report, bundle, diff });
     setHistory(h => [
-      { at: new Date(), verdict: report.verdict, variantId,
+      { at: new Date(), verdict: report.verdict, version,
         findingKeys: report.findings.map(f => f.rule) },
       ...h,
     ].slice(0, 5));
@@ -850,7 +892,7 @@ export default function Analyzer({
     // Re-running invalidates any prior approval for this variant — the
     // user is capturing fresh data, so the old blessed artifact no
     // longer describes the current state. They must re-Approve.
-    clearApproval(productId, variantId);
+    clearApproval(productId, version);
     setAnalysis(null);
     // sweepPresets({replace:true}) returns the freshly collected array
     // AND atomically replaces the audit state with it — no append race,
@@ -878,12 +920,12 @@ export default function Analyzer({
     if (!analysis) return;
     const md = reportToMarkdown(analysis.report, analysis.bundle);
     const ts = analysis.bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
-    const fname = `qc_report_${productId}_${variantId}_${ts}.md`;
+    const fname = `qc_report_${productId}_${version}_${ts}.md`;
     triggerMdDownload(fname, md);
   };
 
   // Approve — only safe when verdict is green. Saves approval to
-  // localStorage (keyed by productId+variantId+SHA so re-runs on the
+  // localStorage (keyed by productId+version+SHA so re-runs on the
   // same build survive, but new builds invalidate) and downloads a
   // blessed .md with an APPROVED header. The user commits that .md
   // alongside CONFORMANCE_REPORT.md as the ship receipt.
@@ -894,9 +936,9 @@ export default function Analyzer({
     const sha = bundle?.build?.sha || null;
     const ts = bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
     const rawMd = reportToMarkdown(analysis.report, bundle);
-    const md = buildDecisionMarkdown({ md: rawMd, decision: 'approved', productId, variantId, sha });
-    const fname = `qc_approval_${productId}_${variantId}_${ts}.md`;
-    saveApproval(productId, variantId, {
+    const md = buildDecisionMarkdown({ md: rawMd, decision: 'approved', productId, version, sha });
+    const fname = `qc_approval_${productId}_${version}_${ts}.md`;
+    saveApproval(productId, version, {
       decision: 'approved',
       at: new Date().toISOString(),
       sha,
@@ -919,10 +961,10 @@ export default function Analyzer({
     const ts = bundle.capturedAt.replace(/[:.]/g, '-').slice(0, 19);
     const rawMd = reportToMarkdown(analysis.report, bundle);
     const md = buildDecisionMarkdown({
-      md: rawMd, decision: 'acknowledged', productId, variantId, sha, reason: reason.trim(),
+      md: rawMd, decision: 'acknowledged', productId, version, sha, reason: reason.trim(),
     });
-    const fname = `qc_acknowledgment_${productId}_${variantId}_${ts}.md`;
-    saveApproval(productId, variantId, {
+    const fname = `qc_acknowledgment_${productId}_${version}_${ts}.md`;
+    saveApproval(productId, version, {
       decision: 'acknowledged',
       at: new Date().toISOString(),
       sha,
@@ -937,7 +979,7 @@ export default function Analyzer({
   // Current decision for this variant (if any), used to light up the
   // "Approved" / "Acknowledged" badge on the verdict banner.
   const currentDecision = analysis
-    ? readApproval(productId, variantId, analysis.bundle?.build?.sha || null)
+    ? readApproval(productId, version, analysis.bundle?.build?.sha || null)
     : null;
 
   const clearAudit = () => { setAudit([]); setLoadMsg({ level: 'ok', text: 'audit queue cleared' }); };
@@ -1014,58 +1056,86 @@ export default function Analyzer({
       // Tag snapshot with QC metadata (analyzer routes on source + ruleId)
       snap.qc = { source: 'qc', tier: qp.tier, ruleId: qp.ruleId, meta: qp.meta || null };
 
-      // ── Capture-layer: series-render hook ───────────────────────────
+      // ── Capture-layer: offline render dispatch ──────────────────────
       //
-      // For `mix_null_series` probes we run an offline two-pass render
-      // (see seriesRender.js) and write the residual onto the snap. The
-      // rule in qcAnalyzer.js reads measurements.seriesNullRmsDb and
-      // self-disables (INFO/capture_pending) when the field is absent.
+      // Each ruleId below may require its own offline render (different
+      // stimulus, multi-pass, or special analysis). The hooks live in
+      // captureHooks.js + seriesRender.js so this dispatcher stays thin.
+      // Any hook failure is swallowed — rules self-disable to INFO when
+      // their measurement field is missing.
       //
-      // Factory wiring: the render needs the engine FACTORY, not the
-      // instance (to construct two engines inside one OfflineAudioContext).
-      // Currently hardcoded for manchild — the only plugin emitting this
-      // probe today. To generalize: read from the variant registry using
-      // productId+variantId. That refactor is scoped separately; keeping
-      // this guarded + loud so the next plugin that trips it fails obvious.
-      if (qp.ruleId === 'mix_null_series') {
-        try {
-          let factory = null;
-          if (productId === 'manchild' && variantId === 'engine_v1') {
-            const mod = await import('../manChild/manChildEngine.v1.js');
-            factory = mod.createManChildEngineV1;
-          }
+      // Factory is resolved once per snapshot via getEngineFactory(). The
+      // registry there is hardcoded per (productId, version); when the
+      // variant registry gains a factory accessor, collapse to one call.
+      const factory = await getEngineFactory(productId, version);
+      const captureCtx = { factory, params: qp.params, sampleRate: ctx.sampleRate };
+
+      try {
+        if (qp.ruleId === 'mix_null_series') {
           if (factory) {
-            const { rmsDb, lagNotes } = await renderSeriesNull({
-              factory,
-              params: qp.params,
-              sampleRate: ctx.sampleRate,
-            });
+            const { rmsDb, lagNotes } = await renderSeriesNull(captureCtx);
             snap.measurements.seriesNullRmsDb = rmsDb;
             snap.measurements.seriesNullRefLabel = 'single-instance @ same params';
             snap.measurements.seriesNullNotes = lagNotes;
           } else {
-            snap.measurements.seriesNullNotes = `no-factory-for-${productId}/${variantId}`;
+            snap.measurements.seriesNullNotes = `no-factory-for-${productId}/${version}`;
           }
-        } catch (err) {
-          // Never let a render failure break the sweep. Record the error
-          // and move on — the rule will see a missing measurement and
-          // stay in INFO/capture_pending.
-          snap.measurements.seriesNullNotes = `render-threw: ${err && err.message || err}`;
+        } else if (qp.ruleId === 'impulse_ir') {
+          const r = await renderImpulseIR(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'bypass_exact') {
+          const r = await renderBypassExact(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'latency_report') {
+          const r = await renderLatencyReport({
+            ...captureCtx,
+            declaredLatency: qp.meta?.declaredLatency ?? null,
+          });
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'feedback_runaway') {
+          const r = await renderFbRunaway(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'pathological_stereo') {
+          const r = await renderPathologicalStereo({
+            ...captureCtx,
+            variant: qp.meta?.variant || 'mono_LR',
+          });
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'denormal_tail') {
+          const r = await renderDenormalTail(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'extreme_freq') {
+          const r = await renderExtremeFreq({
+            ...captureCtx,
+            freq: qp.meta?.freq,
+          });
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'mix_identity') {
+          const r = await renderMixIdentity(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'mix_sanity') {
+          const r = await renderMixSanity({
+            ...captureCtx,
+            mixName:       qp.meta?.mixName ?? null,
+            neutralParams: qp.meta?.neutralParams ?? null,
+          });
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'monosum_null') {
+          const r = await renderMonosumNull(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'sample_rate_matrix') {
+          const r = await renderSampleRateMatrix({
+            factory: captureCtx.factory,
+            params: captureCtx.params,
+            targetSampleRate: qp.meta?.sampleRate ?? ctx.sampleRate,
+          });
+          Object.assign(snap.measurements, r);
         }
+      } catch (err) {
+        // Same policy as before — never let a render failure break the
+        // sweep. Record on the snap for diagnostic visibility.
+        snap.measurements.captureHookError = `${qp.ruleId}: ${err && err.message || err}`;
       }
-
-      // ── Capture-layer TODO — other offline hooks, not yet built ──────────
-      // Follow the mix_null_series pattern above. Each rule self-disables
-      // to INFO when its measurement field is missing, so shipping any
-      // subset is safe — the generator + analyzer rules already exist,
-      // this block is the only remaining gap. Pending hooks:
-      //   - 'bypass_exact'        (single pass, signal=impulse, null vs source)
-      //   - 'impulse_ir'          (single pass, signal=impulse, IR metrics)
-      //   - 'latency_report'      (impulse → first-nonzero-sample vs declared)
-      //   - 'mix_identity'        (two passes, second replays ref at mix=100)
-      //   - 'pathological_stereo' (single pass with L=R/L=−R/L-only/R-only)
-      //   - 'denormal_tail'       (single pass, signal burst→silence, CPU timing)
-      //   - 'fb_runaway'          (single pass, bounded-output assertion)
       // ────────────────────────────────────────────────────────────────
 
       collected.push({ label: qp.label, snap });
@@ -1238,7 +1308,7 @@ export default function Analyzer({
       {pendingAction && (
         <ConfirmVariantPopup
           action={pendingAction}
-          variantId={variantId}
+          version={version}
           productId={productId}
           snapshotCount={audit.length}
           sourceKind={sourceKind}
@@ -1278,7 +1348,7 @@ function AnalyzerPopup({ report, bundle, diff, history, decision, onClose, onDow
         <div style={{ ...AP.banner, background: badge.bg, color: badge.fg, borderColor: badge.bd }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.04em' }}>{badge.t}</div>
-            <VariantChip variantId={bundle?.product?.variantId} />
+            <VariantChip version={bundle?.product?.version} />
             {decision && <DecisionChip decision={decision} />}
           </div>
           <div style={{ fontSize: 13, marginTop: 4, opacity: 0.95 }}>{friendlyLine}</div>
@@ -1286,15 +1356,15 @@ function AnalyzerPopup({ report, bundle, diff, history, decision, onClose, onDow
             {bundle?.product?.productId} · {h.snapshots} snapshot(s)
             {bundle?.build?.sha ? ` · build ${bundle.build.sha}` : ''}
           </div>
-          {bundle?.product?.variantId === 'legacy' && (
+          {bundle?.product?.version === 'prototype' && (
             <div style={{
               marginTop: 10, padding: '8px 10px',
               background: 'rgba(127,180,255,0.08)',
               border: '1px solid rgba(127,180,255,0.35)',
               borderRadius: 4, fontSize: 12, color: '#9fc3ff',
             }}>
-              🔵 This is the <b>Legacy baseline</b> — you're measuring, not approving.
-              Switch to Engine V1 above to run an approval audit.
+              🔵 This is the <b>Prototype baseline</b> — you're measuring, not approving.
+              Switch to V1 above to run an approval audit.
             </div>
           )}
         </div>
@@ -1351,9 +1421,9 @@ function AnalyzerPopup({ report, bundle, diff, history, decision, onClose, onDow
                         : ageSec < 60   ? `${ageSec}s ago`
                         : ageSec < 3600 ? `${Math.round(ageSec / 60)}m ago`
                         :                 `${Math.round(ageSec / 3600)}h ago`;
-              const vTag = hst.variantId === 'engine_v1' ? 'V1' : (hst.variantId === 'legacy' ? 'Legacy' : (hst.variantId || 'Legacy'));
+              const vTag = hst.version === 'v1' ? 'V1' : (hst.version === 'prototype' ? 'Proto' : (hst.version || 'Proto'));
               return (
-                <span key={i} title={`${hhmm} · ${hst.variantId || 'legacy'} · ${hst.findingKeys.length} finding(s)`}
+                <span key={i} title={`${hhmm} · ${hst.version || 'prototype'} · ${hst.findingKeys.length} finding(s)`}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
                     padding: '2px 8px', marginRight: 6,
@@ -1664,11 +1734,11 @@ function AcknowledgeModal({ reason, onReasonChange, onCancel, onConfirm }) {
 }
 
 // ── Variant chip — the "you are here" indicator on the verdict banner ─────
-function VariantChip({ variantId }) {
-  const isV1 = variantId === 'engine_v1';
+function VariantChip({ version }) {
+  const isV1 = version === 'v1';
   const c = isV1
-    ? { bg: 'rgba(30,120,50,0.35)',  fg: '#7fff8f', bd: '#7fff8f', label: 'ENGINE V1' }
-    : { bg: 'rgba(160,110,30,0.35)', fg: '#ffc080', bd: '#ffc080', label: 'LEGACY' };
+    ? { bg: 'rgba(30,120,50,0.35)',  fg: '#7fff8f', bd: '#7fff8f', label: 'V1' }
+    : { bg: 'rgba(160,110,30,0.35)', fg: '#ffc080', bd: '#ffc080', label: 'PROTOTYPE' };
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
@@ -1686,16 +1756,16 @@ function VariantChip({ variantId }) {
 // ── Confirm-variant popup — the safety gate on ANALYZE / RE-RUN ───────────
 //
 // Gates every analyzer run so the user has to explicitly acknowledge which
-// engine variant they're about to audit. Prevents the classic foot-gun of
-// sweeping presets on LEGACY and then mistakenly approving ENGINE V1 —
-// or vice-versa — because the variant switcher isn't in direct eyeline.
-function ConfirmVariantPopup({ action, variantId, productId, snapshotCount, sourceKind, onCancel, onConfirm }) {
-  const isV1 = variantId === 'engine_v1';
+// engine version they're about to audit. Prevents the classic foot-gun of
+// sweeping presets on PROTOTYPE and then mistakenly approving V1 —
+// or vice-versa — because the version switcher isn't in direct eyeline.
+function ConfirmVariantPopup({ action, version, productId, snapshotCount, sourceKind, onCancel, onConfirm }) {
+  const isV1 = version === 'v1';
   const verb = action === 'rerun' ? 'Re-run' : 'Analyze';
-  const variantLabel = isV1 ? 'ENGINE V1' : 'LEGACY';
+  const variantLabel = isV1 ? 'V1' : 'PROTOTYPE';
   const tone = isV1
     ? { fg: '#7fff8f', bd: '#7fff8f', note: 'V1 is under review. A clean pass here clears it for approval.' }
-    : { fg: '#ffc080', bd: '#ffc080', note: 'Legacy is the shipped baseline. Analyzing it measures — it does not re-approve it.' };
+    : { fg: '#ffc080', bd: '#ffc080', note: 'Prototype is the shipped baseline. Analyzing it measures — it does not re-approve it.' };
 
   // Sourceless sweep/analyze measures silence and produces meaningless data.
   // Hard-block the CONTINUE button in this case with an explicit fix-it

@@ -21,19 +21,19 @@ const PARITY_COLOR = {
 };
 
 const STATUS_COLOR = {
-  legacy_only:        { fg: '#9aa5b1', bg: 'rgba(80,90,100,0.22)',  bd: 'rgba(160,170,180,0.35)' },
-  in_qc:              { fg: '#ffd040', bg: 'rgba(120,90,20,0.25)',  bd: 'rgba(255,200,64,0.40)' },
-  approved_engine_v1: { fg: '#7fff8f', bg: 'rgba(30,100,40,0.28)',  bd: 'rgba(127,255,143,0.45)' },
-  needs_work:         { fg: '#ff7070', bg: 'rgba(110,30,30,0.30)',  bd: 'rgba(255,112,112,0.45)' },
-  deferred:           { fg: '#a0a0c0', bg: 'rgba(60,60,90,0.25)',   bd: 'rgba(160,160,200,0.35)' },
+  prototype_only: { fg: '#9aa5b1', bg: 'rgba(80,90,100,0.22)',  bd: 'rgba(160,170,180,0.35)' },
+  in_qc:          { fg: '#ffd040', bg: 'rgba(120,90,20,0.25)',  bd: 'rgba(255,200,64,0.40)' },
+  approved_v1:    { fg: '#7fff8f', bg: 'rgba(30,100,40,0.28)',  bd: 'rgba(127,255,143,0.45)' },
+  needs_work:     { fg: '#ff7070', bg: 'rgba(110,30,30,0.30)',  bd: 'rgba(255,112,112,0.45)' },
+  deferred:       { fg: '#a0a0c0', bg: 'rgba(60,60,90,0.25)',   bd: 'rgba(160,160,200,0.35)' },
 };
 
 const STATUS_LABEL = {
-  legacy_only:        'LEGACY ONLY',
-  in_qc:              'IN QC',
-  approved_engine_v1: 'APPROVED · ENGINE V1',
-  needs_work:         'NEEDS WORK',
-  deferred:           'DEFERRED',
+  prototype_only: 'PROTOTYPE ONLY',
+  in_qc:          'IN QC',
+  approved_v1:    'APPROVED · V1',
+  needs_work:     'NEEDS WORK',
+  deferred:       'DEFERRED',
 };
 
 // ── ⓘ icon (always visible) ──────────────────────────────────────────────
@@ -73,7 +73,7 @@ export function InfoIcon({ product, variant, status }) {
           <div style={{ color: '#fff', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 4 }}>
             {product.displayLabel}
           </div>
-          <Row k="Variant"   v={variant.variantId} />
+          <Row k="Version"   v={variant.version} />
           <Row k="Display"   v={variant.displayLabel} />
           <Row k="Component" v={variant.componentName} />
           <Row k="Engine"    v={variant.engineName} />
@@ -112,7 +112,7 @@ function Row({ k, v, highlight }) {
 
 export function QcPanel({ product, variant, onLoadAlternate }) {
   const [status, setStatus] = useProductStatus(product.productId);
-  const color  = STATUS_COLOR[status] || STATUS_COLOR.legacy_only;
+  const color  = STATUS_COLOR[status] || STATUS_COLOR.prototype_only;
   const parity = useParity(product.productId);
 
   const approve = () => {
@@ -123,15 +123,15 @@ export function QcPanel({ product, variant, onLoadAlternate }) {
       );
       if (!ok) return;
     }
-    setStatus('approved_engine_v1');
+    setStatus('approved_v1');
   };
 
   // Alternate variant: the one that isn't current.
-  const altVariantId = variant.variantId === 'legacy' ? 'engine_v1' : 'legacy';
-  const altVariant   = product.variants[altVariantId];
+  const altVersion = variant.version === 'prototype' ? 'v1' : 'prototype';
+  const altVariant = product.variants[altVersion];
 
-  const canApprove = variant.variantId === 'engine_v1' && status !== 'approved_engine_v1';
-  const canRevoke  = status === 'approved_engine_v1';
+  const canApprove = variant.version === 'v1' && status !== 'approved_v1';
+  const canRevoke  = status === 'approved_v1';
 
   return (
     <div style={{
@@ -158,7 +158,7 @@ export function QcPanel({ product, variant, onLoadAlternate }) {
       )}
       {altVariant && (
         <Btn label={`Load ${altVariant.displayLabel}`} tone="dim"
-          onClick={() => onLoadAlternate?.(altVariantId)} />
+          onClick={() => onLoadAlternate?.(altVersion)} />
       )}
     </div>
   );

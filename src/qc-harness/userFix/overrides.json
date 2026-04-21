@@ -1,0 +1,43 @@
+[
+  {
+    "id": "mix_null.info.coloration_bearing",
+    "ruleId": "mix_null",
+    "match": {
+      "severity": "info",
+      "capabilities": { "nonlinearStages": ">=1" }
+    },
+    "copy": {
+      "title": "Mix knob — automatic check skipped for this plugin",
+      "meaning": "Plugins with built-in character (tubes, tape, transformers, saturators) are always adding warmth or color, even at 0% wet. That means the simple \"turn the wet knob all the way down and compare to input\" check can't work here — there's always some color on the signal, by design. That's not a bug, it's what makes this kind of plugin sound like itself. See the Diagnostics card for \"mix_null_series\" below for the deeper test that applies to this plugin class.",
+      "fix": "Nothing to fix. If you want to sanity-check it yourself: bounce a dry signal through the plugin with Mix at 0% and compare it to the original file. It won't be bit-identical (the character stage is always on), but they should sound tonally close — no swirling, no phasing, no comb-filtered weirdness."
+    },
+    "provenance": {
+      "source": "manchild·engine_v1·2026-04-20T09:55:07Z",
+      "approvedBuild": "627263f-dirty",
+      "proven": true,
+      "addedAt": "2026-04-20"
+    },
+    "notes": "Any plugin declaring capabilities.nonlinearStages >= 1 has always-on coloration (tubes / tape / transformers / saturators) and cannot pass an absolute Mix=0 null. The rule demotes to INFO and this copy replaces the accusatory FAIL copy so users understand it's a carve-out, not a bug."
+  },
+
+  {
+    "id": "mix_null_series.info.dry_leg_colored",
+    "ruleId": "mix_null_series",
+    "match": {
+      "severity": "info",
+      "capabilities": { "dryLegHasColoration": true }
+    },
+    "copy": {
+      "title": "Series-null check — not applicable to this plugin",
+      "meaning": "Some plugins are modeled on hardware where the signal path can't be bypassed — a Fairchild-style vari-mu keeps its tubes in-circuit at all times, same as the real hardware. For those plugins, running two copies in a row will always show a coloration difference, because that's the emulation being honest. This is a declared design choice (`capabilities.dryLegHasColoration`), not a bug.",
+      "fix": "Nothing to fix. If you want to sanity-check it yourself: A/B a dry signal against the plugin with Mix at 0%. You should hear the plugin's character — that's the point. If it sounds BROKEN (swirling, phasing, combing) rather than COLORED (warm, fat, expensive), that's a different problem and worth flagging."
+    },
+    "provenance": {
+      "source": "manchild·engine_v1·2026-04-20T09:55:07Z",
+      "approvedBuild": "627263f-dirty",
+      "proven": true,
+      "addedAt": "2026-04-20"
+    },
+    "notes": "Hardware-faithful emulations where the dry leg is intentionally colored (vari-mu, always-on transformer, pad-in-signal-path) cannot pass a series-null either. Declare capabilities.dryLegHasColoration = true and this copy fires."
+  }
+]

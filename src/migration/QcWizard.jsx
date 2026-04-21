@@ -99,18 +99,18 @@ const NODE_PALETTE = {
 
 // ── Status labels / colours ────────────────────────────────────────────────
 const STATUS_LABEL = {
-  legacy_only:        'LEGACY ONLY',
-  in_qc:              'IN QC',
-  approved_engine_v1: 'APPROVED',
-  needs_work:         'NEEDS WORK',
-  deferred:           'DEFERRED',
+  prototype_only: 'PROTOTYPE ONLY',
+  in_qc:          'IN QC',
+  approved_v1:    'APPROVED',
+  needs_work:     'NEEDS WORK',
+  deferred:       'DEFERRED',
 };
 const STATUS_COLOR = {
-  legacy_only:        '#5a6470',
-  in_qc:              '#ffc840',
-  approved_engine_v1: '#60c878',
-  needs_work:         '#d86868',
-  deferred:           '#9090b8',
+  prototype_only: '#5a6470',
+  in_qc:          '#ffc840',
+  approved_v1:    '#60c878',
+  needs_work:     '#d86868',
+  deferred:       '#9090b8',
 };
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -120,9 +120,9 @@ export function QcWizard({ product, variant, engine, onSwitchVariant, onOpenQc }
   const [openStep, setOpenStep]     = useState(null);
   const [audioChecks, setAudioChecks] = useState({});
 
-  const hasV1       = !!product.variants.engine_v1;
-  const onV1        = variant.variantId === 'engine_v1';
-  const approved    = status === 'approved_engine_v1';
+  const hasV1       = !!product.variants.v1;
+  const onV1        = variant.version === 'v1';
+  const approved    = status === 'approved_v1';
 
   const parityRows  = useMemo(() => buildParityRows(product, engine, parity), [product, engine, parity]);
   const parityAllOk = parityRows.every(r => r.state !== 'fail');
@@ -139,7 +139,7 @@ export function QcWizard({ product, variant, engine, onSwitchVariant, onOpenQc }
   if (approved) { s1 = s2 = s3 = s4 = 'done'; }
 
   const stepDefs = [
-    { id: 1, label: 'FORK',   hint: 'Register engine_v1', state: s1 },
+    { id: 1, label: 'FORK',   hint: 'Register v1',         state: s1 },
     { id: 2, label: 'PARITY', hint: 'Structural checks',  state: s2 },
     { id: 3, label: 'AUDIO',  hint: 'Sweep & listen',     state: s3 },
     { id: 4, label: 'APPROVE',hint: 'Ship it',            state: s4 },
@@ -158,7 +158,7 @@ export function QcWizard({ product, variant, engine, onSwitchVariant, onOpenQc }
     if (parity?.status === 'DRIFT') {
       if (!window.confirm(`Parity DRIFT — missing: ${parity.legacyOnly?.join(', ')}\n\nApprove anyway?`)) return;
     }
-    setStatus('approved_engine_v1');
+    setStatus('approved_v1');
     setOpenStep(null);
   };
 
@@ -258,7 +258,7 @@ export function QcWizard({ product, variant, engine, onSwitchVariant, onOpenQc }
               parityAllOk={parityAllOk}
               hasV1={hasV1}
               onV1={onV1}
-              onSwitchToV1={() => onSwitchVariant?.('engine_v1')}
+              onSwitchToV1={() => onSwitchVariant?.('v1')}
               onPass={() => setOpenStep(3)}
               onClose={() => setOpenStep(null)}
             />
@@ -338,7 +338,7 @@ function ForkPopup({ product, hasV1, onClose }) {
   }
 
   return (
-    <PopupShell step={1} title="FORK" subtitle="Register a frozen engine_v1 snapshot — 3 edits in your editor" onClose={onClose}>
+    <PopupShell step={1} title="FORK" subtitle="Register a frozen v1 snapshot — 3 edits in your editor" onClose={onClose}>
       <p style={P}>These are <em>code edits</em>. Make them in your editor, then reload — this step turns green automatically.</p>
 
       <StepLabel>1 · Copy the engine file</StepLabel>
@@ -351,10 +351,10 @@ export async function create${cap(lt)}Engine(ctx) { … }
 export async function create${cap(lt)}EngineV1(ctx) { … }`}</Code>
 
       <StepLabel>3 · Register it in registry.js</StepLabel>
-      <p style={P}>In <Mono>src/migration/registry.js</Mono>, find the <Mono>{pid}</Mono> block and add an <Mono>engine_v1</Mono> entry to <Mono>variants</Mono>:</p>
-      <Code>{`engine_v1: {
-  variantId:     'engine_v1',
-  displayLabel:  VARIANT_LABELS.engine_v1,
+      <p style={P}>In <Mono>src/migration/registry.js</Mono>, find the <Mono>{pid}</Mono> block and add a <Mono>v1</Mono> entry to <Mono>variants</Mono>:</p>
+      <Code>{`v1: {
+  version:       'v1',
+  displayLabel:  VERSION_LABELS.v1,
   component:     ${cap(lt)}Orb,          // same UI
   componentName: '${cap(lt)}Orb',
   engineFactory: create${cap(lt)}EngineV1,
@@ -373,7 +373,7 @@ export async function create${cap(lt)}EngineV1(ctx) { … }`}</Code>
 function ParityPopup({ parityRows, parityAllOk, hasV1, onV1, onSwitchToV1, onPass, onClose }) {
   const failCount = parityRows.filter(r => r.state === 'fail').length;
   return (
-    <PopupShell step={2} title="PARITY" subtitle="Every contract method from legacy must exist on engine_v1" onClose={onClose}>
+    <PopupShell step={2} title="PARITY" subtitle="Every contract method from prototype must exist on v1" onClose={onClose}>
 
       {!onV1 && hasV1 && (
         <div style={{

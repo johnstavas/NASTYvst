@@ -2,7 +2,10 @@
 //
 // Three independent namespaces, never fused:
 //   productId    — snake_case, stable forever, state key
-//   variantId    — from a closed set: 'legacy' | 'engine_v1' | 'engine_v2' …
+//   version      — from a closed set: 'prototype' | 'v1' | 'v2' …
+//                  (was `variantId` with values 'legacy' | 'engine_v1' …
+//                  pre-2026-04-20; renamed to read like a real semver lane.
+//                  See store.js for the one-shot localStorage migration.)
 //   displayLabel — free text, UI only, never read by code
 //
 // Components and engine factories are imported here once so every menu,
@@ -24,21 +27,21 @@ import FlapJackManOrb  from '../nastybeast/NastyBeastOrb.jsx';
 // `import()` is hidden here. Vite emits one chunk per engine file.
 const lazy = (loader, named) => async (ctx) => (await loader())[named](ctx);
 
-export const VARIANT_LABELS = {
-  legacy:    'Legacy',
-  engine_v1: 'Engine V1',
+export const VERSION_LABELS = {
+  prototype: 'Prototype',
+  v1:        'V1',
 };
 
-/** @typedef {'legacy'|'engine_v1'|`engine_v${number}`} VariantId */
+/** @typedef {'prototype'|'v1'|`v${number}`} Version */
 
 /**
  * @typedef {Object} Variant
- * @property {VariantId} variantId
- * @property {string}    displayLabel
- * @property {Function}  component          React component
- * @property {string}    componentName      for ⓘ tooltip
- * @property {Function}  engineFactory      async (ctx) => engine
- * @property {string}    engineName         for ⓘ tooltip
+ * @property {Version}  version
+ * @property {string}   displayLabel
+ * @property {Function} component          React component
+ * @property {string}   componentName      for ⓘ tooltip
+ * @property {Function} engineFactory      async (ctx) => engine
+ * @property {string}   engineName         for ⓘ tooltip
  */
 
 /**
@@ -47,7 +50,7 @@ export const VARIANT_LABELS = {
  * @property {string}   displayLabel
  * @property {string}   category            existing PLUGIN_CATEGORIES id
  * @property {string}   legacyType          string matched against inst.type for back-compat
- * @property {Record<VariantId, Variant>} variants
+ * @property {Record<Version, Variant>} variants
  */
 
 /** @type {ProductEntry[]} */
@@ -58,17 +61,17 @@ export const REGISTRY = [
     category:     'Dynamics',
     legacyType:   'drumbus',
     variants: {
-      legacy: {
-        variantId:     'legacy',
-        displayLabel:  VARIANT_LABELS.legacy,
+      prototype: {
+        version:       'prototype',
+        displayLabel:  VERSION_LABELS.prototype,
         component:     DrumBusOrb,
         componentName: 'DrumBusOrb',
         engineFactory: lazy(() => import('../drumBusEngine.js'), 'createDrumBusEngine'),
         engineName:    'drumBusEngine',
       },
-      engine_v1: {
-        variantId:     'engine_v1',
-        displayLabel:  VARIANT_LABELS.engine_v1,
+      v1: {
+        version:       'v1',
+        displayLabel:  VERSION_LABELS.v1,
         component:     PantherBussOrb,
         componentName: 'PantherBussOrb',
         engineFactory: lazy(() => import('../pantherBussEngine.js'), 'createPantherBussEngine'),
@@ -78,25 +81,25 @@ export const REGISTRY = [
   },
   {
     // MANchild — Fairchild-inspired vari-mu 670M stereo compressor.
-    // First-version flagship compressor. Shipped as `legacy` (DEV_RULES G4
+    // First-version flagship compressor. Shipped as `prototype` (DEV_RULES G4
     // minimum). Once a new engine revision ships, promote the current one
-    // to `engine_v1` and migrate this entry accordingly.
+    // to `v1` and migrate this entry accordingly.
     productId:    'manchild',
     displayLabel: 'MANchild',
     category:     'Dynamics',
     legacyType:   'manchild',
     variants: {
-      legacy: {
-        variantId:     'legacy',
-        displayLabel:  VARIANT_LABELS.legacy,
+      prototype: {
+        version:       'prototype',
+        displayLabel:  VERSION_LABELS.prototype,
         component:     ManChildOrb,
         componentName: 'ManChildOrb',
         engineFactory: lazy(() => import('../manChild/manChildEngine.js'), 'createManChildEngine'),
         engineName:    'manChildEngine',
       },
-      engine_v1: {
-        variantId:     'engine_v1',
-        displayLabel:  VARIANT_LABELS.engine_v1,
+      v1: {
+        version:       'v1',
+        displayLabel:  VERSION_LABELS.v1,
         component:     ManChildOrb,                 // same UI
         componentName: 'ManChildOrb',
         engineFactory: lazy(() => import('../manChild/manChildEngine.v1.js'), 'createManChildEngineV1'), // frozen snapshot
@@ -107,16 +110,16 @@ export const REGISTRY = [
   {
     // Flap Jack Man — thick delay/distortion system with pitch-shifted
     // ghosts. Memory Man / Space Echo-style lo-fi delay with in-loop
-    // saturation + octave-down granular shifter. Shipped as `legacy`
-    // (DEV_RULES G4); promote to engine_v1 on next rev.
+    // saturation + octave-down granular shifter. Shipped as `prototype`
+    // (DEV_RULES G4); promote to v1 on next rev.
     productId:    'flapjackman',
     displayLabel: 'Flap Jack Man',
     category:     'Character',
     legacyType:   'flapjackman',
     variants: {
-      legacy: {
-        variantId:     'legacy',
-        displayLabel:  VARIANT_LABELS.legacy,
+      prototype: {
+        version:       'prototype',
+        displayLabel:  VERSION_LABELS.prototype,
         component:     FlapJackManOrb,
         componentName: 'FlapJackManOrb',
         engineFactory: lazy(() => import('../nastybeast/nastyBeastEngine.js'), 'createNastyBeastEngine'),
@@ -126,20 +129,29 @@ export const REGISTRY = [
   },
   {
     // Lofi Loofy — tape/cassette/sampler vibe box. Same-day build as
-    // ManChild on Engine_V1; registered as `legacy` (first shipped rev
-    // per DEV_RULES G4). Promote to engine_v1 on next rev.
+    // ManChild on V1. Shipped originally as `prototype`; v1
+    // is the frozen QC snapshot (DEV_RULES G4) — any further DSP work
+    // happens on a new prototype rev first, then promotes again.
     productId:    'lofi_loofy',
     displayLabel: 'Lofi Loofy',
     category:     'Character',
     legacyType:   'lofiLoofy',
     variants: {
-      legacy: {
-        variantId:     'legacy',
-        displayLabel:  VARIANT_LABELS.legacy,
+      prototype: {
+        version:       'prototype',
+        displayLabel:  VERSION_LABELS.prototype,
         component:     LofiLoofyOrb,
         componentName: 'LofiLoofyOrb',
         engineFactory: lazy(() => import('../lofiLoofy/lofiLoofyEngine.js'), 'createLofiLoofyEngine'),
         engineName:    'lofiLoofyEngine',
+      },
+      v1: {
+        version:       'v1',
+        displayLabel:  VERSION_LABELS.v1,
+        component:     LofiLoofyOrb,                  // same UI
+        componentName: 'LofiLoofyOrb',
+        engineFactory: lazy(() => import('../lofiLoofy/lofiLoofyEngine.v1.js'), 'createLofiLoofyEngineV1'),  // frozen snapshot
+        engineName:    'lofiLoofyEngine.v1',
       },
     },
   },
@@ -153,15 +165,15 @@ const BY_LEGACYTYPE = new Map(REGISTRY.map(p => [p.legacyType, p]));
 
 export function getProduct(productId)      { return BY_ID.get(productId) || null; }
 export function getProductByLegacyType(t)  { return BY_LEGACYTYPE.get(t) || null; }
-export function getVariant(productId, variantId) {
+export function getVariant(productId, version) {
   const p = BY_ID.get(productId);
-  return p ? p.variants[variantId] || null : null;
+  return p ? p.variants[version] || null : null;
 }
 
 // Invariants — cheap asserts so a bad registry fails at boot.
 for (const p of REGISTRY) {
-  if (!p.variants.legacy) throw new Error(`[registry] ${p.productId} missing legacy variant`);
+  if (!p.variants.prototype) throw new Error(`[registry] ${p.productId} missing prototype variant`);
   for (const [k, v] of Object.entries(p.variants)) {
-    if (v.variantId !== k) throw new Error(`[registry] ${p.productId}.${k} variantId mismatch`);
+    if (v.version !== k) throw new Error(`[registry] ${p.productId}.${k} version mismatch`);
   }
 }

@@ -42,18 +42,18 @@ function conformanceDirFor(product) {
 // ── palettes ───────────────────────────────────────────────────────────────
 
 const STATUS_COLOR = {
-  legacy_only:        { fg: '#9aa5b1', bg: 'rgba(80,90,100,0.22)',  bd: 'rgba(160,170,180,0.35)' },
-  in_qc:              { fg: '#ffd040', bg: 'rgba(120,90,20,0.25)',  bd: 'rgba(255,200,64,0.40)' },
-  approved_engine_v1: { fg: '#7fff8f', bg: 'rgba(30,100,40,0.28)',  bd: 'rgba(127,255,143,0.45)' },
-  needs_work:         { fg: '#ff7070', bg: 'rgba(110,30,30,0.30)',  bd: 'rgba(255,112,112,0.45)' },
-  deferred:           { fg: '#a0a0c0', bg: 'rgba(60,60,90,0.25)',   bd: 'rgba(160,160,200,0.35)' },
+  prototype_only: { fg: '#9aa5b1', bg: 'rgba(80,90,100,0.22)',  bd: 'rgba(160,170,180,0.35)' },
+  in_qc:          { fg: '#ffd040', bg: 'rgba(120,90,20,0.25)',  bd: 'rgba(255,200,64,0.40)' },
+  approved_v1:    { fg: '#7fff8f', bg: 'rgba(30,100,40,0.28)',  bd: 'rgba(127,255,143,0.45)' },
+  needs_work:     { fg: '#ff7070', bg: 'rgba(110,30,30,0.30)',  bd: 'rgba(255,112,112,0.45)' },
+  deferred:       { fg: '#a0a0c0', bg: 'rgba(60,60,90,0.25)',   bd: 'rgba(160,160,200,0.35)' },
 };
 const STATUS_LABEL = {
-  legacy_only:        'LEGACY ONLY',
-  in_qc:              'IN QC',
-  approved_engine_v1: 'APPROVED · ENGINE V1',
-  needs_work:         'NEEDS WORK',
-  deferred:           'DEFERRED',
+  prototype_only: 'PROTOTYPE ONLY',
+  in_qc:          'IN QC',
+  approved_v1:    'APPROVED · V1',
+  needs_work:     'NEEDS WORK',
+  deferred:       'DEFERRED',
 };
 
 // ── main component ─────────────────────────────────────────────────────────
@@ -63,21 +63,21 @@ export function QcStrip({ product, variant, engine, onSwitchVariant, onOpenQc })
   const [stepsOpen, setStepsOpen] = useState(false);
   const parity = useParity(product.productId);
 
-  const color = STATUS_COLOR[status] || STATUS_COLOR.legacy_only;
-  const variantIds = Object.keys(product.variants);
-  const showVariantSwitcher = variantIds.length > 1;
-  const hasV1Variant = !!product.variants.engine_v1;
+  const color = STATUS_COLOR[status] || STATUS_COLOR.prototype_only;
+  const versions = Object.keys(product.variants);
+  const showVariantSwitcher = versions.length > 1;
+  const hasV1Variant = !!product.variants.v1;
 
   // Lifecycle button visibility — one switch, not a dozen scattered flags.
   // Rules:
   //   START QC      → only when a v1 exists and we haven't started yet
-  //   APPROVE       → only when the current instance is on engine_v1 and unapproved
+  //   APPROVE       → only when the current instance is on v1 and unapproved
   //   NEEDS WORK    → when in_qc or approved (lets you flag a regression after ship)
   //   DEFER         → anytime except already-deferred (parks the plugin, no regrets)
   //   RESUME QC     → when deferred or needs_work, to put it back in the queue
-  const canStartQc  = hasV1Variant && status === 'legacy_only';
-  const canApprove  = hasV1Variant && variant.variantId === 'engine_v1' && status !== 'approved_engine_v1';
-  const canNeedsWk  = status === 'in_qc' || status === 'approved_engine_v1';
+  const canStartQc  = hasV1Variant && status === 'prototype_only';
+  const canApprove  = hasV1Variant && variant.version === 'v1' && status !== 'approved_v1';
+  const canNeedsWk  = status === 'in_qc' || status === 'approved_v1';
   const canDefer    = status !== 'deferred';
   const canResume   = status === 'deferred' || status === 'needs_work';
 
@@ -89,13 +89,13 @@ export function QcStrip({ product, variant, engine, onSwitchVariant, onOpenQc })
       );
       if (!ok) return;
     }
-    setStatus('approved_engine_v1');
+    setStatus('approved_v1');
   };
   const startQc = () => {
     setStatus('in_qc');
-    // If a v1 exists but the instance is on legacy, nudge it to v1 so the
+    // If a v1 exists but the instance is on prototype, nudge it to v1 so the
     // user can actually hear what they're QC'ing.
-    if (variant.variantId !== 'engine_v1' && hasV1Variant) onSwitchVariant?.('engine_v1');
+    if (variant.version !== 'v1' && hasV1Variant) onSwitchVariant?.('v1');
   };
 
   return (
@@ -128,7 +128,7 @@ export function QcStrip({ product, variant, engine, onSwitchVariant, onOpenQc })
         {showVariantSwitcher && (
           <VariantSwitcher
             product={product}
-            currentId={variant.variantId}
+            currentId={variant.version}
             onChange={onSwitchVariant}
           />
         )}
@@ -153,13 +153,13 @@ export function QcStrip({ product, variant, engine, onSwitchVariant, onOpenQc })
 
         {canStartQc && (
           <button onClick={startQc} style={btnStyle(false, 'primary')}
-            title="Begin QC: moves this product into IN QC and switches the instance to engine_v1.">
+            title="Begin QC: moves this product into IN QC and switches the instance to v1.">
             ▶ START QC
           </button>
         )}
         {canApprove && (
           <button onClick={approve} style={btnStyle(false, 'ok')}
-            title="Mark engine_v1 as approved. The non-QC menu will load v1 for this product from now on.">
+            title="Mark v1 as approved. The non-QC menu will load v1 for this product from now on.">
             ✓ APPROVE V1
           </button>
         )}
@@ -209,10 +209,10 @@ function VariantSwitcher({ product, currentId, onChange }) {
         fontSize: 10,
         cursor: 'pointer',
       }}
-      title="Switch this instance between legacy and Engine V1"
+      title="Switch this instance between Prototype and V1"
     >
       {Object.values(product.variants).map(v => (
-        <option key={v.variantId} value={v.variantId} style={{ background: '#0a0d12' }}>
+        <option key={v.version} value={v.version} style={{ background: '#0a0d12' }}>
           {v.displayLabel.toUpperCase()}
         </option>
       ))}
@@ -274,12 +274,12 @@ function Steps({ product, variant, engine, parity }) {
     push(confPath ? 'ok' : 'fail', 'CONFORMANCE.md spec exists',
       confPath ? confPath.replace(/^\/src\//, 'src/') : 'no spec file found');
 
-    // 7. parity against legacy (from migration/parity.js)
-    //    When the registry has no engine_v1 variant yet, this check is N/A,
+    // 7. parity against prototype (from migration/parity.js)
+    //    When the registry has no v1 variant yet, this check is N/A,
     //    not a failure — promoting to v1 is a deliberate act, not a bug.
-    const hasV1Variant = !!product.variants.engine_v1;
+    const hasV1Variant = !!product.variants.v1;
     if (!hasV1Variant) {
-      push('na', 'V1 parity with legacy', 'N/A — no engine_v1 registered yet');
+      push('na', 'V1 parity with prototype', 'N/A — no v1 registered yet');
     } else if (parity) {
       const s = parity.status;
       const state =
@@ -292,9 +292,9 @@ function Steps({ product, variant, engine, parity }) {
         : s === 'DRIFT'        ? `DRIFT — missing: ${parity.legacyOnly.join(', ')}`
         : s === 'LEGACY_ONLY'  ? 'no V1 engine yet'
         :                        s;
-      push(state, 'V1 parity with legacy', detail);
+      push(state, 'V1 parity with prototype', detail);
     } else {
-      push('na', 'V1 parity with legacy', 'parity report not loaded');
+      push('na', 'V1 parity with prototype', 'parity report not loaded');
     }
 
     return r;

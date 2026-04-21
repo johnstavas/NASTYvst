@@ -57,7 +57,7 @@ import DrumBusOrb from './DrumBusOrb';
 import PantherBussOrb from './PantherBussOrb';
 import { createSharedSource } from './audioEngine';
 import { REGISTRY, getProduct, getProductByLegacyType, getVariant } from './migration/registry.js';
-import { useQcMode, useProductStatus, getStatus, defaultVariantFor } from './migration/store.js';
+import { useQcMode, useProductStatus, getStatus, defaultVersionFor } from './migration/store.js';
 import { InfoIcon } from './migration/QcOverlay.jsx';
 import { QcWizard } from './migration/QcWizard.jsx';
 import QcDrawer from './qc-harness/QcDrawer.jsx';
@@ -186,16 +186,16 @@ function AddMenu({ onAdd }) {
   );
 }
 
-// ── QC Mode: two-tab Add Menu (Legacy / Engine V1) ─────────────────────────
+// ── QC Mode: two-tab Add Menu (Prototype / V1) ─────────────────────────
 // Appears only when qcMode is on. Non-QC mode keeps the original AddMenu.
 function AddMenuTabs({ onAdd }) {
-  const [tab, setTab] = useState('legacy');
+  const [tab, setTab] = useState('prototype');
 
-  // Legacy tab: reuse the existing PLUGIN_CATEGORIES exactly (every product
-  // lives here always — legacy is the source of truth).
-  // Engine V1 tab: derived from the registry, filtered by approved status.
-  const engineV1Items = REGISTRY.filter(
-    p => getStatus(p.productId) === 'approved_engine_v1' && !!p.variants.engine_v1,
+  // Prototype tab: reuse the existing PLUGIN_CATEGORIES exactly (every product
+  // lives here always — prototype is the source of truth).
+  // V1 tab: derived from the registry, filtered by approved status.
+  const v1Items = REGISTRY.filter(
+    p => getStatus(p.productId) === 'approved_v1' && !!p.variants.v1,
   );
 
   const tabBtn = (id, label) => (
@@ -220,16 +220,16 @@ function AddMenuTabs({ onAdd }) {
       maxWidth: 560, width: 560,
     }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        {tabBtn('legacy',    'LEGACY')}
-        {tabBtn('engine_v1', 'ENGINE V1')}
+        {tabBtn('prototype', 'PROTOTYPE')}
+        {tabBtn('v1',        'V1')}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 8, letterSpacing: '0.2em', color: '#9fff8f',
           alignSelf: 'center', paddingRight: 4 }}>QC MODE</span>
       </div>
 
-      {tab === 'legacy' ? (
-        // Legacy tab — full original grid. For products in the registry, we
-        // attach productId + 'legacy' variantId so render routes correctly.
+      {tab === 'prototype' ? (
+        // Prototype tab — full original grid. For products in the registry, we
+        // attach productId + 'prototype' version so render routes correctly.
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3 }}>
           {PLUGIN_CATEGORIES.map(cat => (
             <div key={cat.name} style={{
@@ -245,7 +245,7 @@ function AddMenuTabs({ onAdd }) {
                 const prod = getProductByLegacyType(type);
                 return (
                   <button key={type}
-                    onClick={() => onAdd({ type, productId: prod?.productId, variantId: prod ? 'legacy' : undefined })}
+                    onClick={() => onAdd({ type, productId: prod?.productId, version: prod ? 'prototype' : undefined })}
                     style={{
                       fontSize: 9, fontWeight: 500, padding: '4px 6px', borderRadius: 4,
                       border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.6)',
@@ -262,19 +262,19 @@ function AddMenuTabs({ onAdd }) {
           ))}
         </div>
       ) : (
-        // Engine V1 tab — only approved migrated products.
+        // V1 tab — only approved migrated products.
         <div style={{ padding: '8px 6px' }}>
-          {engineV1Items.length === 0 ? (
+          {v1Items.length === 0 ? (
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)',
               letterSpacing: '0.15em', padding: 10 }}>
-              No plugins approved for Engine V1 yet. Approve from a legacy instance in QC mode.
+              No plugins approved for V1 yet. Approve from a prototype instance in QC mode.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {engineV1Items.map(p => (
+              {v1Items.map(p => (
                 <button key={p.productId}
                   onClick={() => onAdd({
-                    type: p.legacyType, productId: p.productId, variantId: 'engine_v1',
+                    type: p.legacyType, productId: p.productId, version: 'v1',
                   })}
                   style={{
                     fontSize: 10, fontWeight: 600, padding: '6px 10px', borderRadius: 4,
@@ -285,7 +285,7 @@ function AddMenuTabs({ onAdd }) {
                   }}>
                   {p.displayLabel}
                   <span style={{ opacity: 0.55, marginLeft: 8, fontSize: 8, letterSpacing: '0.15em' }}>
-                    · ENGINE V1
+                    · V1
                   </span>
                 </button>
               ))}
@@ -582,18 +582,18 @@ function App() {
 
   // addInstance accepts either:
   //   - legacy form: addInstance('drumbus')
-  //   - structured:  addInstance({ type, productId?, variantId? })
-  // For products in the migration registry, productId/variantId are stored
+  //   - structured:  addInstance({ type, productId?, version? })
+  // For products in the migration registry, productId/version are stored
   // on the instance so rendering + the ⓘ tooltip read the exact truth.
   const addInstance = (arg) => {
     const payload = typeof arg === 'string' ? { type: arg } : { ...arg };
-    // If a registry product was reached via the non-QC menu (no variantId
-    // set), resolve to the approved variant (engine_v1) or legacy.
+    // If a registry product was reached via the non-QC menu (no version
+    // set), resolve to the approved variant (v1) or prototype.
     if (payload.type && !payload.productId) {
       const prod = getProductByLegacyType(payload.type);
       if (prod) {
         payload.productId = prod.productId;
-        payload.variantId = defaultVariantFor(prod.productId);
+        payload.version = defaultVersionFor(prod.productId);
       }
     }
     setInstances(prev => [...prev, { id: Date.now(), ...payload }]);
@@ -604,18 +604,18 @@ function App() {
   // QC drawer — docked bottom panel targeting a live engine in the chain.
   const [qcDrawerId, setQcDrawerId] = useState(null);
 
-  // Flip a single instance's variant (legacy ↔ engine_v1). React remounts
-  // the orb automatically because the render switch keys on variantId.
-  const switchInstanceVariant = useCallback((instId, nextVariantId) => {
+  // Flip a single instance's version (prototype ↔ v1). React remounts
+  // the orb automatically because the render switch keys on version.
+  const switchInstanceVariant = useCallback((instId, nextVersion) => {
     setInstances(prev => prev.map(i =>
-      i.id === instId ? { ...i, variantId: nextVariantId } : i
+      i.id === instId ? { ...i, version: nextVersion } : i
     ));
   }, []);
 
   // Load the alternate variant of an existing instance beside the current.
   // Non-destructive — current instance remains, the alternate is appended
   // immediately after it so A/B is visually adjacent.
-  const loadAlternateVariant = useCallback((instId, altVariantId) => {
+  const loadAlternateVariant = useCallback((instId, altVersion) => {
     setInstances(prev => {
       const idx = prev.findIndex(i => i.id === instId);
       if (idx < 0) return prev;
@@ -626,7 +626,7 @@ function App() {
         id: Date.now(),
         type: cur.type,
         productId: cur.productId,
-        variantId: altVariantId,
+        version: altVersion,
       });
       return next;
     });
@@ -864,7 +864,7 @@ function App() {
           // products that have been modelled in migration/registry.js — for
           // everything else, the overlays simply don't render.
           const product = inst.productId ? getProduct(inst.productId) : null;
-          const variant = product && inst.variantId ? getVariant(inst.productId, inst.variantId) : null;
+          const variant = product && inst.version ? getVariant(inst.productId, inst.version) : null;
           const status  = product ? getStatus(product.productId) : null;
           return (
           <div key={inst.id} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1046,13 +1046,13 @@ function App() {
           />
         ) : inst.type === 'manchild' ? (
           <ManChildOrb
-            // Key on variantId too: switching legacy ↔ engine_v1 must
+            // Key on version too: switching prototype ↔ v1 must
             // unmount/remount so the effect dispose runs and a fresh
             // engine is built from the right module (see ManChildOrb's
             // loadVariantModule + the variant_drift QC rule).
-            key={`${inst.id}:${inst.variantId || 'legacy'}`}
+            key={`${inst.id}:${inst.version || 'prototype'}`}
             instanceId={inst.id}
-            variantId={inst.variantId || 'legacy'}
+            version={inst.version || 'prototype'}
             sharedSource={sharedSource}
             registerEngine={registerEngine}
             unregisterEngine={unregisterEngine}
@@ -1436,8 +1436,8 @@ function App() {
           />
         ) : inst.type === 'drumbus' ? (
           (() => {
-            // Registry-driven: legacy variantId → DrumBusOrb, else → PantherBussOrb.
-            const Shell = inst.variantId === 'legacy' ? DrumBusOrb : PantherBussOrb;
+            // Registry-driven: prototype version → DrumBusOrb, else → PantherBussOrb.
+            const Shell = inst.version === 'prototype' ? DrumBusOrb : PantherBussOrb;
             return (
               <Shell
                 key={inst.id}
@@ -1520,20 +1520,26 @@ function App() {
   );
 }
 
-// ── QC Harness route — ?qc=<productId>&variant=legacy|engine_v1 ──────────────
+// ── QC Harness route — ?qc=<productId>&version=prototype|v1 ──────────────
 // Deliberately bypasses App + Reshaped. Naked slider UI for DSP-first QC.
 // See src/qc-harness/QcHarness.jsx.
+//
+// Back-compat: legacy `&variant=legacy|engine_v1` URLs are mapped to the
+// new version namespace on read.
 
 import QcHarness from './qc-harness/QcHarness.jsx';
 
-const _qcParams = new URLSearchParams(window.location.search);
+const _qcParams  = new URLSearchParams(window.location.search);
 const _qcProduct = _qcParams.get('qc');
-const _qcVariant = _qcParams.get('variant') || undefined;
+const _qcRawVer  = _qcParams.get('version') || _qcParams.get('variant') || undefined;
+const _qcVersion = _qcRawVer === 'legacy'     ? 'prototype'
+                 : _qcRawVer === 'engine_v1'  ? 'v1'
+                 : _qcRawVer;
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   _qcProduct ? (
     <React.StrictMode>
-      <QcHarness productId={_qcProduct} variantId={_qcVariant} />
+      <QcHarness productId={_qcProduct} version={_qcVersion} />
     </React.StrictMode>
   ) : (
     <React.StrictMode>

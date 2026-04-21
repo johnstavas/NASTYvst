@@ -9,9 +9,9 @@
 ## 0. Header
 
 - **productId:** `lofi_loofy`
-- **variantId:** `legacy` (first shipped rev; per DEV_RULES G4 — promote to `engine_v1` on next rev)
-- **spec version:** `1.0.0`
-- **last reviewed:** `2026-04-19`
+- **version:** `prototype` + `v1` (v1 frozen 2026-04-20 as point-in-time snapshot; see §8.6; pre-rename names were `legacy`/`engine_v1`)
+- **spec version:** `1.0.1`
+- **last reviewed:** `2026-04-20`
 - **reviewer:** Claude (session)
 
 ---
@@ -272,6 +272,43 @@ Opposite of ManChild's F3 fix. Intentional here because save/preset
 blobs routinely carry legacy or forward-rev fields. Logging is OK; hard
 errors are not.
 
+### 8.6 QC rack findings on engine_v1 (2026-04-20) — documented, not fixed
+
+Lofi Loofy was onboarded to the automated QC rack on 2026-04-20 and
+swept across all 42 presets. The sweep returned **one 🔴 Problem + one
+🟡 Check**, both tracing to the same underlying architectural issue
+already flagged in §8.2 and in `dry_wet_mix_rule.md §1`. **engine_v1 is
+frozen with these findings documented** — the architectural fix is
+scoped to a future engine revision (v2), not v1.
+
+| QC rule | Measurement | Gate | Severity | Root cause |
+|---------|-------------|------|----------|------------|
+| `mix_null_series` | −15.7 dB residual | < −80 dB | 🔴 Problem | External parallel dry leg (`dryGain` + `dryCompensate(36 ms)`) cannot time-align the oversampled wet path — violates `dry_wet_mix_rule.md §1` |
+| `bypass_exact` | −29.6 dB residual | < −60 dB | 🟡 Check | `setBypass(true)` implemented as `mix=0`; inherits the same dry-leg time-alignment issue |
+| `mix_null` (aligned) | −19.0 dB | — | ℹ️ self-disabled INFO | Same root cause; aligned null is informational when series null fails |
+| `mix_identity` | −29.0 dB | passes | ✅ | Wet path is correctly active at mix=1 |
+| `peak_above_input` | 5 character presets +1.2 to +5.0 dB | ≤ +1 dB | 🟡 Check | Character-preset makeup is hot; Dusty (+5.0 dB) most aggressive. Paired with `loudness_comp` +0.3–6 LUFS on same 5 presets — expected for 4-NL-stage character plugin but Dusty is worth a trim review |
+
+**Why this isn't four separate bugs:** all four probes cluster in the
+−15 to −30 dB band and share a single failure mode — the external dry
+leg (`dryGain` path before the sum) is a fundamentally external-parallel
+topology. Per `dry_wet_mix_rule.md §1`, mix MUST be computed inside the
+AudioWorklet using the same-sample raw input as dry; external dry legs
+with `DelayNode` compensation cannot reliably match oversampled
+`WaveShaperNode` group delays because those delays are implementation-
+defined.
+
+**Scope decision (2026-04-20):** engine_v1 is the frozen historical
+snapshot. The fix — moving dry/wet mix computation inside the tape
+worklet, eliminating `dryGain` / `dryCompensate` from the external
+graph — is scheduled for the next legacy rev and will promote to
+`engine_v2` once the QC rack sweep is green. Targets M1 and M4 in §6
+are expected to pass cleanly at that point.
+
+**User-facing impact:** audible at Mix < 1 as mild comb-filter coloration
+in the dry blend, and on Bypass as residual wet character. Not a
+showstopper — the plugin is shippable — but not spec-clean either.
+
 ---
 
 ## 9. Change Log
@@ -279,3 +316,4 @@ errors are not.
 | Date | Spec version | Change | Reviewer |
 |------|--------------|--------|----------|
 | 2026-04-19 | 1.0.0 | Initial spec. Written against post-fix engine (stale-closure fix + `_toneLPBase` sync fix + `setDream` default fix landed). | Claude |
+| 2026-04-20 | 1.0.1 | engine_v1 frozen as point-in-time snapshot. Added §8.6 documenting QC rack findings (mix_null_series Problem, bypass_exact Check — both traced to §8.2 root cause). Architectural fix deferred to engine_v2. | Claude |

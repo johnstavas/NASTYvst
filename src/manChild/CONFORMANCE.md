@@ -10,8 +10,8 @@
 ## 0. Header
 
 - **productId:** `manchild`
-- **variantId:** `legacy` (first shipped rev; per DEV_RULES G4 — promote
-  to `engine_v1` on the next rev)
+- **version:** `prototype` (first shipped rev; per DEV_RULES G4 — promote
+  to `v1` on the next rev; pre-rename names were `legacy`/`engine_v1`)
 - **spec version:** `1.0.0`
 - **last reviewed:** `2026-04-19`
 - **reviewer:** Claude (session)

@@ -44,7 +44,7 @@
 // directly controls. `mix` target currently writes dryGain/wetGain — this
 // is flagged for migration to a dedicated `mixMod` series node.
 
-export function createLofiLoofyEngine(ctx) {
+export function createLofiLoofyEngineV1(ctx) {
   // ── I/O ──────────────────────────────────────────────────────────────
   const input      = ctx.createGain();
   const preOut     = ctx.createGain();   // dry+wet sum (pre-duck)

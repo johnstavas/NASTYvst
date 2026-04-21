@@ -18,16 +18,16 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-// Engine + presets are loaded dynamically per `variantId` so the UI is
+// Engine + presets are loaded dynamically per `version` so the UI is
 // always paired with the exact engine the registry/migration store says
 // should run. See registry.js (engineFactory lazy imports) + store.js
-// (defaultVariantFor). Hardcoding `./manChildEngine.js` here caused the
-// QC report to label runs as "engine_v1" while the legacy engine was
+// (defaultVersionFor). Hardcoding `./manChildEngine.js` here caused the
+// QC report to label runs as "v1" while the prototype engine was
 // actually playing audio — silent variant drift. The QC harness also
 // enforces this via the `variant_drift` rule (qcAnalyzer.js) by diffing
 // engine.getPreset(name) against engine.getState() post-apply.
-async function loadVariantModule(variantId) {
-  if (variantId === 'engine_v1') {
+async function loadVariantModule(version) {
+  if (version === 'v1') {
     const m = await import('./manChildEngine.v1.js');
     return { createEngine: m.createManChildEngineV1, PRESETS: m.MANCHILD_PRESETS };
   }
@@ -782,10 +782,10 @@ const PERSISTED_KEYS = Object.keys(DEFAULTS);
 export default function ManChildOrb({
   instanceId, sharedSource, registerEngine, unregisterEngine,
   onRemove, onStateChange, initialState,
-  // variantId selects which engine module to load. Default 'legacy' keeps
-  // older main.jsx call sites working; main.jsx should pass inst.variantId
+  // version selects which engine module to load. Default 'prototype' keeps
+  // older main.jsx call sites working; main.jsx should pass inst.version
   // so the registry's approved variant drives the UI.
-  variantId = 'legacy',
+  version = 'prototype',
 }) {
   const init = initialState || {};
   const D    = DEFAULTS;
@@ -833,14 +833,14 @@ export default function ManChildOrb({
   const ctx = sharedSource?.ctx;
 
   // ── Engine mount ──
-  // Re-runs when ctx OR variantId changes. Variant switch → Orb remounts
+  // Re-runs when ctx OR version changes. Version switch → Orb remounts
   // this effect via new module load → new engine instance → fresh audio
   // graph wired into the shared context. Cleanup disposes the prior one.
   useEffect(() => {
     if (!ctx) return;
     let disposed = false;
     (async () => {
-      const { createEngine, PRESETS } = await loadVariantModule(variantId);
+      const { createEngine, PRESETS } = await loadVariantModule(version);
       if (disposed) return;
       setPresets(PRESETS);
       const eng = await createEngine(ctx);
@@ -866,7 +866,7 @@ export default function ManChildOrb({
       setReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx, variantId]);
+  }, [ctx, version]);
 
   // ── Reactive bindings ──
   const g = (fn) => { if (!applyingPreset.current) fn(); };
