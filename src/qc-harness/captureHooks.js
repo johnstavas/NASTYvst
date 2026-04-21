@@ -30,6 +30,15 @@
 //   that feature landed. When the variant registry gains a factory
 //   accessor, collapse getEngineFactory() to one call. Until then, each
 //   new plugin adds a case here.
+//
+// Runtime boundary:
+//   Offline renders go through getRuntimeAdapter() (see runtime/
+//   runtimeAdapter.js). Today that resolves to WebAudioRuntimeAdapter
+//   (OfflineAudioContext-backed). When the workbench becomes a
+//   standalone app, a native adapter slots in without touching any
+//   hook below.
+
+import { getRuntimeAdapter } from './runtime/runtimeAdapter.js';
 
 // ── Engine factory registry ──────────────────────────────────────────
 //
@@ -119,15 +128,6 @@ function prebuildSine(sampleRate, durSec, freq) {
 
 // ── Shared plumbing ──────────────────────────────────────────────────
 
-function bufferSourceFromPrebuild(ctx, pre) {
-  const buf = ctx.createBuffer(2, pre.length, ctx.sampleRate);
-  buf.getChannelData(0).set(pre.L);
-  buf.getChannelData(1).set(pre.R);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  return src;
-}
-
 function applyParams(engine, params) {
   if (!engine || !params) return;
   for (const [name, v] of Object.entries(params)) {
@@ -138,29 +138,15 @@ function applyParams(engine, params) {
   }
 }
 
-/**
- * Render one offline graph: source → engine → destination. Returns the
- * rendered AudioBuffer. `chainBuilder(ctx)` must resolve to
- * { input, output } — same contract seriesRender uses.
- */
-async function renderGraph({ sampleRate, length, pre, chainBuilder }) {
-  // eslint-disable-next-line no-undef
-  const offline = new OfflineAudioContext(2, length, sampleRate);
-  const src = bufferSourceFromPrebuild(offline, pre);
-  const chain = await chainBuilder(offline);
-  src.connect(chain.input);
-  chain.output.connect(offline.destination);
-  src.start(0);
-  return offline.startRendering();
-}
-
-/** Render the plugin once with a given pre-generated stimulus. */
+/** Render the plugin once with a given pre-generated stimulus, via the
+ *  active RuntimeAdapter. Returns an AudioBuffer-shaped object. */
 async function renderSinglePass({ factory, params, sampleRate, pre }) {
-  return renderGraph({
+  const adapter = getRuntimeAdapter();
+  return adapter.renderOffline({
     sampleRate,
     length: pre.length,
-    pre,
-    chainBuilder: async (ctx) => {
+    stimulus: pre,
+    buildChain: async (ctx) => {
       const e = await factory(ctx);
       applyParams(e, params);
       return { input: e.input, output: e.output };
@@ -196,7 +182,7 @@ function rmsToDb(rms) {
 
 export async function renderImpulseIR({ factory, params, sampleRate, durSec = 2 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const pre = prebuildImpulse(sampleRate, durSec);
   let buf;
@@ -242,7 +228,7 @@ export async function renderImpulseIR({ factory, params, sampleRate, durSec = 2 
 
 export async function renderBypassExact({ factory, params, sampleRate, durSec = 2, skipSec = 0.5 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   // Pink noise — same convention as seriesRender. Reference = the dry
   // signal itself (prebuild Float32 → AudioBuffer → direct comparison).
@@ -313,7 +299,7 @@ export async function renderBypassExact({ factory, params, sampleRate, durSec = 
 
 export async function renderLatencyReport({ factory, params, sampleRate, declaredLatency, durSec = 1 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const pre = prebuildImpulse(sampleRate, durSec);
   let buf;
@@ -368,7 +354,7 @@ export async function renderLatencyReport({ factory, params, sampleRate, declare
 
 export async function renderFbRunaway({ factory, params, sampleRate, durSec = 10 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const pre = prebuildSine(sampleRate, durSec, 30);
   let buf;
@@ -401,6 +387,213 @@ export async function renderFbRunaway({ factory, params, sampleRate, durSec = 10
     fbRunawayFirstBadSamp: firstNonFiniteAt,
     fbRunawayBounded:      finite && peak < 2.0,  // < +6 dBFS amplitude
     notes: finite ? (peak < 2.0 ? 'ok' : 'peak-exceeds-plus6dBFS') : 'non-finite-output',
+  };
+}
+
+// ── Hook: dc_rejection_fb ────────────────────────────────────────────
+//
+// Render PURE SILENCE through the plugin with feedback + drive at max.
+// In a well-behaved feedback loop with no excitation, the output should
+// also be silent (or at most float-noise-floor: <−120 dBFS).
+//
+// Nonzero DC in the output means one of three things:
+//   1. Asymmetric nonlinearity inside the FB loop is rectifying noise/
+//      denormals into a DC bias that the loop then accumulates.
+//   2. Denormal handling is off — subnormals cascade into a small DC
+//      offset that grows (or just sits there drawing CPU).
+//   3. Uninitialized state (delay lines, filter memories) is blowing
+//      up before the first sample.
+//
+// All three cause audible click/thump on bypass-unbypass in a DAW.
+//
+// Measurements:
+//   - dcRejectionMeanDb  — 20·log10(|mean(output, post-skip)|)
+//   - dcRejectionRmsDb   — RMS of output (noise floor + DC combined)
+//   - dcRejectionPeakDb  — peak of output
+//   - dcRejectionFinite  — all samples finite
+//
+// Analyzer thresholds (qcAnalyzer.js QC-R8f):
+//   - dcRejectionFinite === false → FAIL (catastrophic)
+//   - dcRejectionMeanDb > −60 dB  → FAIL (audible DC — will thump)
+//   - −80 < mean ≤ −60            → WARN (measurable DC; audit the FB tap)
+//   - mean ≤ −80                  → INFO ok
+
+export async function renderDcRejectionFb({ factory, params, sampleRate, durSec = 10, skipSec = 1.0 }) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  // Pure silence — all zeros. Any DC in the output is internal.
+  const length = Math.floor(sampleRate * durSec);
+  const pre = { L: new Float32Array(length), R: new Float32Array(length), length };
+
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const skip = Math.floor(sampleRate * skipSec);
+  const chs = buf.numberOfChannels;
+  let sum = 0, ss = 0, count = 0, peak = 0, finite = true;
+  for (let c = 0; c < chs; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = skip; i < d.length; i++) {
+      const v = d[i];
+      if (!Number.isFinite(v)) { finite = false; break; }
+      sum += v;
+      ss  += v * v;
+      count++;
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+    }
+    if (!finite) break;
+  }
+  if (count === 0) return { notes: 'empty-render' };
+
+  const mean = sum / count;
+  const rms  = Math.sqrt(ss / count);
+  return {
+    dcRejectionMeanDb: rmsToDb(Math.abs(mean)),
+    dcRejectionRmsDb:  rmsToDb(rms),
+    dcRejectionPeakDb: rmsToDb(peak),
+    dcRejectionFinite: finite,
+    notes: finite ? 'ok' : 'non-finite-output',
+  };
+}
+
+// ── Hook: loop_filter_stability_root ─────────────────────────────────
+//
+// Stability-root regression. feedback_runaway catches catastrophic blowups
+// (NaN / > +6 dBFS); this catches the more subtle class where the loop
+// filter has a pole just inside OR just outside the unit circle — the
+// plugin sounds fine in a short test but rings forever (or grows slowly)
+// in a long session.
+//
+// Method:
+//   1. Impulse at t = impulseSec, render durSec (default 5s).
+//   2. After a post-impulse settle (skipSec), window the tail into
+//      `windowMs` chunks (default 100 ms).
+//   3. Compute RMS per window → log10 → linear regression vs time.
+//      Slope in dB/sec is the stability diagnostic.
+//   4. Secondary: last-window RMS relative to first-window RMS.
+//
+// At moderate FB (we clamp to 0.8 × max by convention in the preset),
+// a stable plugin yields a clearly negative slope. A marginal root shows
+// slope near 0. An unstable root shows slope > 0 — the tail is growing.
+//
+// Measurements:
+//   - lfsrSlopeDbPerSec    — linear regression of windowed log-RMS
+//   - lfsrLastVsFirstDb    — final window RMS minus first window RMS
+//   - lfsrWindowCount      — how many windows were fit
+//   - lfsrPeakDb           — peak of the rendered tail
+//   - lfsrFinite           — all samples finite
+//
+// Analyzer gates (qcAnalyzer.js QC-R8g):
+//   - lfsrFinite === false           → FAIL
+//   - lfsrLastVsFirstDb > +6 dB      → FAIL (growing tail, any shape)
+//   - lfsrSlopeDbPerSec > +1         → FAIL (unstable pole)
+//   - 0 < lfsrSlopeDbPerSec ≤ +1     → WARN (marginal — audit loop filter)
+//   - lfsrSlopeDbPerSec ≤ 0          → INFO ok
+
+export async function renderLoopFilterStabilityRoot({
+  factory, params, sampleRate, durSec = 5, impulseSec = 0.1,
+  skipSec = 0.3, windowMs = 100,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildImpulse(sampleRate, durSec, impulseSec);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const chs = buf.numberOfChannels;
+  const winSamples = Math.max(1, Math.floor(sampleRate * windowMs / 1000));
+  const analysisStart = Math.floor(sampleRate * (impulseSec + skipSec));
+  const totalLen = buf.length;
+  if (analysisStart + winSamples * 4 > totalLen) {
+    return { notes: 'window-too-short-for-analysis' };
+  }
+
+  // Per-window mean-squared across channels.
+  const windows = [];
+  let peak = 0, finite = true;
+  for (let w = analysisStart; w + winSamples <= totalLen; w += winSamples) {
+    let ss = 0, count = 0;
+    for (let c = 0; c < chs; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = w; i < w + winSamples; i++) {
+        const v = d[i];
+        if (!Number.isFinite(v)) { finite = false; break; }
+        ss += v * v;
+        count++;
+        const a = Math.abs(v);
+        if (a > peak) peak = a;
+      }
+      if (!finite) break;
+    }
+    if (!finite) break;
+    windows.push({
+      tSec: (w - analysisStart) / sampleRate,
+      rms:  count > 0 ? Math.sqrt(ss / count) : 0,
+    });
+  }
+
+  if (!finite) {
+    return {
+      lfsrFinite: false,
+      lfsrPeakDb: rmsToDb(peak),
+      notes: 'non-finite-output',
+    };
+  }
+  if (windows.length < 4) {
+    return { notes: `too-few-windows:${windows.length}` };
+  }
+
+  // Drop windows whose RMS is below the float-noise floor — their log
+  // is dominated by measurement noise, not the loop-filter's root.
+  const FLOOR_LIN = Math.pow(10, -140 / 20);  // −140 dBFS
+  const usable = windows.filter(w => w.rms > FLOOR_LIN);
+  if (usable.length < 4) {
+    return {
+      lfsrFinite:         true,
+      lfsrPeakDb:         rmsToDb(peak),
+      lfsrWindowCount:    windows.length,
+      lfsrUsableCount:    usable.length,
+      lfsrSlopeDbPerSec:  Number.NEGATIVE_INFINITY,  // decayed to floor
+      lfsrLastVsFirstDb:  Number.NEGATIVE_INFINITY,
+      notes: 'decayed-to-floor',
+    };
+  }
+
+  // Linear regression on (tSec, 20·log10(rms)).
+  let sumT = 0, sumY = 0, sumTT = 0, sumTY = 0;
+  const n = usable.length;
+  for (const w of usable) {
+    const y = 20 * Math.log10(w.rms);
+    sumT  += w.tSec;
+    sumY  += y;
+    sumTT += w.tSec * w.tSec;
+    sumTY += w.tSec * y;
+  }
+  const denom = n * sumTT - sumT * sumT;
+  const slope = denom > 0 ? (n * sumTY - sumT * sumY) / denom : 0;
+
+  const firstDb = 20 * Math.log10(usable[0].rms);
+  const lastDb  = 20 * Math.log10(usable[usable.length - 1].rms);
+
+  return {
+    lfsrSlopeDbPerSec:  slope,
+    lfsrLastVsFirstDb:  lastDb - firstDb,
+    lfsrWindowCount:    windows.length,
+    lfsrUsableCount:    usable.length,
+    lfsrPeakDb:         rmsToDb(peak),
+    lfsrFinite:         true,
+    notes: 'ok',
   };
 }
 
@@ -501,7 +694,7 @@ export async function renderPathologicalStereo({
   factory, params, sampleRate, variant = 'mono_LR', durSec = 2, skipSec = 0.5,
 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const pre = prebuildStereoVariant(sampleRate, durSec, variant);
   let buf;
@@ -557,7 +750,7 @@ export async function renderDenormalTail({
   factory, params, sampleRate, burstSec = 1, silenceSec = 5,
 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const pre = prebuildBurstThenSilence(sampleRate, burstSec, silenceSec);
   const burstSamples = Math.floor(sampleRate * burstSec);
@@ -627,7 +820,7 @@ export async function renderDenormalTail({
 
 export async function renderMixIdentity({ factory, params, sampleRate, durSec = 2, skipSec = 0.5 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   // Pink noise stimulus (deterministic, reused across any re-runs)
   const length = Math.floor(sampleRate * durSec);
@@ -716,7 +909,7 @@ export async function renderMixSanity({
   factory, params, sampleRate, durSec = 2, skipSec = 0.5, mixName, neutralParams,
 }) {
   if (typeof factory !== 'function')          return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
   if (!mixName)                               return { notes: 'skipped-no-mixname' };
 
   // Deterministic pink stimulus (reused across all three renders).
@@ -741,10 +934,20 @@ export async function renderMixSanity({
     return { L, R, length };
   })();
 
-  // Compute input RMS once (post-skip window, matches analysis window).
+  // Compute input RMS + PEAK once (post-skip window, matches analysis
+  // window). Both are needed — the rule's peak-overshoot check compares
+  // mid-point PEAK to input PEAK (crest-factor-invariant). Comparing
+  // peak-to-RMS produces false positives for any crest > threshold
+  // stimulus (pink noise ≈ 14 dB crest).
   const skip = Math.floor(sampleRate * skipSec);
-  let inE = 0, inN = 0;
-  for (let i = skip; i < length; i++) { inE += pre.L[i] * pre.L[i]; inN++; }
+  let inE = 0, inN = 0, inPeak = 0;
+  for (let i = skip; i < length; i++) {
+    const v = pre.L[i];
+    inE += v * v;
+    inN++;
+    const a = Math.abs(v);
+    if (a > inPeak) inPeak = a;
+  }
   const inRms = inN > 0 ? Math.sqrt(inE / inN) : 0;
 
   const base = { ...(neutralParams || {}), ...(params || {}) };
@@ -803,6 +1006,7 @@ export async function renderMixSanity({
 
   return {
     mixSanityInRmsDb:     rmsToDb(inRms),
+    mixSanityInPeakDb:    rmsToDb(inPeak),
     mixSanityDryRmsDb:    dryDb,
     mixSanityMidRmsDb:    midDb,
     mixSanityWetRmsDb:    wetDb,
@@ -887,7 +1091,7 @@ export async function renderExtremeFreq({
   factory, params, sampleRate, durSec = 1.5, skipSec = 0.4, freq,
 }) {
   if (typeof factory !== 'function')              return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const freqHz = resolveExtremeFreqHz(freq, sampleRate);
   if (!Number.isFinite(freqHz) || freqHz < 0)     return { notes: `skipped-bad-freq:${String(freq)}` };
@@ -1000,7 +1204,7 @@ function prebuildDecorrelatedPinkStereo(sampleRate, durSec) {
 
 export async function renderMonosumNull({ factory, params, sampleRate, durSec = 2, skipSec = 0.5 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
 
   const pre = prebuildDecorrelatedPinkStereo(sampleRate, durSec);
 
@@ -1085,7 +1289,7 @@ export async function renderMonosumNull({ factory, params, sampleRate, durSec = 
 
 export async function renderSampleRateMatrix({ factory, params, targetSampleRate, durSec = 1, skipSec = 0.3 }) {
   if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
-  if (typeof OfflineAudioContext === 'undefined') return { notes: 'skipped-no-offline' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
   if (!(targetSampleRate > 0)) return { notes: 'skipped-no-target-sr' };
 
   // Build deterministic pink at the TARGET sample rate — independent of
@@ -1147,12 +1351,146 @@ export async function renderSampleRateMatrix({ factory, params, targetSampleRate
   };
 }
 
+// ── Hook: orthogonal_feedback (T2) ───────────────────────────────────
+//
+// Probes whether a declared-orthogonal feedback matrix (Hadamard or
+// Householder) is actually preserving energy uniformly across taps.
+//
+// Strategy: render an impulse through the FDN, then measure per-channel
+// tail decay via log-RMS regression — same math as
+// loop_filter_stability_root, but split L vs R. For a correct orthogonal
+// matrix, both channels should decay at near-identical rates and start
+// the tail at near-identical energy. A typo in the matrix (wrong sign,
+// wrong normalization) breaks one of these invariants:
+//
+//   - Asymmetric decay rates → matrix isn't unitary (energy leaks
+//     between taps unevenly across the recursion).
+//   - Asymmetric initial energy → the input-to-tap distribution is
+//     lopsided (one channel fed more taps than the other).
+//
+// This is an EXTERNAL proxy — we can't see individual taps from outside
+// the worklet. But for stereo plugins, the L/R output is the end of the
+// tap routing, so per-channel decay IS the downstream signature of the
+// matrix's orthogonality.
+//
+// Self-disables to INFO on plugins without declared feedbackMatrix.
+// Gate in qcPresets.js ensures the preset only emits for reverbs that
+// declare the capability.
+
+export async function renderOrthogonalFeedback({
+  factory, params, sampleRate, durSec = 5, impulseSec = 0.1,
+  skipSec = 0.3, windowMs = 100,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildImpulse(sampleRate, durSec, impulseSec);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const chs = buf.numberOfChannels;
+  if (chs < 2) {
+    return { notes: `mono-output-nothing-to-compare:chs=${chs}` };
+  }
+
+  const winSamples = Math.max(1, Math.floor(sampleRate * windowMs / 1000));
+  const analysisStart = Math.floor(sampleRate * (impulseSec + skipSec));
+  const totalLen = buf.length;
+  if (analysisStart + winSamples * 4 > totalLen) {
+    return { notes: 'window-too-short-for-analysis' };
+  }
+
+  // Per-channel window RMS series.
+  const windowsL = [], windowsR = [];
+  let peakL = 0, peakR = 0, finite = true;
+  const dL = buf.getChannelData(0);
+  const dR = buf.getChannelData(1);
+  for (let w = analysisStart; w + winSamples <= totalLen; w += winSamples) {
+    let ssL = 0, ssR = 0;
+    for (let i = w; i < w + winSamples; i++) {
+      const vL = dL[i], vR = dR[i];
+      if (!Number.isFinite(vL) || !Number.isFinite(vR)) { finite = false; break; }
+      ssL += vL * vL;
+      ssR += vR * vR;
+      const aL = Math.abs(vL); if (aL > peakL) peakL = aL;
+      const aR = Math.abs(vR); if (aR > peakR) peakR = aR;
+    }
+    if (!finite) break;
+    const tSec = (w - analysisStart) / sampleRate;
+    windowsL.push({ tSec, rms: Math.sqrt(ssL / winSamples) });
+    windowsR.push({ tSec, rms: Math.sqrt(ssR / winSamples) });
+  }
+
+  if (!finite) {
+    return {
+      ofFinite: false,
+      ofPeakLDb: rmsToDb(peakL),
+      ofPeakRDb: rmsToDb(peakR),
+      notes: 'non-finite-output',
+    };
+  }
+
+  const FLOOR_LIN = Math.pow(10, -140 / 20);
+  const usableL = windowsL.filter(w => w.rms > FLOOR_LIN);
+  const usableR = windowsR.filter(w => w.rms > FLOOR_LIN);
+  if (usableL.length < 4 || usableR.length < 4) {
+    return {
+      ofFinite:           true,
+      ofPeakLDb:          rmsToDb(peakL),
+      ofPeakRDb:          rmsToDb(peakR),
+      ofUsableCountL:     usableL.length,
+      ofUsableCountR:     usableR.length,
+      notes: 'decayed-to-floor',
+    };
+  }
+
+  // Regress log-RMS vs time for each channel.
+  function regress(ws) {
+    let sumT = 0, sumY = 0, sumTT = 0, sumTY = 0;
+    const n = ws.length;
+    for (const w of ws) {
+      const y = 20 * Math.log10(w.rms);
+      sumT += w.tSec; sumY += y;
+      sumTT += w.tSec * w.tSec;
+      sumTY += w.tSec * y;
+    }
+    const denom = n * sumTT - sumT * sumT;
+    const slope = denom > 0 ? (n * sumTY - sumT * sumY) / denom : 0;
+    const firstDb = 20 * Math.log10(ws[0].rms);
+    return { slope, firstDb };
+  }
+  const L = regress(usableL);
+  const R = regress(usableR);
+
+  return {
+    ofFinite:              true,
+    ofSlopeLDbPerSec:      L.slope,
+    ofSlopeRDbPerSec:      R.slope,
+    ofSlopeDiffDbPerSec:   Math.abs(L.slope - R.slope),
+    ofFirstLDb:            L.firstDb,
+    ofFirstRDb:            R.firstDb,
+    ofInitialDiffDb:       Math.abs(L.firstDb - R.firstDb),
+    ofPeakLDb:             rmsToDb(peakL),
+    ofPeakRDb:             rmsToDb(peakR),
+    ofUsableCountL:        usableL.length,
+    ofUsableCountR:        usableR.length,
+    notes: 'ok',
+  };
+}
+
 // ── Exports (named so Analyzer.jsx can dispatch on ruleId) ───────────
 export const captureHooks = {
   impulse_ir:           renderImpulseIR,
   bypass_exact:         renderBypassExact,
   latency_report:       renderLatencyReport,
   feedback_runaway:     renderFbRunaway,
+  dc_rejection_fb:      renderDcRejectionFb,
+  loop_filter_stability_root: renderLoopFilterStabilityRoot,
+  orthogonal_feedback:  renderOrthogonalFeedback,
   pathological_stereo:  renderPathologicalStereo,
   extreme_freq:         renderExtremeFreq,
   denormal_tail:        renderDenormalTail,

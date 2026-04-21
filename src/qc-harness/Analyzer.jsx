@@ -23,6 +23,9 @@ import {
   renderBypassExact,
   renderLatencyReport,
   renderFbRunaway,
+  renderDcRejectionFb,
+  renderLoopFilterStabilityRoot,
+  renderOrthogonalFeedback,
   renderPathologicalStereo,
   renderExtremeFreq,
   renderDenormalTail,
@@ -1094,6 +1097,15 @@ export default function Analyzer({
           Object.assign(snap.measurements, r);
         } else if (qp.ruleId === 'feedback_runaway') {
           const r = await renderFbRunaway(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'dc_rejection_fb') {
+          const r = await renderDcRejectionFb(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'loop_filter_stability_root') {
+          const r = await renderLoopFilterStabilityRoot(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'orthogonal_feedback') {
+          const r = await renderOrthogonalFeedback(captureCtx);
           Object.assign(snap.measurements, r);
         } else if (qp.ruleId === 'pathological_stereo') {
           const r = await renderPathologicalStereo({

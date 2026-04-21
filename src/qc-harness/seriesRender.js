@@ -2,7 +2,10 @@
 //
 // Offline two-pass renderer for the mix_null_series QC rule (and future
 // siblings — see Analyzer.jsx capture-layer TODO block). Runs the plugin
-// in an OfflineAudioContext twice: once as a single instance (reference),
+// through the active RuntimeAdapter twice: once as a single instance
+// (reference), once as two instances in series with the second at Mix=0
+// (test). See runtime/runtimeAdapter.js for the runtime boundary —
+// OfflineAudioContext details now live inside webAudioRuntimeAdapter.
 // once as two instances in series with the second at Mix=0 (test). If the
 // Mix=0 contract holds — "at Mix=0, out = dry, no processing" — the two
 // renders subtract to silence.
@@ -18,7 +21,7 @@
 //   Math.random() isn't seedable. Two renders generating noise independently
 //   would see DIFFERENT signals → the subtract would measure noise energy,
 //   not plugin behaviour. Solution: generate the buffer ONCE as a Float32Array,
-//   then stuff the same data into AudioBuffers inside each OfflineAudioContext.
+//   then hand the same stimulus to two separate adapter.renderOffline calls.
 //   Both renders see bit-identical input.
 //
 // Contract:
@@ -31,6 +34,8 @@
 //   Output:
 //     { rmsDb, lagNotes } — rmsDb is the residual in dB, lagNotes is a short
 //     diagnostic string (e.g. "ok" or "skipped-silent").
+
+import { getRuntimeAdapter } from './runtime/runtimeAdapter.js';
 
 // ── Pink noise generator (Voss–McCartney style, matches sources.js) ───
 //
@@ -76,20 +81,6 @@ function prebuildPinkBuffer(sampleRate, durSec) {
 }
 
 /**
- * Build a looping AudioBufferSourceNode in `ctx` from a pre-generated
- * { L, R } pair. Same samples in every context — the point of the helper.
- */
-function bufferSourceFromPrebuild(ctx, pre) {
-  const buf = ctx.createBuffer(2, pre.length, ctx.sampleRate);
-  buf.getChannelData(0).set(pre.L);
-  buf.getChannelData(1).set(pre.R);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.loop = true;
-  return src;
-}
-
-/**
  * Apply a params map to an engine via its setter methods. Missing setters
  * are skipped silently — matches the live sweeper's applyQcPreset behavior.
  */
@@ -104,21 +95,19 @@ function applyParams(engine, params) {
 }
 
 /**
- * Render one OfflineAudioContext graph: pink → (engine chain) → destination.
- * `chain` is an async builder that takes (ctx) and returns { input, output }
+ * Render one offline graph: pink → (engine chain) → destination, via the
+ * active RuntimeAdapter. `chainBuilder(ctx)` resolves to { input, output }
  * so one instance (ref) vs two-in-series (test) share the same outer setup.
  */
 async function renderGraph({ sampleRate, durSec, pre, chainBuilder }) {
   const length = Math.floor(sampleRate * durSec);
-  // eslint-disable-next-line no-undef
-  const offline = new OfflineAudioContext(2, length, sampleRate);
-  const src = bufferSourceFromPrebuild(offline, pre);
-  const chain = await chainBuilder(offline);
-  src.connect(chain.input);
-  chain.output.connect(offline.destination);
-  src.start(0);
-  const rendered = await offline.startRendering();
-  return rendered;
+  const adapter = getRuntimeAdapter();
+  return adapter.renderOffline({
+    sampleRate,
+    length,
+    stimulus: pre,
+    buildChain: chainBuilder,
+  });
 }
 
 /**
@@ -164,8 +153,8 @@ export async function renderSeriesNull({
   if (typeof factory !== 'function') {
     return { rmsDb: -Infinity, lagNotes: 'skipped-no-factory' };
   }
-  if (typeof OfflineAudioContext === 'undefined') {
-    return { rmsDb: -Infinity, lagNotes: 'skipped-no-offline-context' };
+  if (!getRuntimeAdapter().isAvailable()) {
+    return { rmsDb: -Infinity, lagNotes: 'skipped-no-runtime' };
   }
 
   // Pre-generate noise so both renders see identical samples.

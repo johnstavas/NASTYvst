@@ -136,6 +136,32 @@ function tier1(capabilities, paramSchema) {
     });
   }
 
+  // 1b-bis. DC rejection under feedback — silent input, max FB/drive,
+  // measure output DC. Any nonzero mean indicates denormal rectification,
+  // asymmetric NL feeding DC into the FB accumulator, or uninit state.
+  // All three cause audible bypass-unbypass thumps in a DAW. T1 because
+  // a plugin that thumps in every session is ship-blocking.
+  if (capabilities?.hasFeedback) {
+    const fbName    = pickSetter(paramSchema, ['setFeedback', 'setFB', 'setDecay']);
+    const driveName = pickSetter(paramSchema, ['setDrive', 'setTxDrive', 'setIn']);
+    const paramsMax = { ...neutral };
+    if (fbName) {
+      const p = findParam(paramSchema, fbName);
+      paramsMax[fbName] = rangeOf(p).max;
+    }
+    if (driveName) {
+      const p = findParam(paramSchema, driveName);
+      paramsMax[driveName] = rangeOf(p).max;
+    }
+    presets.push({
+      id: 'qc_t1_dc_rejection_fb',
+      label: 'QC · T1 · DC rejection (silent input + max FB/drive)',
+      tier: 1, ruleId: 'dc_rejection_fb', source: 'qc',
+      params: paramsMax,
+      meta: { signalSource: 'silence', durationMs: 10000 },
+    });
+  }
+
   // 1b. FB-tap vs Mix coupling — only meaningful if feedback is a declared capability
   if (capabilities?.hasFeedback && mixName) {
     for (const m of [0, 0.25, 0.5, 0.75, 1]) {
@@ -245,6 +271,37 @@ function tier2(capabilities, paramSchema) {
     });
   }
 
+  // 2f. Orthogonal feedback — T2. Only fires when the plugin declares a
+  // specific FDN matrix family (capabilities.feedbackMatrix === 'hadamard'
+  // | 'householder'). Renders an impulse with decay high-but-not-max (so
+  // there's a measurable tail without tripping runaway guards) and measures
+  // per-channel log-RMS slope. Orthogonal matrices preserve energy across
+  // taps uniformly → L/R decay slopes and initial tail energy should match
+  // within tight tolerance. Asymmetry = sign/normalization typo in the
+  // matrix constants.
+  if (capabilities?.feedbackMatrix === 'hadamard' ||
+      capabilities?.feedbackMatrix === 'householder') {
+    const decayName = pickSetter(paramSchema, ['setDecay', 'setRT60', 'setFeedback']);
+    const paramsOf = { ...neutral };
+    if (decayName) {
+      const p = findParam(paramSchema, decayName);
+      const { min, max } = rangeOf(p);
+      paramsOf[decayName] = min + (max - min) * 0.7;
+    }
+    presets.push({
+      id: 'qc_t2_orthogonal_feedback',
+      label: 'QC · T2 · Orthogonal feedback (per-channel decay match)',
+      tier: 2, ruleId: 'orthogonal_feedback', source: 'qc',
+      params: paramsOf,
+      meta: {
+        signalSource: 'impulse',
+        durationMs: 5000,
+        decayFrac: 0.7,
+        matrixFamily: capabilities.feedbackMatrix,
+      },
+    });
+  }
+
   // 2e. Bypass-exact
   if (bypassName) {
     presets.push({
@@ -311,6 +368,31 @@ function tier3(capabilities, paramSchema) {
       tier: 3, ruleId: 'feedback_runaway', source: 'qc',
       params: paramsMax,
       meta: { signalSource: 'sine', freq: 30, durationMs: 10000 },
+    });
+  }
+
+  // Loop-filter stability root (T3).
+  //
+  // feedback_runaway catches catastrophic blowups at max FB; this catches
+  // the subtler class where a pole sits right at / just outside the unit
+  // circle. Uses 0.8 × max FB to excite the loop enough that a marginally
+  // stable root shows up as slope ≥ 0, without tripping the runaway
+  // guard. Drive left at neutral (not max) — we want to probe the LINEAR
+  // loop filter, not the nonlinear-in-loop combo (that's its own test).
+  if (cap.hasFeedback) {
+    const fbName    = pickSetter(paramSchema, ['setFeedback', 'setFB', 'setDecay']);
+    const paramsLfsr = { ...neutral };
+    if (fbName) {
+      const p = findParam(paramSchema, fbName);
+      const { min, max } = rangeOf(p);
+      paramsLfsr[fbName] = min + (max - min) * 0.8;
+    }
+    presets.push({
+      id: 'qc_t3_loop_filter_stability_root',
+      label: 'QC · T3 · Loop-filter stability root (impulse + tail regression)',
+      tier: 3, ruleId: 'loop_filter_stability_root', source: 'qc',
+      params: paramsLfsr,
+      meta: { signalSource: 'impulse', durationMs: 5000, fbFrac: 0.8 },
     });
   }
 

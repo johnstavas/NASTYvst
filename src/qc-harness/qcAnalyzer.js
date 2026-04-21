@@ -455,6 +455,63 @@ export const RULE_META = {
     },
   },
 
+  dc_rejection_fb: {
+    title:   "Feedback loop generates DC from silence",
+    meaning: "With no input signal and feedback/drive at maximum, the plugin's output contains a measurable DC offset. Silent input should yield silent output — a nonzero mean indicates the feedback path is accumulating DC from internal state, denormal rectification, or an asymmetric nonlinearity rectifying noise. In a DAW this manifests as an audible click or thump whenever the plugin is bypassed/unbypassed or its state resets.",
+    fix:     "High-pass the feedback tap at ≈5–20 Hz to kill DC circulation, or add a one-pole DC blocker on the output stage. If the plugin has an asymmetric saturator inside the FB loop, bias-correct post-saturation (subtract the saturator's DC offset at the current drive level). Flush denormals inside the worklet (add 1e-20 noise dither pre-filter, or use FTZ-equivalent zero checks on feedback memories).",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → feedback tap + DC blocker", "src/<product>/<product>Engine.js → feedback gain + saturator ordering"],
+      refs:   ["MEMORY.md → jos_pasp_dsp_reference.md (DC blockers, one-pole HPF design)", "MEMORY.md → dafx_zolzer_textbook.md Ch.4 (asymmetric NL → DC generation)", "MEMORY.md → manchild_lessons.md (denormal handling in recursive structures)"],
+      checks: ["Confirm the FB tap has a DC blocker upstream of the accumulator.", "With asymmetric saturator + FB: verify DC correction applied post-sat.", "Render 10s of silence at max FB/drive — mean should be ≤ −100 dBFS."],
+      antipatterns: ["Unblocked FB tap + asymmetric clipper → DC bias compounds every pass.", "No denormal flush — FB memories cascade subnormals to measurable DC."],
+    },
+    bySeverity: {
+      info: {
+        title:   "DC rejection clean under feedback stress",
+        meaning: "10s of silent input with feedback/drive at max produced output below −80 dBFS DC. The feedback loop isn't generating or accumulating DC — no bypass-unbypass thump risk.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  loop_filter_stability_root: {
+    title:   "Feedback loop filter has a marginal or unstable pole",
+    meaning: "Impulse response decay was measured at ~80% feedback. A stable feedback loop produces a tail with monotonically decreasing energy (negative slope on a log scale). This plugin shows a slope near zero or positive — the loop filter has a pole at or just outside the unit circle. In a short test the plugin sounds fine, but in a long session the tail rings forever or grows slowly until it dominates the output.",
+    fix:     "Audit the loop filter's coefficient computation. For a one-pole in the feedback path, the pole magnitude must stay strictly below 1.0 at every param combination — not equal to 1.0. Common culprits: (a) loop gain is calculated from user-knob without a stability margin; (b) a filter's cutoff frequency can go below DC or above Nyquist at parameter extremes, producing coefficients whose product ≥ 1; (c) a high-order loop filter has cascaded rounding that nudges a conjugate pair outside the unit circle.",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → loop-filter coefficient update", "src/<product>/<product>Engine.js → feedback gain calc + param clamps"],
+      refs:   ["MEMORY.md → jos_pasp_dsp_reference.md (IIR stability, pole-zero placement)", "MEMORY.md → jos_pasp_physical_modeling.md (Von Neumann stability for recursive structures)", "MEMORY.md → dafx_zolzer_textbook.md Ch.2 (biquad stability margins, feedback delay networks)"],
+      checks: ["Log the magnitude of the largest loop pole at each coefficient update — must stay < 0.999 at every param combo.", "Drive feedback to 80% and impulse the plugin. Window the tail in 100ms chunks; log(RMS) vs time should trend monotonically negative.", "Re-run this test at the four corners of (feedback × drive × cutoff × resonance) param space — stability must hold at all of them, not just neutral."],
+      antipatterns: ["Setting loop gain exactly to 1.0 as a 'maximum decay' preset — any coefficient noise nudges it past the unit circle.", "Computing filter coeffs once in the JS thread and never updating — numerical drift accumulates across param changes.", "Cascading two first-order loop filters and assuming the composite is stable — need to verify the COMPOSITE pole, not each stage."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Loop filter stable — tail decays cleanly",
+        meaning: "Impulse response tail showed monotonically decreasing energy (negative slope on log scale). The feedback loop filter's pole sits safely inside the unit circle — no ringing forever, no long-session growth.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
+  orthogonal_feedback: {
+    title:   "FDN feedback matrix is not preserving energy orthogonally",
+    meaning: "Rendered an impulse through the declared-orthogonal FDN and measured per-channel tail decay. In a correct Hadamard/Householder matrix the per-channel decay slopes and initial tail energies should match tightly — the whole point of an orthogonal matrix is that it distributes and preserves energy uniformly across taps. This plugin shows asymmetric L/R decay or asymmetric initial energy, meaning the matrix has a sign error, a normalization bug, or is mixing taps unevenly between output channels.",
+    fix:     "Verify the feedback matrix constants against the reference (Hadamard: ±1/√N scaling; Householder: I − 2vvᵀ/‖v‖²). Check that the tap-to-output routing treats L and R symmetrically — a common bug is wiring taps 0..N/2-1 to L and N/2..N-1 to R with the matrix not permutation-symmetric across that split. For Householder, confirm the reflection vector is the same on both channels (or an explicit π/2 rotation, if that's the design).",
+    dev: {
+      files:  ["src/<product>/<product>Worklet.js → FDN matrix + tap-to-output routing", "src/<product>/<product>Engine.js → matrix constants + normalization"],
+      refs:   ["MEMORY.md → reverb_engine_architecture.md (Hadamard diffusion, Householder feedback)", "MEMORY.md → jos_pasp_dsp_reference.md (FDN matrix families)", "MEMORY.md → dafx_zolzer_textbook.md Ch.5 (FDN design)"],
+      checks: ["Print the matrix at boot — every row and column should sum to the same value (unitary-preserving).", "Feed an impulse into the L input only, measure total energy at L and R outputs — should be comparable (not wildly asymmetric).", "For Hadamard: confirm 1/√N scaling (not 1/N, not unnormalized).", "For Householder: confirm v is unit-norm before computing I − 2vvᵀ."],
+      antipatterns: ["Hadamard matrix coded with 1/N scaling (energy decays 1/N per pass) or 1 scaling (energy grows).", "Householder reflection vector with a zero entry — reduces the rank of the reflection and breaks orthogonality.", "L-channel taps permuted differently from R-channel taps without a matching matrix permutation."],
+    },
+    bySeverity: {
+      info: {
+        title:   "FDN feedback matrix distributes energy cleanly",
+        meaning: "Per-channel decay slopes and initial tail energies matched within tolerance. The orthogonal matrix is doing its job — energy is preserved uniformly across taps, and the L/R routing is symmetric.",
+        fix:     "Nothing to fix.",
+      },
+    },
+  },
+
   pathological_stereo: {
     title:   "Plugin mishandles extreme stereo input",
     meaning: "Sent a pathological stereo signal (hard-panned, phase-inverted, or mono-summed) through the plugin. Output shows cross-channel bleed, sign-flips, or mono collapse that isn't declared in the plugin's stereo behavior.",
@@ -684,14 +741,21 @@ export const RULE_META = {
     },
   },
   series_identity: {
-    title:   "Series-identity invariance — measurement pending",
-    meaning: "Two instances of the same plugin in neutral-bypass series should produce within tolerance of one instance in neutral-bypass (no accumulating coloration unless dryLegHasColoration is declared). Registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T4.3 implementation.",
+    title:   "Series-identity invariance — per-pass coloration in an honest-bypass plugin",
+    meaning: "Two instances of an honest-bypass plugin in series at Mix=0 should null against one instance (or raw input) within −80 dB. If each pass leaves a subtle coloration footprint — an always-on saturator, an un-bypassed oversampler, a lingering filter tail — those footprints compound across instances and drift the signal on every send/return round-trip. This is distinct from the coloration-bearing class (which declares dryLegHasColoration and opts out of this rule entirely).",
+    fix:     "Audit the Mix=0 fast path. For an honest-bypass plugin the processor's Mix=0 branch must be a pure passthrough — no filter coefficients updating, no oversampler running, no saturator mapping. If the residual is small but nonzero, typical culprits: anti-alias filter left active at Mix=0, envelope follower still running, denormal floor leaking through a leak term.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (series_identity rule)"],
-      refs:  ["MEMORY.md → dry_wet_mix_rule", "CONFORMANCE → dryLegHasColoration opt-in"],
-      checks: ["Gate: capabilities.dryLegHasColoration !== true (honest-bypass plugins only)"],
-      antipatterns: ["Running on a vari-mu / always-colored plugin and calling the coloration a bug."],
+      files: ["src/<product>/<product>Worklet.js → Mix=0 fast path", "src/qc-harness/seriesRender.js (renderSeriesNull — shared infra with mix_null_series)"],
+      refs:  ["MEMORY.md → dry_wet_mix_rule.md §5 (series-null test)", "CONFORMANCE → dryLegHasColoration opt-in"],
+      checks: ["Gate: capabilities.dryLegHasColoration !== true (honest-bypass plugins only).", "Render A→A (two instances in series) at Mix=0; subtract from ref (input). Residual should be < −80 dB.", "Sibling rule mix_null_series uses the same two-pass infrastructure for the coloration-bearing class; don't duplicate implementations — reuse renderSeriesNull."],
+      antipatterns: ["Running on a vari-mu / always-colored plugin and calling the coloration a bug.", "Duplicating the two-pass render infra across rules instead of reusing seriesRender.renderSeriesNull."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Series identity confirmed",
+        meaning: "Two instances of the plugin in series at Mix=0 nulled against one instance within tolerance. No accumulating coloration across passes.",
+        fix:     "Nothing to fix.",
+      },
     },
   },
   long_session_drift: {
@@ -1475,6 +1539,221 @@ const RULES = [
     };
   },
 
+  // QC-R8f — dc_rejection_fb. Silent input + max FB/drive should produce
+  // silent output. A measurable DC mean means the feedback path is
+  // accumulating bias (asymmetric NL, denormal rectification, or uninit
+  // state) — causes audible click/thump on bypass-unbypass in a DAW.
+  //
+  // Thresholds:
+  //   dcRejectionFinite === false              → FAIL (catastrophic)
+  //   dcRejectionMeanDb > −60 dB                → FAIL (audible DC)
+  //   −80 < dcRejectionMeanDb ≤ −60 dB          → WARN (measurable; audit FB)
+  //   dcRejectionMeanDb ≤ −80 dB                → INFO ok
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'dc_rejection_fb');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.dcRejectionFinite !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'dc_rejection_fb',
+        msg: `capture_pending: dc-rejection measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB';
+    const nonFinite = withData.filter(s => s.measurements.dcRejectionFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'dc_rejection_fb',
+        msg: `${nonFinite.length} capture(s) produced non-finite samples under silent input + max FB/drive — feedback loop is numerically unstable at rest.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite output)`),
+      };
+    }
+    const fails = withData.filter(s => {
+      const db = s.measurements.dcRejectionMeanDb;
+      return Number.isFinite(db) && db > -60;
+    });
+    if (fails.length) {
+      return {
+        severity: FAIL, rule: 'dc_rejection_fb',
+        msg: `${fails.length} capture(s) generated DC above −60 dBFS from silent input — will thump on bypass / state reset.`,
+        affected: fails.map(s => `${s.label} (dc=${fmtDb(s.measurements.dcRejectionMeanDb)}, peak=${fmtDb(s.measurements.dcRejectionPeakDb)})`),
+      };
+    }
+    const warns = withData.filter(s => {
+      const db = s.measurements.dcRejectionMeanDb;
+      return Number.isFinite(db) && db > -80 && db <= -60;
+    });
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'dc_rejection_fb',
+        msg: `${warns.length} capture(s) show DC between −80 and −60 dBFS — measurable but not yet audible. Audit the feedback tap for DC blocker / denormal flushing.`,
+        affected: warns.map(s => `${s.label} (dc=${fmtDb(s.measurements.dcRejectionMeanDb)})`),
+      };
+    }
+    return {
+      severity: INFO, rule: 'dc_rejection_fb',
+      msg: `DC rejection clean on ${withData.length} capture(s) — silent input produced ≤ −80 dBFS output DC at max FB/drive.`,
+      affected: withData.map(s => `${s.label} (dc=${fmtDb(s.measurements.dcRejectionMeanDb)})`),
+    };
+  },
+
+  // QC-R8g — loop_filter_stability_root. Impulse at ~80% FB, fit log(RMS)
+  // vs time. Negative slope = stable root. Positive slope = marginal /
+  // unstable pole that rings forever or grows slowly in long sessions.
+  // Distinct from feedback_runaway (which catches catastrophic max-FB
+  // blowups) — this is the subtle class that passes short tests but
+  // fails long ones.
+  //
+  // Thresholds:
+  //   lfsrFinite === false        → FAIL (catastrophic)
+  //   lfsrLastVsFirstDb > +6 dB   → FAIL (growing tail, any shape)
+  //   lfsrSlopeDbPerSec > +1      → FAIL (unstable pole)
+  //   0 < slope ≤ +1              → WARN (marginal — audit loop filter)
+  //   slope ≤ 0                   → INFO ok
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'loop_filter_stability_root');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.lfsrFinite !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'loop_filter_stability_root',
+        msg: `capture_pending: loop-filter-stability measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB';
+    const fmtSlope = (v) => Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(2)} dB/s` : 'n/a';
+
+    const nonFinite = withData.filter(s => s.measurements.lfsrFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'loop_filter_stability_root',
+        msg: `${nonFinite.length} capture(s) produced non-finite samples during stability-root probe — feedback path blew up at 80% FB.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite output)`),
+      };
+    }
+    // Growing tail (regardless of regression shape).
+    const growing = withData.filter(s => {
+      const d = s.measurements.lfsrLastVsFirstDb;
+      return Number.isFinite(d) && d > 6;
+    });
+    if (growing.length) {
+      return {
+        severity: FAIL, rule: 'loop_filter_stability_root',
+        msg: `${growing.length} capture(s) show tail growth > +6 dB from first to last window — loop filter has a pole outside the unit circle.`,
+        affected: growing.map(s => `${s.label} (lastVsFirst=${fmtDb(s.measurements.lfsrLastVsFirstDb)}, slope=${fmtSlope(s.measurements.lfsrSlopeDbPerSec)})`),
+      };
+    }
+    // Unstable slope.
+    const fails = withData.filter(s => {
+      const v = s.measurements.lfsrSlopeDbPerSec;
+      return Number.isFinite(v) && v > 1;
+    });
+    if (fails.length) {
+      return {
+        severity: FAIL, rule: 'loop_filter_stability_root',
+        msg: `${fails.length} capture(s) show tail slope > +1 dB/sec — loop filter pole is effectively on or outside the unit circle.`,
+        affected: fails.map(s => `${s.label} (slope=${fmtSlope(s.measurements.lfsrSlopeDbPerSec)})`),
+      };
+    }
+    const warns = withData.filter(s => {
+      const v = s.measurements.lfsrSlopeDbPerSec;
+      return Number.isFinite(v) && v > 0 && v <= 1;
+    });
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'loop_filter_stability_root',
+        msg: `${warns.length} capture(s) show positive-but-small tail slope (0..+1 dB/sec) — loop filter is marginally stable. Long sessions may accumulate.`,
+        affected: warns.map(s => `${s.label} (slope=${fmtSlope(s.measurements.lfsrSlopeDbPerSec)})`),
+      };
+    }
+    return {
+      severity: INFO, rule: 'loop_filter_stability_root',
+      msg: `Loop filter stable on ${withData.length} capture(s) — tail decays with negative log-slope.`,
+      affected: withData.map(s => `${s.label} (slope=${fmtSlope(s.measurements.lfsrSlopeDbPerSec)})`),
+    };
+  },
+
+  // QC-R8h — orthogonal_feedback. Impulse through a declared-orthogonal
+  // FDN (Hadamard or Householder). Measure per-channel log-RMS decay
+  // slope + initial tail energy. For a correct orthogonal matrix,
+  // slopes and initial energies should match within tolerance.
+  //
+  // Thresholds:
+  //   ofFinite === false              → FAIL (non-finite output)
+  //   ofSlopeDiffDbPerSec > 20        → FAIL (severely asymmetric decay)
+  //   ofSlopeDiffDbPerSec > 10        → WARN
+  //   ofInitialDiffDb > 12            → FAIL (severely asymmetric initial energy)
+  //   ofInitialDiffDb > 6             → WARN
+  //   else                            → INFO
+  //
+  // Self-disables to capture_pending when no measurement present
+  // (plugin doesn't declare feedbackMatrix capability, or ran before
+  //  hook wired up).
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'orthogonal_feedback');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.ofFinite !== undefined);
+    if (withData.length === 0) {
+      return {
+        severity: INFO, rule: 'orthogonal_feedback',
+        msg: `capture_pending: orthogonal-feedback measurement not written. Check capabilities.feedbackMatrix and captureHooks.getEngineFactory.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`),
+      };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : 'n/a';
+    const fmtSlope = (v) => Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(2)} dB/s` : 'n/a';
+
+    const nonFinite = withData.filter(s => s.measurements.ofFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'orthogonal_feedback',
+        msg: `${nonFinite.length} capture(s) produced non-finite samples — FDN matrix path blew up.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite output)`),
+      };
+    }
+    const slopeFail = withData.filter(s => {
+      const v = s.measurements.ofSlopeDiffDbPerSec;
+      return Number.isFinite(v) && v > 20;
+    });
+    if (slopeFail.length) {
+      return {
+        severity: FAIL, rule: 'orthogonal_feedback',
+        msg: `${slopeFail.length} capture(s) show per-channel decay-slope divergence > 20 dB/s — matrix is not orthogonal.`,
+        affected: slopeFail.map(s => `${s.label} (slopeL=${fmtSlope(s.measurements.ofSlopeLDbPerSec)}, slopeR=${fmtSlope(s.measurements.ofSlopeRDbPerSec)})`),
+      };
+    }
+    const initFail = withData.filter(s => {
+      const v = s.measurements.ofInitialDiffDb;
+      return Number.isFinite(v) && v > 12;
+    });
+    if (initFail.length) {
+      return {
+        severity: FAIL, rule: 'orthogonal_feedback',
+        msg: `${initFail.length} capture(s) show initial-tail-energy divergence > 12 dB between L/R — matrix routes energy unevenly across output channels.`,
+        affected: initFail.map(s => `${s.label} (firstL=${fmtDb(s.measurements.ofFirstLDb)}, firstR=${fmtDb(s.measurements.ofFirstRDb)})`),
+      };
+    }
+    const warns = withData.filter(s => {
+      const sd = s.measurements.ofSlopeDiffDbPerSec;
+      const id = s.measurements.ofInitialDiffDb;
+      return (Number.isFinite(sd) && sd > 10) || (Number.isFinite(id) && id > 6);
+    });
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'orthogonal_feedback',
+        msg: `${warns.length} capture(s) show mild L/R decay asymmetry — matrix may have small sign/normalization drift. Verify matrix constants.`,
+        affected: warns.map(s => `${s.label} (slopeΔ=${fmtSlope(s.measurements.ofSlopeDiffDbPerSec)}, initΔ=${fmtDb(s.measurements.ofInitialDiffDb)})`),
+      };
+    }
+    return {
+      severity: INFO, rule: 'orthogonal_feedback',
+      msg: `FDN matrix preserves energy orthogonally on ${withData.length} capture(s) — L/R decay slopes and initial tail energies matched.`,
+      affected: withData.map(s => `${s.label} (slopeΔ=${fmtSlope(s.measurements.ofSlopeDiffDbPerSec)}, initΔ=${fmtDb(s.measurements.ofInitialDiffDb)})`),
+    };
+  },
+
   // QC-R8b — monosum_null. At neutral width with decorrelated stereo,
   // the mono-sum (L+R)/2 should track the per-channel RMS minus ~3 dB
   // (expected for independent L/R). A drop of > 6 dB = partial anti-phase
@@ -1657,19 +1936,35 @@ const RULES = [
       };
     }
 
-    // Catastrophic: peak overshoot — mid-point peak vs input RMS > +12 dB
+    // Catastrophic: peak overshoot — mid-point peak vs INPUT PEAK > +6 dB.
+    //
+    // Historical bug: this check used `mixSanityInRmsDb` as the reference,
+    // which baked a false positive of ~12–15 dB into every pink-noise probe
+    // (pink's crest factor ~14 dB puts output-peak vs input-RMS near the
+    // threshold on any correctly-implemented equal-power crossfade).
+    // Crest-factor-invariant fix: compare peak to peak.
+    //
+    // +6 dB threshold derivation: equal-power cos/sin at Mix=0.5 weights
+    // both legs by ~0.707, so mid peak ≤ max(dryPeak, wetPeak). Linear
+    // summation can produce up to +6 dB over that ceiling if dry + wet
+    // coherently align. Beyond +6 dB = genuine gain bump, not waveform
+    // randomness. Falls back to the RMS ref if input-peak field is absent
+    // (handles older snapshot records).
     const peakBombs = withData.filter(s => {
       const m = s.measurements;
-      return finite(m.mixSanityMidPeakDb) && finite(m.mixSanityInRmsDb)
-        && (m.mixSanityMidPeakDb - m.mixSanityInRmsDb) > 12;
+      const ref = finite(m.mixSanityInPeakDb) ? m.mixSanityInPeakDb : m.mixSanityInRmsDb;
+      const thresh = finite(m.mixSanityInPeakDb) ? 6 : 20;  // looser when we can only compare vs RMS
+      return finite(m.mixSanityMidPeakDb) && finite(ref)
+        && (m.mixSanityMidPeakDb - ref) > thresh;
     });
     if (peakBombs.length) {
       return {
         severity: FAIL, rule: 'mix_sanity',
-        msg: `${peakBombs.length} capture(s) show mid-point peak more than 12 dB above input at Mix=0.5 — blend is summing dry+wet linearly instead of cross-fading.`,
+        msg: `${peakBombs.length} capture(s) show mid-point peak more than 6 dB above input peak at Mix=0.5 — blend is summing dry+wet linearly instead of cross-fading.`,
         affected: peakBombs.map(s => {
           const m = s.measurements;
-          return `${s.label} (peak=${fmt(m.mixSanityMidPeakDb)}, in=${fmt(m.mixSanityInRmsDb)})`;
+          const ref = finite(m.mixSanityInPeakDb) ? fmt(m.mixSanityInPeakDb) : `${fmt(m.mixSanityInRmsDb)} (RMS)`;
+          return `${s.label} (peak=${fmt(m.mixSanityMidPeakDb)}, in=${ref})`;
         }),
       };
     }
@@ -1985,13 +2280,46 @@ const RULES = [
       msg: `os_boundary probe registered (oversampling=${os}×); detection body pending T4.2 implementation.` };
   },
 
-  // T4.3 series_identity — honest-bypass plugins only
-  (_, snaps) => {
-    const caps = snaps[0]?.capabilities;
-    if (!caps) return null;
-    if (caps.dryLegHasColoration === true) return null; // by design, not a bug
+  // T4.3 series_identity — honest-bypass plugins only.
+  //
+  // Conceptually the twin of mix_null_series: both use the two-pass
+  // seriesRender.js infrastructure (render one instance as ref, render
+  // two-in-series as test, subtract). Semantic split:
+  //   - mix_null_series   → coloration-bearing plugins; proves the Mix=0
+  //                         contract (dry leg passes input untouched).
+  //   - series_identity   → honest-bypass plugins; proves that A→A at
+  //                         Mix=0 in series doesn't introduce accumulating
+  //                         coloration beyond a single instance.
+  //
+  // Gate: only fire if a series_identity probe was actually emitted
+  // (preset in qcPresets.js tier4 for delay/reverb/convolution subcats
+  // AND dryLegHasColoration !== true). Self-disable silently when the
+  // measurement field is absent — capture hook not yet wired, so no
+  // "pending" noise in reports. When the hook lands, it'll write
+  // `seriesIdentityRmsDb` into measurements and this rule lights up.
+  (_, _snaps, ctx) => {
+    const probes = (ctx.qcSnaps || []).filter(s => s?.qc?.ruleId === 'series_identity');
+    if (!probes.length) return null;
+    const caps = probes[0]?.capabilities;
+    if (caps?.dryLegHasColoration === true) return null; // by design, not a bug
+    const withData = probes.filter(s => Number.isFinite(s?.measurements?.seriesIdentityRmsDb));
+    if (withData.length === 0) return null; // capture-pending, stay silent
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB';
+    const fails = withData.filter(s => s.measurements.seriesIdentityRmsDb > -60);
+    if (fails.length) {
+      return { severity: FAIL, rule: 'series_identity',
+        msg: `${fails.length} capture(s) show series residual > −60 dB — two instances in series diverge from one beyond the tolerance.`,
+        affected: fails.map(s => `${s.label} (residual=${fmtDb(s.measurements.seriesIdentityRmsDb)})`) };
+    }
+    const warns = withData.filter(s => s.measurements.seriesIdentityRmsDb > -80);
+    if (warns.length) {
+      return { severity: WARN, rule: 'series_identity',
+        msg: `${warns.length} capture(s) show series residual > −80 dB — plugin may have small per-pass coloration.`,
+        affected: warns.map(s => `${s.label} (residual=${fmtDb(s.measurements.seriesIdentityRmsDb)})`) };
+    }
     return { severity: INFO, rule: 'series_identity',
-      msg: 'series_identity probe registered (honest-bypass plugin); detection body pending T4.3 implementation.' };
+      msg: `Series identity confirmed on ${withData.length} capture(s) — two instances in series null against one within tolerance.`,
+      affected: withData.map(s => `${s.label} (residual=${fmtDb(s.measurements.seriesIdentityRmsDb)})`) };
   },
 
   // T4.4 long_session_drift — fires if a long-capture probe snap exists
