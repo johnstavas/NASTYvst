@@ -168,16 +168,14 @@ schedulers, no `.connect(` / `.disconnect(`, no context-factory calls.
   out L = out R = `0.5·(inL + inR)` at width=0, interpolated against
   the current Haas/direct mix as width moves 0 → 1. ~12 lines.
 
-### F3 — ⚠️ `reverbSend` / `noiseGain` / `crackleGain` not in `getState()`
+### F3 — ✅ FIXED · `reverbSend` / `noiseGain` / `crackleGain` now in `getState()`
 
-- **Where:** `getState()` at L1029–1067 exposes knob mirrors and
-  character vars but not these wet-chain gains.
-- **Severity:** WARN — blocks clean M18 and M20 auto-checks. Indirect
-  measurement via audio output still works but is more fragile than a
-  state inspection.
-- **Recommended fix:** add `reverbSendLevel: reverbSend.gain.value`,
-  `dustHiss: noiseGain.gain.value`, `dustGrit: crackleGain.gain.value`
-  to `getState()`. ~3 lines.
+- **Was:** `getState()` exposed knob mirrors and character vars but not
+  the wet-chain gain levels — M18 and M20 auto-checks had to fall back
+  to indirect audio measurement.
+- **Fix shipped:** `getState()` at L1177–1179 now returns
+  `reverbSendLevel`, `dustHiss`, `dustGrit`. (Landed ahead of this
+  report's last revision; noted here as doc-sync 2026-04-21.)
 
 ### F4 — ℹ️ `applyBulk` silent-ignore is intentional but audit-friendly logging would help
 
@@ -202,11 +200,11 @@ schedulers, no `.connect(` / `.disconnect(`, no context-factory calls.
 | §8 Non-goals cross-check | ✅ all documented |
 
 **0 FAIL** (F1 fixed 2026-04-21; §8.2 deviation closed).
-**2 WARN** (F2, F3 — both self-flagged, tracked for spec v1.1.0).
+**1 WARN** (F2 — self-flagged Width=0 soft-mono, tracked for spec v1.1.0).
 **1 INFO** (F4).
 
-No surprise regressions. F1 now compliant with R10 B4. Remaining open
-items (F2, F3) are pre-existing self-flagged deviations.
+No surprise regressions. F1 now compliant with R10 B4. F3 was already
+fixed in-engine; report synced 2026-04-21. Only F2 remains open.
 
 ---
 
@@ -214,8 +212,8 @@ items (F2, F3) are pre-existing self-flagged deviations.
 
 1. ~~**F1** Dream `mix` target fix.~~ **Landed 2026-04-21** —
    series `dryMixMod`/`wetMixMod` nodes, equal-power swing, B4 compliant.
-2. **Land F3** (3-line `getState` extension). Zero-risk; unlocks
-   M18 and M20 clean auto-checks.
+2. ~~**F3** `getState` wet-chain gain levels.~~ **Already in-engine**
+   (L1177–1179); report synced 2026-04-21.
 3. **Schedule F2** (Width=0 mono) for spec v1.1.0. Medium-risk, ~12
    lines, needs a null-test proof-of-fix.
 4. **F4 is optional** — land it if/when dev-mode logging lands
