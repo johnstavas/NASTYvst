@@ -653,14 +653,21 @@ export const RULE_META = {
   // This keeps audits honest about coverage without false-positive noise.
 
   freeze_stability: {
-    title:   "Freeze mode stability — measurement pending",
-    meaning: "Plugins with a freeze / infinite-hold capability should maintain bounded output energy when the input is silenced for long windows. This check is registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T3.4 implementation.",
+    title:   "Freeze mode is growing, saturating, or blowing up",
+    meaning: "Pushed decay/RT60 to its clamped maximum, fed a 1s pink-noise burst, then measured 29s of silence-tail in 1s windows. For a correct freeze mode the tail should be bounded and near-constant — energy held indefinitely, neither growing nor fading. This plugin shows one of three failures: (1) non-finite samples (a pole is outside the unit circle at max decay), (2) > +6 dB tail growth (marginally unstable — would dominate the session in a few minutes), or (3) tail fades below −120 dB (freeze isn't actually holding — decay saturates before reaching 1.0, so the user hits freeze and still hears the tail disappear).",
+    fix:     "Audit the decay→coefficient mapping at the top of its range. The common culprits: (a) decay param clamps at 0.999 internally but user-facing label says 'freeze / ∞' — resolve by adding a true freeze branch (gain = 1.0 in the FB tap) separate from the continuous decay range; (b) decay > 0.99 makes a conjugate filter pair sum to magnitude > 1 after coefficient quantization — reduce the clamp or use a structure with better numerical headroom (state-variable instead of direct-form); (c) freeze branch swaps in hard gain = 1.0 but leaves an external leak term that still decays.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (freeze_stability rule)", "src/qc-harness/qcPresets.js (freeze-probe preset, TBD)"],
-      refs:  ["MEMORY.md → reverb_engine_architecture (RT60, FDN stability)"],
-      checks: ["Capability gate: capabilities.freeze === true"],
-      antipatterns: ["Enabling the probe before the preset + measurement path exists."],
+      files: ["src/<product>/<product>Worklet.js → decay → FB gain mapping, freeze branch", "src/<product>/<product>Engine.js → decay / RT60 clamp"],
+      refs:  ["MEMORY.md → reverb_engine_architecture.md (RT60 formula, FDN stability)", "MEMORY.md → jos_pasp_dsp_reference.md (IIR stability at unit circle)"],
+      checks: ["Log the FB gain used when user decay = 1.0 — it should be exactly 1.0 if a freeze branch exists, or the documented clamp ceiling (e.g. 0.999) if not.", "Render 60s of silence after the burst at max decay — tail RMS should stay within ±3 dB of its settled value.", "For FDN reverbs, verify that the freeze branch zeroes the loop filter's HF shelf (otherwise the tail slowly darkens to silence)."],
+      antipatterns: ["Labeling the decay knob '∞ / freeze' when the internal clamp is 0.99 — creates a user-visible bug (freeze still fades).", "Hard-coding FB gain = 1.0 in the freeze branch without verifying the rest of the loop is leak-free.", "Using denormal flush as the freeze mechanism — tail eventually zeros out due to FTZ, not by design."],
+    },
+    bySeverity: {
+      info: {
+        title:   "Freeze mode holds cleanly",
+        meaning: "After the burst, the tail stayed bounded and non-growing across the 29s silence window. Freeze is doing its job — energy held without runaway and without premature fade.",
+        fix:     "Nothing to fix.",
+      },
     },
   },
   sidechain_regime: {
@@ -2222,11 +2229,61 @@ const RULES = [
   // Implementation lands per-rule during Flap Jack Man / Panther Buss
   // onboarding + the cross-plugin T3/T4 rollup.
 
-  // T3.4 freeze_stability
-  (_, snaps) => {
-    if (!(snaps[0]?.capabilities?.freeze === true)) return null;
+  // T3.4 freeze_stability. Decay at max, 1s pink burst, 29s silence.
+  // Measures tail in 1s windows. Three failure modes:
+  //   freezeFinite === false           → FAIL (non-finite)
+  //   freezeTailGrowthDb > +6          → FAIL (growing)
+  //   freezeTailGrowthDb > +1          → WARN (marginal)
+  //   freezeTailEndDb   < −120         → WARN (not actually freezing)
+  //   else                             → INFO
+  (_, _snaps, ctx) => {
+    const probes = (ctx.qcSnaps || []).filter(s => s?.qc?.ruleId === 'freeze_stability');
+    if (!probes.length) return null;
+    const withData = probes.filter(s => s?.measurements?.freezeFinite !== undefined);
+    if (withData.length === 0) {
+      return { severity: INFO, rule: 'freeze_stability',
+        msg: `capture_pending: freeze-stability measurement not written. Check captureHooks.getEngineFactory for a factory route.`,
+        affected: probes.map(s => `${s.label} (measurement pending)`) };
+    }
+    const fmtDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '−∞ dB';
+    const fmtGrowth = (v) => Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB` : 'n/a';
+
+    const nonFinite = withData.filter(s => s.measurements.freezeFinite === false);
+    if (nonFinite.length) {
+      return { severity: FAIL, rule: 'freeze_stability',
+        msg: `${nonFinite.length} capture(s) produced non-finite samples at max decay — freeze path blew up.`,
+        affected: nonFinite.map(s => `${s.label} (non-finite output)`) };
+    }
+    const growing = withData.filter(s => {
+      const g = s.measurements.freezeTailGrowthDb;
+      return Number.isFinite(g) && g > 6;
+    });
+    if (growing.length) {
+      return { severity: FAIL, rule: 'freeze_stability',
+        msg: `${growing.length} capture(s) show freeze tail growth > +6 dB over 29s — pole sits outside the unit circle at max decay.`,
+        affected: growing.map(s => `${s.label} (growth=${fmtGrowth(s.measurements.freezeTailGrowthDb)})`) };
+    }
+    const marginal = withData.filter(s => {
+      const g = s.measurements.freezeTailGrowthDb;
+      return Number.isFinite(g) && g > 1 && g <= 6;
+    });
+    if (marginal.length) {
+      return { severity: WARN, rule: 'freeze_stability',
+        msg: `${marginal.length} capture(s) show small positive freeze-tail growth (+1..+6 dB) — marginally stable. Long sessions may accumulate.`,
+        affected: marginal.map(s => `${s.label} (growth=${fmtGrowth(s.measurements.freezeTailGrowthDb)})`) };
+    }
+    const fading = withData.filter(s => {
+      const e = s.measurements.freezeTailEndDb;
+      return Number.isFinite(e) && e < -120;
+    });
+    if (fading.length) {
+      return { severity: WARN, rule: 'freeze_stability',
+        msg: `${fading.length} capture(s) show freeze tail fading below −120 dBFS — decay saturates before reaching unity, so "freeze" isn't actually holding.`,
+        affected: fading.map(s => `${s.label} (tailEnd=${fmtDb(s.measurements.freezeTailEndDb)})`) };
+    }
     return { severity: INFO, rule: 'freeze_stability',
-      msg: 'freeze_stability probe registered (capability declared); detection body pending T3.4 implementation.' };
+      msg: `Freeze mode bounded and non-growing on ${withData.length} capture(s) — tail held across 29s silence window.`,
+      affected: withData.map(s => `${s.label} (tail=${fmtDb(s.measurements.freezeTailStartDb)}→${fmtDb(s.measurements.freezeTailEndDb)}, Δ=${fmtGrowth(s.measurements.freezeTailGrowthDb)})`) };
   },
 
   // T3.5 sidechain_regime

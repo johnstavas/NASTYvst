@@ -1482,6 +1482,101 @@ export async function renderOrthogonalFeedback({
   };
 }
 
+// ── Hook: freeze_stability (T3) ──────────────────────────────────────
+//
+// Pushes decay/RT60 to its clamped maximum (~99% of declared range),
+// feeds a 1s pink-noise burst, then 29s of silence, and measures the
+// tail: is it bounded? Is it growing? Is it actually frozen (not
+// decaying to silence)?
+//
+// Three distinct failure modes this catches:
+//   (a) Tail goes non-finite → catastrophic blowup at the edge of the
+//       decay clamp. FAIL.
+//   (b) Tail grows > +6 dB from first to last 1s window → pole sits
+//       outside the unit circle at max decay. FAIL.
+//   (c) Tail drops below −120 dB → "freeze" isn't holding; decay
+//       saturates instead of going to 1.0. WARN. User-visible bug:
+//       hitting freeze on a reverb but hearing the tail fade anyway.
+//
+// Design note:
+//   Different from denormal_tail, which checks for subnormals during
+//   clean decay. Here we specifically want decay-near-unity and check
+//   for the OPPOSITE of decay — persistent, bounded energy. The two
+//   rules overlap in stimulus (burst + silence) but test orthogonal
+//   invariants.
+
+export async function renderFreezeStability({
+  factory, params, sampleRate, burstSec = 1, silenceSec = 29,
+  settleSec = 2, windowSec = 1,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildBurstThenSilence(sampleRate, burstSec, silenceSec);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const chs = buf.numberOfChannels;
+  const winSamples = Math.max(1, Math.floor(sampleRate * windowSec));
+  const tailStart = Math.floor(sampleRate * (burstSec + settleSec));
+  const totalLen = buf.length;
+  if (tailStart + winSamples * 2 > totalLen) {
+    return { notes: 'tail-too-short-for-analysis' };
+  }
+
+  // Per-window RMS across the silence tail.
+  const windows = [];
+  let peak = 0, finite = true;
+  for (let w = tailStart; w + winSamples <= totalLen; w += winSamples) {
+    let ss = 0, count = 0;
+    for (let c = 0; c < chs; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = w; i < w + winSamples; i++) {
+        const v = d[i];
+        if (!Number.isFinite(v)) { finite = false; break; }
+        ss += v * v;
+        count++;
+        const a = Math.abs(v); if (a > peak) peak = a;
+      }
+      if (!finite) break;
+    }
+    if (!finite) break;
+    windows.push(count > 0 ? Math.sqrt(ss / count) : 0);
+  }
+
+  if (!finite) {
+    return {
+      freezeFinite: false,
+      freezePeakDb: rmsToDb(peak),
+      notes: 'non-finite-output',
+    };
+  }
+  if (windows.length < 2) {
+    return { notes: `too-few-windows:${windows.length}` };
+  }
+
+  const firstRms = windows[0];
+  const lastRms  = windows[windows.length - 1];
+  const firstDb  = rmsToDb(firstRms);
+  const lastDb   = rmsToDb(lastRms);
+
+  return {
+    freezeFinite:        true,
+    freezePeakDb:        rmsToDb(peak),
+    freezeTailStartDb:   firstDb,
+    freezeTailEndDb:     lastDb,
+    freezeTailGrowthDb:  Number.isFinite(lastDb) && Number.isFinite(firstDb)
+                            ? lastDb - firstDb
+                            : Number.NEGATIVE_INFINITY,
+    freezeWindowCount:   windows.length,
+    notes: 'ok',
+  };
+}
+
 // ── Exports (named so Analyzer.jsx can dispatch on ruleId) ───────────
 export const captureHooks = {
   impulse_ir:           renderImpulseIR,
@@ -1491,6 +1586,7 @@ export const captureHooks = {
   dc_rejection_fb:      renderDcRejectionFb,
   loop_filter_stability_root: renderLoopFilterStabilityRoot,
   orthogonal_feedback:  renderOrthogonalFeedback,
+  freeze_stability:     renderFreezeStability,
   pathological_stereo:  renderPathologicalStereo,
   extreme_freq:         renderExtremeFreq,
   denormal_tail:        renderDenormalTail,

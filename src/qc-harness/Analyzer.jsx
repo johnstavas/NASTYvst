@@ -26,6 +26,7 @@ import {
   renderDcRejectionFb,
   renderLoopFilterStabilityRoot,
   renderOrthogonalFeedback,
+  renderFreezeStability,
   renderPathologicalStereo,
   renderExtremeFreq,
   renderDenormalTail,
@@ -1106,6 +1107,9 @@ export default function Analyzer({
           Object.assign(snap.measurements, r);
         } else if (qp.ruleId === 'orthogonal_feedback') {
           const r = await renderOrthogonalFeedback(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'freeze_stability') {
+          const r = await renderFreezeStability(captureCtx);
           Object.assign(snap.measurements, r);
         } else if (qp.ruleId === 'pathological_stereo') {
           const r = await renderPathologicalStereo({
