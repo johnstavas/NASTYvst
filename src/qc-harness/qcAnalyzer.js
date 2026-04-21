@@ -71,6 +71,12 @@ const SEV_WEIGHT = { fail: 3, warn: 2, info: 1, ok: 0 };
 //   modulation(bool), reverb(bool), saturation(bool), fft(bool),
 //   lpc(bool), freeze(bool), pitch(bool), wdf(bool), bandsplit(number)
 
+// Knowledge Phase A — deterministic product knowledge teaching layer.
+// Each finding is tagged with a `knowledgeId` + `knowledgeSource` so the
+// UI can resolve the Ear Lesson card via exact-ID lookup. Pure data — no
+// render path here. See src/qc-harness/knowledge/*.
+import { getDefaultKnowledgeIdForRule } from './knowledge/ruleKnowledgeMap.js';
+
 export const REPAIR_STATES = Object.freeze({
   OPEN: 'open',
   EDITING: 'editing',
@@ -2729,6 +2735,31 @@ export function analyzeAudit(bundle) {
   if (snaps.length === 0) {
     verdict = WARN;
     summary = 'Audit bundle contains no snapshots — nothing to analyze.';
+  }
+
+  // Knowledge Phase A — attach knowledgeId + knowledgeSource to every
+  // finding. This is invisible plumbing: no UI renders from it yet (Phase
+  // B gates rendering behind ENABLE_EAR_LESSONS). Adding it here means the
+  // sweep campaign's reports already carry the teaching-layer pointer, so
+  // when Phase B ships we don't need to re-run audits.
+  //
+  // Resolution order (per spec):
+  //   1. finding already has knowledgeId (future: userFix override refinement)
+  //   2. RULE_KNOWLEDGE_MAP[ruleId] → knowledgeSource: 'rule'
+  //   3. null → knowledgeSource: 'fallback'
+  for (const f of findings) {
+    if (typeof f.knowledgeId === 'string' && f.knowledgeId) {
+      if (!f.knowledgeSource) f.knowledgeSource = 'override';
+      continue;
+    }
+    const ruleDefault = getDefaultKnowledgeIdForRule(f.rule);
+    if (ruleDefault) {
+      f.knowledgeId = ruleDefault;
+      f.knowledgeSource = 'rule';
+    } else {
+      f.knowledgeId = null;
+      f.knowledgeSource = 'fallback';
+    }
   }
 
   return { verdict, summary, headline, findings };
