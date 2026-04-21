@@ -682,14 +682,14 @@ export const RULE_META = {
     },
   },
   wdf_convergence: {
-    title:   "WDF solver convergence — measurement pending",
-    meaning: "Wave Digital Filter-based engines (diode clippers, transformer stages) should converge within a bounded iteration count across the parameter space. Registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T3.9 implementation.",
+    title:   "WDF solver fails to converge — NaN, blow-up, or ringing steady state",
+    meaning: "Wave Digital Filter engines (diode clippers, transformer stages, nonlinear bridges) run iterative Newton-Raphson or fixed-point solvers every sample. Non-convergence shows up three ways: (1) the output is non-finite (divide-by-zero in the adaptor), (2) the peak is unbounded (solver oscillation amplifies each iteration), (3) the output ringns or drifts — mid-settle and final-settle RMS disagree by more than 3 dB. A stable WDF should settle to a bounded constant on a constant input within a few hundred milliseconds.",
+    fix:     "Clamp the iteration count and return the last stable state when the solver diverges (DAFX Ch.12 pattern). Re-check the adaptor's reflection coefficient — |k| ≥ 1 on any port produces instability. For diode models, raise the ideality factor or use Lambert W with a safe initial guess. If only extreme param ranges misbehave, narrow the declared range in getParamInfo and document the limit.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (wdf_convergence rule)", "src/<product>/*Worklet.js (WDF iteration counters, TBD)"],
-      refs:  ["DAFX Zölzer Ch.12 (virtual analog, WDF diode)", "JOS PASP (WDF deep + adaptors)"],
-      checks: ["Capability gate: capabilities.wdf === true", "Engine surfaces an iteration-count breadcrumb per block."],
-      antipatterns: ["Capping iterations silently and calling it convergence."],
+      files: ["src/<product>/*Worklet.js (WDF adaptor + solver)", "src/qc-harness/captureHooks.js → renderWdfConvergence"],
+      refs:  ["MEMORY.md → dafx_zolzer_textbook.md Ch.12 (virtual analog, WDF diode)", "MEMORY.md → jos_pasp_dsp_reference.md (WDF adaptors + solver)", "MEMORY.md → jos_pasp_physical_modeling.md (Von Neumann stability + bilinear transform)"],
+      checks: ["Stimulus: silence → step to 0.5 at 100 ms. Output should settle to a bounded constant.", "Measured fields: wdfFinite, wdfPeakDb, wdfMidSettleDb, wdfFinalSettleDb, wdfConvergenceDb.", "wdfConvergenceDb = |mid − final| — small values = converged; > 3 dB = ringing or drifting.", "wdfFinite=false → inspect divide-by-zero in the adaptor's scattering equation."],
+      antipatterns: ["Capping iterations silently and calling the truncated output convergence.", "Ignoring intermittent NaNs as 'only at extreme settings' — users will find those settings."],
     },
   },
   band_reconstruction: {
@@ -711,36 +711,36 @@ export const RULE_META = {
     },
   },
   lpc_stability: {
-    title:   "LPC / source-filter stability — measurement pending",
-    meaning: "LPC-based engines (vocoders, talk-box emulations, formant shifters) should produce stable poles across the parameter space. Registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T3.7 implementation.",
+    title:   "LPC lattice is unstable — output chirps, blows up, or resonates into oscillation",
+    meaning: "Linear Predictive Coding lattice filters (vocoders, talk-box emulations, formant shifters) become unstable the moment any reflection coefficient |k| ≥ 1. A stable LPC filter driven by broadband input should produce output with peak ≤ input peak + ~12 dB (formant gain is bounded). Violation shows up two ways: (1) non-finite output (coefficient cascade exploded into Inf/NaN), or (2) output peak > input peak + 12 dB — the lattice is resonating and amplifying.",
+    fix:     "Clamp reflection coefficients to |k| < 0.999 at update time. If using Levinson-Durbin, re-check the autocorrelation matrix for positive-definiteness (numerical conditioning often breaks on near-silent frames). If the instability appears only at extreme formant settings, narrow the declared parameter range. For LPC-10 / line-spectral-pair schemes, verify the LSF ordering constraint holds across the pole pairs.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (lpc_stability rule)"],
-      refs:  ["DAFX Zölzer Ch.8 (LPC + source-filter)"],
-      checks: ["Capability gate: capabilities.lpc === true"],
-      antipatterns: ["Accepting any finite output as 'stable' without checking pole radii."],
+      files: ["src/<product>/*Worklet.js (LPC lattice + coefficient update)", "src/qc-harness/captureHooks.js → renderLpcStability"],
+      refs:  ["MEMORY.md → dafx_zolzer_textbook.md Ch.8 (LPC + source-filter)", "MEMORY.md → jos_pasp_physical_modeling.md (Kelly-Lochbaum + formants + LPC)"],
+      checks: ["Stimulus: 2 s pink noise (band-limited broadband). Output peak should not exceed input peak + 12 dB.", "Measured fields: lpcFinite, lpcInputPeakDb, lpcOutputPeakDb, lpcPeakGrowthDb.", "FAIL threshold: growth > +12 dB, or non-finite. WARN threshold: growth +6..+12 dB (pole near unit circle).", "lpcFinite=false → coefficient update produced Inf. Check for divide-by-zero in the reflection-coefficient solve."],
+      antipatterns: ["Accepting any finite output as 'stable' without checking pole radii or peak growth.", "Only probing on sustained vowels — random broadband input catches a wider class of instability."],
     },
   },
   fft_frame_phase: {
-    title:   "FFT frame phase coherence — measurement pending",
-    meaning: "FFT-based engines (phase vocoders, spectral processors) should maintain phase coherence across frame boundaries on steady-state input. Registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T3.8 implementation.",
+    title:   "FFT overlap-add leaks broadband energy at frame boundaries",
+    meaning: "Phase-vocoder / FFT-processing engines reconstruct by overlap-add across frames. Wrong window gain, wrong hop-size, or phase-discontinuity between frames leaks broadband noise — audible as periodic clicks at 1/hopSize. On a pure 1 kHz sine probe, a correctly built FFT engine should produce output where the sinusoidal component dominates by > 40 dB (sine − residual SNR). Frame-boundary leak pushes the residual up by tens of dB, collapsing the SNR.",
+    fix:     "Audit the overlap-add reconstruction. Common fixes: (1) use a COLA-compliant window (Hann with 50% / 75% overlap, Hamming with the matching hop), (2) scale the output by 1/(overlap * window_sum_squared) to recover unity gain, (3) ensure frame phases are consistent across calls — a stateful IFFT needs to preserve the previous-frame phase carry. DAFX Zölzer Ch.7 covers the full overlap-add accounting.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (fft_frame_phase rule)"],
-      refs:  ["DAFX Zölzer Ch.7 (phase vocoder)"],
-      checks: ["Capability gate: capabilities.fft === true"],
-      antipatterns: ["Measuring on transient input — steady-state probe required."],
+      files: ["src/<product>/*Worklet.js (FFT/IFFT + overlap-add path)", "src/qc-harness/captureHooks.js → renderFftFramePhase"],
+      refs:  ["MEMORY.md → dafx_zolzer_textbook.md Ch.7 (phase vocoder)", "MEMORY.md → jos_pasp_dsp_reference.md (STFT + OLA)", "JOS's COLA window catalog (spectral audio signal processing)"],
+      checks: ["Stimulus: 2 s sustained 1 kHz sine. Output is fit against sin/cos at 1 kHz via inner product; residual = output − fit.", "Measured fields: fftFrameFinite, fftFrameSineDb, fftFrameResidualDb, fftFrameSnrDb, fftFramePeakDb.", "FAIL threshold: SNR < 20 dB (severe leak) or non-finite. WARN threshold: SNR 20..40 dB (mild leak).", "Clean reconstruction: SNR > 40 dB, often > 60 dB on a well-built engine."],
+      antipatterns: ["Measuring on transient input — steady-state probe required.", "Assuming FFT-based means frame-phase bugs will be obvious — they show up as tens-of-dB noise, not total silence."],
     },
   },
   pitch_idle: {
-    title:   "Pitch engine idle noise — measurement pending",
-    meaning: "Pitch-shifting engines should sit silent on silent input (no residual pitch-grain noise floor). Registered but not yet measured.",
-    fix:     "No action required yet. Rule skeleton will be filled in during T3.10 implementation.",
+    title:   "Pitch engine chirps or synthesises ghost content on near-silent input",
+    meaning: "Pitch-shifters, granular engines, and autotune detectors latch onto noise when the input approaches the detection floor. A well-behaved engine should stay at or below the input RMS on a −80 dBFS noise probe. Ghost content — a chirp, a latched grain, a held-note artefact — shows up as output peak above −40 dBFS, or as RMS growth > +6 dB over the input. Catches detector-threshold bugs, grain-buffer leak, and autocorrelator latch-up.",
+    fix:     "Raise the detector's silence threshold, or add a noise-gated path for sub-threshold input. Grain engines should mute the output stream when envelope is below the declared floor. Autotune detectors should return 'unvoiced' on low-confidence frames instead of snapping to the last pitch. For pitch shifters with an anti-aliased feedback path, confirm the path is muted or heavily attenuated when input energy is near zero.",
     dev: {
-      files: ["src/qc-harness/qcAnalyzer.js (pitch_idle rule)"],
-      refs:  ["JOS PASP (pitch + granular synthesis)"],
-      checks: ["Capability gate: capabilities.pitch === true"],
-      antipatterns: ["Gating the rule on 'no visible pitch shift' rather than probing with silence."],
+      files: ["src/<product>/<product>Worklet.js → pitch detector threshold / unvoiced path", "src/qc-harness/captureHooks.js → renderPitchIdle"],
+      refs:  ["MEMORY.md → jos_pasp_dsp_reference.md (pitch detection, granular)", "MEMORY.md → jos_pasp_physical_modeling.md (source-filter / LPC voicing gate)"],
+      checks: ["Stimulus is −80 dBFS white noise. Output peak should stay < −40 dBFS; RMS should stay within +6 dB of input.", "Measured fields: pitchIdlePeakDb, pitchIdleRmsDb, pitchIdleInputRmsDb, pitchIdleGrowthDb.", "If pitchIdleFinite=false, the engine blew up on silence — usually a divide-by-zero in the autocorrelator.", "WARN band (peak −60..−40 dBFS) often means the detector is latching intermittently — look for a hysteresis bug."],
+      antipatterns: ["Gating the rule on 'no visible pitch shift' rather than probing with silence.", "Treating a tiny RMS growth (+1 dB) as a FAIL — low-amplitude noise-shaping is normal for many pitch engines."],
     },
   },
   os_boundary: {
@@ -2351,32 +2351,227 @@ const RULES = [
       affected: withData.map(s => `${s.label} (residual=${fmtDb(s.measurements.bandReconResidualDb)})`) };
   },
 
-  // T3.7 lpc_stability
-  (_, snaps) => {
-    if (!(snaps[0]?.capabilities?.lpc === true)) return null;
-    return { severity: INFO, rule: 'lpc_stability',
-      msg: 'lpc_stability probe registered (capability declared); detection body pending T3.7 implementation.' };
+  // T3.7 lpc_stability — broadband pink into LPC lattice. Unstable
+  // coefficients (|k| ≥ 1) manifest as non-finite output or as output
+  // peak exceeding input peak by more than ~12 dB.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'lpc_stability');
+    if (!probes.length) return null;
+    const measured = probes.filter(s => s?.measurements?.lpcFinite !== undefined);
+    if (!measured.length) {
+      return { severity: INFO, rule: 'lpc_stability',
+        msg: `capture_pending: lpc_stability measurement not written. Check capabilities.hasLPC and captureHooks.getEngineFactory.` };
+    }
+
+    const nonFinite = measured.filter(s => s.measurements.lpcFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'lpc_stability',
+        msg: `${nonFinite.length} capture(s) produced non-finite output on pink-noise probe — LPC lattice blew up (|k| ≥ 1).`,
+        affected: nonFinite.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    const growthFail = measured.filter(s => (s.measurements.lpcPeakGrowthDb ?? 0) > 12);
+    if (growthFail.length) {
+      return {
+        severity: FAIL, rule: 'lpc_stability',
+        msg: `${growthFail.length} capture(s) show output peak > input + 12 dB — LPC lattice is resonating into instability.`,
+        affected: growthFail.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+    const growthWarn = measured.filter(s => {
+      const g = s.measurements.lpcPeakGrowthDb ?? 0;
+      return g > 6 && g <= 12;
+    });
+    if (growthWarn.length) {
+      return {
+        severity: WARN, rule: 'lpc_stability',
+        msg: `${growthWarn.length} capture(s) show peak growth +6..+12 dB — pole approaching unit circle, instability risk.`,
+        affected: growthWarn.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'lpc_stability',
+      msg: `lpc_stability clean — finite output, peak growth ≤ +6 dB across all captures.`,
+    };
   },
 
-  // T3.8 fft_frame_phase
-  (_, snaps) => {
-    if (!(snaps[0]?.capabilities?.fft === true)) return null;
-    return { severity: INFO, rule: 'fft_frame_phase',
-      msg: 'fft_frame_phase probe registered (capability declared); detection body pending T3.8 implementation.' };
+  // T3.8 fft_frame_phase — sustained sine through an FFT/overlap-add path
+  // must reconstruct cleanly. Non-COLA windows, bad hop, or phase-loss in
+  // the frame loop show up as residual energy after subtracting the fit
+  // sine. High SNR = clean reconstruction. See DAFX Ch.7.
+  (ctx, _snaps) => {
+    const captures = (ctx?.qcSnaps ?? []).filter(s => s?.qc?.ruleId === 'fft_frame_phase');
+    if (!captures.length) return null;
+
+    const nonFinite = captures.filter(s => s.measurements.fftFrameFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'fft_frame_phase',
+        msg: `${nonFinite.length} capture(s) produced non-finite output — FFT frame loop corrupt.`,
+        affected: nonFinite.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    const measured = captures.filter(s => Number.isFinite(s.measurements.fftFrameSnrDb));
+    if (!measured.length) {
+      return { severity: INFO, rule: 'fft_frame_phase',
+        msg: 'fft_frame_phase probe ran but produced no measurable SNR.' };
+    }
+
+    const fails = measured.filter(s => (s.measurements.fftFrameSnrDb ?? 0) < 20);
+    if (fails.length) {
+      return {
+        severity: FAIL, rule: 'fft_frame_phase',
+        msg: `${fails.length} capture(s) show sine-vs-residual SNR < 20 dB — frame reconstruction is broken (non-COLA window, wrong hop, or phase loss).`,
+        affected: fails.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    const warns = measured.filter(s => {
+      const snr = s.measurements.fftFrameSnrDb ?? 0;
+      return snr >= 20 && snr < 40;
+    });
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'fft_frame_phase',
+        msg: `${warns.length} capture(s) show SNR 20..40 dB — reconstruction audible but not transparent; check window/hop choice.`,
+        affected: warns.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'fft_frame_phase',
+      msg: `fft_frame_phase clean — sine reconstruction SNR ≥ 40 dB across all captures.`,
+    };
   },
 
-  // T3.9 wdf_convergence
-  (_, snaps) => {
-    if (!(snaps[0]?.capabilities?.wdf === true)) return null;
-    return { severity: INFO, rule: 'wdf_convergence',
-      msg: 'wdf_convergence probe registered (capability declared); detection body pending T3.9 implementation.' };
+  // T3.9 wdf_convergence — step-into-WDF. A stable solver must produce
+  // finite output, keep peak bounded, and reach a steady state where
+  // mid-settle RMS matches final-settle RMS within 3 dB.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'wdf_convergence');
+    if (!probes.length) return null;
+    const measured = probes.filter(s => s?.measurements?.wdfFinite !== undefined);
+    if (!measured.length) {
+      return { severity: INFO, rule: 'wdf_convergence',
+        msg: `capture_pending: wdf_convergence measurement not written. Check capabilities.hasWDF and captureHooks.getEngineFactory.` };
+    }
+
+    const nonFinite = measured.filter(s => s.measurements.wdfFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'wdf_convergence',
+        msg: `${nonFinite.length} capture(s) produced non-finite output on step input — WDF solver hit a divide-by-zero or diverged to Inf.`,
+        affected: nonFinite.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    // Unbounded peak — +6 dBFS is our hard ceiling for a 0.5-amp step input.
+    const peakFail = measured.filter(s => (s.measurements.wdfPeakDb ?? -Infinity) > 6);
+    if (peakFail.length) {
+      return {
+        severity: FAIL, rule: 'wdf_convergence',
+        msg: `${peakFail.length} capture(s) produced output peak > +6 dBFS on a 0.5-amp step — solver is amplifying each iteration.`,
+        affected: peakFail.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    // Non-convergence: mid vs final disagree by > 3 dB.
+    const convFail = measured.filter(s => (s.measurements.wdfConvergenceDb ?? 0) > 6);
+    if (convFail.length) {
+      return {
+        severity: FAIL, rule: 'wdf_convergence',
+        msg: `${convFail.length} capture(s) show mid-settle vs final-settle RMS diverging by > 6 dB — solver is ringing or drifting.`,
+        affected: convFail.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+    const convWarn = measured.filter(s => {
+      const c = s.measurements.wdfConvergenceDb ?? 0;
+      return c > 3 && c <= 6;
+    });
+    if (convWarn.length) {
+      return {
+        severity: WARN, rule: 'wdf_convergence',
+        msg: `${convWarn.length} capture(s) show 3–6 dB drift between mid and final settle windows — solver is slow to converge.`,
+        affected: convWarn.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'wdf_convergence',
+      msg: `wdf_convergence clean — solver produces finite, bounded output with < 3 dB drift to steady state across all captures.`,
+    };
   },
 
-  // T3.10 pitch_idle
-  (_, snaps) => {
-    if (!(snaps[0]?.capabilities?.pitch === true)) return null;
-    return { severity: INFO, rule: 'pitch_idle',
-      msg: 'pitch_idle probe registered (capability declared); detection body pending T3.10 implementation.' };
+  // T3.10 pitch_idle — probe with −80 dBFS noise. A well-behaved pitch /
+  // granular / autotune engine should stay at or below the input RMS and
+  // never produce an output peak above −40 dBFS. Ghost content (detector
+  // latch, grain chirp, held-note artefact) violates one of those bounds.
+  (_, _snaps, ctx) => {
+    const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'pitch_idle');
+    if (!probes.length) return null;
+    const measured = probes.filter(s => s?.measurements?.pitchIdleFinite !== undefined);
+    if (!measured.length) {
+      return { severity: INFO, rule: 'pitch_idle',
+        msg: `capture_pending: pitch_idle measurement not written. Check capabilities.hasPitchDetector and captureHooks.getEngineFactory.` };
+    }
+
+    const nonFinite = measured.filter(s => s.measurements.pitchIdleFinite === false);
+    if (nonFinite.length) {
+      return {
+        severity: FAIL, rule: 'pitch_idle',
+        msg: `${nonFinite.length} capture(s) produced non-finite output on −80 dBFS noise — pitch engine blew up on silence.`,
+        affected: nonFinite.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+
+    // Peak threshold: −40 dBFS → FAIL; −60..−40 → WARN.
+    const peakFail = measured.filter(s => (s.measurements.pitchIdlePeakDb ?? -Infinity) > -40);
+    if (peakFail.length) {
+      return {
+        severity: FAIL, rule: 'pitch_idle',
+        msg: `${peakFail.length} capture(s) produced output peak > −40 dBFS on a −80 dBFS noise probe — detector latch or grain chirp.`,
+        affected: peakFail.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+    const peakWarn = measured.filter(s => {
+      const p = s.measurements.pitchIdlePeakDb ?? -Infinity;
+      return p > -60 && p <= -40;
+    });
+
+    // RMS growth threshold: > +6 dB over input RMS → FAIL.
+    const growthFail = measured.filter(s => (s.measurements.pitchIdleGrowthDb ?? 0) > 6);
+    if (growthFail.length) {
+      return {
+        severity: FAIL, rule: 'pitch_idle',
+        msg: `${growthFail.length} capture(s) show output RMS > input + 6 dB on silence probe — detector is amplifying noise.`,
+        affected: growthFail.map(s => s?.qc?.label ?? 'unknown'),
+      };
+    }
+    const growthWarn = measured.filter(s => {
+      const g = s.measurements.pitchIdleGrowthDb ?? 0;
+      return g > 1 && g <= 6;
+    });
+
+    if (peakWarn.length || growthWarn.length) {
+      const all = Array.from(new Set([
+        ...peakWarn.map(s => s?.qc?.label ?? 'unknown'),
+        ...growthWarn.map(s => s?.qc?.label ?? 'unknown'),
+      ]));
+      return {
+        severity: WARN, rule: 'pitch_idle',
+        msg: `${all.length} capture(s) show intermittent detector latch — peak −60..−40 dBFS or RMS growth +1..+6 dB on silence probe.`,
+        affected: all,
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'pitch_idle',
+      msg: `pitch_idle clean — output peak < −60 dBFS and RMS within +1 dB of input on silence probe.`,
+    };
   },
 
   // T4.2 os_boundary

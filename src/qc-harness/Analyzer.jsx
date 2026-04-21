@@ -28,6 +28,10 @@ import {
   renderOrthogonalFeedback,
   renderFreezeStability,
   renderBandReconstruction,
+  renderPitchIdle,
+  renderWdfConvergence,
+  renderLpcStability,
+  renderFftFramePhase,
   renderPathologicalStereo,
   renderExtremeFreq,
   renderDenormalTail,
@@ -1114,6 +1118,18 @@ export default function Analyzer({
           Object.assign(snap.measurements, r);
         } else if (qp.ruleId === 'band_reconstruction') {
           const r = await renderBandReconstruction(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'pitch_idle') {
+          const r = await renderPitchIdle(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'wdf_convergence') {
+          const r = await renderWdfConvergence(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'lpc_stability') {
+          const r = await renderLpcStability(captureCtx);
+          Object.assign(snap.measurements, r);
+        } else if (qp.ruleId === 'fft_frame_phase') {
+          const r = await renderFftFramePhase(captureCtx);
           Object.assign(snap.measurements, r);
         } else if (qp.ruleId === 'pathological_stereo') {
           const r = await renderPathologicalStereo({

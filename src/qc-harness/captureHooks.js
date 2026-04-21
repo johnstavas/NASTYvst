@@ -126,6 +126,35 @@ function prebuildSine(sampleRate, durSec, freq) {
   return { L, R, length };
 }
 
+/** Step function: silence for onsetSec, then constant `level` for the
+ *  remainder. Used by wdf_convergence — an iterative WDF solver must
+ *  drive the output to a bounded steady state and stay there. */
+function prebuildStep(sampleRate, durSec, onsetSec = 0.1, level = 0.5) {
+  const length = Math.floor(sampleRate * durSec);
+  const onset = Math.min(Math.floor(sampleRate * onsetSec), length - 1);
+  const L = new Float32Array(length);
+  const R = new Float32Array(length);
+  for (let i = onset; i < length; i++) { L[i] = level; R[i] = level; }
+  return { L, R, length, onsetSample: onset };
+}
+
+/** Near-silent white noise at a declared RMS level (default −80 dBFS).
+ *  Used by idle/chirp probes — pitch_idle, fft_frame_phase, lpc_stability.
+ *  Amplitude is small enough that any meaningful output peak indicates
+ *  the plugin is synthesizing on noise (detector latch, grain chirp,
+ *  frame reconstruction artefact). */
+function prebuildNearSilentNoise(sampleRate, durSec, levelDb = -80) {
+  const length = Math.floor(sampleRate * durSec);
+  const L = new Float32Array(length);
+  const R = new Float32Array(length);
+  const amp = Math.pow(10, levelDb / 20);
+  for (let i = 0; i < length; i++) {
+    L[i] = (Math.random() * 2 - 1) * amp;
+    R[i] = (Math.random() * 2 - 1) * amp;
+  }
+  return { L, R, length };
+}
+
 // ── Shared plumbing ──────────────────────────────────────────────────
 
 function applyParams(engine, params) {
@@ -1670,6 +1699,316 @@ export async function renderBandReconstruction({
   };
 }
 
+// ── Hook: fft_frame_phase ────────────────────────────────────────────
+//
+// Phase-vocoder / FFT-processing engines reconstruct by overlap-add
+// across frames. If window overlap-add is wrong (bad window gain,
+// bad hop-size, phase-discontinuity between frames) the reconstruction
+// leaks broadband energy at 1/hopSize — audible as periodic clicks.
+//
+// Test: send a pure 1 kHz sine through the plugin. A correctly built
+// FFT engine passes the sine through essentially unchanged (maybe some
+// phase, maybe some gain), so fitting and subtracting the 1 kHz
+// component leaves a residual dominated by noise floor. Frame-boundary
+// clicks and overlap-add errors pump the residual up by tens of dB.
+//
+// Measurement fields consumed by qcAnalyzer.rule `fft_frame_phase`:
+//   fftFrameFinite      — false if any NaN/Inf
+//   fftFrameSineDb      — RMS of the fit sinusoidal component (1 kHz)
+//   fftFrameResidualDb  — RMS after subtracting the fit sine
+//   fftFrameSnrDb       — sine − residual (high = clean reconstruction)
+//   fftFramePeakDb      — peak of the output
+export async function renderFftFramePhase({
+  factory, params, sampleRate, durSec = 2, skipSec = 0.2, probeHz = 1000,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildSine(sampleRate, durSec, probeHz);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const skip = Math.min(Math.floor(sampleRate * skipSec), buf.length - 1);
+  const end  = Math.min(buf.length, pre.length);
+  const chs  = buf.numberOfChannels;
+  const w    = 2 * Math.PI * probeHz / sampleRate;
+
+  // Inner-product fit: y ≈ A*cos(wn) + B*sin(wn). A = (2/N) Σ y cos, B = (2/N) Σ y sin.
+  let peak = 0, finite = true;
+  let sumCos = 0, sumSin = 0, sumYY = 0, count = 0;
+  for (let c = 0; c < chs; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = skip; i < end; i++) {
+      const v = d[i];
+      if (!Number.isFinite(v)) { finite = false; break; }
+      sumCos += v * Math.cos(w * i);
+      sumSin += v * Math.sin(w * i);
+      sumYY  += v * v;
+      count++;
+      const a = Math.abs(v); if (a > peak) peak = a;
+    }
+    if (!finite) break;
+  }
+
+  if (!finite) {
+    return {
+      fftFrameFinite: false,
+      fftFramePeakDb: rmsToDb(peak),
+      notes: 'non-finite-output',
+    };
+  }
+  if (count === 0) {
+    return {
+      fftFrameFinite: true,
+      fftFramePeakDb: rmsToDb(peak),
+      notes: 'ambiguous-empty-window',
+    };
+  }
+
+  const A = (2 / count) * sumCos;
+  const B = (2 / count) * sumSin;
+  // Sinusoidal component RMS: magnitude / √2
+  const sineRms = Math.sqrt(A * A + B * B) / Math.SQRT2;
+  // Residual SS = total SS − component SS (Parseval); component SS per sample = (A²+B²)/2
+  const compSs  = (A * A + B * B) / 2 * count;
+  const resSs   = Math.max(0, sumYY - compSs);
+  const resRms  = Math.sqrt(resSs / count);
+
+  const sineDb = rmsToDb(sineRms);
+  const resDb  = rmsToDb(resRms);
+
+  return {
+    fftFrameFinite:     true,
+    fftFrameSineDb:     sineDb,
+    fftFrameResidualDb: resDb,
+    fftFrameSnrDb:      sineDb - resDb,
+    fftFramePeakDb:     rmsToDb(peak),
+    notes: 'ok',
+  };
+}
+
+// ── Hook: lpc_stability ──────────────────────────────────────────────
+//
+// LPC lattice filters are unstable whenever any reflection coefficient
+// |k| ≥ 1. Instability shows up as: (1) non-finite output (coefficient
+// cascade blew up), (2) an output peak wildly exceeding input — the
+// lattice is resonating into oscillation.
+//
+// Stimulus: 2 s of pink noise (reuse prebuildBurstThenSilence with
+// silenceSec=0). Pink has broadband content that exercises LPC formant
+// estimation without extreme transients.
+//
+// Measurement fields consumed by qcAnalyzer.rule `lpc_stability`:
+//   lpcFinite         — false if any NaN/Inf
+//   lpcInputPeakDb    — peak of the reference input
+//   lpcOutputPeakDb   — peak of the plugin output
+//   lpcPeakGrowthDb   — output peak − input peak (positive = amplifying)
+export async function renderLpcStability({
+  factory, params, sampleRate, durSec = 2, skipSec = 0.3,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildBurstThenSilence(sampleRate, durSec, 0);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const skip = Math.min(Math.floor(sampleRate * skipSec), buf.length - 1);
+  const end  = Math.min(buf.length, pre.length);
+  const chs  = buf.numberOfChannels;
+
+  let outPeak = 0, inPeak = 0, finite = true;
+  for (let c = 0; c < chs; c++) {
+    const d = buf.getChannelData(c);
+    const ref = c === 0 ? pre.L : (pre.R || pre.L);
+    for (let i = skip; i < end; i++) {
+      const v = d[i];
+      if (!Number.isFinite(v)) { finite = false; break; }
+      const av = Math.abs(v);    if (av > outPeak) outPeak = av;
+      const ar = Math.abs(ref[i]); if (ar > inPeak)  inPeak  = ar;
+    }
+    if (!finite) break;
+  }
+
+  if (!finite) {
+    return {
+      lpcFinite: false,
+      lpcOutputPeakDb: rmsToDb(outPeak),
+      notes: 'non-finite-output',
+    };
+  }
+  const outDb = rmsToDb(outPeak);
+  const inDb  = rmsToDb(inPeak);
+  return {
+    lpcFinite:        true,
+    lpcInputPeakDb:   inDb,
+    lpcOutputPeakDb:  outDb,
+    lpcPeakGrowthDb:  outDb - inDb,
+    notes: 'ok',
+  };
+}
+
+// ── Hook: wdf_convergence ────────────────────────────────────────────
+//
+// Wave Digital Filter iterative solvers must converge at every sample.
+// Non-convergence manifests in one of three ways:
+//   (1) non-finite output (NaN / Inf from a divide-by-zero),
+//   (2) unbounded peak (solver oscillation amplifies each iteration),
+//   (3) failure to settle (steady-state differs between mid and final
+//       windows — solver is ringing or drifting).
+//
+// Stimulus: silence → step to 0.5 at 100 ms → hold for the remainder.
+// Settled behaviour: after 400 ms of step, the output should be at a
+// bounded, steady level. Compare mid (400–700 ms) vs final (last 100 ms)
+// RMS — if they disagree by > 3 dB the solver hasn't converged.
+//
+// Measurement fields consumed by qcAnalyzer.rule `wdf_convergence`:
+//   wdfFinite         — false if any NaN/Inf
+//   wdfPeakDb         — peak over entire render
+//   wdfMidSettleDb    — RMS of 400..700 ms window (post-transient)
+//   wdfFinalSettleDb  — RMS of final 100 ms
+//   wdfConvergenceDb  — |wdfMidSettleDb − wdfFinalSettleDb| (small = converged)
+export async function renderWdfConvergence({
+  factory, params, sampleRate, durSec = 1.0, onsetSec = 0.1, level = 0.5,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildStep(sampleRate, durSec, onsetSec, level);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  // Finiteness + peak across the full render
+  const chs = buf.numberOfChannels;
+  let peak = 0, finite = true;
+  for (let c = 0; c < chs; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < d.length; i++) {
+      const v = d[i];
+      if (!Number.isFinite(v)) { finite = false; break; }
+      const a = Math.abs(v); if (a > peak) peak = a;
+    }
+    if (!finite) break;
+  }
+  if (!finite) {
+    return {
+      wdfFinite: false,
+      wdfPeakDb: rmsToDb(peak),
+      notes: 'non-finite-output',
+    };
+  }
+
+  // Mid-settle window: 300 ms after the step. Final window: last 100 ms.
+  const midStart   = Math.min(pre.onsetSample + Math.floor(sampleRate * 0.30), buf.length - 1);
+  const midEnd     = Math.min(pre.onsetSample + Math.floor(sampleRate * 0.60), buf.length);
+  const finalStart = Math.max(buf.length - Math.floor(sampleRate * 0.10), 0);
+  const midRms     = channelAveragedRms(buf, midStart, midEnd);
+  const finalRms   = channelAveragedRms(buf, finalStart);
+  const midDb      = rmsToDb(midRms);
+  const finalDb    = rmsToDb(finalRms);
+
+  return {
+    wdfFinite:        true,
+    wdfPeakDb:        rmsToDb(peak),
+    wdfMidSettleDb:   midDb,
+    wdfFinalSettleDb: finalDb,
+    wdfConvergenceDb: Math.abs(midDb - finalDb),
+    notes: 'ok',
+  };
+}
+
+// ── Hook: pitch_idle ─────────────────────────────────────────────────
+//
+// Pitch-shifters, granular engines, and autotune detectors tend to
+// latch onto noise and synthesise ghost content when the input is
+// near-silent. A correctly behaved engine should stay quieter than the
+// input RMS + 6 dB and never produce a peak above −40 dBFS on a
+// sub-threshold noise probe.
+//
+// Stimulus: −80 dBFS white noise, 2 s. Measure output peak / RMS,
+// compare RMS growth against input RMS. Also report finiteness.
+//
+// Measurement fields consumed by qcAnalyzer.rule `pitch_idle`:
+//   pitchIdlePeakDb    — output peak in dBFS
+//   pitchIdleRmsDb     — output RMS in dBFS (channel-averaged)
+//   pitchIdleInputRmsDb — reference input RMS (channel-averaged)
+//   pitchIdleGrowthDb  — output RMS − input RMS (positive = detector amplifying)
+//   pitchIdleFinite    — false if any NaN/Inf in the output
+export async function renderPitchIdle({
+  factory, params, sampleRate, durSec = 2, skipSec = 0.2, inputLevelDb = -80,
+}) {
+  if (typeof factory !== 'function') return { notes: 'skipped-no-factory' };
+  if (!getRuntimeAdapter().isAvailable()) return { notes: 'skipped-no-runtime' };
+
+  const pre = prebuildNearSilentNoise(sampleRate, durSec, inputLevelDb);
+  let buf;
+  try {
+    buf = await renderSinglePass({ factory, params, sampleRate, pre });
+  } catch (err) {
+    return { notes: `render-threw: ${err && err.message || err}` };
+  }
+
+  const skip = Math.min(Math.floor(sampleRate * skipSec), buf.length - 1);
+  const end  = Math.min(buf.length, pre.length);
+  const chs  = buf.numberOfChannels;
+
+  let outSs = 0, inSs = 0, count = 0, peak = 0, finite = true;
+  for (let c = 0; c < chs; c++) {
+    const d = buf.getChannelData(c);
+    const ref = c === 0 ? pre.L : (pre.R || pre.L);
+    for (let i = skip; i < end; i++) {
+      const v = d[i];
+      if (!Number.isFinite(v)) { finite = false; break; }
+      outSs += v * v;
+      inSs  += ref[i] * ref[i];
+      count++;
+      const a = Math.abs(v); if (a > peak) peak = a;
+    }
+    if (!finite) break;
+  }
+
+  if (!finite) {
+    return {
+      pitchIdleFinite: false,
+      pitchIdlePeakDb: rmsToDb(peak),
+      notes: 'non-finite-output',
+    };
+  }
+  if (count === 0) {
+    return {
+      pitchIdleFinite: true,
+      pitchIdlePeakDb: rmsToDb(peak),
+      notes: 'ambiguous-empty-window',
+    };
+  }
+
+  const outRms   = Math.sqrt(outSs / count);
+  const inRms    = Math.sqrt(inSs / count);
+  const outRmsDb = rmsToDb(outRms);
+  const inRmsDb  = rmsToDb(inRms);
+
+  return {
+    pitchIdleFinite:    true,
+    pitchIdlePeakDb:    rmsToDb(peak),
+    pitchIdleRmsDb:     outRmsDb,
+    pitchIdleInputRmsDb: inRmsDb,
+    pitchIdleGrowthDb:  outRmsDb - inRmsDb,
+    notes: 'ok',
+  };
+}
+
 // ── Exports (named so Analyzer.jsx can dispatch on ruleId) ───────────
 export const captureHooks = {
   impulse_ir:           renderImpulseIR,
@@ -1681,6 +2020,10 @@ export const captureHooks = {
   orthogonal_feedback:  renderOrthogonalFeedback,
   freeze_stability:     renderFreezeStability,
   band_reconstruction:  renderBandReconstruction,
+  pitch_idle:           renderPitchIdle,
+  wdf_convergence:      renderWdfConvergence,
+  lpc_stability:        renderLpcStability,
+  fft_frame_phase:      renderFftFramePhase,
   pathological_stereo:  renderPathologicalStereo,
   extreme_freq:         renderExtremeFreq,
   denormal_tail:        renderDenormalTail,
