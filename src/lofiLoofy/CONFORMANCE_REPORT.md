@@ -17,9 +17,9 @@ Legend: ✅ PASS · ⚠️ WARN · 🔴 FAIL · ⏸ PENDING (Phase C work).
 | `satShape` + `crushShape` are the only NL in main path (plus bits/rate/age) | ✅ | No other WaveShapers in the main topology. |
 | Dust bus is additive, not modulating | ✅ | `noiseGain` + `crackleGain` sum into `wetGain`; no feedback into main. |
 | Width=0 produces exact mono | ⚠️ | Self-flagged at L1141–1145 as known-soft; catalogued in §8.1. |
-| Dream `mix` target does not dual-write user's Mix | 🔴 | Engine top-of-file comment L43–45 flags current behavior as B4 violation; catalogued in §8.2. |
+| Dream `mix` target does not dual-write user's Mix | ✅ | **Fixed 2026-04-21.** Dream `mix` now writes dedicated series `dryMixMod` / `wetMixMod` gain nodes (unity at rest, equal-power swing); user's `dryGain` / `wetGain` have a single writer (setMix). See F1 in §7 and engine L85–90 / L795–812. |
 
-**Topology: PASS with 2 catalogued deviations (both in §8).**
+**Topology: PASS with 1 catalogued deviation (in §8.1).**
 
 ---
 
@@ -130,7 +130,7 @@ schedulers, no `.connect(` / `.disconnect(`, no context-factory calls.
 | Non-goal | Engine evidence | Status |
 |----------|-----------------|--------|
 | §8.1 Width=0 soft-mono | Self-flagged comment L1141–1145 present | ✅ Documented |
-| §8.2 Dream `mix` target dual-write | Self-flagged comment L43–45 present | ✅ Documented |
+| §8.2 Dream `mix` target dual-write | **Fixed 2026-04-21** — now writes `dryMixMod`/`wetMixMod` series nodes (L85–90, L795–812); `dryGain`/`wetGain` single-writer restored | ✅ Fixed |
 | §8.3 Character doesn't touch comp/crush/etc. | Verified by reading setCharacter L951–978 | ✅ |
 | §8.4 No BBD model | `tapeDelay` uses native `DelayNode` (L22, L24 in topology comment) | ✅ |
 | §8.5 applyBulk silent on unknown keys | L1349–1351 | ✅ |
@@ -141,17 +141,24 @@ schedulers, no `.connect(` / `.disconnect(`, no context-factory calls.
 
 ## 7. Findings
 
-### F1 — 🔴 `setDreamTarget('mix')` mutates user-controlled mix
+### F1 — ✅ FIXED (2026-04-21) · `setDreamTarget('mix')` now honors B4
 
-- **Where:** flagged in engine header L43–45 and in spec §8.2. DSP
-  currently writes `dryGain` / `wetGain` from the Dream modulator.
-- **Severity:** FAIL (critical) against R10 B4. Spec v1.0.0 catalogues
-  it as a known deviation, so §8.2 prevents an automated conformance
-  gate from firing critical — but the code change is still owed.
-- **Recommended fix:** insert a `mixMod` series gain node *after* the
-  user's `dryGain` / `wetGain` in the dry+wet sum; retarget Dream's
-  `mix` target onto `mixMod` only. Preserves user's Mix setting; Dream
-  can breathe around it.
+- **Was:** Dream modulator wrote `dryGain` / `wetGain` directly (the
+  same gain nodes owned by the user's Mix setter) — DEV_RULES B4
+  violation, spec §8.2.
+- **Fix shipped:** added dedicated series `dryMixMod` / `wetMixMod`
+  gain nodes (unity at rest) between the user gains and `preOut`.
+  Topology now:
+  - `dryCompensate → dryGain → dryMixMod → preOut` (L116–117)
+  - `wetGain → wetMixMod → preOut`                 (L686–687)
+  Dream's `case 'mix'` writes only `dryMixMod` / `wetMixMod` using an
+  equal-power swing around unity (±0.45 bias, `cos/sin(bias·π/2)`
+  normalized by √2/2 at centre) so perceived loudness is stable across
+  the breath and swing=0 ⇒ both nodes = 1.0 exactly. L795–812.
+- **Single-writer audit:** `grep` confirms `dryGain.gain` / `wetGain.gain`
+  are only written in `setMix` (L867–875) and init (L77, L104); Dream
+  no longer touches them.
+- **R10 B4:** compliant. §8.2 deviation closed.
 
 ### F2 — ⚠️ `setWidth(0)` is not exact `(L+R)/2` mono
 
@@ -194,23 +201,21 @@ schedulers, no `.connect(` / `.disconnect(`, no context-factory calls.
 | §7 UI-isolation runtime + idle | ⏸ Phase C |
 | §8 Non-goals cross-check | ✅ all documented |
 
-**1 FAIL (F1, catalogued in §8.2 as a known deviation; fix owed).**
-**2 WARN (F2, F3).**
-**1 INFO (F4).**
+**0 FAIL** (F1 fixed 2026-04-21; §8.2 deviation closed).
+**2 WARN** (F2, F3 — both self-flagged, tracked for spec v1.1.0).
+**1 INFO** (F4).
 
-No surprise regressions — the harness-found bugs from earlier this
-session are all fixed; the remaining items are pre-existing
-self-flagged deviations.
+No surprise regressions. F1 now compliant with R10 B4. Remaining open
+items (F2, F3) are pre-existing self-flagged deviations.
 
 ---
 
 ## 9. Recommended next steps
 
-1. **Land F3 first** (3-line `getState` extension). Zero-risk; unlocks
+1. ~~**F1** Dream `mix` target fix.~~ **Landed 2026-04-21** —
+   series `dryMixMod`/`wetMixMod` nodes, equal-power swing, B4 compliant.
+2. **Land F3** (3-line `getState` extension). Zero-risk; unlocks
    M18 and M20 clean auto-checks.
-2. **Schedule F1** (Dream `mix` target fix) for spec v1.1.0. Real DSP
-   work — adds `mixMod` node, changes topology comment, updates R10 B4
-   flag in header. Medium-risk but well-scoped.
 3. **Schedule F2** (Width=0 mono) for spec v1.1.0. Medium-risk, ~12
    lines, needs a null-test proof-of-fix.
 4. **F4 is optional** — land it if/when dev-mode logging lands

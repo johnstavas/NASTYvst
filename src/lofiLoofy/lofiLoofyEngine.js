@@ -41,8 +41,9 @@
 // itself so destinations move in soft, lingering arcs rather than steps.
 //
 // DEV_RULES B4 — Dream targets must NOT dual-write any AudioParam the user
-// directly controls. `mix` target currently writes dryGain/wetGain — this
-// is flagged for migration to a dedicated `mixMod` series node.
+// directly controls. `mix` target writes dedicated series `dryMixMod` /
+// `wetMixMod` nodes (unity at rest, equal-power swing); the user's
+// `dryGain` / `wetGain` have a single writer (`setMix`). Compliant.
 
 export function createLofiLoofyEngine(ctx) {
   // ── I/O ──────────────────────────────────────────────────────────────
@@ -79,8 +80,18 @@ export function createLofiLoofyEngine(ctx) {
   const bypassGain = ctx.createGain();    bypassGain.gain.value = 0.0;
   const mixSum     = ctx.createGain();    mixSum.gain.value     = 1.0;
 
+  // Dream-mix modulation trims. Sit in series with dryGain/wetGain so the
+  // Dream LFO can breathe the crossfade WITHOUT writing to the user-owned
+  // dryGain/wetGain. DEV_RULES B4: only ONE writer per gain node.
+  //   dryGain  → dryMixMod → preOut    (user's Mix writes dryGain;
+  //   wetGain  → wetMixMod → preOut     Dream 'mix' writes *MixMod)
+  // At rest both mod nodes stay at 1.0 (no effect). Equal-power formulas
+  // around unity keep perceived loudness stable through the swing.
+  const dryMixMod  = ctx.createGain();    dryMixMod.gain.value  = 1.0;
+  const wetMixMod  = ctx.createGain();    wetMixMod.gain.value  = 1.0;
+
   for (const n of [input, output, preOut, inGain, outGain, dryGain, wetGain,
-                   bypassGain, mixSum]) {
+                   dryMixMod, wetMixMod, bypassGain, mixSum]) {
     n.channelCountMode = 'max';
     n.channelInterpretation = 'speakers';
   }
@@ -103,7 +114,8 @@ export function createLofiLoofyEngine(ctx) {
   dryCompensate.delayTime.value = 0.036;
   inGain.connect(dryCompensate);
   dryCompensate.connect(dryGain);
-  dryGain.connect(preOut);
+  dryGain.connect(dryMixMod);
+  dryMixMod.connect(preOut);
   // Final post-merge duck node — Drop knob controls this so dips affect
   // the WHOLE signal (dry + wet), not just the wet path.
   const dropDuck = ctx.createGain(); dropDuck.gain.value = 1.0;
@@ -672,7 +684,8 @@ export function createLofiLoofyEngine(ctx) {
   reverbSend.connect(dreamReverb);
   dreamReverb.connect(reverbReturn);
   reverbReturn.connect(wetGain);
-  wetGain.connect(preOut);   // wet sums into preOut (alongside dry)
+  wetGain.connect(wetMixMod);
+  wetMixMod.connect(preOut);   // wet sums into preOut (alongside dry)
   // Widener now sits AFTER the dry/wet merge so dry & wet are delay-
   // aligned (no comb filtering across Mix). Then duck for Drop.
   preOut.connect(widthIn);
@@ -781,12 +794,21 @@ export function createLofiLoofyEngine(ctx) {
         break;
       }
       case 'mix': {
-        // Fatter wet/dry breathing — ±0.35 swing on the crossfade.
-        const baseM = Math.max(0, Math.min(1, mixVal + m * 0.35));
-        const d = Math.cos(baseM * Math.PI * 0.5);
-        const w = Math.sin(baseM * Math.PI * 0.5);
-        dryGain.gain.setTargetAtTime(d, now, tau);
-        wetGain.gain.setTargetAtTime(w, now, tau);
+        // Wet/dry breathing that sits ON TOP of the user's Mix without
+        // ever writing to dryGain/wetGain (DEV_RULES B4: single writer).
+        // Modulate dedicated series nodes dryMixMod/wetMixMod, unity at
+        // rest, equal-power swing around unity so perceived loudness is
+        // stable across the breath.
+        //
+        // Bias: m ∈ ~[-depth, +depth] pushes a virtual crossfade around
+        // 0.5. We normalize by the cos/sin at 0.5 so swing=0 ⇒ both=1.
+        const swing = Math.max(-0.45, Math.min(0.45, m * 0.35));
+        const bias  = 0.5 + swing;
+        const refD  = Math.cos(0.5 * Math.PI * 0.5); // = sin(0.5·π/2); = √2/2
+        const dMod  = Math.cos(bias * Math.PI * 0.5) / refD;
+        const wMod  = Math.sin(bias * Math.PI * 0.5) / refD;
+        dryMixMod.gain.setTargetAtTime(dMod, now, tau);
+        wetMixMod.gain.setTargetAtTime(wMod, now, tau);
         break;
       }
       default: break;
