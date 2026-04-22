@@ -30,6 +30,7 @@ const lazy = (loader, named) => async (ctx) => (await loader())[named](ctx);
 export const VERSION_LABELS = {
   prototype: 'Prototype',
   v1:        'V1',
+  v2:        'V2',
 };
 
 /** @typedef {'prototype'|'v1'|`v${number}`} Version */
@@ -124,6 +125,27 @@ export const REGISTRY = [
         componentName: 'FlapJackManOrb',
         engineFactory: lazy(() => import('../nastybeast/nastyBeastEngine.js'), 'createNastyBeastEngine'),
         engineName:    'nastyBeastEngine',
+      },
+      v1: {
+        version:       'v1',
+        displayLabel:  VERSION_LABELS.v1,
+        component:     FlapJackManOrb,                 // same UI
+        componentName: 'FlapJackManOrb',
+        engineFactory: lazy(() => import('../nastybeast/nastyBeastEngine.v1.js'), 'createNastyBeastEngineV1'), // frozen snapshot 2026-04-21
+        engineName:    'nastyBeastEngine.v1',
+      },
+      // v2 — B1 worklet-refactor build (in progress 2026-04-21). Single
+      // master AudioWorkletNode; honors Dry/Wet Mix Rule. Staged port:
+      // memory/flapjackman_port_scope.md. Selectable for A/B against
+      // prototype until sonic parity is signed off, then v1 is re-forked
+      // from this build and v2 slot retires.
+      v2: {
+        version:       'v2',
+        displayLabel:  VERSION_LABELS.v2,
+        component:     FlapJackManOrb,                 // same UI
+        componentName: 'FlapJackManOrb',
+        engineFactory: lazy(() => import('../nastybeast/nastyBeastEngine.worklet.js'), 'createNastyBeastEngineWorklet'),
+        engineName:    'nastyBeastEngine.worklet',
       },
     },
   },

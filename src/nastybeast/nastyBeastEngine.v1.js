@@ -1,3 +1,16 @@
+// nastyBeastEngine.v1.js — FROZEN SNAPSHOT of nastyBeast (Flap Jack Man) engine at v1 approval.
+// =====================================================================
+// This file is immutable. If you need to change Flap Jack Man behavior,
+// create nastyBeastEngine.v2.js, leave this one alone, and register a new
+// engine_v2 variant in migration/registry.js. v1 stays bit-identical forever
+// so saved sessions that pinned v1 keep sounding the way they did at approval.
+// =====================================================================
+// Onboarded: 2026-04-21  ·  Product ID: flapjackman  ·  Version: v1
+// See src/nastybeast/CONFORMANCE.md for the authoritative parameter table.
+// See memory/plugin_template_library.md for the onboarding protocol that
+// produced this snapshot.
+// =====================================================================
+//
 // nastyBeastEngine — THICK build.
 //
 // Identity: epic thick delay/distortion system with pitch-shifted ghosts.
@@ -19,7 +32,7 @@
 //
 // Mix=0 = input exactly. Bypass = input exactly. Verified by topology.
 
-export function createNastyBeastEngine(ctx) {
+export function createNastyBeastEngineV1(ctx) {
   // ── I/O (unity baseline, explicit stereo) ────────────────────────────────
   // Force the I/O to 2-channel "explicit" topology:
   //   - mono in  → upmixed to L=R=mono (then runs through stereo chain)

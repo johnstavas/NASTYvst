@@ -206,8 +206,23 @@ export default function QcHarness({ productId, version }) {
     setDropActive(false);
     const f = e.dataTransfer?.files?.[0];
     if (!f) return;
-    setDroppedName(f.name);
-    await startSource('file', f);
+    // Splice Desktop drag-sources use stream-mode File handles that get
+    // revoked as soon as the drop event's microtask queue drains. We MUST
+    // read the bytes before any React state update, await, or side effect
+    // that could cede the event loop. Capture to a Blob (owns its own
+    // bytes, independent of the original File handle) first, then defer
+    // all UI work.
+    let blob;
+    try {
+      blob = new Blob([await f.arrayBuffer()], { type: f.type || 'audio/wav' });
+    } catch (err) {
+      console.warn('[qc-harness] drop read failed:', err);
+      return;
+    }
+    // Preserve the file name on the Blob so downstream name display works.
+    const name = f.name;
+    setDroppedName(name);
+    await startSource('file', blob);
   };
 
   return (
