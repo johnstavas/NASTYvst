@@ -57,6 +57,17 @@ export async function getEngineFactory(productId, version) {
     const mod = await import('../lofiLoofy/lofiLoofyEngine.v1.js');
     return mod.createLofiLoofyEngineV1;
   }
+  if (productId === 'flapjackman' && version === 'v1') {
+    const mod = await import('../nastybeast/nastyBeastEngine.v1.js');
+    return mod.createNastyBeastEngineV1;
+  }
+  // v2 — in-progress worklet refactor (B1 sprint). Staged build; native graph
+  // replaced by a single master AudioWorkletNode owning mix/bypass/DSP.
+  // Selectable from the Orb version dropdown for A/B against prototype.
+  if (productId === 'flapjackman' && version === 'v2') {
+    const mod = await import('../nastybeast/nastyBeastEngine.worklet.js');
+    return mod.createNastyBeastEngineWorklet;
+  }
   // Add new plugins here. Keep the branches narrow (productId + version
   // exact match) so version bumps don't silently route to stale factories.
   return null;

@@ -68,7 +68,17 @@ const PROCESSOR_VERSION = 'fjm-v1';
 // Dry/Wet Mix Rule (this is what fixed the mix_null_series −28 dB
 // regression after the first Stage-1 sweep).
 //
-// Stages 4, 5, 7, 8, 9 inject further DSP between DELAY and Master HP/LP.
+// Stage 5  — PITCH GHOST granular OLA, dual-voice (octave-up shimmer +
+//            octave-down sub-shadow blended by FLUFF). LANDED.
+// Stage 7  — PING-PONG stereo delay with BUTTER-scaled depth/xfb. LANDED.
+// Stage 8  — GLUE comp (feedforward peak detector, soft knee, stereo-
+//            linked) + FLIP CHORUS (single-voice modulated delay,
+//            parallel wet add, same LFO L/R) + BEAST auto-makeup
+//            (per-sample RMS follower with refRms latched at engage,
+//            clamp [0.6, 1.3], 180 ms smoothing). All three quiescent
+//            at beast=0; scale together as beast rises, giving FLIP
+//            its "tighten + shimmer + level-match" character. LANDED.
+// Stage 9  — TUNE (granular shifter, ±12 semitones) — pending.
 const PROCESSOR_CODE = `
 // ── Biquad filter indexing ────────────────────────────────────────────
 // Order is fixed across BIQ_COEF and state arrays:
@@ -220,6 +230,62 @@ const GHOST_MIX_MAX_UP = 0.22;              // breath ceiling — up-voice gets 
                                             // it carries perceptual weight (air, not body).
 const GHOST_PRE_LP_HZ  = 2400;
 const GHOST_POST_LP_HZ = 1800;              // applied only to DOWN voice
+
+// ── STAGE 8: GLUE comp + FLIP chorus + Beast auto-makeup constants ──
+// Brings FLIP/BEAST to life. Quiescent at beast=0 (comp threshold high
+// enough to never trigger, chorus wet=0, auto-makeup inactive). As BEAST
+// rises, all three engage in lockstep to "tighten" the wet bus.
+//
+// Prototype used a WebAudio DynamicsCompressor node; we port to an in-
+// loop feedforward peak-detector with soft-knee gain-reduction. Same
+// threshold/ratio/attack/release values as prototype.
+//   GLUE thresh  sweeps -3 dB → -20 dB   (transparent at rest, firm at max)
+//   GLUE ratio   sweeps 1.5   → 5.0      (glue, not limiter)
+//   GLUE attack  = 3 ms        (catches transients without ringing)
+//   GLUE release = 60 ms       (tight glue release)
+//   GLUE knee    = 4 dB        (firm shoulder, not razor)
+const GLUE_ATK_MS       = 3;
+const GLUE_REL_MS       = 60;
+const GLUE_KNEE_DB      = 4;
+const GLUE_TH_DB_MIN    = -3;               // beast=0  threshold
+const GLUE_TH_DB_RANGE  = -17;              // beast=1  → -20 dB
+const GLUE_RATIO_MIN    = 1.5;
+const GLUE_RATIO_RANGE  = 3.5;              // beast=1  → 5.0
+
+// CHORUS — single voice modulated delay, same LFO on both channels
+// (stereo-parallel, identical modulation). Subtle shimmer; not vibrato.
+//   base delay   = 12 ms
+//   depth        = 0 → 3.5 ms   (beast-driven swing)
+//   LFO          = 0.55 Hz sine
+//   wet amount   = 0 → 0.22     (beast-driven parallel mix)
+const CHORUS_BASE_MS    = 12;
+const CHORUS_DEPTH_MS   = 3.5;
+const CHORUS_LFO_HZ     = 0.55;
+const CHORUS_WET_MAX    = 0.22;
+const CHORUS_BUF        = 8192;             // power of 2, >> worst-case 15.5ms @ 48kHz
+const CHORUS_MASK       = CHORUS_BUF - 1;
+
+// BEAST auto-makeup — peak-tracked inverse-GR level compensation.
+// DIVERGES FROM PROTOTYPE by design (see Stage 8 notes 2026-04-21).
+//
+// Prototype used a slow RMS follower with a hard clamp [0.6, 1.3] to
+// push wet bus back toward a reference RMS. Two failure modes:
+//   (a) Clamp couldn't restore full GR at heavy FLIP (capped at +2.3 dB
+//       makeup vs −4…−5 dB of sustained GR → net perceived drop).
+//   (b) Asymmetric response: RMS-chase pushed level on sustain but
+//       couldn't compensate transient-only GR → "sustain collapse"
+//       feel (body gets grabbed, peaks stay capped, makeup can't tell
+//       the difference).
+//
+// V2 tracks the comp's instantaneous GR directly in dB, smooths it with
+// a symmetric time constant, and applies the inverse as makeup gain.
+// Result: whatever the comp pulls down for longer than ~180 ms gets
+// restored exactly; shorter transient GR passes through untouched so
+// GLUE's attack-shaping character is preserved. No clamp needed —
+// inverse of 0 dB GR is 0 dB makeup, so silence does not chase.
+//
+//   Makeup smoothing TC = 180 ms  (faster than GR → pump; slower → flat)
+const BEAST_MAKEUP_TC_S  = 0.18;
 
 // Equal-power stereo pan: pan ∈ [−1,+1], returns [L, R] gains.
 function panLR(pan) {
@@ -435,6 +501,33 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
     };
     this._setGhostCoef(0, GHOST_PRE_LP_HZ);
     this._setGhostCoef(1, GHOST_POST_LP_HZ);
+
+    // ── STAGE 8 state ─────────────────────────────────────────────────
+    // GLUE comp — 1-pole attack/release coefficients on a peak detector.
+    // aA / aR are the one-pole "follower" coefficients:
+    //   y[n] = y[n-1] + a · (x[n] - y[n-1])
+    // a = 1 - exp(-1/(sr·τ)). Smaller a = slower follow.
+    this.glueAtkA = 1 - Math.exp(-1 / (sampleRate * GLUE_ATK_MS * 0.001));
+    this.glueRelA = 1 - Math.exp(-1 / (sampleRate * GLUE_REL_MS * 0.001));
+    this.glueEnv  = 0;     // smoothed peak magnitude (linear, post-detector)
+
+    // CHORUS state — two mono ring buffers (L & R fed identically; reads
+    // use the same LFO-modulated tap so stereo chorus here is equivalent
+    // to the prototype's single DelayNode handling each channel in
+    // parallel). Shared write index and LFO phase.
+    this.chorusBufL = new Float32Array(CHORUS_BUF);
+    this.chorusBufR = new Float32Array(CHORUS_BUF);
+    this.chorusIdx  = 0;
+    this.chorusLfo  = 0;
+    this.chorusInc  = TWO_PI * CHORUS_LFO_HZ / this.sr;
+
+    // BEAST auto-makeup state — smoothed GR (dB) follower, symmetric TC.
+    // beastGrSm is a one-pole-smoothed representation of the GLUE comp's
+    // instantaneous gain-reduction amount (in dB, always ≥ 0, 0 = no GR).
+    // Inverse is applied as output makeup. At beast=0, the result is
+    // force-collapsed to unity so the makeup never runs unless engaged.
+    this.beastTrimA = 1 - Math.exp(-1 / (sampleRate * BEAST_MAKEUP_TC_S));
+    this.beastGrSm  = 0;
 
     this.port.postMessage({ ready: true });
   }
@@ -698,6 +791,38 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
     const ghostPeriodInv  = this.ghostPeriodInv;
     const ghostPeriodSaUp  = this.ghostPeriodSaUp;
     const ghostPeriodInvUp = this.ghostPeriodInvUp;
+
+    // ── STAGE 8 hoists ─────────────────────────────────────────────
+    // GLUE threshold/ratio follow beast. Precompute linear threshold and
+    // the (1 - 1/ratio) gain-reduction slope so the inner loop only does
+    // one log + one exp per above-knee sample.
+    const glueThDB     = GLUE_TH_DB_MIN + GLUE_TH_DB_RANGE * beastP;   // -3..-20
+    const glueThLin    = Math.pow(10, glueThDB / 20);                   // 0.707..0.1
+    const glueRatio    = GLUE_RATIO_MIN + GLUE_RATIO_RANGE * beastP;   // 1.5..5.0
+    const glueSlope    = 1 - 1 / glueRatio;                             // 0.333..0.8
+    const glueKneeHalf = GLUE_KNEE_DB * 0.5;
+    const glueKneeInv2 = 1 / (2 * GLUE_KNEE_DB);
+    // Knee floor (linear) — skip log/exp entirely below (th - knee/2) dB
+    const glueKneeFloor = Math.pow(10, (glueThDB - glueKneeHalf) / 20);
+    const glueAtkA     = this.glueAtkA;
+    const glueRelA    = this.glueRelA;
+    let   glueEnv     = this.glueEnv;
+
+    // CHORUS block-rate scalars
+    const chorusBufL       = this.chorusBufL;
+    const chorusBufR       = this.chorusBufR;
+    let   chorusIdx        = this.chorusIdx;
+    let   chorusLfo        = this.chorusLfo;
+    const chorusInc        = this.chorusInc;
+    const chorusBaseSa     = CHORUS_BASE_MS  * SR_MS;
+    const chorusDepthSa_s  = beastP * CHORUS_DEPTH_MS * SR_MS;
+    const chorusWet_s      = beastP * CHORUS_WET_MAX;
+
+    // BEAST auto-makeup — smoothed GR follower. No edge detect, no ref
+    // latch: makeup is a pure function of the comp's instantaneous GR,
+    // so silence → GR=0 → makeup=1, no runaway possible.
+    const beastTrimA = this.beastTrimA;
+    let   beastGrSm  = this.beastGrSm;
 
     for (let n = 0; n < N; n++) {
       const xL = iL[n];
@@ -1053,11 +1178,103 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
       wL = wetDuck * wL + pingMix_s * pTapL;
       wR = wetDuck * wR + pingMix_s * pTapR;
 
+      // ── STAGE 8A: GLUE comp (feedforward peak detector, soft knee) ──
+      // Detector runs on max-magnitude of L/R (stereo-linked — classic
+      // glue comp behavior, no stereo image wobble from independent GR).
+      // Envelope follows with fast attack / slow release per prototype.
+      const absL8 = wL >= 0 ? wL : -wL;
+      const absR8 = wR >= 0 ? wR : -wR;
+      const peak8 = absL8 > absR8 ? absL8 : absR8;
+      if (peak8 > glueEnv) glueEnv += (peak8 - glueEnv) * glueAtkA;
+      else                 glueEnv += (peak8 - glueEnv) * glueRelA;
+      // Gain reduction curve (soft knee):
+      //   env_dB < th - knee/2   → GR = 0
+      //   env_dB inside knee     → GR = ((over + knee/2)^2 / (2·knee)) · slope
+      //   env_dB > th + knee/2   → GR = over · slope
+      // slope = 1 - 1/ratio. Output linear gain = 10^(-GR/20).
+      // Cheap early-out: below the knee floor, gain = 1 (no log/exp).
+      let gainLin8 = 1.0;
+      if (glueEnv > glueKneeFloor) {
+        const envDb = 20 * Math.log10(glueEnv + 1e-24);
+        const over  = envDb - glueThDB;
+        let grDb;
+        if (over > glueKneeHalf) {
+          grDb = over * glueSlope;
+        } else {
+          // Inside knee — quadratic blend from 0 to full slope
+          const x = over + glueKneeHalf;    // [0, knee]
+          grDb = (x * x) * glueKneeInv2 * glueSlope;
+        }
+        gainLin8 = Math.pow(10, -grDb / 20);
+      }
+      // Capture pre-glue wet for the chorus tap (matches prototype: both
+      // GLUE and CHORUS tap delayOut in parallel, then sum into wDelay).
+      const preGlueL8 = wL;
+      const preGlueR8 = wR;
+      wL *= gainLin8;
+      wR *= gainLin8;
+
+      // ── STAGE 8B: CHORUS (single-voice modulated delay, stereo-parallel) ──
+      // Same LFO drives both channels; L/R tap reads identical delays.
+      // Chorus input is pre-glue wet (captured above) so GLUE's transient
+      // shaping doesn't feed the chorus line. Chorus output sums into
+      // post-glue wet bus with beast-scaled wet amount.
+      const chorusDelSa8 = chorusBaseSa + chorusDepthSa_s * Math.sin(chorusLfo);
+      const crp8   = chorusIdx - chorusDelSa8;
+      const crp8F  = Math.floor(crp8);
+      const crp8f  = crp8 - crp8F;
+      const cLa8   = chorusBufL[crp8F       & CHORUS_MASK];
+      const cLb8   = chorusBufL[(crp8F + 1) & CHORUS_MASK];
+      const chorL8 = cLa8 + (cLb8 - cLa8) * crp8f;
+      const cRa8   = chorusBufR[crp8F       & CHORUS_MASK];
+      const cRb8   = chorusBufR[(crp8F + 1) & CHORUS_MASK];
+      const chorR8 = cRa8 + (cRb8 - cRa8) * crp8f;
+      // Write pre-glue wet into chorus ring (denormal-scrubbed)
+      chorusBufL[chorusIdx] = this._dn(preGlueL8);
+      chorusBufR[chorusIdx] = this._dn(preGlueR8);
+      chorusIdx = (chorusIdx + 1) & CHORUS_MASK;
+      // Parallel chorus add
+      wL += chorusWet_s * chorL8;
+      wR += chorusWet_s * chorR8;
+      // Advance LFO, wrap at 2π
+      chorusLfo += chorusInc; if (chorusLfo > TWO_PI) chorusLfo -= TWO_PI;
+
       // ── Master HPF/LPF on wet chain ─────────────────────────────────
       wL = this._biq(5, bqL, wL);
       wL = this._biq(6, bqL, wL);
       wR = this._biq(5, bqR, wR);
       wR = this._biq(6, bqR, wR);
+
+      // ── STAGE 8C: BEAST auto-makeup (inverse-GR peak-tracked makeup) ──
+      // Replaces the prototype's RMS-chase with a direct inverse-GR
+      // tracker. The GR amount in dB (from Stage 8A's gainLin8) is
+      // smoothed symmetrically with a 180 ms time constant, and its
+      // inverse is applied as makeup gain.
+      //
+      // Why this is better than prototype:
+      //   • No clamp required — inverse of 0 dB GR is 0 dB makeup, so
+      //     silence → makeup=1 naturally (no runaway chase on one-shot
+      //     loop gaps).
+      //   • Symmetric TC → no pump. GR attack (3 ms) and release (60 ms)
+      //     are both faster than 180 ms smoother, so transient-only GR
+      //     (≤ ~180 ms duration) stays UNCOMPENSATED → GLUE's transient-
+      //     shaping character is preserved. Sustained GR (> 180 ms)
+      //     gets restored 1:1 → no perceived loudness drop.
+      //   • Scales with beastP so at FLIP=0 the makeup collapses to
+      //     unity regardless of whatever mild GR the comp is still doing
+      //     at its rest threshold/ratio.
+      //
+      // Math:
+      //   grDbNow    = -20·log10(gainLin8)   (≥ 0, 0 when gainLin8=1)
+      //   beastGrSm  ← smoothed grDbNow      (one-pole, TC 180 ms)
+      //   makeupDb   = beastGrSm · beastP    (scale by knob)
+      //   makeupLin  = 10^(makeupDb/20)
+      const grDbNow = gainLin8 < 1 ? -20 * Math.log10(gainLin8) : 0;
+      beastGrSm += (grDbNow - beastGrSm) * beastTrimA;
+      const makeupDb8  = beastGrSm * beastP;
+      const makeupLin8 = makeupDb8 > 0 ? Math.pow(10, makeupDb8 * 0.05) : 1;
+      wL *= makeupLin8;
+      wR *= makeupLin8;
 
       // Equal-power dry/wet sum — in-worklet, phase-coherent.
       // At Mix=0 → mixWet=0, mixDry=1, out = xL/xR untouched.
@@ -1104,6 +1321,12 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
     this.ghostPhase2   = ghostPhase2;
     this.ghostPhase1Up = ghostPhase1Up;
     this.ghostPhase2Up = ghostPhase2Up;
+
+    // Persist STAGE 8 state back to instance
+    this.glueEnv    = this._dn(glueEnv);
+    this.chorusIdx  = chorusIdx;
+    this.chorusLfo  = chorusLfo;
+    this.beastGrSm  = this._dn(beastGrSm);
 
     return true;
   }
@@ -1316,6 +1539,15 @@ export async function createNastyBeastEngineWorklet(ctx) {
     //                              input at ceiling 0.14 so feedback
     //                              headroom stays inside current -3.3 dB
     //                              margin).
+    //   Stage 8 (GLUE + CHORUS)  → nonlinearStages stays 4 (LANDED —
+    //                              GLUE's soft-knee gain-reduction is
+    //                              the 4th NL slot we'd reserved; the
+    //                              chorus is a linear modulated delay
+    //                              so no new NL stage). BEAST auto-
+    //                              makeup is a slow RMS → gain trim
+    //                              (linear trim output, no NL). Feed-
+    //                              back loop count stays 1 (chorus is
+    //                              open-loop).
     capabilities: {
       categories: ['Time', 'Character'],
       subcategories: ['delay-feedback', 'distortion', 'pitch-granular'],
@@ -1331,7 +1563,7 @@ export async function createNastyBeastEngineWorklet(ctx) {
       hasLPC: false,
       hasFFT: false,
       hasWDF: false,
-      nonlinearStages: 4,              // FANG + delay in-loop sat + ping-pong xfb sat + Stage 8 GLUE slot
+      nonlinearStages: 4,              // FANG + delay in-loop sat + ping-pong xfb sat + Stage 8 GLUE soft-knee GR
       osThresholds: null,
       latencySamples: 0,
       crossoverPhase: null,
