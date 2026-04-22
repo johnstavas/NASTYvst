@@ -78,7 +78,8 @@ const PROCESSOR_VERSION = 'fjm-v1';
 //            clamp [0.6, 1.3], 180 ms smoothing). All three quiescent
 //            at beast=0; scale together as beast rises, giving FLIP
 //            its "tighten + shimmer + level-match" character. LANDED.
-// Stage 9  — TUNE (granular shifter, ±12 semitones) — pending.
+// Stage 9  — TUNE (granular shifter, ±12 semitones, wet-bus cross-
+//             fade with dry/down/up amounts = 1−|t|/−t/+t). LANDED.
 const PROCESSOR_CODE = `
 // ── Biquad filter indexing ────────────────────────────────────────────
 // Order is fixed across BIQ_COEF and state arrays:
@@ -264,6 +265,34 @@ const CHORUS_LFO_HZ     = 0.55;
 const CHORUS_WET_MAX    = 0.22;
 const CHORUS_BUF        = 8192;             // power of 2, >> worst-case 15.5ms @ 48kHz
 const CHORUS_MASK       = CHORUS_BUF - 1;
+
+// ── STAGE 9: TUNE (granular OLA, ±12 semi, wet-bus crossfade) ─────
+// Prototype wiring: wDelay (post-glue/post-chorus wet bus) fans into
+// three legs — dry (amount 1-|tune|), down-shifter (−12 semi, amount
+// max(0,−tune)), up-shifter (+12 semi, amount max(0,+tune)) — summed
+// back onto the wet bus before the final mix. Tune ∈ [−1, +1].
+//
+// Reuses the same granular OLA math as Stage 5 ghost — two voices per
+// direction, Hann-windowed, half-period-offset for crossfade. Grain
+// 80 ms, period 160 ms (down) / 80 ms (up). DIFFERENCES from ghost:
+//   (1) Stereo — Stage 5 ghost is mono-summed; TUNE preserves L/R
+//       because it sits on the wet bus (ping-pong + chorus already
+//       decorrelated L/R) and collapsing to mono at this stage would
+//       kill stereo width.
+//   (2) No LP darkening — ghost sub-shadow gets 2.4 kHz pre-LP +
+//       1.8 kHz post-LP to hide grain edges at low mix levels. TUNE
+//       is the featured voice at ±1, so it needs full bandwidth.
+//   (3) Linear crossfade on the knob (matches prototype setTune) —
+//       dry = 1−|tune|, dn = max(0,−tune), up = max(0,+tune). At
+//       tune=0, dry=1 exactly → zero-cost bypass.
+// Shares grain+period samples with ghost, but runs independent phase
+// accumulators and its own stereo ring buffers (can't alias ghost's
+// buffer — it's fed from a different node in the signal chain).
+const TUNE_BUF          = 8192;
+const TUNE_MASK         = TUNE_BUF - 1;
+const TUNE_GRAIN_MS     = 80;
+const TUNE_PERIOD_MS_DN = 160;               // ratio 0.5 → period = grain/|1-0.5|
+const TUNE_PERIOD_MS_UP = 80;                // ratio 2.0 → period = grain/|1-2.0|
 
 // BEAST auto-makeup — peak-tracked inverse-GR level compensation.
 // DIVERGES FROM PROTOTYPE by design (see Stage 8 notes 2026-04-21).
@@ -528,6 +557,23 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
     // force-collapsed to unity so the makeup never runs unless engaged.
     this.beastTrimA = 1 - Math.exp(-1 / (sampleRate * BEAST_MAKEUP_TC_S));
     this.beastGrSm  = 0;
+
+    // ── STAGE 9 state — TUNE granular shifter (±12 semi, stereo) ─────
+    // Two ring buffers (L, R) fed from the post-BEAST-makeup wet bus.
+    // Four phase accumulators — down-voice pair + up-voice pair.
+    // Voice 2 phase starts at half-period so Hann envelopes crossfade.
+    this.tuneBufL    = new Float32Array(TUNE_BUF);
+    this.tuneBufR    = new Float32Array(TUNE_BUF);
+    this.tuneIdx     = 0;
+    this.tuneGrainSa      = TUNE_GRAIN_MS     * this.sr * 0.001;
+    this.tunePeriodSaDn   = TUNE_PERIOD_MS_DN * this.sr * 0.001;
+    this.tunePeriodInvDn  = 1 / this.tunePeriodSaDn;
+    this.tunePeriodSaUp   = TUNE_PERIOD_MS_UP * this.sr * 0.001;
+    this.tunePeriodInvUp  = 1 / this.tunePeriodSaUp;
+    this.tunePhase1Dn = 0;
+    this.tunePhase2Dn = this.tunePeriodSaDn * 0.5;
+    this.tunePhase1Up = 0;
+    this.tunePhase2Up = this.tunePeriodSaUp * 0.5;
 
     this.port.postMessage({ ready: true });
   }
@@ -823,6 +869,30 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
     // so silence → GR=0 → makeup=1, no runaway possible.
     const beastTrimA = this.beastTrimA;
     let   beastGrSm  = this.beastGrSm;
+
+    // ── STAGE 9 hoists ─────────────────────────────────────────────
+    // Tune param is block-rate here (main-thread setter uses a 40 ms
+    // setTargetAtTime ramp, so per-sample change is negligible within
+    // a 128-sample block). Compute the three crossfade gains once per
+    // block. Skip voice math entirely when |tune| ≈ 0 (tuneActive=false).
+    const tuneP          = params.tune[0];
+    const tuneAbs_s      = tuneP >= 0 ? tuneP : -tuneP;
+    const tuneDryAmt_s   = 1 - tuneAbs_s;
+    const tuneDnAmt_s    = tuneP < 0 ? -tuneP : 0;
+    const tuneUpAmt_s    = tuneP > 0 ?  tuneP : 0;
+    const tuneActive     = tuneAbs_s > 1e-4;
+    const tuneBufL       = this.tuneBufL;
+    const tuneBufR       = this.tuneBufR;
+    let   tuneIdx        = this.tuneIdx;
+    let   tunePhase1Dn   = this.tunePhase1Dn;
+    let   tunePhase2Dn   = this.tunePhase2Dn;
+    let   tunePhase1Up   = this.tunePhase1Up;
+    let   tunePhase2Up   = this.tunePhase2Up;
+    const tuneGrainSa    = this.tuneGrainSa;
+    const tunePeriodSaDn = this.tunePeriodSaDn;
+    const tunePeriodInvDn = this.tunePeriodInvDn;
+    const tunePeriodSaUp = this.tunePeriodSaUp;
+    const tunePeriodInvUp = this.tunePeriodInvUp;
 
     for (let n = 0; n < N; n++) {
       const xL = iL[n];
@@ -1276,6 +1346,94 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
       wL *= makeupLin8;
       wR *= makeupLin8;
 
+      // ── STAGE 9: TUNE (granular ±12 semi crossfade on wet bus) ──────
+      // Write current wet to ring buffers (always, so phases+buf stay
+      // coherent when tune is scrubbed off→on mid-signal). Denormal-
+      // scrub on write — ring buffer holds wet bus state across long
+      // silence gaps, subnormals here cascade into makeup math.
+      tuneBufL[tuneIdx] = this._dn(wL);
+      tuneBufR[tuneIdx] = this._dn(wR);
+
+      if (tuneActive) {
+        // Down-voice pair — delay ramps 0 → grainSa over period (ratio
+        // 0.5 → read head lags at half-speed → one octave down).
+        const tp1D    = tunePhase1Dn * tunePeriodInvDn;              // [0, 1)
+        const td1D    = tp1D * tuneGrainSa;                          // delay in samples
+        const trp1D   = tuneIdx - td1D;
+        const trp1DF  = Math.floor(trp1D);
+        const trp1Df  = trp1D - trp1DF;
+        const tv1DLa  = tuneBufL[trp1DF       & TUNE_MASK];
+        const tv1DLb  = tuneBufL[(trp1DF + 1) & TUNE_MASK];
+        const tv1DL   = tv1DLa + (tv1DLb - tv1DLa) * trp1Df;
+        const tv1DRa  = tuneBufR[trp1DF       & TUNE_MASK];
+        const tv1DRb  = tuneBufR[(trp1DF + 1) & TUNE_MASK];
+        const tv1DR   = tv1DRa + (tv1DRb - tv1DRa) * trp1Df;
+        const tw1D    = 0.5 - 0.5 * Math.cos(TWO_PI * tp1D);         // Hann
+
+        const tp2D    = tunePhase2Dn * tunePeriodInvDn;
+        const td2D    = tp2D * tuneGrainSa;
+        const trp2D   = tuneIdx - td2D;
+        const trp2DF  = Math.floor(trp2D);
+        const trp2Df  = trp2D - trp2DF;
+        const tv2DLa  = tuneBufL[trp2DF       & TUNE_MASK];
+        const tv2DLb  = tuneBufL[(trp2DF + 1) & TUNE_MASK];
+        const tv2DL   = tv2DLa + (tv2DLb - tv2DLa) * trp2Df;
+        const tv2DRa  = tuneBufR[trp2DF       & TUNE_MASK];
+        const tv2DRb  = tuneBufR[(trp2DF + 1) & TUNE_MASK];
+        const tv2DR   = tv2DRa + (tv2DRb - tv2DRa) * trp2Df;
+        const tw2D    = 0.5 - 0.5 * Math.cos(TWO_PI * tp2D);
+
+        const tuneDnL = tv1DL * tw1D + tv2DL * tw2D;
+        const tuneDnR = tv1DR * tw1D + tv2DR * tw2D;
+
+        // Up-voice pair — inverse ramp (delay shrinks grainSa → 0 over
+        // period, ratio 2.0 → read head races at 2× → one octave up).
+        const tp1U    = tunePhase1Up * tunePeriodInvUp;
+        const td1U    = (1 - tp1U) * tuneGrainSa;
+        const trp1U   = tuneIdx - td1U;
+        const trp1UF  = Math.floor(trp1U);
+        const trp1Uf  = trp1U - trp1UF;
+        const tv1ULa  = tuneBufL[trp1UF       & TUNE_MASK];
+        const tv1ULb  = tuneBufL[(trp1UF + 1) & TUNE_MASK];
+        const tv1UL   = tv1ULa + (tv1ULb - tv1ULa) * trp1Uf;
+        const tv1URa  = tuneBufR[trp1UF       & TUNE_MASK];
+        const tv1URb  = tuneBufR[(trp1UF + 1) & TUNE_MASK];
+        const tv1UR   = tv1URa + (tv1URb - tv1URa) * trp1Uf;
+        const tw1U    = 0.5 - 0.5 * Math.cos(TWO_PI * tp1U);
+
+        const tp2U    = tunePhase2Up * tunePeriodInvUp;
+        const td2U    = (1 - tp2U) * tuneGrainSa;
+        const trp2U   = tuneIdx - td2U;
+        const trp2UF  = Math.floor(trp2U);
+        const trp2Uf  = trp2U - trp2UF;
+        const tv2ULa  = tuneBufL[trp2UF       & TUNE_MASK];
+        const tv2ULb  = tuneBufL[(trp2UF + 1) & TUNE_MASK];
+        const tv2UL   = tv2ULa + (tv2ULb - tv2ULa) * trp2Uf;
+        const tv2URa  = tuneBufR[trp2UF       & TUNE_MASK];
+        const tv2URb  = tuneBufR[(trp2UF + 1) & TUNE_MASK];
+        const tv2UR   = tv2URa + (tv2URb - tv2URa) * trp2Uf;
+        const tw2U    = 0.5 - 0.5 * Math.cos(TWO_PI * tp2U);
+
+        const tuneUpL = tv1UL * tw1U + tv2UL * tw2U;
+        const tuneUpR = tv1UR * tw1U + tv2UR * tw2U;
+
+        // Crossfade blend — linear on the knob (matches prototype):
+        //   tune=0   → dry=1, dn=0, up=0  (identity — but tuneActive=false already bypasses here)
+        //   tune=−1  → dry=0, dn=1, up=0  (full octave down)
+        //   tune=+1  → dry=0, dn=0, up=1  (full octave up)
+        wL = wL * tuneDryAmt_s + tuneDnL * tuneDnAmt_s + tuneUpL * tuneUpAmt_s;
+        wR = wR * tuneDryAmt_s + tuneDnR * tuneDnAmt_s + tuneUpR * tuneUpAmt_s;
+      }
+
+      // Advance write head + phase counters unconditionally so the ring
+      // buffer and voice cursors stay aligned whether or not TUNE is
+      // active this sample. Modulo fold matches Stage 5 ghost pattern.
+      tuneIdx = (tuneIdx + 1) & TUNE_MASK;
+      tunePhase1Dn += 1; if (tunePhase1Dn >= tunePeriodSaDn) tunePhase1Dn -= tunePeriodSaDn;
+      tunePhase2Dn += 1; if (tunePhase2Dn >= tunePeriodSaDn) tunePhase2Dn -= tunePeriodSaDn;
+      tunePhase1Up += 1; if (tunePhase1Up >= tunePeriodSaUp) tunePhase1Up -= tunePeriodSaUp;
+      tunePhase2Up += 1; if (tunePhase2Up >= tunePeriodSaUp) tunePhase2Up -= tunePeriodSaUp;
+
       // Equal-power dry/wet sum — in-worklet, phase-coherent.
       // At Mix=0 → mixWet=0, mixDry=1, out = xL/xR untouched.
       const mL = mixWet * wL + mixDry * xL;
@@ -1327,6 +1485,13 @@ class NastyBeastProcessor extends AudioWorkletProcessor {
     this.chorusIdx  = chorusIdx;
     this.chorusLfo  = chorusLfo;
     this.beastGrSm  = this._dn(beastGrSm);
+
+    // Persist STAGE 9 state back to instance
+    this.tuneIdx      = tuneIdx;
+    this.tunePhase1Dn = tunePhase1Dn;
+    this.tunePhase2Dn = tunePhase2Dn;
+    this.tunePhase1Up = tunePhase1Up;
+    this.tunePhase2Up = tunePhase2Up;
 
     return true;
   }
