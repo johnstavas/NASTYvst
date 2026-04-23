@@ -26,6 +26,7 @@ Fail-fast order (cheapest first):
 4. `node scripts/check_pcof.mjs`            — PCOF build + T6.5 pre-codegen (~250 ms)
 5. `node scripts/check_op_goldens.mjs`      — op sidecar shape + goldens (~300 ms)
 6. `node scripts/check_master_worklet.mjs`  — master-worklet TOY_COMP golden (~150 ms)
+7. `node scripts/check_master_emit_parity.mjs` — emitter ⇄ factory parity  (~200 ms)
 
 Equivalent to `npm run qc:all`.
 

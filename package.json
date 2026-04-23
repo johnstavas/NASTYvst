@@ -15,7 +15,8 @@
     "qc:goldens:bless": "node scripts/check_op_goldens.mjs --bless",
     "qc:master": "node scripts/check_master_worklet.mjs",
     "qc:master:bless": "node scripts/check_master_worklet.mjs --bless",
-    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens && npm run qc:master",
+    "qc:emit": "node scripts/check_master_emit_parity.mjs",
+    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens && npm run qc:master && npm run qc:emit",
     "install-hooks": "git config core.hooksPath .githooks"
   },
   "keywords": [],

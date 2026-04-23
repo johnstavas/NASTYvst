@@ -14,6 +14,7 @@
 #   4. pcof build + T6.5 pre-codegen     (~250 ms)
 #   5. op sidecar shape + goldens        (~300 ms)
 #   6. master-worklet TOY_COMP golden    (~150 ms)
+#   7. emitter ⇄ factory parity          (~200 ms)
 
 set -e
 
@@ -34,5 +35,8 @@ node scripts/check_op_goldens.mjs
 
 echo "→ qc:master   (master-worklet TOY_COMP end-to-end)"
 node scripts/check_master_worklet.mjs
+
+echo "→ qc:emit     (emitter ⇄ factory parity)"
+node scripts/check_master_emit_parity.mjs
 
 echo "✓ T6/T6.5 gate green — commit proceeding"
