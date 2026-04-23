@@ -51,6 +51,31 @@ export const OPS = {
     ],
   },
 
+  // DC trap — dedicated 1-pole highpass at ~10 Hz for use inside feedback
+  // loops. Why it's a separate op from `filter`: the filter op is a 2-pole
+  // biquad whose default mode is lowpass — using it as a DC trap would be
+  // a schema surprise. dcBlock has ONE job, its cutoff defaults to 10 Hz
+  // (musically inaudible), and it composes cleanly as an in-line segment
+  // on a feedback return path. Canonical fix for the `denormal_tail` and
+  // `dc_under_feedback` ship-gate classes — see qc_backlog.md § Sandbox
+  // Brick Audit Sweep.
+  //
+  // Implementation in compileGraphToWebAudio uses a BiquadFilterNode in
+  // highpass mode (Canon:filters §9 RBJ cookbook). Q is stock 0.707 — DC
+  // traps never benefit from resonance.
+  dcBlock: {
+    id: 'dcBlock',
+    label: 'dc block',
+    description: 'DC-trap HP (1-pole equivalent @ 10 Hz) — drop inline on feedback returns',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      // Cutoff exposed so bricks that need a higher corner (e.g. bass-traps
+      // on resonant FB) can push it up without swapping ops. Default 10 Hz
+      // sits well below audibility on any typical playback chain.
+      { id: 'cutoff', label: 'Cutoff', type: 'number', min: 1, max: 200, step: 0.5, default: 10, unit: 'Hz', format: fmtHz },
+    ],
+  },
+
   filter: {
     id: 'filter',
     label: 'filter',

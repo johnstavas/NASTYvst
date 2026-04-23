@@ -126,6 +126,26 @@ const FACTORIES = {
     };
   },
 
+  // DC trap — BiquadFilterNode in highpass at ~10 Hz, Q=0.707. The
+  // browser's native biquad is RBJ-cookbook-canonical (Canon:filters §9)
+  // so we lean on it rather than roll a worklet. Q is locked — resonance
+  // on a DC trap is never useful. Use on feedback return paths to stop
+  // sub-audible DC buildup from self-multiplying into a DC runaway.
+  dcBlock(ctx, params) {
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = params.cutoff ?? 10;
+    f.Q.value = 0.707;
+    return {
+      nodes: [f],
+      inputs:  { in:  f },
+      outputs: { out: f },
+      setParam(id, v, t) {
+        if (id === 'cutoff') f.frequency._set(v, t, 0.005);
+      },
+    };
+  },
+
   // Shelf EQ — BiquadFilterNode in lowshelf/highshelf mode. Native WebAudio
   // handles the transfer-function math; we just own the mode switching and
   // param writes. Q is stock (0.707) — shelves don't benefit from high Q.

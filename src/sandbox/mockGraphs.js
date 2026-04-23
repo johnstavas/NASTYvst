@@ -195,29 +195,38 @@ export const ECHOFORM_LITE = {
     { id: 'out', kind: 'output', x: 740, y: 220 },
   ],
   nodes: [
-    { id: 'n_delay',  op: 'delay',    x: 140, y: 190, params: { time: 380, feedback: 0.55 } },
-    { id: 'n_filter', op: 'filter',   x: 300, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.707 } },
-    { id: 'n_sat',    op: 'saturate', x: 460, y: 190, params: { drive: 1.6, trim: -2 } },
-    { id: 'n_mix',    op: 'mix',      x: 600, y: 210, params: { amount: 0.35 } },
+    { id: 'n_delay',   op: 'delay',    x: 140, y: 190, params: { time: 380, feedback: 0.55 } },
+    { id: 'n_filter',  op: 'filter',   x: 300, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.707 } },
+    { id: 'n_sat',     op: 'saturate', x: 460, y: 190, params: { drive: 1.6, trim: -2 } },
+    // DC trap on the FB return path — kills sub-10Hz DC buildup before it
+    // self-multiplies through the feedback loop. Retires EFL-SB-02 per
+    // qc_backlog.md § Sandbox Brick Audit Sweep. Inline post-sat / pre-
+    // delay.fb so it sees the saturated signal — tanh can introduce DC
+    // offset on asymmetric drive, exactly what this traps.
+    { id: 'n_dcblock', op: 'dcBlock',  x: 540, y: 260, params: { cutoff: 10 } },
+    { id: 'n_mix',     op: 'mix',      x: 600, y: 210, params: { amount: 0.35 } },
   ],
   wires: [
     // Forward path through the loop
-    { from: 'in',       to: 'n_delay'    },
-    { from: 'n_delay',  to: 'n_filter'   },
-    { from: 'n_filter', to: 'n_sat'      },
-    // Post-saturate signal feeds mix AND loops back to delay.fb
-    { from: 'n_sat',    to: 'n_mix.wet'  },
-    { from: 'n_sat',    to: 'n_delay.fb' },   // ← external feedback tap
+    { from: 'in',        to: 'n_delay'    },
+    { from: 'n_delay',   to: 'n_filter'   },
+    { from: 'n_filter',  to: 'n_sat'      },
+    // Post-saturate signal feeds mix directly (that's the wet send), but
+    // the FB tap detours through the DC trap so any saturator-induced DC
+    // offset can't runaway through the loop.
+    { from: 'n_sat',     to: 'n_mix.wet'  },
+    { from: 'n_sat',     to: 'n_dcblock'  },
+    { from: 'n_dcblock', to: 'n_delay.fb' },   // ← DC-blocked feedback tap
     // Dry sum
-    { from: 'in',       to: 'n_mix.dry'  },
-    { from: 'n_mix',    to: 'out'        },
+    { from: 'in',        to: 'n_mix.dry'  },
+    { from: 'n_mix',     to: 'out'        },
   ],
   // Visual feedback arc so the zoom view draws the loop cleanly (the
-  // wire above already makes it real audio; this is just render-hint).
+  // wires above already make it real audio; this is just render-hint).
   feedback: [
-    { from: 'n_sat', to: 'n_delay', label: 'feedback' },
+    { from: 'n_dcblock', to: 'n_delay', label: 'feedback' },
   ],
-  legendOps: ['delay', 'filter', 'saturate', 'mix'],
+  legendOps: ['delay', 'filter', 'saturate', 'dcBlock', 'mix'],
   panel: {
     knobs: [
       { id: 'time',     label: 'Time',     default: 0.35,

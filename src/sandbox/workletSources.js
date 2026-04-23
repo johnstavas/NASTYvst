@@ -507,6 +507,14 @@ class SandboxFdnReverb extends AudioWorkletProcessor {
     this.fdnBufs   = [];
     this.fdnIdxs   = new Int32Array(8);
     this.fdnShelf  = new Float64Array(8); // per-channel HF shelf LP state
+    // Per-channel DC trap state (1-pole HP @ ~10 Hz on FB signal). Retires
+    // FDN-SB-02 per qc_backlog.md § Sandbox Brick Audit Sweep. Applied to
+    // fb_sig before the hard-clip so DC can't accumulate in the ring
+    // buffer and can't drive the limiter into one-sided clipping.
+    // y[n] = x[n] - x[n-1] + R·y[n-1];  R = exp(-2π·fc/sr)
+    this.fdnDcX    = new Float64Array(8);
+    this.fdnDcY    = new Float64Array(8);
+    this.fdnDcR    = Math.exp(-2 * Math.PI * 10 / sr); // ~0.998692 at 48k
     for (let c = 0; c < 8; c++) {
       this.fdnDelays[c] = Math.round(Math.pow(2, c / 8) * fdnBase);
       this.fdnBufs.push(new Float32Array(this.fdnDelays[c] + 16));
@@ -722,12 +730,22 @@ class SandboxFdnReverb extends AudioWorkletProcessor {
       // Householder feedback mix
       SandboxHadamard8.householder(mix);
 
-      // Per-channel HF shelf → frequency-dependent FB write.
+      // Per-channel HF shelf → DC trap → hard-clip → FB write.
       // +DENORM bias on the shelf state keeps long-decay tails out of
       // subnormal range (Canon:utilities §1, ship-critical for FDN reverb).
+      // DC trap (1-pole HP @ 10 Hz) sits between shelf and hard-clip so
+      // accumulated DC can't push the limiter into one-sided clipping and
+      // can't poison the ring buffer. Retires FDN-SB-02.
+      const dcX = this.fdnDcX, dcY = this.fdnDcY, dcR = this.fdnDcR;
       for (let c = 0; c < 8; c++) {
         fsh[c] += shelfCoeff * (mix[c] - fsh[c]) + DENORM;
         let fb_sig = mix[c] * g_hf + fsh[c] * g_shelf;
+        // HP: y = x - x_prev + R·y_prev (+ DENORM bias — geometric decay
+        // of the HP state goes subnormal otherwise; Canon:utilities §1).
+        const y = fb_sig - dcX[c] + dcR * dcY[c] + DENORM;
+        dcX[c] = fb_sig;
+        dcY[c] = y;
+        fb_sig = y;
         if (fb_sig >  1.8) fb_sig =  1.8;
         if (fb_sig < -1.8) fb_sig = -1.8;
         const flen = fb[c].length;
