@@ -632,6 +632,7 @@ export function createNastyBeastEngineV1(ctx) {
       hasLPC: false,
       hasFFT: false,
       hasWDF: false,
+      hasBpmDetector: true,    // auto-BPM onset tracker in NastyBeastOrb (AUTO button); gates bpm_detector_accuracy QC rule
 
       // Numeric / structural
       nonlinearStages: 3,      // FANG shaper (4× OS, tanh) + loopSat (2× OS, tanh) + wetSat (2× OS, tanh)

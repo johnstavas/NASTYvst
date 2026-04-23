@@ -5,7 +5,25 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useReactiveCore } from '../reactive/useReactiveCore.js';
-import { createNastyBeastEngine } from './nastyBeastEngine.js';
+
+// Variant-aware factory loader. Mirrors ManChildOrb's loadVariantModule
+// pattern so switching the version dropdown ACTUALLY swaps the live engine,
+// instead of the registry metadata lying about which engine is running.
+// Registered versions live in src/migration/registry.js and the QC sweep
+// route in src/qc-harness/captureHooks.js (getEngineFactory) — keep this
+// trio in sync when adding a new version.
+async function loadVariantModule(version) {
+  if (version === 'v1') {
+    const m = await import('./nastyBeastEngine.v1.js');
+    return { createEngine: m.createNastyBeastEngineV1 };
+  }
+  if (version === 'v2') {
+    const m = await import('./nastyBeastEngine.worklet.js');
+    return { createEngine: m.createNastyBeastEngineWorklet };
+  }
+  const m = await import('./nastyBeastEngine.js');
+  return { createEngine: m.createNastyBeastEngine };
+}
 
 // delayBeats = musical delay length in quarter-note beats (0.5 = 1/8, 0.75 = dotted-1/8,
 // 1.0 = 1/4, 0.25 = 1/16). When a scene has delayBeats, its haunt macro is computed
@@ -87,7 +105,7 @@ const PANCAKES = [
   { id: 'bottom', macro: 'spread', y: 208, baseW: 196, baseH: 26 },
 ];
 
-export default function NastyBeastOrb({ sharedSource, registerEngine, unregisterEngine, instanceId = 'flapjack' }) {
+export default function NastyBeastOrb({ sharedSource, registerEngine, unregisterEngine, instanceId = 'flapjack', version = 'prototype' }) {
   const engineRef = useRef(null);
   const chamberRef= useRef(null);
   const splashRef = useRef(null);
@@ -121,6 +139,7 @@ export default function NastyBeastOrb({ sharedSource, registerEngine, unregister
     lastOnsetT: 0,
     lastTrans: 0,
     intervals: [],          // sliding window of inter-onset intervals (ms)
+    amps:      [],          // parallel window of onset amplitudes (for 2x-lock accent test)
     floor: 0.04,            // adaptive transient threshold
   });
   const [pendingScene, setPendingScene] = useState(null);  // queued for next bar
@@ -144,8 +163,15 @@ export default function NastyBeastOrb({ sharedSource, registerEngine, unregister
     if (!sharedSource) return;
     let alive = true;
     (async () => {
-      const eng = createNastyBeastEngine(sharedSource.ctx);
-      if (!alive) { eng.dispose(); return; }
+      // loadVariantModule is async on every version (v2 imports the worklet
+      // module which then addModule's the processor — needs to be awaited
+      // BEFORE the engine is built). createEngine itself may also be async
+      // (v2 worklet factory) so we await it too and guard with `alive` both
+      // times to avoid registering a zombie engine after unmount.
+      const { createEngine } = await loadVariantModule(version);
+      if (!alive) return;
+      const eng = await createEngine(sharedSource.ctx);
+      if (!alive) { eng.dispose?.(); return; }
       engineRef.current = eng;
       eng.setFeed(macros.feed); eng.setRoam(macros.roam); eng.setHaunt(macros.haunt);
       eng.setBreath(macros.breath); eng.setSnarl(macros.snarl); eng.setSpread(macros.spread);
@@ -158,12 +184,12 @@ export default function NastyBeastOrb({ sharedSource, registerEngine, unregister
     return () => {
       alive = false;
       unregisterEngine?.(instanceId);
-      engineRef.current?.dispose();
+      engineRef.current?.dispose?.();
       engineRef.current = null;
       if (queueTimerRef.current) { clearTimeout(queueTimerRef.current); queueTimerRef.current = null; }
       if (morphRef.current) { cancelAnimationFrame(morphRef.current); morphRef.current = null; }
     };
-  }, [sharedSource]);
+  }, [sharedSource, version]);
 
   const sceneOpts = SCENES[scene].coreOpts;
   const core = useReactiveCore(engineRef, useMemo(() => ({
@@ -404,7 +430,9 @@ export default function NastyBeastOrb({ sharedSource, registerEngine, unregister
             const dt = now - o.lastOnsetT;
             if (dt > 200 && dt < 1500) {           // 40–300 BPM raw range
               o.intervals.push(dt);
+              o.amps.push(trans);                   // parallel amp at THIS onset
               while (o.intervals.length > 16) o.intervals.shift();
+              while (o.amps.length > 16)      o.amps.shift();
             }
           }
           o.lastOnsetT = now;
@@ -413,13 +441,68 @@ export default function NastyBeastOrb({ sharedSource, registerEngine, unregister
         // Recompute BPM every ~half second once we have enough data
         if (o.intervals.length >= 4 && now - (o.lastBpmAt || 0) > 500) {
           o.lastBpmAt = now;
-          // Median is robust to spurious fast-doubles or missed beats
+          // Median is robust to spurious fast-doubles or missed beats.
           const sorted = [...o.intervals].sort((a, b) => a - b);
-          let median = sorted[Math.floor(sorted.length / 2)];
+          const median = sorted[Math.floor(sorted.length / 2)];
           let detected = 60000 / median;
-          // Fold into 70-180 BPM "musical" window
-          while (detected < 70)  detected *= 2;
-          while (detected > 180) detected /= 2;
+
+          // Fold into a 70–160 BPM "musical" window. Previously the
+          // upper bound was 180 with a strict `>`, which let tracks at
+          // 90 BPM lock to 180 (half-period never halved). 160 is the
+          // honest ceiling for pop/rock/hip-hop; DnB/metal at >160
+          // will read as their half-tempo, which the user can override
+          // via TAP or manual BPM. Strict `>` kept 160 exactly stuck
+          // (80 BPM kick-snare-kick-snare → raw 160 → not folded);
+          // `>=` now folds exactly-160 down to 80, which is the right
+          // default for pop/HH. DnB at 160 exact is the rare corner
+          // that taps to 160 manually.
+          while (detected < 70)   detected *= 2;
+          while (detected >= 160) detected /= 2;
+
+          // Double-time rejection — two independent tests, any one fires:
+          //
+          // (A) "Gap" test — the median interval is the 8th note (e.g.
+          // strong alternating kick/snare with no missed onsets). When
+          // ~25%+ of observed intervals sit at ~2× the median length
+          // (a missed beat or long gap between same-drum hits), halve.
+          // Tolerance 10% on the match. NOTE: this fails to catch
+          // perfectly alternating patterns — see test (B).
+          //
+          // (B) "Accent" test — alternating kick/snare produces uniform
+          // intervals (test A blind to it) but systematically uneven
+          // amplitudes (kick louder than snare, or vice-versa). If the
+          // detected BPM is in the suspect zone (≥140) AND the mean
+          // amplitude at odd-indexed onsets differs from even-indexed
+          // onsets by >30%, we're locked to the doublet — halve. Min
+          // 6 amps so the ratio is statistically meaningful.
+          const TWO  = median * 2;
+          const longHits = o.intervals.filter(iv => Math.abs(iv - TWO) / TWO < 0.10).length;
+          const longFrac = longHits / o.intervals.length;
+          let halved = false;
+          if (longFrac >= 0.25) {
+            detected *= 0.5;
+            halved = true;
+          }
+          if (!halved && detected >= 140 && o.amps.length >= 6) {
+            let evenSum = 0, evenN = 0, oddSum = 0, oddN = 0;
+            for (let i = 0; i < o.amps.length; i++) {
+              if (i & 1) { oddSum  += o.amps[i]; oddN++;  }
+              else       { evenSum += o.amps[i]; evenN++; }
+            }
+            if (evenN > 0 && oddN > 0) {
+              const evenMean = evenSum / evenN;
+              const oddMean  = oddSum  / oddN;
+              const ratio = Math.max(evenMean, oddMean) / Math.max(1e-6, Math.min(evenMean, oddMean));
+              if (ratio > 1.30) {
+                detected *= 0.5;
+                halved = true;
+              }
+            }
+          }
+          if (halved) {
+            while (detected < 70) detected *= 2;
+          }
+
           const rounded = Math.round(detected);
           if (rounded >= 40 && rounded <= 240 && Math.abs(rounded - bpmRef.current) >= 1) {
             setBpm(rounded);
