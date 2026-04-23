@@ -23,6 +23,7 @@ import { LOFI_LIGHT } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
 import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { runCompilerSanityTest } from './nullTestHarness';
 
 const ACCENT       = '#e8b87a';               // warm sand — reads "tape era"
 const ACCENT_FAINT = 'rgba(232,184,122,';
@@ -211,6 +212,35 @@ export default function LofiLightOrb({
       }}>
         11 ops · 35 % of LL · double-click to inspect
       </div>
+
+      <button onMouseDown={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // eslint-disable-next-line no-console
+                console.log('[LofiLight] running compiler sanity test…');
+                try {
+                  const r = await runCompilerSanityTest();
+                  // eslint-disable-next-line no-console
+                  console.log('[LofiLight] sanity test result:', r);
+                } catch (err) {
+                  // eslint-disable-next-line no-console
+                  console.error('[LofiLight] sanity test error:', err);
+                }
+              }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); }}
+              style={{
+                marginTop: 8, width: '100%',
+                fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+                fontWeight: 700, padding: '6px 10px',
+                background: `${ACCENT_FAINT}0.08)`,
+                border: `1px solid ${ACCENT_FAINT}0.25)`,
+                borderRadius: 4,
+                color: ACCENT,
+                cursor: 'pointer',
+              }}>
+        🔬 run compiler sanity test
+      </button>
     </div>
   );
 }
