@@ -429,8 +429,8 @@ export const TOY_COMP = {
  *    ~1 quantum of processing latency. This is the same class of problem
  *    LL engine_v1 has (see CONFORMANCE §8.6) and gets fixed later by
  *    moving mix inside a master worklet.
- *  • No true-parallel dust — dust is summed into mix.wet, so MIX=0
- *    mutes dust too. Authentic LL sums dust into wetGain *after* mix.
+ *  • Dust now parallel — sums into `out` post-mix, so MIX=0 still
+ *    passes dust. Matches authentic LL topology.
  */
 export const LOFI_LIGHT = {
   id: 'loofy-lite-v0',
@@ -475,9 +475,10 @@ export const LOFI_LIGHT = {
     // Drift: LFO → scale → delay.timeMod (AudioParam sum)
     { from: 'n_lfo',     to: 'n_driftK'      },
     { from: 'n_driftK',  to: 'n_tape.timeMod' },
-    // Dust: noise → scale → mix.wet (sums with tape output into wet port)
+    // Dust: noise → scale → out (PARALLEL — sums post-mix so MIX=0 still
+    // passes dust. Authentic LL topology per CONFORMANCE §8.6.)
     { from: 'n_noise',   to: 'n_dustK'       },
-    { from: 'n_dustK',   to: 'n_mix.wet'     },
+    { from: 'n_dustK',   to: 'out'           },
     // Output
     { from: 'n_mix',     to: 'out'           },
   ],
@@ -520,6 +521,61 @@ export const LOFI_LIGHT = {
   },
 };
 
+/**
+ * FdnHall — Tier-3 dogfood. First sandbox reverb.
+ *
+ * Thinnest shape possible: a single `fdnReverb` op between in and out.
+ * All 7 reverb controls mapped 1:1 to panel knobs. Proves the sandbox
+ * compiler can host a stereo feedback-heavy DSP archetype via a
+ * monolithic op. The op itself is a faithful port of morphReverbEngine.js
+ * (Geraint Luff FDN + Hadamard diffuser + Householder FB matrix).
+ *
+ *   in ──► fdnReverb ──► out
+ *
+ * Re-decomposition into delay/matrix/shelf primitives waits for the
+ * master-worklet compiler (Stage 3), when feedback-cycle graph support
+ * actually exists.
+ */
+export const FDN_HALL = {
+  id: 'fdn-hall-v0',
+  label: 'FdnHall',
+  canvas: { width: 540, height: 260 },
+  terminals: [
+    { id: 'in',  kind: 'input',  x:  40, y: 130 },
+    { id: 'out', kind: 'output', x: 500, y: 130 },
+  ],
+  nodes: [
+    { id: 'n_rev', op: 'fdnReverb', x: 220, y: 110, params: {
+        morph: 0.5, size: 0.55, decay: 0.5, tone: 0.55,
+        density: 0.6, warp: 0.3, mix: 0.3,
+    } },
+  ],
+  wires: [
+    { from: 'in',    to: 'n_rev' },
+    { from: 'n_rev', to: 'out'   },
+  ],
+  feedback: [],
+  legendOps: ['fdnReverb'],
+  panel: {
+    knobs: [
+      { id: 'morph',   label: 'Morph',   default: 0.5,
+        mappings: [{ nodeId: 'n_rev', paramId: 'morph',   range: [0, 1], curve: 'lin' }] },
+      { id: 'size',    label: 'Size',    default: 0.55,
+        mappings: [{ nodeId: 'n_rev', paramId: 'size',    range: [0, 1], curve: 'lin' }] },
+      { id: 'decay',   label: 'Decay',   default: 0.5,
+        mappings: [{ nodeId: 'n_rev', paramId: 'decay',   range: [0, 1], curve: 'lin' }] },
+      { id: 'tone',    label: 'Tone',    default: 0.55,
+        mappings: [{ nodeId: 'n_rev', paramId: 'tone',    range: [0, 1], curve: 'lin' }] },
+      { id: 'density', label: 'Density', default: 0.6,
+        mappings: [{ nodeId: 'n_rev', paramId: 'density', range: [0, 1], curve: 'lin' }] },
+      { id: 'warp',    label: 'Warp',    default: 0.3,
+        mappings: [{ nodeId: 'n_rev', paramId: 'warp',    range: [0, 1], curve: 'lin' }] },
+      { id: 'mix',     label: 'Mix',     default: 0.3,
+        mappings: [{ nodeId: 'n_rev', paramId: 'mix',     range: [0, 1], curve: 'lin' }] },
+    ],
+  },
+};
+
 /** Registry of brick-type → mock graph. Used by BrickZoomView to decide
  *  whether to show a graph or fall back to the opaque placeholder. */
 export const MOCK_GRAPHS_BY_BRICK_TYPE = {
@@ -530,6 +586,7 @@ export const MOCK_GRAPHS_BY_BRICK_TYPE = {
   modDuck:      MOD_DUCK,
   toyComp:      TOY_COMP,
   lofiLight:    LOFI_LIGHT,
+  fdnHall:      FDN_HALL,
 };
 
 /** Convenience lookup. */

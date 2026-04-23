@@ -31,6 +31,26 @@ import { getOp } from './opRegistry';
 import { validateGraph } from './validateGraph';
 import { isSandboxWorkletReady } from './workletLoader';
 
+// ── AudioParam._set helper ────────────────────────────────────────────
+// Every factory writes params via `param._set(v, t, tau)`. The helper
+// branches on a module-level flag:
+//   _directMode = true  → setValueAtTime(v, 0)        (compile-time init)
+//   _directMode = false → setTargetAtTime(v, t, tau)  (live UI writes)
+//
+// Why: setTargetAtTime at compile time leaves a ~5×tau exponential ramp
+// at render start, which defeats the null-test harness and causes an
+// audible spectral transient on brick instantiation. Initial writes must
+// land before sample 0. Live knob moves keep smoothing to prevent zipper.
+let _directMode = false;
+(function installAudioParamSet() {
+  if (typeof AudioParam === 'undefined') return;
+  if (AudioParam.prototype._set) return;
+  AudioParam.prototype._set = function (v, t, tau) {
+    if (_directMode) this.setValueAtTime(v, 0);
+    else             this.setTargetAtTime(v, t, tau);
+  };
+})();
+
 /** Strip optional ".port" suffix → { id, port } */
 function splitRef(ref) {
   const s = String(ref);
@@ -41,14 +61,26 @@ function splitRef(ref) {
 
 const dbToLin = (db) => Math.pow(10, db / 20);
 
-/** Build a WaveShaper curve for tanh-style soft clip. */
+/** Build a WaveShaper curve — Padé rational tanh (canon:character §11).
+ *
+ *  Pre-gained by `drive`, then passed through Padé `x(27+x²)/(27+9x²)`
+ *  which is C² continuous on [-3, 3] with hard-clip beyond. Identical
+ *  shape to `Math.tanh` within ~2.6% error but canon-aligned so the
+ *  eventual master-worklet codegen can lift this verbatim.
+ *
+ *  Output is normalized so the curve hits ±1 at the drive boundaries
+ *  (i.e. whatever `drive` input would saturate, we scale to unity).
+ */
 function makeSatCurve(drive) {
   const N = 2048;
   const c = new Float32Array(N);
   const k = drive;
+  // Normalization: what does Padé return at x=k? Scale so that maps to 1.
+  const clamp = (x) => x < -3 ? -1 : x > 3 ? 1 : (x * (27 + x*x)) / (27 + 9*x*x);
+  const norm  = 1 / Math.max(1e-6, clamp(k));
   for (let i = 0; i < N; i++) {
     const x = (i / (N - 1)) * 2 - 1;
-    c[i] = Math.tanh(k * x) / Math.tanh(k);
+    c[i] = clamp(k * x) * norm;
   }
   return c;
 }
@@ -68,7 +100,7 @@ const FACTORIES = {
       inputs:  { in:  g, gainMod: g.gain },
       outputs: { out: g },
       setParam(id, v, t) {
-        if (id === 'gainDb') g.gain.setTargetAtTime(dbToLin(v), t, 0.005);
+        if (id === 'gainDb') g.gain._set(dbToLin(v), t, 0.005);
       },
     };
   },
@@ -88,8 +120,8 @@ const FACTORIES = {
       outputs: { out: f },
       setParam(id, v, t) {
         if (id === 'mode')   setMode(v);
-        if (id === 'cutoff') f.frequency.setTargetAtTime(v, t, 0.005);
-        if (id === 'q')      f.Q.setTargetAtTime(v, t, 0.005);
+        if (id === 'cutoff') f.frequency._set(v, t, 0.005);
+        if (id === 'q')      f.Q._set(v, t, 0.005);
       },
     };
   },
@@ -109,8 +141,8 @@ const FACTORIES = {
       outputs: { out: f },
       setParam(id, v, t) {
         if (id === 'mode')   setMode(v);
-        if (id === 'freq')   f.frequency.setTargetAtTime(v, t, 0.005);
-        if (id === 'gainDb') f.gain.setTargetAtTime(v, t, 0.005);
+        if (id === 'freq')   f.frequency._set(v, t, 0.005);
+        if (id === 'gainDb') f.gain._set(v, t, 0.005);
       },
     };
   },
@@ -136,21 +168,36 @@ const FACTORIES = {
       inputs:  { in: sumIn, fb: fbGain, timeMod: d.delayTime },
       outputs: { out: d },
       setParam(id, v, t) {
-        if (id === 'time')     d.delayTime.setTargetAtTime(v / 1000, t, 0.01);
-        if (id === 'feedback') fbGain.gain.setTargetAtTime(Math.min(0.98, v), t, 0.01);
+        if (id === 'time')     d.delayTime._set(v / 1000, t, 0.01);
+        if (id === 'feedback') fbGain.gain._set(Math.min(0.98, v), t, 0.01);
       },
     };
   },
 
   mix(ctx, params) {
-    // Equal-power crossfade. dry + wet → sum
+    // Equal-power crossfade. dry + wet → sum.
+    //
+    // ⚠️ KNOWN LIMITATION — violates the dry/wet mix rule by construction.
+    // Memory `dry_wet_mix_rule.md`: "Mix must be computed INSIDE the DSP
+    // core (AudioWorklet), using the same-sample raw input as dry." That's
+    // not possible in sandbox preview mode — the wet path is a chain of
+    // independently-latent worklets + biquads + waveshapers, so dry and
+    // wet pick up different group delays and MIX<100% combs.
+    //
+    // This op is the best we can do in chain-of-worklets preview mode.
+    // The structural fix is Stage-3 master-worklet codegen per roadmap
+    // § 1.7 — fuse the whole graph into one worklet where dry=raw-input
+    // and wet=same-sample-processed live side by side.
+    //
+    // Do NOT treat this mix as null-testable. Treat it as "mostly right,
+    // phasey at low-mix on resonant or long-latency chains."
     const dry = ctx.createGain();
     const wet = ctx.createGain();
     const sum = ctx.createGain();
     const setAmt = (a, t) => {
       const aa = Math.max(0, Math.min(1, a));
-      dry.gain.setTargetAtTime(Math.cos(aa * Math.PI / 2), t, 0.005);
-      wet.gain.setTargetAtTime(Math.sin(aa * Math.PI / 2), t, 0.005);
+      dry.gain._set(Math.cos(aa * Math.PI / 2), t, 0.005);
+      wet.gain._set(Math.sin(aa * Math.PI / 2), t, 0.005);
     };
     dry.connect(sum);
     wet.connect(sum);
@@ -176,7 +223,7 @@ const FACTORIES = {
       inputs:  { in:  g },
       outputs: { out: g },
       setParam(id, v, t) {
-        if (id === 'k') g.gain.setTargetAtTime(v, t, 0.003);
+        if (id === 'k') g.gain._set(v, t, 0.003);
       },
     };
   },
@@ -219,6 +266,13 @@ const FACTORIES = {
   saturate(ctx, params) {
     const pre  = ctx.createGain();   // drive front-end
     const ws   = ctx.createWaveShaper();
+    // 4× oversample — browser runs a polyphase halfband FIR around the
+    // waveshape op, killing aliasing at all drive levels. Adds ~120–200
+    // samples of latency (implementation-defined) which is the whole
+    // reason the dry/wet mix rule exists. In sandbox preview mode this
+    // adds to the wet-path latency budget; master-worklet codegen will
+    // lift the OS inside the fused worklet.
+    ws.oversample = '4x';
     const post = ctx.createGain();   // trim back-end
     const setDrive = (drive) => {
       pre.gain.value = drive;
@@ -234,7 +288,7 @@ const FACTORIES = {
       outputs: { out: post },
       setParam(id, v, t) {
         if (id === 'drive') setDrive(v);
-        if (id === 'trim')  post.gain.setTargetAtTime(dbToLin(v), t, 0.005);
+        if (id === 'trim')  post.gain._set(dbToLin(v), t, 0.005);
       },
     };
   },
@@ -280,10 +334,10 @@ const FACTORIES = {
         // k-rate times: setTargetAtTime with a tiny TC keeps knob moves
         // feeling 1:1 while still preventing zipper. a-rate amount/offset
         // can also take setTargetAtTime — same shape.
-        if (id === 'attack')  pAtk.setTargetAtTime(v, t, 0.003);
-        if (id === 'release') pRel.setTargetAtTime(v, t, 0.003);
-        if (id === 'amount')  pAmt.setTargetAtTime(v, t, 0.003);
-        if (id === 'offset')  pOff.setTargetAtTime(v, t, 0.003);
+        if (id === 'attack')  pAtk._set(v, t, 0.003);
+        if (id === 'release') pRel._set(v, t, 0.003);
+        if (id === 'amount')  pAmt._set(v, t, 0.003);
+        if (id === 'offset')  pOff._set(v, t, 0.003);
       },
     };
   },
@@ -315,9 +369,9 @@ const FACTORIES = {
       inputs:  { env: node },
       outputs: { gr:  node },
       setParam(id, v, t) {
-        if (id === 'thresholdDb') pThr.setTargetAtTime(v, t, 0.005);
-        if (id === 'ratio')       pRatio.setTargetAtTime(v, t, 0.005);
-        if (id === 'kneeDb')      pKnee.setTargetAtTime(v, t, 0.005);
+        if (id === 'thresholdDb') pThr._set(v, t, 0.005);
+        if (id === 'ratio')       pRatio._set(v, t, 0.005);
+        if (id === 'kneeDb')      pKnee._set(v, t, 0.005);
       },
     };
   },
@@ -349,8 +403,8 @@ const FACTORIES = {
       outputs: { out: node },
       setParam(id, v, t) {
         if (id === 'shape')  pShape.value = toShape(v); // k-rate int
-        if (id === 'amount') pAmt.setTargetAtTime(v, t, 0.003);
-        if (id === 'offset') pOff.setTargetAtTime(v, t, 0.003);
+        if (id === 'amount') pAmt._set(v, t, 0.003);
+        if (id === 'offset') pOff._set(v, t, 0.003);
       },
     };
   },
@@ -386,10 +440,58 @@ const FACTORIES = {
       inputs:  {},
       outputs: { lfo: node },
       setParam(id, v, t) {
-        if (id === 'rateHz') pRate.setTargetAtTime(v, t, 0.003);
+        if (id === 'rateHz') pRate._set(v, t, 0.003);
         if (id === 'shape')  pShape.value = toShape(v); // k-rate int — no smoothing
-        if (id === 'amount') pAmt.setTargetAtTime(v, t, 0.003);
-        if (id === 'offset') pOff.setTargetAtTime(v, t, 0.003);
+        if (id === 'amount') pAmt._set(v, t, 0.003);
+        if (id === 'offset') pOff._set(v, t, 0.003);
+      },
+    };
+  },
+
+  // Geraint-Luff FDN reverb — monolithic worklet. Same worklet-prep
+  // requirement as envelope/lfo/noise. Stereo in/out; boundary gain nodes
+  // upmix mono sources automatically per WebAudio channel-count rules.
+  fdnReverb(ctx, params) {
+    if (!isSandboxWorkletReady(ctx)) {
+      throw new Error(
+        'fdnReverb op: sandbox worklet not registered — ' +
+        'await ensureSandboxWorklets(ctx) before compileGraphToWebAudio.'
+      );
+    }
+    const node = new AudioWorkletNode(ctx, 'sandbox-fdn-reverb', {
+      numberOfInputs:  1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      channelCount: 2,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
+    });
+    const pMorph   = node.parameters.get('morph');
+    const pSize    = node.parameters.get('size');
+    const pDecay   = node.parameters.get('decay');
+    const pTone    = node.parameters.get('tone');
+    const pDensity = node.parameters.get('density');
+    const pWarp    = node.parameters.get('warp');
+    const pMix     = node.parameters.get('mix');
+    pMorph.value   = params.morph   ?? 0.5;
+    pSize.value    = params.size    ?? 0.55;
+    pDecay.value   = params.decay   ?? 0.5;
+    pTone.value    = params.tone    ?? 0.55;
+    pDensity.value = params.density ?? 0.6;
+    pWarp.value    = params.warp    ?? 0.3;
+    pMix.value     = params.mix     ?? 0.3;
+    return {
+      nodes: [node],
+      inputs:  { in:  node },
+      outputs: { out: node },
+      setParam(id, v, t) {
+        if (id === 'morph')   pMorph._set(v,   t, 0.02);
+        if (id === 'size')    pSize._set(v,    t, 0.02);
+        if (id === 'decay')   pDecay._set(v,   t, 0.02);
+        if (id === 'tone')    pTone._set(v,    t, 0.02);
+        if (id === 'density') pDensity._set(v, t, 0.02);
+        if (id === 'warp')    pWarp._set(v,    t, 0.02);
+        if (id === 'mix')     pMix._set(v,     t, 0.02);
       },
     };
   },
@@ -443,13 +545,21 @@ export function compileGraphToWebAudio(graph, ctx) {
   inputNode.gain.value  = 1.0;
   outputNode.gain.value = 1.0;
 
-  // Compile every node.
+  // Compile every node. Factories run under _directMode so any param
+  // writes during construction (e.g. mix's setAmt init) land immediately
+  // via setValueAtTime rather than smoothing in from whatever the node's
+  // boot-time default was.
   const compiled = new Map(); // nodeId → factory result
-  for (const n of graph.nodes) {
-    const opDef  = getOp(n.op);
-    const make   = FACTORIES[n.op];
-    if (!make) throw new Error(`compileGraphToWebAudio: no factory for op "${n.op}"`);
-    compiled.set(n.id, { def: opDef, ...make(ctx, n.params || {}) });
+  _directMode = true;
+  try {
+    for (const n of graph.nodes) {
+      const opDef  = getOp(n.op);
+      const make   = FACTORIES[n.op];
+      if (!make) throw new Error(`compileGraphToWebAudio: no factory for op "${n.op}"`);
+      compiled.set(n.id, { def: opDef, ...make(ctx, n.params || {}) });
+    }
+  } finally {
+    _directMode = false;
   }
 
   // Resolve a wire endpoint to an AudioNode (or null for terminal/unwired).
@@ -520,9 +630,16 @@ export function compileGraphToWebAudio(graph, ctx) {
     return graph.panel?.knobs?.map(k => ({ ...k })) || [];
   }
   // Apply each knob's default once at compile time so the audio reflects
-  // the panel's intended starting state.
-  for (const k of (graph.panel?.knobs || [])) {
-    setKnob(k.id, k.default ?? 0.5);
+  // the panel's intended starting state. Direct writes (no smoothing) so
+  // render sample 0 already sees the intended param values — matches the
+  // reference chain and keeps the null-test honest.
+  _directMode = true;
+  try {
+    for (const k of (graph.panel?.knobs || [])) {
+      setKnob(k.id, k.default ?? 0.5);
+    }
+  } finally {
+    _directMode = false;
   }
 
   function dispose() {

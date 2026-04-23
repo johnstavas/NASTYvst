@@ -250,6 +250,29 @@ export const OPS = {
     ],
   },
 
+  fdnReverb: {
+    id: 'fdnReverb',
+    label: 'fdn reverb',
+    description: 'Geraint Luff FDN — Hadamard diffuser + Householder FB + HF shelf (monolithic port of MorphReverb; re-decomposed at Stage 3)',
+    ports: {
+      // Stereo-in / stereo-out. Boundary GainNodes upmix mono to stereo
+      // automatically via standard WebAudio channel-count rules, so a mono
+      // graph in front of this reverb still works.
+      inputs:  [{ id: 'in',  kind: 'audio' }],
+      outputs: [{ id: 'out', kind: 'audio' }],
+    },
+    params: [
+      // All normalised 0..1 — the worklet does the internal taper mapping.
+      { id: 'morph',   label: 'Morph',   type: 'number', min: 0, max: 1, step: 0.001, default: 0.5,  unit: '', format: fmtPct },
+      { id: 'size',    label: 'Size',    type: 'number', min: 0, max: 1, step: 0.001, default: 0.55, unit: '', format: fmtPct },
+      { id: 'decay',   label: 'Decay',   type: 'number', min: 0, max: 1, step: 0.001, default: 0.5,  unit: '', format: fmtPct },
+      { id: 'tone',    label: 'Tone',    type: 'number', min: 0, max: 1, step: 0.001, default: 0.55, unit: '', format: fmtPct },
+      { id: 'density', label: 'Density', type: 'number', min: 0, max: 1, step: 0.001, default: 0.6,  unit: '', format: fmtPct },
+      { id: 'warp',    label: 'Warp',    type: 'number', min: 0, max: 1, step: 0.001, default: 0.3,  unit: '', format: fmtPct },
+      { id: 'mix',     label: 'Mix',     type: 'number', min: 0, max: 1, step: 0.001, default: 0.3,  unit: '', format: fmtPct },
+    ],
+  },
+
   saturate: {
     id: 'saturate',
     label: 'sat',

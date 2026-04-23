@@ -11,6 +11,7 @@ import EchoformLiteOrb from './sandbox/EchoformLiteOrb';
 import ModDuckOrb from './sandbox/ModDuckOrb';
 import ToyCompOrb from './sandbox/ToyCompOrb';
 import LofiLightOrb from './sandbox/LofiLightOrb';
+import FdnHallOrb from './sandbox/FdnHallOrb';
 import DistortionOrb from './DistortionOrb';
 import AmpOrb from './AmpOrb';
 import ModulationOrb from './ModulationOrb';
@@ -167,6 +168,9 @@ const SANDBOX_BRICKS = [
   { type: 'lofiLight',    label: 'LofiLight',    accent: '#e8b87a',
     tagline: '30 % Lofi Loofy in 9 ops',
     description: 'First shipping-plugin-shaped dogfood. tone → drive → tape delay + drift LFO + pink-dust bed → mix. Proves the sandbox on real-world character DSP.' },
+  { type: 'fdnHall',      label: 'FdnHall',      accent: '#8cd4e8',
+    tagline: 'Geraint Luff FDN reverb (Tier-3 port)',
+    description: 'First sandbox-native reverb. Monolithic fdnReverb op — 8-ch Householder FB + 4-step Hadamard diffuser + per-channel HF shelf + fractional-delay mod + 8-tap stereo ER. Port of morphReverbEngine.js; re-decomposed into delay/matrix/shelf primitives at Stage 3.' },
 ];
 
 // ─── WorkbenchView — Lab-mode full-takeover gallery. ─────────────────────
@@ -1506,6 +1510,19 @@ function App() {
           />
         ) : inst.type === 'lofiLight' ? (
           <LofiLightOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'fdnHall' ? (
+          <FdnHallOrb
             key={inst.id}
             instanceId={inst.id}
             sharedSource={sharedSource}
