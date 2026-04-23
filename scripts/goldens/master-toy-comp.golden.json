@@ -1,0 +1,10 @@
+{
+  "graph": "toy-comp-v0",
+  "pcofVersion": "1",
+  "sr": 48000,
+  "n": 128,
+  "blocks": 8,
+  "nodes": 5,
+  "buffers": 6,
+  "hash": "614e1c98ed926f46f612b398f2e49fe52541c3bff9824a142edb3dbcc31d4a91"
+}

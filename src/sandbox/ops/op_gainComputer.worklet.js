@@ -52,14 +52,16 @@ export class GainComputerOp {
   //
   // Input (`env`) is a LINEAR magnitude (e.g. output of envelope + abs or
   // sqrt of RMS power). Converted to dB with a small floor to avoid
-  // log10(0). Output (`gr`) is a LINEAR MULTIPLIER in (0, 1] — apply it
-  // directly to the audio path via a gain op with base=0 + gainMod=gr,
-  // or use (gr − 1) on a gain op with base=1.
+  // log10(0). Output (`gr`) is a DELTA-FROM-UNITY control signal in [-1, 0]
+  // (0 = no reduction, negative = duck). This matches the canonical sandbox
+  // runtime convention (workletSources.js sandbox-gain-computer:250) so the
+  // signal sums directly into gain.gainMod where the gain op's base is 1.0.
+  //   effective_gain = base + gainMod = 1 + (grLin - 1) = grLin
   process(inputs, outputs, N) {
     const envCh = inputs.env;
     const outCh = outputs.gr;
     if (!envCh) {
-      for (let i = 0; i < N; i++) outCh[i] = 1;
+      for (let i = 0; i < N; i++) outCh[i] = 0; // unwired = no GR (delta=0)
       return;
     }
     const thr    = this._thr;
@@ -82,8 +84,8 @@ export class GainComputerOp {
       } else {
         yDb = xDb;
       }
-      const grDb = yDb - xDb;                // ≤ 0
-      outCh[i] = Math.exp(grDb * LOG10 / 20); // = 10^(grDb/20)
+      const grDb = yDb - xDb;                                  // ≤ 0
+      outCh[i] = Math.exp(grDb * LOG10 / 20) - 1;              // (grLin − 1) ∈ [-1, 0]
     }
   }
 }
