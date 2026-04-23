@@ -308,6 +308,20 @@ export const OPS = {
       { id: 'trim',  label: 'Trim',  type: 'number', min: -24, max: 12, step: 0.1, default: 0, unit: 'dB', format: fmtDb },
     ],
   },
+
+  softLimit: {
+    id: 'softLimit',
+    label: 'soft limit',
+    description: 'tanh soft-limit — unity through the linear region, asymptotes to ±threshold. Drop inline on feedback returns alongside dcBlock; NOT a character stage (use `saturate` for drive/color).',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      // Threshold: where the curve starts to bend. Default 0.95 keeps full
+      // unity for anything normal-signal and clamps only when the FB loop
+      // is about to blow up. Range deliberately excludes 0 (infinite
+      // compression) and ≥2 (effectively no bending at normal signal).
+      { id: 'threshold', label: 'Thresh', type: 'number', min: 0.1, max: 1.8, step: 0.01, default: 0.95, unit: '', format: fmtX },
+    ],
+  },
 };
 
 /** O(1) lookup; returns null if op id is unknown. */

@@ -203,8 +203,14 @@ export const ECHOFORM_LITE = {
     // qc_backlog.md § Sandbox Brick Audit Sweep. Inline post-sat / pre-
     // delay.fb so it sees the saturated signal — tanh can introduce DC
     // offset on asymmetric drive, exactly what this traps.
-    { id: 'n_dcblock', op: 'dcBlock',  x: 540, y: 260, params: { cutoff: 10 } },
-    { id: 'n_mix',     op: 'mix',      x: 600, y: 210, params: { amount: 0.35 } },
+    { id: 'n_dcblock',  op: 'dcBlock',   x: 540, y: 260, params: { cutoff: 10 } },
+    // Soft-limit on the FB return path — bounds loop energy so FB ≥ 0.85 +
+    // high drive doesn't runaway. Unity through the linear region (tone
+    // is preserved on normal signal) and asymptotes to ±0.95 when the
+    // loop tries to blow up. Retires EFL-SB-03. Sits AFTER dcBlock so
+    // the clamp sees a DC-clean (symmetric) signal — canonical order.
+    { id: 'n_softlim', op: 'softLimit', x: 580, y: 260, params: { threshold: 0.95 } },
+    { id: 'n_mix',     op: 'mix',      x: 620, y: 210, params: { amount: 0.35 } },
   ],
   wires: [
     // Forward path through the loop
@@ -212,11 +218,12 @@ export const ECHOFORM_LITE = {
     { from: 'n_delay',   to: 'n_filter'   },
     { from: 'n_filter',  to: 'n_sat'      },
     // Post-saturate signal feeds mix directly (that's the wet send), but
-    // the FB tap detours through the DC trap so any saturator-induced DC
-    // offset can't runaway through the loop.
+    // the FB tap detours through dcBlock + softLimit so DC and runaway
+    // are both bounded before the signal re-enters the delay input.
     { from: 'n_sat',     to: 'n_mix.wet'  },
     { from: 'n_sat',     to: 'n_dcblock'  },
-    { from: 'n_dcblock', to: 'n_delay.fb' },   // ← DC-blocked feedback tap
+    { from: 'n_dcblock', to: 'n_softlim'  },
+    { from: 'n_softlim', to: 'n_delay.fb' },   // ← DC-blocked + soft-limited FB tap
     // Dry sum
     { from: 'in',        to: 'n_mix.dry'  },
     { from: 'n_mix',     to: 'out'        },
@@ -224,9 +231,9 @@ export const ECHOFORM_LITE = {
   // Visual feedback arc so the zoom view draws the loop cleanly (the
   // wires above already make it real audio; this is just render-hint).
   feedback: [
-    { from: 'n_dcblock', to: 'n_delay', label: 'feedback' },
+    { from: 'n_softlim', to: 'n_delay', label: 'feedback' },
   ],
-  legendOps: ['delay', 'filter', 'saturate', 'dcBlock', 'mix'],
+  legendOps: ['delay', 'filter', 'saturate', 'dcBlock', 'softLimit', 'mix'],
   panel: {
     knobs: [
       { id: 'time',     label: 'Time',     default: 0.35,

@@ -746,8 +746,18 @@ class SandboxFdnReverb extends AudioWorkletProcessor {
         dcX[c] = fb_sig;
         dcY[c] = y;
         fb_sig = y;
-        if (fb_sig >  1.8) fb_sig =  1.8;
-        if (fb_sig < -1.8) fb_sig = -1.8;
+        // Soft-limit the FB return via Padé tanh (y = T·tanh(x/T)).
+        // Unity through the linear region (tail tone preserved) and
+        // asymptotes to ±T when the loop tries to blow up. Replaces
+        // the pre-2026-04-23 hard-clip at ±1.8 which was non-canonical
+        // per the Geraint Luff FDN reference. Threshold T=0.95 chosen
+        // for ~0.05 headroom margin. Retires FdnHall leg of EFL-SB-03.
+        {
+          const T = 0.95;
+          const u = fb_sig / T;
+          const ua = u < -3 ? -3 : u > 3 ? 3 : u;
+          fb_sig = T * (ua * (27 + ua * ua)) / (27 + 9 * ua * ua);
+        }
         const flen = fb[c].length;
         const fwi  = fi[c];
         fb[c][fwi] = bl[c] + fb_sig;

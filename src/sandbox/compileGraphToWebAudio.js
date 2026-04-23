@@ -140,6 +140,46 @@ const FACTORIES = {
   // so we lean on it rather than roll a worklet. Q is locked — resonance
   // on a DC trap is never useful. Use on feedback return paths to stop
   // sub-audible DC buildup from self-multiplying into a DC runaway.
+  // Soft-limit — tanh saturator wrapped as a limiter rather than a drive
+  // stage. The curve is y = threshold * tanhPade(x / threshold):
+  //
+  //   - Near x=0:      y ≈ x                (unity through linear region)
+  //   - At x=threshold: y ≈ 0.76 * threshold (the bend)
+  //   - As x → ∞:      y → ±threshold        (the asymptote, no blowup)
+  //
+  // Drop inline on feedback returns alongside dcBlock. Explicitly NOT a
+  // character op — use `saturate` for drive/color. This exists to keep
+  // FB loops bounded without the brick-local hard-clip kludge (FDN used
+  // to clamp at ±1.8 raw; that's non-canonical per the Luff reference).
+  //
+  // No oversampling — a limiter only bends when signal is already near/
+  // past the threshold, so alias content is small relative to the wet
+  // signal. Can be promoted to 4× later if needed; keep it cheap for now.
+  softLimit(ctx, params) {
+    const ws = ctx.createWaveShaper();
+    const buildCurve = (threshold) => {
+      const N = 2048;
+      const c = new Float32Array(N);
+      const t = Math.max(0.01, threshold);
+      // Padé tanh on [-3, 3], hard-clip beyond, then scaled by threshold.
+      const tanhPade = (u) => (u < -3 ? -1 : u > 3 ? 1 : (u * (27 + u*u)) / (27 + 9*u*u));
+      for (let i = 0; i < N; i++) {
+        const x = (i / (N - 1)) * 2 - 1;  // x ∈ [-1, 1]
+        c[i] = t * tanhPade(x / t);
+      }
+      return c;
+    };
+    ws.curve = buildCurve(params.threshold ?? 0.95);
+    return {
+      nodes: [ws],
+      inputs:  { in:  ws },
+      outputs: { out: ws },
+      setParam(id, v, _t) {
+        if (id === 'threshold') ws.curve = buildCurve(v);
+      },
+    };
+  },
+
   dcBlock(ctx, params) {
     const f = ctx.createBiquadFilter();
     f.type = 'highpass';
