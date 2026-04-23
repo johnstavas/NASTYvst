@@ -31,6 +31,9 @@ export default function SandboxToyOrb({
 
   const compiledRef = useRef(null);
   const bypassedRef = useRef(false);
+  // Holds the setBypass closure so the in-panel BYP button can call the
+  // same code path the chain-host pill does. Resolves ST-W-01.
+  const setBypassRef = useRef(null);
 
   // Build audio graph once per mount.
   useEffect(() => {
@@ -58,33 +61,47 @@ export default function SandboxToyOrb({
     compiledRef.current = inst;
 
     // The chain host expects { input, chainOutput, setBypass, dispose }.
-    // We expose a thin wrapper that bypasses by routing inputNode straight
-    // to outputNode (skipping the compiled sub-graph) when toggled.
+    // Bypass topology — outSum is the engine-exposed output. BOTH the
+    // wet path and the dry path feed into it through mutes that ramp
+    // inverse to each other: wet=1/dry=0 when active, wet=0/dry=1 when
+    // bypassed. Fixes ST-SB-02 — previously bypass ramped dry up but
+    // never muted the compiled wet chain, so ON = dry+wet summed.
+    const outSum = ctx.createGain();
+    outSum.gain.value = 1;
+
+    // Wet path: compiled output → wetMute → outSum
+    const wetMute = ctx.createGain();
+    wetMute.gain.value = 1; // default: wet on
+    inst.outputNode.connect(wetMute);
+    wetMute.connect(outSum);
+
+    // Dry path: input → bypassPath → outSum
     const bypassPath = ctx.createGain();
-    bypassPath.gain.value = 0;
+    bypassPath.gain.value = 0; // default: dry off
     inst.inputNode.connect(bypassPath);
-    bypassPath.connect(inst.outputNode);
+    bypassPath.connect(outSum);
 
     const setBypass = (on) => {
       bypassedRef.current = on;
-      // Dry path on, processed path off (and vice versa). Soft ramp.
-      const t = ctx.currentTime;
-      bypassPath.gain.setTargetAtTime(on ? 1.0 : 0.0, t, 0.005);
-      // Mute the wet (compiled) sum by tweaking outputNode is wrong —
-      // the bypass path joins INTO outputNode, so just gate the input
-      // into the compiled chain. We do that with another small gain.
+      const t  = ctx.currentTime;
+      const tc = 0.005; // ~5 ms soft ramp, click-free
+      wetMute.gain.setTargetAtTime(on ? 0.0 : 1.0, t, tc);
+      bypassPath.gain.setTargetAtTime(on ? 1.0 : 0.0, t, tc);
     };
+    setBypassRef.current = setBypass;
 
     const engine = {
       input:        inst.inputNode,
       // Chain host uses `output` for the last brick (→ master) and
       // `chainOutput` for mid-chain (→ next brick). For the toy these
       // are the same node; future passes may diverge them (e.g. post-meter).
-      output:       inst.outputNode,
-      chainOutput:  inst.outputNode,
+      output:       outSum,
+      chainOutput:  outSum,
       setBypass,
       dispose: () => {
         try { bypassPath.disconnect(); } catch {}
+        try { wetMute.disconnect();    } catch {}
+        try { outSum.disconnect();     } catch {}
         inst.dispose();
       },
       // Debug surface — exposes the compiled instance so future tooling
@@ -97,9 +114,12 @@ export default function SandboxToyOrb({
 
     return () => {
       try { bypassPath.disconnect(); } catch {}
+      try { wetMute.disconnect();    } catch {}
+      try { outSum.disconnect();     } catch {}
       inst.dispose();
       unregisterEngine?.(instanceId);
       compiledRef.current = null;
+      setBypassRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx]);
@@ -260,15 +280,9 @@ export default function SandboxToyOrb({
                     e.stopPropagation();
                     const next = !bypassed;
                     setBypassed(next);
-                    // Engine is registered via ref; reach through enginesRef
-                    // is not available here, so we use the chain host's
-                    // setBypass through the registered engine surface.
-                    const eng = compiledRef.current;
-                    if (eng) {
-                      // No-op — bypass is handled via setBypass on the engine
-                      // facade. Pill bypass is the canonical path for users;
-                      // this local button is illustrative.
-                    }
+                    // Call the same setBypass closure the chain-host pill
+                    // uses — the button is now functional, not illustrative.
+                    setBypassRef.current?.(next);
                   }}
                   style={btnStyle(bypassed)}>
             {bypassed ? 'BYP' : 'ON'}
