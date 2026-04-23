@@ -60,50 +60,25 @@ export default function SandboxToyOrb({
     }
     compiledRef.current = inst;
 
-    // The chain host expects { input, chainOutput, setBypass, dispose }.
-    // Bypass topology — outSum is the engine-exposed output. BOTH the
-    // wet path and the dry path feed into it through mutes that ramp
-    // inverse to each other: wet=1/dry=0 when active, wet=0/dry=1 when
-    // bypassed. Fixes ST-SB-02 — previously bypass ramped dry up but
-    // never muted the compiled wet chain, so ON = dry+wet summed.
-    const outSum = ctx.createGain();
-    outSum.gain.value = 1;
-
-    // Wet path: compiled output → wetMute → outSum
-    const wetMute = ctx.createGain();
-    wetMute.gain.value = 1; // default: wet on
-    inst.outputNode.connect(wetMute);
-    wetMute.connect(outSum);
-
-    // Dry path: input → bypassPath → outSum
-    const bypassPath = ctx.createGain();
-    bypassPath.gain.value = 0; // default: dry off
-    inst.inputNode.connect(bypassPath);
-    bypassPath.connect(outSum);
-
+    // Bypass topology is owned by compileGraphToWebAudio. inst.setBypass
+    // ramps wetMute/bypassPath inverse over ~5 ms. We mirror the on-state
+    // into bypassedRef (panel shows the BYP button state) and expose the
+    // same closure via setBypassRef so the in-panel BYP button can call
+    // it alongside the chain-host pill.
     const setBypass = (on) => {
-      bypassedRef.current = on;
-      const t  = ctx.currentTime;
-      const tc = 0.005; // ~5 ms soft ramp, click-free
-      wetMute.gain.setTargetAtTime(on ? 0.0 : 1.0, t, tc);
-      bypassPath.gain.setTargetAtTime(on ? 1.0 : 0.0, t, tc);
+      bypassedRef.current = !!on;
+      inst.setBypass(on);
     };
     setBypassRef.current = setBypass;
 
     const engine = {
       input:        inst.inputNode,
-      // Chain host uses `output` for the last brick (→ master) and
-      // `chainOutput` for mid-chain (→ next brick). For the toy these
-      // are the same node; future passes may diverge them (e.g. post-meter).
-      output:       outSum,
-      chainOutput:  outSum,
+      // `output` = last brick → master; `chainOutput` = mid-chain → next.
+      // Both share inst.outputNode (the compiled summing bus).
+      output:       inst.outputNode,
+      chainOutput:  inst.outputNode,
       setBypass,
-      dispose: () => {
-        try { bypassPath.disconnect(); } catch {}
-        try { wetMute.disconnect();    } catch {}
-        try { outSum.disconnect();     } catch {}
-        inst.dispose();
-      },
+      dispose:      inst.dispose,
       // Debug surface — exposes the compiled instance so future tooling
       // (T5/T6 conformance, A/B null-test against worklet) can poke at it.
       __sandboxCompiled: inst,
@@ -113,9 +88,6 @@ export default function SandboxToyOrb({
     registerEngine?.(instanceId, engine);
 
     return () => {
-      try { bypassPath.disconnect(); } catch {}
-      try { wetMute.disconnect();    } catch {}
-      try { outSum.disconnect();     } catch {}
       inst.dispose();
       unregisterEngine?.(instanceId);
       compiledRef.current = null;

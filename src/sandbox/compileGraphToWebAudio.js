@@ -7,10 +7,19 @@
 //
 //   {
 //     inputNode,     // pass into chain[i-1] → here
-//     outputNode,    // here → chain[i+1]
+//     outputNode,    // here → chain[i+1] (summed wet+dry, bypass-aware)
 //     setParam(nodeId, paramId, value),  // live param update
+//     setBypass(on, tcMs?),              // brick-level bypass (default 5 ms ramp)
 //     dispose(),     // disconnects + drops all node references
 //   }
+//
+// Bypass topology (owned here, not per-brick):
+//   inputNode ──┬─▶ (graph…) ──▶ wetOutputNode ──▶ wetMute ──┐
+//               │                                             ├──▶ outputNode
+//               └────────────────▶ bypassPath ────────────────┘
+//   setBypass(on): wetMute→(on?0:1), bypassPath→(on?1:0) with setTargetAtTime.
+//   This is the canonical fix for ST-SB-02 and its siblings. Every brick
+//   inherits correct bypass for free; per-brick code must NOT re-roll this.
 //
 // What this proves:
 //   - The op registry (declarative DSP description) drives audio.
@@ -558,12 +567,20 @@ export function compileGraphToWebAudio(graph, ctx) {
     throw new Error(`compileGraphToWebAudio: invalid graph — ${v.errors.join('; ')}`);
   }
 
-  // Boundary nodes for the brick: one input GainNode, one output GainNode.
-  // The chain host treats these as the brick's `input` / `chainOutput`.
-  const inputNode  = ctx.createGain();
-  const outputNode = ctx.createGain();
-  inputNode.gain.value  = 1.0;
-  outputNode.gain.value = 1.0;
+  // Boundary nodes for the brick. The chain host sees `inputNode` and
+  // `outputNode`. Internally `outputNode` is a summing bus fed by the
+  // wet path (graph collector → wetMute) and the dry path (inputNode →
+  // bypassPath). setBypass ramps the two mutes inverse. This keeps
+  // bypass topology in ONE place — per-brick hand-rolled bypass is the
+  // anti-pattern that produced ST-SB-02 / EFL-SB-04 / LL-SB-02 /
+  // FFX-SB-02 / FDN-SB-03 / TC-SB-01 / MD-SB-01.
+  const inputNode      = ctx.createGain(); inputNode.gain.value      = 1.0;
+  const wetOutputNode  = ctx.createGain(); wetOutputNode.gain.value  = 1.0; // graph `out` terminal
+  const wetMute        = ctx.createGain(); wetMute.gain.value        = 1.0; // wet on by default
+  const bypassPath     = ctx.createGain(); bypassPath.gain.value     = 0.0; // dry off by default
+  const outputNode     = ctx.createGain(); outputNode.gain.value     = 1.0; // summing bus
+  wetOutputNode.connect(wetMute).connect(outputNode);
+  inputNode.connect(bypassPath).connect(outputNode);
 
   // Compile every node. Factories run under _directMode so any param
   // writes during construction (e.g. mix's setAmt init) land immediately
@@ -593,7 +610,7 @@ export function compileGraphToWebAudio(graph, ctx) {
   }
   function resolveIn(ref) {
     const { id, port } = splitRef(ref);
-    if (id === 'out') return outputNode; // graph output terminal — collect
+    if (id === 'out') return wetOutputNode; // graph output terminal — collected into wet bus (pre-bypass sum)
     const c = compiled.get(id);
     if (!c) return null;
     const portId = port || defaultInPort(c.def);
@@ -662,6 +679,21 @@ export function compileGraphToWebAudio(graph, ctx) {
     _directMode = false;
   }
 
+  // ── Brick-level bypass ────────────────────────────────────────────────
+  // Equal-inverse ramp on wetMute and bypassPath. Default time constant
+  // 5 ms — short enough to feel instant, long enough to avoid clicks.
+  // This is the ONLY place sandbox bricks get bypass; per-brick code
+  // should not create its own bypassPath / setBypass closure.
+  let _bypassOn = false;
+  function setBypass(on, tcMs = 5) {
+    _bypassOn = !!on;
+    const t  = ctx.currentTime;
+    const tc = Math.max(0.0005, (tcMs || 5) / 1000);
+    wetMute   .gain.setTargetAtTime(_bypassOn ? 0.0 : 1.0, t, tc);
+    bypassPath.gain.setTargetAtTime(_bypassOn ? 1.0 : 0.0, t, tc);
+  }
+  function isBypassed() { return _bypassOn; }
+
   function dispose() {
     for (const [s, d] of connections) {
       try { s.disconnect(d); } catch {}
@@ -671,11 +703,19 @@ export function compileGraphToWebAudio(graph, ctx) {
         try { n.disconnect(); } catch {}
       }
     }
-    try { inputNode.disconnect(); }  catch {}
-    try { outputNode.disconnect(); } catch {}
+    try { inputNode    .disconnect(); } catch {}
+    try { wetOutputNode.disconnect(); } catch {}
+    try { wetMute      .disconnect(); } catch {}
+    try { bypassPath   .disconnect(); } catch {}
+    try { outputNode   .disconnect(); } catch {}
     compiled.clear();
     connections.length = 0;
   }
 
-  return { inputNode, outputNode, setParam, setKnob, listKnobs, dispose };
+  return {
+    inputNode, outputNode,
+    setParam, setKnob, listKnobs,
+    setBypass, isBypassed,
+    dispose,
+  };
 }

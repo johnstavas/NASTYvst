@@ -45,28 +45,18 @@ export default function FilterFXOrb({
     // Apply current knob values (in case initialState differs from defaults).
     for (const [id, v] of Object.entries(knobs)) inst.setKnob(id, v);
 
-    const bypassPath = ctx.createGain();
-    bypassPath.gain.value = 0;
-    inst.inputNode.connect(bypassPath);
-    bypassPath.connect(inst.outputNode);
-
+    // Bypass topology is owned by compileGraphToWebAudio — see its header.
     const engine = {
       input:        inst.inputNode,
       output:       inst.outputNode,
       chainOutput:  inst.outputNode,
-      setBypass: (on) => {
-        bypassPath.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.005);
-      },
-      dispose: () => {
-        try { bypassPath.disconnect(); } catch {}
-        inst.dispose();
-      },
+      setBypass:    inst.setBypass,
+      dispose:      inst.dispose,
       __sandboxCompiled: inst,
       __graph: FILTER_FX,
     };
     registerEngine?.(instanceId, engine);
     return () => {
-      try { bypassPath.disconnect(); } catch {}
       inst.dispose();
       unregisterEngine?.(instanceId);
       compiledRef.current = null;

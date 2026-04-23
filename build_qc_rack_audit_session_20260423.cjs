@@ -106,6 +106,10 @@ children.push(table(
   ],
   [2200, 2200, 1200, 3760],
 ));
+children.push(body(
+  'Post-host-level-bypass-fix (2026-04-23 PM): all seven bricks have working bypass. ' +
+  'Two audit verdicts downgraded (ToyComp, ModDuck were missed as RED during the ritual because bypass wasn\u2019t exercised) and then returned to GREEN-WITH-DEBT after the host fix.'
+));
 
 // Patterns
 children.push(H1('Cross-brick patterns'));
@@ -205,6 +209,26 @@ children.push(table(
   ['ID', 'Brick', 'Finding'],
   [['ST-SB-02', 'SandboxToy', 'bypass contract broken (dry/wet both audible)']],
   [1800, 2000, 5560],
+));
+
+children.push(H2('Group E — host-level fix (6 blockers) — LANDED 2026-04-23 PM'));
+children.push(body(
+  'Surfaced mid-ear-test when EchoformLite\u2019s BYP button also failed. Scope check found 6 of 7 bricks had the identical copy-pasted broken bypass topology (bypassPath added dry INTO inst.outputNode without muting the wet path). Two verdicts (ToyComp, ModDuck) had to be downgraded — bypass wasn\u2019t exercised during the original ritual.'
+));
+children.push(table(
+  ['ID', 'Brick', 'Finding'],
+  [
+    ['EFL-SB-04', 'EchoformLite', 'bypass contract broken'],
+    ['LL-SB-02',  'LofiLight',    'bypass contract broken'],
+    ['FFX-SB-02', 'FilterFX',     'bypass contract broken'],
+    ['FDN-SB-03', 'FdnHall',      'bypass contract broken'],
+    ['TC-SB-01',  'ToyComp',      'bypass contract broken (verdict downgrade)'],
+    ['MD-SB-01',  'ModDuck',      'bypass contract broken (verdict downgrade)'],
+  ],
+  [1800, 2000, 5560],
+));
+children.push(body(
+  'Fix: moved bypass topology INTO compileGraphToWebAudio.js so every sandbox brick inherits working bypass. The compiler now owns wetOutputNode (graph collector), wetMute, bypassPath, the outSum exposed as outputNode, and a setBypass(on, tcMs?) closure. Per-brick code stripped across all seven orbs. Same architectural move as the mix-rule fix: host owns topology, bricks don\u2019t.'
 ));
 
 // Landed this session
