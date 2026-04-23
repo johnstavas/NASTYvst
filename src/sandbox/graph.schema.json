@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shags-vst.local/schemas/graph-1.0.json",
+  "title": "Sandbox Graph IR v1.0",
+  "description": "Frozen v1.0 intermediate representation for Sandbox brick graphs. One graph.json = one brick. Consumed by validateGraph.js (authoring-time T6 rules), compileGraphToWebAudio.js (preview runtime), and Stage-3 master-worklet codegen. Op-specific param constraints live in opRegistry.js — this schema freezes the OUTER shape (nodes/wires/terminals/panel/feedback), not the per-op param surface. Breaking changes to this file bump the schemaVersion major number.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "nodes", "terminals", "wires"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "description": "IR schema version. v1.0 was frozen 2026-04-23 alongside the host-owned bypass topology and softLimit op. Consumers MUST check this field and refuse to process unknown majors.",
+      "const": "1.0"
+    },
+    "id": {
+      "description": "Stable graph identifier. Globally unique across the sandbox; used by preset files, presets, and codegen-emitted plugin bundles as the canonical name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "label": {
+      "description": "Human-readable brick name shown in canvas / preset lists.",
+      "type": "string"
+    },
+    "canvas": {
+      "description": "Authoring-canvas viewport hint. Non-normative — purely for the editor.",
+      "type": "object",
+      "properties": {
+        "width":  { "type": "number", "minimum": 0 },
+        "height": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "terminals": {
+      "description": "Graph-level audio I/O. The host wires these to its input/output gain nodes. Every graph must have at least one 'input' and at least one 'output' terminal (enforced by validateGraph, not schema — schema allows 0 to keep sub-graphs / template fragments parseable).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/terminal" }
+    },
+    "nodes": {
+      "description": "DSP nodes. Each node instantiates one op from opRegistry.js with that op's params bound.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "wires": {
+      "description": "Audio/control connections. Endpoints may be either a bare node/terminal id or an explicit '<id>.<port>' reference. Bare ids bind to the op's default input/output port (conventionally 'in' / 'out').",
+      "type": "array",
+      "items": { "$ref": "#/$defs/wire" }
+    },
+    "feedback": {
+      "description": "Render-hint list of logical feedback arcs. Does NOT create audio connections — the real audio wiring for a feedback loop lives in 'wires' via an 'fb' port on the destination op. This array exists solely so the canvas can draw a dashed/curved arc for the eye.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/feedbackHint" }
+    },
+    "legendOps": {
+      "description": "Ordered list of op ids to show in the brick legend. Subset of ops used by 'nodes'. Purely cosmetic.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "panel": {
+      "description": "Panel knob bindings. One knob maps to one or more (nodeId, paramId) targets with a range + curve. This is what the plugin UI reads; authoring-time the Orb panel talks to knobs, knobs talk to nodes.",
+      "$ref": "#/$defs/panel"
+    }
+  },
+
+  "$defs": {
+    "id": {
+      "description": "Stable reference id inside a graph. Alphanumeric + underscore; starts with a letter.",
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+    },
+
+    "portRef": {
+      "description": "Either '<id>' or '<id>.<port>'. Validator resolves the port.",
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)?$"
+    },
+
+    "terminal": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["input", "output"] },
+        "x":    { "type": "number" },
+        "y":    { "type": "number" }
+      }
+    },
+
+    "node": {
+      "type": "object",
+      "required": ["id", "op"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "op": {
+          "description": "Op id from opRegistry.js. Validator verifies existence + aggregates op capabilities.",
+          "type": "string"
+        },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "params": {
+          "description": "Op-specific parameter bindings. The SHAPE of this object is op-dependent — see opRegistry.js for per-op param schemas. validateGraph.js enforces type, range, and enum membership against the registry. In v1.0 every param value is a static literal (number, bool, or enum string). Stage-B of the modulation roadmap will upgrade this to a discriminated-union source descriptor (static | knob | signal | LFO | etc).",
+          "type": "object"
+        }
+      }
+    },
+
+    "wire": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/$defs/portRef" },
+        "to":   { "$ref": "#/$defs/portRef" }
+      }
+    },
+
+    "feedbackHint": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from":  { "$ref": "#/$defs/id" },
+        "to":    { "$ref": "#/$defs/id" },
+        "label": { "type": "string" }
+      }
+    },
+
+    "panel": {
+      "type": "object",
+      "required": ["knobs"],
+      "additionalProperties": true,
+      "properties": {
+        "knobs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/panelKnob" }
+        }
+      }
+    },
+
+    "panelKnob": {
+      "type": "object",
+      "required": ["id", "label", "default", "mappings"],
+      "additionalProperties": true,
+      "properties": {
+        "id":      { "$ref": "#/$defs/id" },
+        "label":   { "type": "string" },
+        "default": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mappings": {
+          "type": "array",
+          "minItems": 1,
+          "items":   { "$ref": "#/$defs/panelMapping" }
+        }
+      }
+    },
+
+    "panelMapping": {
+      "type": "object",
+      "required": ["nodeId", "paramId"],
+      "additionalProperties": true,
+      "properties": {
+        "nodeId":  { "$ref": "#/$defs/id" },
+        "paramId": { "type": "string" },
+        "range":   {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number" }
+        },
+        "curve":   { "enum": ["lin", "log", "pow"] }
+      }
+    }
+  }
+}

@@ -1,20 +1,34 @@
 // Graph Validator — Step 2b of sandbox core.
 // See memory/sandbox_core_scope.md, qc_family_map.md § 1 (T6).
 //
-// Pure function. Walks a graph object (see mockGraphs.js for the schema)
-// and returns { ok, errors[], warnings[] }. No throws. Used by:
+// Pure function. Walks a graph object (the formal shape is in
+// ./graph.schema.json — IR v1.0 frozen 2026-04-23) and returns
+// { ok, errors[], warnings[] }. No throws. Used by:
 //
-//   - dev-time console.warn at module load (this file) so authoring-time
-//     mistakes are loud during sandbox construction
-//   - eventual T6 IR / pre-compile validator (gate before codegen)
+//   - dev-time console.warn at module load (mockGraphs.js) so authoring-
+//     time mistakes are loud during sandbox construction
+//   - T6 IR / pre-compile validator (gate before codegen)
 //
-// Step 2b only enforces what we can with the current registry: op exists,
-// params live in the schema, param values fit type/range, terminal/wire
-// references resolve. Step 2c will add port-type checks (audio↔audio).
-// Step 2d will add cycle/feedback-loop legality once we have an actual
-// runtime semantics.
+// What v1.0 enforces (structural + type-level, not semantic):
+//   • schemaVersion present and equals SCHEMA_VERSION
+//   • op exists in registry
+//   • params live in the op's schema
+//   • param values fit type/range
+//   • terminal/wire/feedback references resolve
+//   • wire endpoints resolve to real ports on real nodes
+//   • port kinds match across a wire (audio↔audio, control↔control)
+//   • panel knob mappings point at real (node, numeric param) pairs
+//
+// Deferred to later stages (see sandbox_modulation_roadmap.md):
+//   • modulation-source DAG legality (Stage-B: signal→param, curves)
+//   • cycle / feedback-loop legality (must declare in graph.feedback)
+//   • capability aggregation (aggregate per-op flags into graph caps)
+//   • T6 rule bodies for missing_caps / version_skew / etc.
 
 import { getOp } from './opRegistry';
+
+/** Frozen IR version. See graph.schema.json. Bump on breaking change. */
+export const SCHEMA_VERSION = '1.0';
 
 /** Top-level entry point. */
 export function validateGraph(graph) {
@@ -25,6 +39,17 @@ export function validateGraph(graph) {
   if (!graph || typeof graph !== 'object') {
     return { ok: false, errors: ['graph is null/not an object'], warnings: [] };
   }
+
+  // --- schemaVersion gate (v1.0 freeze) -----------------------------------
+  // Missing is a warning (legacy graphs pre-freeze); mismatch is an error
+  // since a different major means this validator can't be trusted to cover
+  // the consumer's expectations.
+  if (graph.schemaVersion == null) {
+    push('warning', `graph missing schemaVersion (expected "${SCHEMA_VERSION}") — please add it`);
+  } else if (graph.schemaVersion !== SCHEMA_VERSION) {
+    push('error', `graph.schemaVersion "${graph.schemaVersion}" does not match validator version "${SCHEMA_VERSION}"`);
+  }
+
   if (!graph.id) push('warning', 'graph has no id');
   if (!Array.isArray(graph.nodes))     push('error', 'graph.nodes must be an array');
   if (!Array.isArray(graph.terminals)) push('error', 'graph.terminals must be an array');
@@ -69,12 +94,49 @@ export function validateGraph(graph) {
   }
 
   // --- Wire / feedback reference checks ------------------------------------
-  // Endpoints may be "<id>" or "<id>.<port>". Strip the dotted port for
-  // existence checks; the compiler validates port names per-op.
-  const refNode = (s) => String(s).split('.')[0];
+  // Endpoints may be "<id>" or "<id>.<port>". Bare ids bind to the op's
+  // default 'in' / 'out' port. Kind must match across the wire
+  // (audio↔audio, control↔control).
+  const splitRef = (s) => {
+    const [id, port] = String(s).split('.');
+    return { id, port };
+  };
+  const nodeById = new Map(graph.nodes.map(n => [n.id, n]));
+
+  const portKind = (ref, direction) => {
+    // direction: 'out' (wire source) or 'in' (wire dest)
+    const { id, port } = splitRef(ref);
+    const kindFromTerminal = ids.get(id) === 'terminal';
+    if (kindFromTerminal) {
+      // Terminals are audio-only in v1.0 — no explicit port.
+      return 'audio';
+    }
+    const node = nodeById.get(id);
+    if (!node) return null;
+    const op = getOp(node.op);
+    if (!op) return null;
+    const bucket = direction === 'out' ? op.ports.outputs : op.ports.inputs;
+    const defaultPort = direction === 'out' ? 'out' : 'in';
+    const target = port ?? defaultPort;
+    const p = bucket.find(pp => pp.id === target);
+    if (!p) {
+      push('error', `wire references unknown ${direction}-port "${ref}" on op "${node.op}" (available: ${bucket.map(pp => pp.id).join(', ')})`);
+      return null;
+    }
+    return p.kind;
+  };
+
   for (const w of graph.wires) {
-    if (!ids.has(refNode(w.from))) push('error', `wire.from references unknown id "${w.from}"`);
-    if (!ids.has(refNode(w.to)))   push('error', `wire.to references unknown id "${w.to}"`);
+    const fromRef = splitRef(w.from);
+    const toRef   = splitRef(w.to);
+    if (!ids.has(fromRef.id)) { push('error', `wire.from references unknown id "${w.from}"`); continue; }
+    if (!ids.has(toRef.id))   { push('error', `wire.to references unknown id "${w.to}"`);   continue; }
+
+    const fromKind = portKind(w.from, 'out');
+    const toKind   = portKind(w.to,   'in');
+    if (fromKind && toKind && fromKind !== toKind) {
+      push('error', `wire "${w.from}" → "${w.to}" kind mismatch: ${fromKind} → ${toKind}`);
+    }
   }
   for (const fb of (graph.feedback || [])) {
     if (ids.get(fb.from) !== 'node') push('error', `feedback.from must be a node id, got "${fb.from}"`);

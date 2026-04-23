@@ -51,6 +51,7 @@
  * with a feedback arc tapping after the tone op back into delay's input.
  */
 export const ECHOFORM_MOCK = {
+  schemaVersion: '1.0',
   id: 'echoform-mock-v0',
   label: 'EchoForm',
   canvas: { width: 720, height: 340 },
@@ -88,6 +89,7 @@ export const ECHOFORM_MOCK = {
  *      └── gain ── filter ── wet ──────┘
  */
 export const SANDBOX_TOY = {
+  schemaVersion: '1.0',
   id: 'sandbox-toy-v0',
   label: 'SandboxToy',
   canvas: { width: 720, height: 340 },
@@ -129,6 +131,7 @@ export const SANDBOX_TOY = {
  * panel mapping, not the ops.
  */
 export const FILTER_FX = {
+  schemaVersion: '1.0',
   id: 'filter-fx-v0',
   label: 'FilterFX',
   canvas: { width: 720, height: 340 },
@@ -199,6 +202,7 @@ export const FILTER_FX = {
  * v1 dogfood to sound musical.
  */
 export const ECHOFORM_LITE = {
+  schemaVersion: '1.0',
   id: 'echoform-lite-v0',
   label: 'EchoformLite',
   canvas: { width: 780, height: 340 },
@@ -295,6 +299,7 @@ export const ECHOFORM_LITE = {
  * main-signal paths.
  */
 export const MOD_DUCK = {
+  schemaVersion: '1.0',
   id: 'mod-duck-v0',
   label: 'ModDuck',
   canvas: { width: 780, height: 340 },
@@ -391,6 +396,7 @@ export const MOD_DUCK = {
  * A/B matches hand-coded comps, the sandbox compiler has earned its keep.
  */
 export const TOY_COMP = {
+  schemaVersion: '1.0',
   id: 'toy-comp-v0',
   label: 'ToyComp',
   canvas: { width: 860, height: 340 },
@@ -468,6 +474,7 @@ export const TOY_COMP = {
  *    passes dust. Matches authentic LL topology.
  */
 export const LOFI_LIGHT = {
+  schemaVersion: '1.0',
   id: 'loofy-lite-v0',
   label: 'LofiLight',
   canvas: { width: 900, height: 380 },
@@ -572,6 +579,7 @@ export const LOFI_LIGHT = {
  * actually exists.
  */
 export const FDN_HALL = {
+  schemaVersion: '1.0',
   id: 'fdn-hall-v0',
   label: 'FdnHall',
   canvas: { width: 540, height: 260 },
