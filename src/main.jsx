@@ -4,6 +4,13 @@ import { Reshaped } from 'reshaped';
 import 'reshaped/themes/slate/theme.css';
 import './index.css';
 import OrbPluginDemo from './OrbPluginDemo';
+import BrickZoomView from './BrickZoomView';
+import SandboxToyOrb from './sandbox/SandboxToyOrb';
+import FilterFXOrb   from './sandbox/FilterFXOrb';
+import EchoformLiteOrb from './sandbox/EchoformLiteOrb';
+import ModDuckOrb from './sandbox/ModDuckOrb';
+import ToyCompOrb from './sandbox/ToyCompOrb';
+import LofiLightOrb from './sandbox/LofiLightOrb';
 import DistortionOrb from './DistortionOrb';
 import AmpOrb from './AmpOrb';
 import ModulationOrb from './ModulationOrb';
@@ -57,7 +64,7 @@ import DrumBusOrb from './DrumBusOrb';
 import PantherBussOrb from './PantherBussOrb';
 import { createSharedSource } from './audioEngine';
 import { REGISTRY, getProduct, getProductByLegacyType, getVariant } from './migration/registry.js';
-import { useQcMode, useProductStatus, getStatus, defaultVersionFor } from './migration/store.js';
+import { useQcMode, useWorkbenchMode, useProductStatus, getStatus, defaultVersionFor } from './migration/store.js';
 import { InfoIcon } from './migration/QcOverlay.jsx';
 import { QcWizard } from './migration/QcWizard.jsx';
 import QcDrawer from './qc-harness/QcDrawer.jsx';
@@ -136,6 +143,145 @@ const PLUGIN_CATEGORIES = [
     ['scope', 'Scope'],
   ]},
 ];
+
+// ─── Sandbox bricks — ONLY reachable through Lab/Workbench mode. ────────
+// Not in the plus menu. This is the authoring surface (sandbox_core_scope.md,
+// sandbox_modulation_roadmap.md). Expect this list to grow as new ops +
+// dogfood bricks land; the gallery UI scales with it.
+const SANDBOX_BRICKS = [
+  { type: 'sandboxToy',   label: 'SandboxToy',   accent: '#b4d7ff',
+    tagline: 'Gain · Filter · Mix toy',
+    description: 'Minimum viable sandbox brick — proves the op-graph compile pipeline end-to-end.' },
+  { type: 'filterFx',     label: 'FilterFX',     accent: '#e7b478',
+    tagline: 'One-knob lo-fi tone',
+    description: 'Same ops as SandboxToy, but gain + mix are baked in; only a log-taper TONE is exposed. Proves personality = panel.' },
+  { type: 'echoformLite', label: 'EchoformLite', accent: '#7fd4b3',
+    tagline: 'Character delay (external FB)',
+    description: 'Saturation + tone filter live inside the delay feedback loop — each repeat darker & grittier. 5 knobs, 4 ops.' },
+  { type: 'modDuck',      label: 'ModDuck',      accent: '#c4a4ff',
+    tagline: 'VCA-style ducker (modulation test)',
+    description: 'Stage B-0 dogfood. Self-sidechain detector → envelope → gain.gainMod. NO gain computer yet — B-1 lands the real comp.' },
+  { type: 'toyComp',      label: 'ToyComp',      accent: '#7ae1c1',
+    tagline: 'Minimal downward compressor',
+    description: 'Stage B-1 dogfood. detector → envelope → gainComputer → VCA → makeup. Proves the gainComputer op end-to-end.' },
+  { type: 'lofiLight',    label: 'LofiLight',    accent: '#e8b87a',
+    tagline: '30 % Lofi Loofy in 9 ops',
+    description: 'First shipping-plugin-shaped dogfood. tone → drive → tape delay + drift LFO + pink-dust bed → mix. Proves the sandbox on real-world character DSP.' },
+];
+
+// ─── WorkbenchView — Lab-mode full-takeover gallery. ─────────────────────
+// Renders a card grid of SANDBOX_BRICKS. Each card: accent border, name,
+// tagline, longer description, and an "Add to chain" button that (1) adds
+// the brick to the chain and (2) flips workbench mode off so the user
+// lands back in the chain with their new brick dropped in.
+//
+// Sandbox bricks are ONLY reachable through this view — they are NOT in
+// the plus menu. This keeps the creative/effect catalog clean and makes
+// the sandbox feel like a distinct authoring surface, not yet-another-FX.
+function WorkbenchView({ onAdd, onClose }) {
+  return (
+    <div style={{
+      width: '100%',
+      padding: '24px 32px 80px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+    }}>
+      {/* Header */}
+      <div style={{
+        width: '100%', maxWidth: 1100,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 24,
+      }}>
+        <div>
+          <div style={{
+            fontSize: 10, letterSpacing: '0.32em', textTransform: 'uppercase',
+            color: 'rgba(196,164,255,0.75)', fontWeight: 700, marginBottom: 6,
+          }}>
+            Workbench · Lab
+          </div>
+          <div style={{
+            fontSize: 22, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+            letterSpacing: '0.01em',
+          }}>
+            Sandbox bricks
+          </div>
+          <div style={{
+            fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 6,
+            maxWidth: 640, lineHeight: 1.5,
+          }}>
+            Decomposable bricks built from the op registry. Double-click any
+            brick in your chain to see and edit its internal op graph. New
+            bricks land here as the sandbox grows.
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase',
+            fontWeight: 600, padding: '8px 16px', borderRadius: 6,
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
+          }}
+          title="Back to chain"
+        >
+          ← Back to chain
+        </button>
+      </div>
+
+      {/* Card grid */}
+      <div style={{
+        width: '100%', maxWidth: 1100,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+        gap: 16,
+      }}>
+        {SANDBOX_BRICKS.map(brick => (
+          <div key={brick.type}
+            style={{
+              padding: 18,
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.02)',
+              border: `1px solid ${brick.accent}44`,
+              display: 'flex', flexDirection: 'column', gap: 10,
+              minHeight: 180,
+            }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '0.28em', textTransform: 'uppercase',
+              color: brick.accent, fontWeight: 700,
+            }}>
+              {brick.tagline}
+            </div>
+            <div style={{
+              fontSize: 18, fontWeight: 600, color: 'rgba(255,255,255,0.9)',
+            }}>
+              {brick.label}
+            </div>
+            <div style={{
+              fontSize: 11, lineHeight: 1.55, color: 'rgba(255,255,255,0.45)',
+              flex: 1,
+            }}>
+              {brick.description}
+            </div>
+            <button
+              onClick={() => { onAdd(brick.type); onClose(); }}
+              style={{
+                alignSelf: 'flex-start',
+                marginTop: 6,
+                fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase',
+                fontWeight: 600, padding: '8px 14px', borderRadius: 6,
+                background: `${brick.accent}1a`,
+                border: `1px solid ${brick.accent}66`,
+                color: brick.accent, cursor: 'pointer',
+              }}
+            >
+              + Add to chain
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function AddMenu({ onAdd }) {
   const [hoveredCat, setHoveredCat] = useState(null);
@@ -305,8 +451,15 @@ function App() {
   // talks to `sharedSource` — no module required.
   const [instances, setInstances] = useState([{ id: 1, type: 'scope' }]);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  // Sandbox core Step 1 — which brick is currently "zoomed into" (the
+  // inside-view placeholder). See memory/sandbox_core_scope.md.
+  const [zoomedInstanceId, setZoomedInstanceId] = useState(null);
   const [sharedSource, setSharedSource] = useState(null);
   const [qcMode, setQcMode] = useQcMode();
+  // Workbench (Lab) mode — full-takeover sandbox authoring surface.
+  // When on, the chain grid is hidden and <WorkbenchView> takes its place.
+  // Sandbox bricks are ONLY reachable from here (not in the plus menu).
+  const [workbenchMode, setWorkbenchMode] = useWorkbenchMode();
 
   // ── Global audio loader state (was inside OrbPluginDemo) ──────────────────
   const [audioSource, setAudioSource] = useState('none'); // 'none' | 'file' | 'mic'
@@ -410,13 +563,45 @@ function App() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // AudioContext is created eagerly at mount; Chrome starts it in 'suspended'
+  // state (no device output) until the first user gesture. A document-level
+  // capture listener resumes it on ANY click/keydown/touch to give Chrome's
+  // output-device negotiation a gesture to latch onto — this avoids the
+  // "AudioContext encountered an error from the audio device or the WebAudio
+  // renderer" message that Chrome sometimes logs when the first sample is
+  // pulled without a prior gesture.
   useEffect(() => {
     const src = createSharedSource();
     setSharedSource(src);
     masterGainRef.current = null; // reset so rewire re-creates master in new context
     inputPadRef.current   = null;
     routingRef.current    = { pads: [], firstInput: null, lastOutput: null };
-    return () => { src.destroy(); masterGainRef.current = null; inputPadRef.current = null; };
+
+    let unlocked = false;
+    const unlock = () => {
+      if (unlocked) return;
+      unlocked = true;
+      document.removeEventListener('pointerdown', unlock, true);
+      document.removeEventListener('keydown',     unlock, true);
+      document.removeEventListener('touchstart',  unlock, true);
+      try {
+        if (src.ctx?.state === 'suspended' || src.ctx?.state === 'interrupted') {
+          src.ctx.resume().catch(err => console.warn('[main] ctx.resume failed', err));
+        }
+      } catch (err) { console.warn('[main] unlock threw', err); }
+    };
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('keydown',     unlock, true);
+    document.addEventListener('touchstart',  unlock, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', unlock, true);
+      document.removeEventListener('keydown',     unlock, true);
+      document.removeEventListener('touchstart',  unlock, true);
+      src.destroy();
+      masterGainRef.current = null;
+      inputPadRef.current   = null;
+    };
   }, []);
 
   // ─── Click-free rewire ────────────────────────────────────────────────────
@@ -782,7 +967,7 @@ function App() {
             const insertBefore = insertAfterIndex === idx - 1;
             const insertAfter  = insertAfterIndex === idx;
             const isBypassed = !!pillBypasses[inst.id];
-            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'eightOhEight' ? '808' : inst.type === 'lofiLoofy' ? 'Loofy' : inst.type === 'flapjackman' ? 'Flap Jack' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : inst.type === 'manchild' ? 'ManChild' : 'Space';
+            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'eightOhEight' ? '808' : inst.type === 'lofiLoofy' ? 'Loofy' : inst.type === 'flapjackman' ? 'Flap Jack' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : inst.type === 'manchild' ? 'ManChild' : inst.type === 'sandboxToy' ? 'Sandbox' : inst.type === 'filterFx' ? 'FilterFX' : inst.type === 'echoformLite' ? 'EchoLite' : inst.type === 'modDuck' ? 'ModDuck' : 'Space';
             return (
               <div key={inst.id} className="flex items-center">
                 {/* Insert-before line */}
@@ -857,8 +1042,27 @@ function App() {
           className="text-[9px] font-medium px-3 py-1 rounded whitespace-nowrap disabled:opacity-30"
           style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)' }}>Delete</button>
       </div>
+      {/* Sandbox core Step 1 — zoomed brick view (see memory/sandbox_core_scope.md).
+          Replaces the grid when a brick is "opened". Chain pills stay visible in
+          the top bar so the user always knows where they are. */}
+      {zoomedInstanceId != null && (
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', padding: '8px 24px 24px' }}>
+          <BrickZoomView
+            instance={instances.find(i => i.id === zoomedInstanceId)}
+            onClose={() => setZoomedInstanceId(null)}
+          />
+        </div>
+      )}
+      {/* Workbench (Lab) takeover — hides the module grid when active. */}
+      {workbenchMode && (
+        <WorkbenchView
+          onAdd={addInstance}
+          onClose={() => setWorkbenchMode(false)}
+        />
+      )}
       {/* Module grid */}
-      <div className="flex flex-wrap items-start justify-center gap-6" style={{ position: 'relative' }}>
+      <div className="flex flex-wrap items-start justify-center gap-6"
+           style={{ position: 'relative', display: (workbenchMode || zoomedInstanceId != null) ? 'none' : undefined }}>
         {instances.map(inst => {
           // Registry truth for the ⓘ tooltip + QC panel. Only populated for
           // products that have been modelled in migration/registry.js — for
@@ -878,9 +1082,22 @@ function App() {
               onOpenQc={() => setQcDrawerId(inst.id)}
             />
           )}
-          <div style={{
+          <div
+            onDoubleClick={(e) => {
+              // Sandbox core Step 1 — double-click anywhere on the panel
+              // wrapper opens the brick-zoom view. Stop propagation so this
+              // doesn't bubble to grid-level handlers. Ignore double-clicks
+              // on interactive controls by checking if the target is a knob
+              // / button / input — lets the user still interact normally.
+              const tag = (e.target.tagName || '').toLowerCase();
+              if (['input','button','select','textarea','canvas','svg'].includes(tag)) return;
+              if (e.target.closest && e.target.closest('button,input,select,textarea,canvas,svg,[role="slider"]')) return;
+              e.stopPropagation();
+              setZoomedInstanceId(inst.id);
+            }}
+            style={{
             borderRadius: 12,
-            position: 'relative',    // anchor for InfoIcon overlay
+            position: 'relative',    // anchor for InfoIcon overlay + zoom button
             transition: 'box-shadow 0.12s ease',
             // Neve handles its own Drive-knob glow internally — suppress the box glow wrapper
             boxShadow: inst.type === 'neve' ? 'none'
@@ -893,6 +1110,33 @@ function App() {
           {product && variant && (
             <InfoIcon product={product} variant={variant} status={status} />
           )}
+          {/* Sandbox core Step 1 — zoom-in affordance. Discoverable button
+              that mirrors the double-click gesture. Positioned top-left so
+              it doesn't fight the existing X close button (top-right of
+              each Orb) or the ⓘ InfoIcon. */}
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setZoomedInstanceId(inst.id); }}
+            title="Open brick (double-click works too)"
+            style={{
+              position: 'absolute', top: 6, left: 6, zIndex: 20,
+              width: 18, height: 18, borderRadius: 4,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.4)',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            {/* "Enter brick" glyph — arrow into a box */}
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <rect x="1" y="1" width="10" height="10" rx="1.5"
+                    stroke="currentColor" strokeWidth="1" />
+              <path d="M4 6 L8 6 M6 4 L8 6 L6 8" stroke="currentColor"
+                    strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </button>
           {inst.type === 'amp' ? (
           <AmpOrb
             key={inst.id} instanceId={inst.id} sharedSource={sharedSource}
@@ -1013,8 +1257,13 @@ function App() {
           />
         ) : inst.type === 'flapjackman' ? (
           <FlapJackManOrb
-            key={inst.id}
+            // Key on version so switching prototype ↔ v1 ↔ v2 unmounts the
+            // Orb and re-runs the effect — that's the only way the new
+            // factory loads. Without this the dropdown was cosmetic and
+            // the registry-displayed engineName lied about the live engine.
+            key={`${inst.id}:${inst.version || 'prototype'}`}
             instanceId={inst.id}
+            version={inst.version || 'prototype'}
             sharedSource={sharedSource}
             registerEngine={registerEngine}
             unregisterEngine={unregisterEngine}
@@ -1191,6 +1440,82 @@ function App() {
             onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
             onStateChange={handleStateChange}
             initialState={initialStates[inst.id]}
+          />
+        ) : inst.type === 'sandboxToy' ? (
+          <SandboxToyOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+          />
+        ) : inst.type === 'filterFx' ? (
+          <FilterFXOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'echoformLite' ? (
+          <EchoformLiteOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'modDuck' ? (
+          <ModDuckOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'toyComp' ? (
+          <ToyCompOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'lofiLight' ? (
+          <LofiLightOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
           />
         ) : inst.type === 'drift' ? (
           <DriftOrb
@@ -1482,6 +1807,21 @@ function App() {
             : <AddMenu     onAdd={type    => { addInstance(type);    setShowAddMenu(false); }} />
         )}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* LAB (Workbench) toggle — full-takeover sandbox view. */}
+          <button
+            onClick={() => setWorkbenchMode(v => !v)}
+            title={workbenchMode ? 'Workbench ON — click to return to chain' : 'Open Workbench (sandbox bricks)'}
+            style={{
+              height: 28, padding: '0 12px', borderRadius: 14,
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
+              fontFamily: 'system-ui, Arial, sans-serif', cursor: 'pointer',
+              border: `1px solid ${workbenchMode ? 'rgba(196,164,255,0.6)' : 'rgba(255,255,255,0.15)'}`,
+              background: workbenchMode ? 'rgba(60,45,90,0.5)' : 'rgba(0,0,0,0.5)',
+              color:      workbenchMode ? '#c4a4ff' : 'rgba(255,255,255,0.5)',
+              backdropFilter: 'blur(8px)',
+            }}>
+            LAB {workbenchMode ? 'ON' : 'OFF'}
+          </button>
           {/* QC Mode toggle — persists in localStorage */}
           <button
             onClick={() => setQcMode(v => !v)}

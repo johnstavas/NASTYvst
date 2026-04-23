@@ -9,6 +9,7 @@ import { REGISTRY } from './registry.js';
 
 const NS              = 'migration.v2';
 const KEY_QC_MODE     = `${NS}.qcMode`;
+const KEY_WB_MODE     = `${NS}.workbenchMode`;
 const keyStatus       = (productId) => `${NS}.status.${productId}`;
 
 // ── v1 → v2 one-shot migration ───────────────────────────────────────────
@@ -320,6 +321,20 @@ export function useQcMode() {
   });
   useEffect(() => {
     try { localStorage.setItem(KEY_QC_MODE, on ? '1' : '0'); } catch {}
+  }, [on]);
+  return [on, setOn];
+}
+
+// ── Workbench (Lab) Mode toggle ─────────────────────────────────────────
+// Full-takeover authoring surface for sandbox bricks (sandbox_core_scope.md).
+// Not in the plus menu — sandbox bricks live ONLY inside Workbench.
+
+export function useWorkbenchMode() {
+  const [on, setOn] = useState(() => {
+    try { return localStorage.getItem(KEY_WB_MODE) === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(KEY_WB_MODE, on ? '1' : '0'); } catch {}
   }, [on]);
   return [on, setOn];
 }
