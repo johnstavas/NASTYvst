@@ -1,0 +1,38 @@
+// op_gainComputer.cpp — Stage-3b C++ sidecar stub for the `gainComputer` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_gainComputer.worklet.js.
+// Math target: Zölzer soft-knee gain computer (dB domain).
+// Monotonicity enforced at validator tier (T6.GAINCOMP_MONOTONIC).
+#pragma once
+#include <cmath>
+
+namespace shags::ops {
+
+class GainComputerOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "gainComputer";
+
+    explicit GainComputerOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        // TODO(stage-3b): dispatch thresholdDb / ratio (clamp >=1) / kneeDb (clamp >=0)
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // env: mono linear-magnitude input
+    // gr:  mono delta-from-unity output (<=0)
+    void process(const float* env, float* gr, int N) {
+        for (int i = 0; i < N; ++i) gr[i] = 0.0f;
+        // TODO(stage-3b): port Zölzer soft-knee computer from op_gainComputer.worklet.js
+    }
+
+private:
+    double sr_;
+    double thr_   = -18.0;
+    double ratio_ =   4.0;
+    double knee_  =   6.0;
+};
+
+}  // namespace shags::ops

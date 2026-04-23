@@ -35,7 +35,7 @@
 //     The shelf + 20 kHz LP are effectively pass-through at default
 //     values but are real nodes we still need to match on the ref side.
 
-import { LOFI_LIGHT } from './mockGraphs';
+import { LOFI_LIGHT, TOY_COMP } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
 
@@ -232,5 +232,139 @@ export async function runCompilerSanityTest() {
     samples: sbxOut.length,
     sampleRate: SR,
     verdict: d.maxErrorDb < -60 ? 'PASS' : 'FAIL',
+  };
+}
+
+// =====================================================================
+// TOY_COMP null-test (Stage B-1, landed 2026-04-23)
+// =====================================================================
+//
+// Same question as above, different topology: does compileGraphToWebAudio
+// produce sample-identical audio to a hand-wired sidechain-fed VCA?
+//
+// Important framing: the envelope follower and gain computer live in
+// fixed worklets (sandbox-envelope-follower / sandbox-gain-computer).
+// Both sides of this null-test instantiate those same worklets — we're
+// NOT reimplementing the compressor math in biquads. The test proves
+// the COMPILER correctly wires:
+//
+//   src → detector → envelope → gainComputer → (summed into gain.gainMod)
+//   src → gain (VCA) → makeup → dest
+//
+// Scope caveats (same spirit as LOFI_LIGHT version):
+//   - Static knobs at TOY_COMP defaults (thr=-18, ratio=4, knee=6,
+//     atk=5, rel=120, makeup=0). No knob automation.
+//   - No parallel/dry leg in TOY_COMP (mix-inside-worklet lives in
+//     future Stage-B comp variants per dry_wet_mix_rule.md); so no
+//     delay-mismatch concern.
+//   - Single chirp, 0.5 s, mono — enough to exercise detector rectify +
+//     AR smoother + knee + VCA timing.
+//
+// If the compiler mis-wires n_comp → n_vca.gainMod (e.g. resolves the
+// default port instead of the named control input), the VCA gain stays
+// at unity on the sandbox side but tracks GR on the reference side —
+// delta ≈ 0 dB, obvious FAIL. That's exactly the class of bug this test
+// is designed to catch.
+
+function buildToyCompReference(ctx, inputBuffer) {
+  // Source
+  const src = ctx.createBufferSource();
+  src.buffer = inputBuffer;
+
+  // Detector (peak / |x|) — identical to sandbox detector() factory
+  const det = ctx.createWaveShaper();
+  {
+    const N = 2048;
+    const c = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const x = (i / (N - 1)) * 2 - 1;
+      c[i] = Math.abs(x);
+    }
+    det.curve = c;
+  }
+
+  // Envelope follower worklet — sandbox-envelope-follower, TOY_COMP defaults
+  const env = new AudioWorkletNode(ctx, 'sandbox-envelope-follower', {
+    numberOfInputs:  1,
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
+  });
+  env.parameters.get('attackMs').value  = 5;
+  env.parameters.get('releaseMs').value = 120;
+  env.parameters.get('amount').value    = 1;
+  env.parameters.get('offset').value    = 0;
+
+  // Gain computer worklet — sandbox-gain-computer, TOY_COMP defaults
+  const gc = new AudioWorkletNode(ctx, 'sandbox-gain-computer', {
+    numberOfInputs:  1,
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
+  });
+  gc.parameters.get('thresholdDb').value = -18;
+  gc.parameters.get('ratio').value       = 4;
+  gc.parameters.get('kneeDb').value      = 6;
+
+  // VCA — a GainNode whose .gain AudioParam receives the GR delta summed
+  // onto its intrinsic 1.0 value. Matches compiler's gainMod convention.
+  const vca = ctx.createGain();
+  vca.gain.value = 1;  // resting unity; GR signal (≤ 0) pulls below
+
+  // Makeup — gainDb=0 → linear 1.0
+  const makeup = ctx.createGain();
+  makeup.gain.value = 1;
+
+  // Wire sidechain: src → det → env → gc → (AudioParam) vca.gain
+  src.connect(det);
+  det.connect(env);
+  env.connect(gc);
+  gc.connect(vca.gain);
+
+  // Wire main: src → vca → makeup → dest
+  src.connect(vca);
+  vca.connect(makeup);
+  makeup.connect(ctx.destination);
+
+  return src;
+}
+
+async function renderToyCompReference() {
+  const ctx = new OfflineAudioContext(1, FRAMES, SR);
+  await ensureSandboxWorklets(ctx);
+  const inBuf = ctx.createBuffer(1, FRAMES, SR);
+  renderChirp(inBuf.getChannelData(0));
+  const src = buildToyCompReference(ctx, inBuf);
+  src.start();
+  const rendered = await ctx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+async function renderToyCompSandbox() {
+  const ctx = new OfflineAudioContext(1, FRAMES, SR);
+  await ensureSandboxWorklets(ctx);
+  const inBuf = ctx.createBuffer(1, FRAMES, SR);
+  renderChirp(inBuf.getChannelData(0));
+  const inst = compileGraphToWebAudio(TOY_COMP, ctx);
+  const src = ctx.createBufferSource();
+  src.buffer = inBuf;
+  src.connect(inst.inputNode);
+  inst.outputNode.connect(ctx.destination);
+  src.start();
+  const rendered = await ctx.startRendering();
+  inst.dispose();
+  return rendered.getChannelData(0);
+}
+
+export async function runToyCompSanityTest() {
+  const [refOut, sbxOut] = await Promise.all([
+    renderToyCompReference(),
+    renderToyCompSandbox(),
+  ]);
+  const d = diffSignals(refOut, sbxOut);
+  return {
+    ...d,
+    samples: sbxOut.length,
+    sampleRate: SR,
+    verdict: d.maxErrorDb < -60 ? 'PASS' : 'FAIL',
+    graph: 'TOY_COMP',
   };
 }

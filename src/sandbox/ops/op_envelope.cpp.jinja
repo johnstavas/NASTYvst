@@ -1,0 +1,55 @@
+// op_envelope.cpp — Stage-3b C++ sidecar stub for the `envelope` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_envelope.worklet.js.
+// CRITICAL: real impl MUST include Watte denormal bias (DENORM) on both
+// state-accumulating paths — mirrors ENVELOPE_DENORMAL_GUARD T6 rule.
+#pragma once
+#include <cmath>
+
+namespace shags::ops {
+
+class EnvelopeOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "envelope";
+    // Watte denormal bias — dsp_code_canon_utilities.md §1.
+    static constexpr double DENORM = 1e-20;
+
+    explicit EnvelopeOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeAlphas();
+    }
+
+    void reset() { state_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        // TODO(stage-3b): dispatch attack / release / amount / offset;
+        //                 recomputeAlphas() on attack/release.
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // in:  mono input (typically rectified)
+    // env: mono control-rate output
+    void process(const float* in, float* env, int N) {
+        for (int i = 0; i < N; ++i) env[i] = 0.0f;
+        // TODO(stage-3b): port AR smoother from op_envelope.worklet.js.
+        //                 MUST add DENORM on state updates (both branches).
+    }
+
+private:
+    void recomputeAlphas() {
+        const double atkSec = std::fmax(1e-4, attackMs_  / 1000.0);
+        const double relSec = std::fmax(1e-4, releaseMs_ / 1000.0);
+        atkAlpha_ = std::exp(-1.0 / (atkSec * sr_));
+        relAlpha_ = std::exp(-1.0 / (relSec * sr_));
+    }
+
+    double sr_;
+    double attackMs_  = 5.0;
+    double releaseMs_ = 120.0;
+    double amount_    = -1.0;
+    double offset_    = 0.0;
+    double state_     = 0.0;
+    double atkAlpha_  = 0.0;
+    double relAlpha_  = 0.0;
+};
+
+}  // namespace shags::ops

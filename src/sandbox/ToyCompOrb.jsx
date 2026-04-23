@@ -23,6 +23,7 @@ import { TOY_COMP } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
 import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { runToyCompSanityTest } from './nullTestHarness';
 
 const ACCENT       = '#7ae1c1';               // muted teal — distinct from ModDuck violet
 const ACCENT_FAINT = 'rgba(122,225,193,';
@@ -178,6 +179,31 @@ export default function ToyCompOrb({
                     cursor: 'pointer',
                   }}>×</button>
         )}
+        <button onMouseDown={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // eslint-disable-next-line no-console
+                  console.log('[ToyComp] running compiler sanity test…');
+                  try {
+                    const r = await runToyCompSanityTest();
+                    // eslint-disable-next-line no-console
+                    console.log('[ToyComp] sanity test result:', r);
+                  } catch (err) {
+                    // eslint-disable-next-line no-console
+                    console.error('[ToyComp] sanity test error:', err);
+                  }
+                }}
+                onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                title="Run compiler null-test — compare compiled TOY_COMP vs hand-wired reference; result in console"
+                style={{
+                  fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+                  fontWeight: 700, padding: '5px 10px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 4,
+                  color: 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                }}>NULL</button>
         </div>
       </div>
 

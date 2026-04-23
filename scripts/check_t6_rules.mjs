@@ -121,6 +121,77 @@ function expect(name, graph, { errorContains, warningContains, shouldPass }) {
   expect('FB_SAFETY_NODE: missing softLimit on fb path', g, { errorContains: 'missing softLimit' });
 }
 
+// -------- T6.GAINCOMP_MONOTONIC (positive case) ---------------------------
+// With valid v1.0 params (ratio >= 1, knee >= 0) the Zölzer soft-knee
+// formula is mathematically monotonic — so a correctly-configured
+// gainComputer MUST pass without a monotonicity error. The rule exists
+// as forward-compat insurance: once Stage-B admits Bézier / table curves,
+// authors can accidentally produce non-monotonic GR shapes and this
+// check will trip. We assert the present-day rule is wired and silent
+// on valid input.
+{
+  const g = base();
+  g.nodes = [
+    { id: 'n_det',  op: 'detector',     params: { mode: 'peak' } },
+    { id: 'n_env',  op: 'envelope',     params: { attack: 5, release: 120, amount: 1, offset: 0 } },
+    { id: 'n_comp', op: 'gainComputer', params: { thresholdDb: -18, ratio: 4, kneeDb: 6 } },
+    { id: 'n_vca',  op: 'gain',         params: { gainDb: 0 } },
+  ];
+  g.wires = [
+    { from: 'in',     to: 'n_det'         },
+    { from: 'n_det',  to: 'n_env'         },
+    { from: 'n_env',  to: 'n_comp'        },
+    { from: 'n_comp', to: 'n_vca.gainMod' },
+    { from: 'in',     to: 'n_vca'         },
+    { from: 'n_vca',  to: 'out'           },
+  ];
+  const r = validateGraph(g);
+  const tripped = r.errors.some(e => e.includes('not monotonic'));
+  results.push({
+    name: 'GAINCOMP_MONOTONIC: valid comp config does NOT trip monotonicity error',
+    pass: !tripped,
+    reason: tripped ? `unexpected monotonicity error on valid config: ${r.errors.filter(e=>e.includes('monotonic')).join(' / ')}` : '',
+  });
+}
+
+// -------- T6.ENVELOPE_DENORMAL_GUARD --------------------------------------
+// Source-level (not per-graph) invariant: the sandbox-envelope-follower
+// worklet state update MUST include a Jon Watte denormal bias (DENORM)
+// on every feedback-accumulating path. Denormals cost ~100x on x86 under
+// long silence — dynamics chains that drop below -140 dB spend hours
+// in that regime. We read workletSources.js once and confirm:
+//   (a) DENORM constant is declared with a nonzero bias value
+//   (b) SandboxEnvelopeFollower process() contains at least 2 DENORM
+//       additions (the no-input decay branch AND the active branch)
+//
+// Canon: dsp_code_canon_utilities.md §1 (Jon Watte denormal double macro).
+{
+  const src = readFileSync(resolve(sandboxDir, 'workletSources.js'), 'utf8');
+
+  // (a) DENORM declared as a small positive constant.
+  const denormDecl = /const\s+DENORM\s*=\s*([0-9.eE+-]+)/.exec(src);
+  const denormOk = !!denormDecl && parseFloat(denormDecl[1]) > 0 && parseFloat(denormDecl[1]) < 1e-10;
+
+  results.push({
+    name: 'ENVELOPE_DENORMAL_GUARD: DENORM constant declared (> 0, < 1e-10)',
+    pass: denormOk,
+    reason: denormOk ? '' : `expected const DENORM = <tiny positive>; got ${denormDecl ? denormDecl[0] : '(no declaration)'}`,
+  });
+
+  // (b) SandboxEnvelopeFollower body contains >= 2 DENORM additions.
+  //     Body = from `class SandboxEnvelopeFollower` to its registerProcessor.
+  const envBodyMatch = /class\s+SandboxEnvelopeFollower[\s\S]*?registerProcessor\(['"]sandbox-envelope-follower['"]/.exec(src);
+  const envBody = envBodyMatch ? envBodyMatch[0] : '';
+  const denormUses = (envBody.match(/\bDENORM\b/g) || []).length;
+  const envOk = denormUses >= 2;
+
+  results.push({
+    name: 'ENVELOPE_DENORMAL_GUARD: envelope worklet body uses DENORM on >= 2 state updates',
+    pass: envOk,
+    reason: envOk ? '' : `expected >= 2 DENORM uses in SandboxEnvelopeFollower (feedback-accumulating paths); found ${denormUses}`,
+  });
+}
+
 // -------- positive case: fb path with both guards -------------------------
 {
   const g = base();

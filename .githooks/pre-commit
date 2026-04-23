@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Shags VST pre-commit hook.
+#
+# Runs the three T6 sandbox-graph harnesses against the working tree so no
+# broken IR lands on main. Matches what scripts/check_*.mjs enforces in CI.
+#
+# Install: npm run install-hooks  (sets core.hooksPath=.githooks)
+# Skip one-off: git commit --no-verify  (only with explicit user intent)
+#
+# Gate order: fail fast on the cheapest check first.
+#   1. schema-v1 static parse       (~50 ms)
+#   2. t6 rule negative-tests       (~200 ms)
+#   3. deep all-graphs validate     (~200 ms)
+#   4. op sidecar shape + goldens   (~300 ms)
+
+set -e
+
+echo "→ qc:schema   (static v1.0 conformance)"
+node scripts/check_schema_v1.mjs
+
+echo "→ qc:t6       (T6 rule negative-tests)"
+node scripts/check_t6_rules.mjs
+
+echo "→ qc:graphs   (all 8 real graphs, deep T6)"
+node scripts/check_all_graphs_deep.mjs
+
+echo "→ qc:goldens  (op sidecar shape + golden-vector)"
+node scripts/check_op_goldens.mjs
+
+echo "✓ T6 gate green — commit proceeding"

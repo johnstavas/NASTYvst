@@ -1,0 +1,44 @@
+// op_mix.cpp — Stage-3b C++ sidecar stub for the `mix` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_mix.worklet.js.
+// Equal-power crossfade form per dry_wet_mix_rule.md (NON-NEGOTIABLE).
+#pragma once
+#include <cmath>
+
+namespace shags::ops {
+
+class MixOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "mix";
+
+    explicit MixOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeGains();
+    }
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        // TODO(stage-3b): dispatch amount; recomputeGains()
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // dry / wet: both mono inputs (either may be nullptr → treat as 0)
+    // out:       mono output
+    void process(const float* dry, const float* wet, float* out, int N) {
+        for (int i = 0; i < N; ++i) out[i] = 0.0f;
+        // TODO(stage-3b): outCh[i] = (dry?dry[i]:0)*dryG_ + (wet?wet[i]:0)*wetG_
+    }
+
+private:
+    void recomputeGains() {
+        dryG_ = std::cos(amount_ * M_PI * 0.5);
+        wetG_ = std::sin(amount_ * M_PI * 0.5);
+    }
+
+    double sr_;
+    double amount_ = 0.5;
+    double dryG_   = 0.0;
+    double wetG_   = 0.0;
+};
+
+}  // namespace shags::ops

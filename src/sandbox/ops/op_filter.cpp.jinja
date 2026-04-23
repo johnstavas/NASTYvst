@@ -1,0 +1,42 @@
+// op_filter.cpp — Stage-3b C++ sidecar stub for the `filter` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_filter.worklet.js.
+// Math target: RBJ cookbook biquad (dsp_code_canon_filters.md §9).
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class FilterOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "filter";
+
+    explicit FilterOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        std::memset(&x1_, 0, sizeof(double) * 4);
+    }
+
+    void reset() {
+        x1_ = x2_ = y1_ = y2_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        // TODO(stage-3b): mode (enum) / cutoff / q; recompute RBJ coeffs
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        for (int i = 0; i < N; ++i) out[i] = 0.0f;
+        // TODO(stage-3b): port RBJ biquad inner loop from op_filter.worklet.js
+    }
+
+private:
+    double sr_;
+    // Mode stored as enum in real impl — string switch at setParam time.
+    double cutoff_ = 1000.0;
+    double q_      = 0.707;
+    double b0_ = 1.0, b1_ = 0.0, b2_ = 0.0, a1_ = 0.0, a2_ = 0.0;
+    double x1_ = 0, x2_ = 0, y1_ = 0, y2_ = 0;
+};
+
+}  // namespace shags::ops

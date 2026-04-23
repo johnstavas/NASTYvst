@@ -23,6 +23,16 @@
 //   • T6.FB_CYCLE_DECLARED  — every wire-graph cycle routes through an `fb` port
 //   • T6.FB_DC_TRAP         — every `fb` input has a dcBlock op upstream
 //   • T6.FB_SAFETY_NODE     — every `fb` input has a softLimit op upstream
+//   • T6.GAINCOMP_MONOTONIC — every gainComputer node's (threshold,ratio,knee)
+//                             produces a monotonic non-decreasing curve
+//                             (cheap per-graph insurance that pays off once
+//                             Stage-B admits arbitrary curve families)
+//
+// Landed at the harness tier (scripts/check_t6_rules.mjs), not here, because
+// they are invariants of the op's worklet source rather than per-graph:
+//   • T6.ENVELOPE_DENORMAL_GUARD — sandbox-envelope-follower worklet state
+//                                  updates must include a Jon Watte denormal
+//                                  bias on every feedback-accumulating path
 //
 // Deferred to later stages (see sandbox_modulation_roadmap.md):
 //   • modulation-source DAG legality (Stage-B: signal→param, curves)
@@ -358,6 +368,58 @@ export function validateGraph(graph) {
       if (!opsUpstream.has('softLimit')) {
         push('error', `feedback path \`${fw.raw}\` missing softLimit op upstream — required by FB safety ship-gate`);
       }
+    }
+  }
+
+  // --- T6.GAINCOMP_MONOTONIC ----------------------------------------------
+  // For every gainComputer node, sample the static compressor curve at
+  // 64 input-dB points spanning [-60 dB .. +6 dB] and verify the output
+  // is monotonically non-decreasing. With ratio >= 1 and knee >= 0 the
+  // Zölzer soft-knee math is mathematically monotonic, so this rule is
+  // cheap insurance today; it starts earning its keep once Stage-B admits
+  // Bézier / table curves where authors can accidentally produce
+  // un-invertible (non-monotonic) gain-reduction shapes.
+  //
+  // Math mirrors sandbox-gain-computer process() exactly:
+  //   over = xDb - thr
+  //   grDb = invRatioMinusOne * (over+knee/2)^2 / (2*knee)   // soft knee
+  //        = invRatioMinusOne * over                          // above knee
+  //        = 0                                                // below knee
+  //   yDb  = xDb + grDb
+  for (const n of graph.nodes) {
+    if (n.op !== 'gainComputer') continue;
+    const p   = n.params || {};
+    const thr = (p.thresholdDb ?? -18);
+    const ratio = Math.max(1, p.ratio ?? 4);
+    const knee  = Math.max(0, p.kneeDb ?? 6);
+    const invRatioMinusOne = (1 / ratio) - 1;
+    const halfKnee = knee * 0.5;
+    const curveY = (xDb) => {
+      const over = xDb - thr;
+      let grDb;
+      if (knee > 0 && 2 * over > -knee && 2 * over < knee) {
+        const t = over + halfKnee;
+        grDb = invRatioMinusOne * (t * t) / (2 * knee);
+      } else if (over > 0) {
+        grDb = invRatioMinusOne * over;
+      } else {
+        grDb = 0;
+      }
+      return xDb + grDb;
+    };
+    const N = 64;
+    let prev = -Infinity;
+    let bad  = null;
+    for (let i = 0; i < N; i++) {
+      const xDb = -60 + (66 * i) / (N - 1); // -60..+6
+      const y   = curveY(xDb);
+      // Allow a tiny float-noise tolerance (1e-9 dB) so bit-identical
+      // plateaus don't trip the check.
+      if (y + 1e-9 < prev) { bad = { xDb, y, prev }; break; }
+      prev = y;
+    }
+    if (bad) {
+      push('error', `gainComputer "${n.id}" curve not monotonic at xDb=${bad.xDb.toFixed(2)} (yDb=${bad.y.toFixed(3)} < prev ${bad.prev.toFixed(3)}) — check thresholdDb/ratio/kneeDb`);
     }
   }
 

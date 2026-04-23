@@ -1,0 +1,37 @@
+// op_gain.cpp — Stage-3b C++ sidecar stub for the `gain` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_gain.worklet.js.
+// Template language: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+// Regenerated from this file + PCOF at build time — DO NOT hand-edit emitted .cpp.
+#pragma once
+#include <cmath>
+
+namespace shags::ops {
+
+class GainOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "gain";
+
+    explicit GainOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        // TODO(stage-3b): dispatch on id, match op_gain.worklet.js
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // in:      mono input  (nullptr if unwired)
+    // gainMod: mono control (nullptr if unwired)
+    // out:     mono output
+    void process(const float* in, const float* gainMod, float* out, int N) {
+        for (int i = 0; i < N; ++i) out[i] = 0.0f;
+        // TODO(stage-3b): port inner loop from op_gain.worklet.js
+    }
+
+private:
+    double sr_;
+    double gainDb_ = 0.0;
+};
+
+}  // namespace shags::ops
