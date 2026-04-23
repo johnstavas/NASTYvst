@@ -220,14 +220,14 @@ export const ECHOFORM_LITE = {
     // self-multiplies through the feedback loop. Retires EFL-SB-02 per
     // qc_backlog.md § Sandbox Brick Audit Sweep. Post-filter / pre-
     // delay.fb so it sees the filtered tap.
-    { id: 'n_dcblock', op: 'dcBlock',  x: 440, y: 270, params: { cutoff: 10 } },
+    { id: 'n_dcblock', op: 'dcBlock',  x: 360, y: 290, params: { cutoff: 10 } },
     // Soft-limit on the FB return path — pure safety net now that
     // drive is pre-loop and tone provides in-loop loss. Threshold
     // back to 0.95 since loop gain is bounded by FB · filter_gain < 1
     // under all normal settings; this clamp only engages on genuinely
     // pathological input (e.g. huge DC blast that DC-block couldn't
     // catch fast enough). Retires EFL-SB-03.
-    { id: 'n_softlim', op: 'softLimit', x: 500, y: 270, params: { threshold: 0.95 } },
+    { id: 'n_softlim', op: 'softLimit', x: 480, y: 290, params: { threshold: 0.95 } },
     { id: 'n_mix',     op: 'mix',      x: 600, y: 210, params: { amount: 0.35 } },
   ],
   wires: [
