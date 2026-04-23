@@ -168,16 +168,28 @@ export const FILTER_FX = {
 /**
  * EchoformLite — Step 3 dogfood (sandbox-native "character delay").
  *
- * First graph that uses an *external* feedback loop: the saturation and
- * tone filter live **inside** the loop, so each repeat gets darker and
- * grittier — same design trick as the hand-coded Echoform, but built
- * from the MVP 6 ops instead of bespoke DSP.
+ * External feedback loop with Memory Man / dub-delay topology:
+ *   • Drive (saturate) lives PRE-loop — colors the input so every
+ *     echo inherits the driven character, but does NOT multiply loop
+ *     gain. Fixes the FB·Drive > 1 runaway we caught ear-testing
+ *     softLimit at FB=90% + Drive=6x (locked into steady sustain
+ *     despite the clamp).
+ *   • Tone (LP filter) lives INSIDE the loop — each repeat gets
+ *     darker (classic dub move). Also the loop's frequency-dependent
+ *     loss: loop gain = FB · filter_gain ≤ FB < 1, stable by Nyquist
+ *     for all FB settings independent of Drive.
+ *   • dcBlock + softLimit on the FB return are pure safety nets now
+ *     (they should rarely see signal levels anywhere near the clamp).
  *
- *       ┌──────────── fb ─────────────────────────┐
- *       │                                         │
- *  IN ──┴── delay ── filter(lp) ── saturate ──────┤── mix.wet ── OUT
- *                                                 │
- *  IN ──────────────────────────────────── mix.dry┘
+ *       ┌──────────────── fb ──────────────────────┐
+ *       │                                          │
+ *  IN ──┴── saturate ── delay ── filter(lp) ───────┼── mix.wet ── OUT
+ *                                                  │
+ *  IN ───────────────────────────────────── mix.dry┘
+ *
+ * Canonical refs: Memory Man / DM-2 preamp placement (drive pre-
+ * loop); JOS PASP feedback stability (loop gain Nyquist); Zölzer
+ * Ch.12 virtual-analog delay topology.
  *
  * Panel: TIME · FEEDBACK · TONE · DRIVE · MIX
  *
@@ -195,36 +207,43 @@ export const ECHOFORM_LITE = {
     { id: 'out', kind: 'output', x: 740, y: 220 },
   ],
   nodes: [
-    { id: 'n_delay',   op: 'delay',    x: 140, y: 190, params: { time: 380, feedback: 0.55 } },
-    { id: 'n_filter',  op: 'filter',   x: 300, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.707 } },
-    { id: 'n_sat',     op: 'saturate', x: 460, y: 190, params: { drive: 1.6, trim: -2 } },
+    // Drive is PRE-loop (Memory Man topology) — colors input, stays
+    // out of the loop-gain product. Dry tap forks BEFORE drive so the
+    // dry leg isn't colored.
+    { id: 'n_sat',     op: 'saturate', x: 110, y: 190, params: { drive: 1.6, trim: -2 } },
+    { id: 'n_delay',   op: 'delay',    x: 220, y: 190, params: { time: 380, feedback: 0.55 } },
+    // Tone filter INSIDE the loop — gives each repeat progressive HF
+    // damping AND provides the frequency-dependent loss that makes
+    // loop gain < 1 for all FB settings (Nyquist-stable by design).
+    { id: 'n_filter',  op: 'filter',   x: 360, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.707 } },
     // DC trap on the FB return path — kills sub-10Hz DC buildup before it
     // self-multiplies through the feedback loop. Retires EFL-SB-02 per
-    // qc_backlog.md § Sandbox Brick Audit Sweep. Inline post-sat / pre-
-    // delay.fb so it sees the saturated signal — tanh can introduce DC
-    // offset on asymmetric drive, exactly what this traps.
-    { id: 'n_dcblock',  op: 'dcBlock',   x: 540, y: 260, params: { cutoff: 10 } },
-    // Soft-limit on the FB return path — bounds loop energy so FB ≥ 0.85 +
-    // high drive doesn't runaway. Unity through the linear region (tone
-    // is preserved on normal signal) and asymptotes to ±0.95 when the
-    // loop tries to blow up. Retires EFL-SB-03. Sits AFTER dcBlock so
-    // the clamp sees a DC-clean (symmetric) signal — canonical order.
-    { id: 'n_softlim', op: 'softLimit', x: 580, y: 260, params: { threshold: 0.75 } },
-    { id: 'n_mix',     op: 'mix',      x: 620, y: 210, params: { amount: 0.35 } },
+    // qc_backlog.md § Sandbox Brick Audit Sweep. Post-filter / pre-
+    // delay.fb so it sees the filtered tap.
+    { id: 'n_dcblock', op: 'dcBlock',  x: 440, y: 270, params: { cutoff: 10 } },
+    // Soft-limit on the FB return path — pure safety net now that
+    // drive is pre-loop and tone provides in-loop loss. Threshold
+    // back to 0.95 since loop gain is bounded by FB · filter_gain < 1
+    // under all normal settings; this clamp only engages on genuinely
+    // pathological input (e.g. huge DC blast that DC-block couldn't
+    // catch fast enough). Retires EFL-SB-03.
+    { id: 'n_softlim', op: 'softLimit', x: 500, y: 270, params: { threshold: 0.95 } },
+    { id: 'n_mix',     op: 'mix',      x: 600, y: 210, params: { amount: 0.35 } },
   ],
   wires: [
-    // Forward path through the loop
-    { from: 'in',        to: 'n_delay'    },
+    // Pre-loop drive — input hits saturate first, then enters the delay
+    { from: 'in',        to: 'n_sat'      },
+    { from: 'n_sat',     to: 'n_delay'    },
+    // Forward path through the loop (delay → filter)
     { from: 'n_delay',   to: 'n_filter'   },
-    { from: 'n_filter',  to: 'n_sat'      },
-    // Post-saturate signal feeds mix directly (that's the wet send), but
-    // the FB tap detours through dcBlock + softLimit so DC and runaway
-    // are both bounded before the signal re-enters the delay input.
-    { from: 'n_sat',     to: 'n_mix.wet'  },
-    { from: 'n_sat',     to: 'n_dcblock'  },
+    // Post-filter signal is the wet send AND the FB tap source.
+    // FB tap detours through dcBlock + softLimit so DC and clamp
+    // safety are both in place before the signal re-enters delay.fb.
+    { from: 'n_filter',  to: 'n_mix.wet'  },
+    { from: 'n_filter',  to: 'n_dcblock'  },
     { from: 'n_dcblock', to: 'n_softlim'  },
     { from: 'n_softlim', to: 'n_delay.fb' },   // ← DC-blocked + soft-limited FB tap
-    // Dry sum
+    // Dry sum — dry leg taps RAW input, so drive doesn't color it
     { from: 'in',        to: 'n_mix.dry'  },
     { from: 'n_mix',     to: 'out'        },
   ],
