@@ -209,7 +209,7 @@ export const ECHOFORM_LITE = {
     // is preserved on normal signal) and asymptotes to ±0.95 when the
     // loop tries to blow up. Retires EFL-SB-03. Sits AFTER dcBlock so
     // the clamp sees a DC-clean (symmetric) signal — canonical order.
-    { id: 'n_softlim', op: 'softLimit', x: 580, y: 260, params: { threshold: 0.95 } },
+    { id: 'n_softlim', op: 'softLimit', x: 580, y: 260, params: { threshold: 0.75 } },
     { id: 'n_mix',     op: 'mix',      x: 620, y: 210, params: { amount: 0.35 } },
   ],
   wires: [
