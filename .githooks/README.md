@@ -23,7 +23,8 @@ Fail-fast order (cheapest first):
 1. `node scripts/check_schema_v1.mjs`       — static v1.0 conformance    (~50 ms)
 2. `node scripts/check_t6_rules.mjs`        — T6 rule negative-tests     (~200 ms)
 3. `node scripts/check_all_graphs_deep.mjs` — deep T6 on all graphs      (~200 ms)
-4. `node scripts/check_op_goldens.mjs`      — op sidecar shape + goldens (~300 ms)
+4. `node scripts/check_pcof.mjs`            — PCOF build + T6.5 pre-codegen (~250 ms)
+5. `node scripts/check_op_goldens.mjs`      — op sidecar shape + goldens (~300 ms)
 
 Equivalent to `npm run qc:all`.
 

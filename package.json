@@ -10,9 +10,10 @@
     "qc:schema": "node scripts/check_schema_v1.mjs",
     "qc:t6": "node scripts/check_t6_rules.mjs",
     "qc:graphs": "node scripts/check_all_graphs_deep.mjs",
+    "qc:pcof": "node scripts/check_pcof.mjs",
     "qc:goldens": "node scripts/check_op_goldens.mjs",
     "qc:goldens:bless": "node scripts/check_op_goldens.mjs --bless",
-    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:goldens",
+    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens",
     "install-hooks": "git config core.hooksPath .githooks"
   },
   "keywords": [],
