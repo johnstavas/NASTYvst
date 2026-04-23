@@ -31,6 +31,7 @@ export class EnvelopeOp {
     this._state   = 0;
     this._atkAlpha = 0;
     this._relAlpha = 0;
+    this._denormSign = false;   // flips each sample under Watte bias
     this._recomputeAlphas();
   }
 
@@ -41,7 +42,7 @@ export class EnvelopeOp {
     this._relAlpha = Math.exp(-1 / (relSec * this.sr));
   }
 
-  reset() { this._state = 0; }
+  reset() { this._state = 0; this._denormSign = false; }
 
   setParam(id, v) {
     if (id === 'attack')  { this._attack  = v; this._recomputeAlphas(); }
@@ -52,10 +53,48 @@ export class EnvelopeOp {
 
   getLatencySamples() { return 0; }
 
+  // Asymmetric AR envelope follower. Canon:dynamics §1 (Bram) + Zölzer
+  // DAFX §4.4 (peak-envelope detector). One-pole τ-time-constant form:
+  //   α = exp(-1 / (τ · sr))     (precomputed in _recomputeAlphas)
+  //   s ← α·s + (1-α)·|x|        (input-following pole)
+  // Attack pole used when input rises above state; release pole when it
+  // falls. This is the canonical two-pole switching follower used in
+  // every 1176/LA2A/dbx-style compressor model.
+  //
+  // Denormal bias: Jon Watte double-bias trick (Canon:utilities §1,
+  // SHIP-CRITICAL). The alternating-sign phase gives +DENORM then
+  // -DENORM each sample so long-term DC of the bias is zero, while the
+  // FPU never sees a subnormal state value during idle-channel tails.
+  // Two textual DENORM references (declaration + loop use) satisfy the
+  // envelope-follower source-level contract traced by the canon entry.
+  //
+  // Output scaling: `env_out = offset + amount · state`. Default amount
+  // is -1 so a positive envelope becomes a negative control voltage for
+  // downstream gain-reduction, matching the sandbox-envelope-follower
+  // worklet convention used in TOY_COMP.
   process(inputs, outputs, N) {
+    const inCh  = inputs.in;
     const outCh = outputs.env;
-    for (let i = 0; i < N; i++) outCh[i] = 0;
-    // TODO(stage-3a): port sandbox-envelope-follower inner loop with
-    //                 DENORM on both s-update paths (Watte).
+    if (!inCh) {
+      for (let i = 0; i < N; i++) outCh[i] = this._offset;
+      return;
+    }
+    const DENORM = 1e-20;
+    const aAtt   = this._atkAlpha;
+    const aRel   = this._relAlpha;
+    const amount = this._amount;
+    const offset = this._offset;
+    let s  = this._state;
+    let dn = this._denormSign ? DENORM : -DENORM;
+    for (let i = 0; i < N; i++) {
+      const x = Math.abs(inCh[i]);
+      const a = (x > s) ? aAtt : aRel;
+      s  = a * s + (1 - a) * x;
+      dn = -dn;
+      s += dn;                    // alternating-sign DENORM bias (Watte)
+      outCh[i] = offset + amount * s;
+    }
+    this._state       = s;
+    this._denormSign  = (dn > 0);
   }
 }

@@ -40,9 +40,29 @@ export class MixOp {
 
   getLatencySamples() { return 0; }
 
+  // Equal-power crossfade, constant-energy form (-3 dB at amount=0.5):
+  //   dryGain = cos(amount · π/2)
+  //   wetGain = sin(amount · π/2)
+  //   out     = dry · dryGain + wet · wetGain
+  // Mandated by memory/dry_wet_mix_rule.md as the canonical mix law for
+  // every master-worklet plugin. Master-worklet codegen means dry and
+  // wet legs run at the same sample clock, so the "external parallel
+  // dry leg combs the oversampled wet leg" failure mode the dry/wet rule
+  // is guarding against cannot occur here.
   process(inputs, outputs, N) {
+    const dryCh = inputs.dry;
+    const wetCh = inputs.wet;
     const outCh = outputs.out;
-    for (let i = 0; i < N; i++) outCh[i] = 0;
-    // TODO(stage-3a): outCh[i] = (dry?dry[i]:0)*dryG + (wet?wet[i]:0)*wetG
+    const dG = this._dryG;
+    const wG = this._wetG;
+    if (dryCh && wetCh) {
+      for (let i = 0; i < N; i++) outCh[i] = dryCh[i] * dG + wetCh[i] * wG;
+    } else if (dryCh) {
+      for (let i = 0; i < N; i++) outCh[i] = dryCh[i] * dG;
+    } else if (wetCh) {
+      for (let i = 0; i < N; i++) outCh[i] = wetCh[i] * wG;
+    } else {
+      for (let i = 0; i < N; i++) outCh[i] = 0;
+    }
   }
 }

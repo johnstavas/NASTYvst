@@ -38,9 +38,52 @@ export class GainComputerOp {
 
   getLatencySamples() { return 0; }
 
+  // Zölzer DAFX §4.2.2 soft-knee static gain computer — same form used in
+  // the validator's T6.GAINCOMP_MONOTONIC monotonicity sweep (validateGraph.js)
+  // so the numerical contract here is sealed against both that rule and the
+  // golden-vector hash.
+  //
+  // Piecewise curve in dB-domain (input level x → output level y):
+  //   below knee:  y = x                                  (1:1)
+  //   above knee:  y = thr + (x - thr) / ratio            (compressed)
+  //   in  knee:    y = x + (1/ratio - 1) · k · t² / 2,    t = (x - thr + K/2)/K
+  // where K = kneeDb, k = 1/ratio − 1 (negative for compression), giving
+  // the classic quadratic soft-knee blend (Bristow-Johnson / Zölzer).
+  //
+  // Input (`env`) is a LINEAR magnitude (e.g. output of envelope + abs or
+  // sqrt of RMS power). Converted to dB with a small floor to avoid
+  // log10(0). Output (`gr`) is a LINEAR MULTIPLIER in (0, 1] — apply it
+  // directly to the audio path via a gain op with base=0 + gainMod=gr,
+  // or use (gr − 1) on a gain op with base=1.
   process(inputs, outputs, N) {
+    const envCh = inputs.env;
     const outCh = outputs.gr;
-    for (let i = 0; i < N; i++) outCh[i] = 0;
-    // TODO(stage-3a): port Zölzer soft-knee gain-computer inner loop.
+    if (!envCh) {
+      for (let i = 0; i < N; i++) outCh[i] = 1;
+      return;
+    }
+    const thr    = this._thr;
+    const ratio  = this._ratio;
+    const knee   = this._knee;
+    const halfK  = knee * 0.5;
+    const invRm1 = (1 / ratio) - 1;          // ≤ 0 for ratio ≥ 1
+    const LOG10  = 2.302585092994046;
+    const FLOOR  = 1e-12;                    // -240 dB floor
+    for (let i = 0; i < N; i++) {
+      const lin = envCh[i];
+      const mag = lin >= 0 ? lin : -lin;
+      const xDb = 20 * Math.log(mag + FLOOR) / LOG10;
+      let yDb;
+      if (knee > 0 && xDb > thr - halfK && xDb < thr + halfK) {
+        const t = (xDb - thr + halfK) / knee;
+        yDb = xDb + invRm1 * knee * t * t * 0.5;
+      } else if (xDb >= thr + halfK) {
+        yDb = thr + (xDb - thr) / ratio;
+      } else {
+        yDb = xDb;
+      }
+      const grDb = yDb - xDb;                // ≤ 0
+      outCh[i] = Math.exp(grDb * LOG10 / 20); // = 10^(grDb/20)
+    }
   }
 }

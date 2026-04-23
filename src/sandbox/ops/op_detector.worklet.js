@@ -28,9 +28,23 @@ export class DetectorOp {
 
   getLatencySamples() { return 0; }
 
+  // Zölzer DAFX Ch. 4.4 dynamics chain + Canon:dynamics §1 (Bram envelope
+  // detector): the detector stage is a pure rectifier; averaging and sqrt
+  // live in the downstream envelope op. "peak" → |x|. "rms" → x² (power
+  // domain; the envelope LPF integrates to mean-square, and if an RMS
+  // magnitude is wanted the caller applies sqrt before the gain computer).
+  // Splitting sqrt out keeps this op stateless and branch-free per sample.
   process(inputs, outputs, N) {
+    const inCh  = inputs.in;
     const outCh = outputs.det;
-    for (let i = 0; i < N; i++) outCh[i] = 0;
-    // TODO(stage-3a): inCh ? (mode==='rms' ? x*x : Math.abs(x)) : 0
+    if (!inCh) {
+      for (let i = 0; i < N; i++) outCh[i] = 0;
+      return;
+    }
+    if (this._mode === 'rms') {
+      for (let i = 0; i < N; i++) { const x = inCh[i]; outCh[i] = x * x; }
+    } else {
+      for (let i = 0; i < N; i++) outCh[i] = Math.abs(inCh[i]);
+    }
   }
 }
