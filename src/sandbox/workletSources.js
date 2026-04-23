@@ -750,10 +750,22 @@ class SandboxFdnReverb extends AudioWorkletProcessor {
         // Unity through the linear region (tail tone preserved) and
         // asymptotes to ±T when the loop tries to blow up. Replaces
         // the pre-2026-04-23 hard-clip at ±1.8 which was non-canonical
-        // per the Geraint Luff FDN reference. Threshold T=0.95 chosen
-        // for ~0.05 headroom margin. Retires FdnHall leg of EFL-SB-03.
+        // per the Geraint Luff FDN reference.
+        //
+        // Threshold T=2.0 (raised from 0.95 on 2026-04-23): FDN internal
+        // channel levels legitimately peak at 1.5–3.0 during transient
+        // buildup before Hadamard redistributes energy across channels —
+        // that's normal and musical per JOS PASP § FDN + Luff's recipe.
+        // Clamping at 0.95 was audibly intruding on dense material at
+        // 100% mix ("touch of distortion"). T=2.0 is still more
+        // conservative than the ±1.8 hard-clip it replaced (smooth tanh
+        // instead of sharp clip) while staying clear of normal operating
+        // range. FDN stability is already guaranteed by unitary Hadamard
+        // + per-channel decay < 1; this clamp is a pure safety net for
+        // pathological DC/denormal edge cases. Retires FdnHall leg of
+        // EFL-SB-03.
         {
-          const T = 0.95;
+          const T = 2.0;
           const u = fb_sig / T;
           const ua = u < -3 ? -3 : u > 3 ? 3 : u;
           fb_sig = T * (ua * (27 + ua * ua)) / (27 + 9 * ua * ua);
