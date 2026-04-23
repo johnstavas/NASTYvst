@@ -9,21 +9,25 @@
 //     time mistakes are loud during sandbox construction
 //   - T6 IR / pre-compile validator (gate before codegen)
 //
-// What v1.0 enforces (structural + type-level, not semantic):
-//   • schemaVersion present and equals SCHEMA_VERSION
-//   • op exists in registry
-//   • params live in the op's schema
-//   • param values fit type/range
-//   • terminal/wire/feedback references resolve
-//   • wire endpoints resolve to real ports on real nodes
-//   • port kinds match across a wire (audio↔audio, control↔control)
-//   • panel knob mappings point at real (node, numeric param) pairs
+// What v1.0 enforces (structural + type-level + FB-safety):
+//   • T6.SCHEMA_VERSION     — schemaVersion present and equals SCHEMA_VERSION
+//   • T6.OP_KNOWN           — op exists in registry
+//   • T6.PARAM_KNOWN        — params live in the op's schema
+//   • T6.PARAM_RANGE        — param values fit type/range
+//   • T6.ID_RESOLVES        — terminal/wire/feedback references resolve
+//   • T6.PORT_RESOLVES      — wire endpoints resolve to real ports on real nodes
+//   • T6.PORT_KIND_MATCH    — port kinds match (audio↔audio, control↔control)
+//   • T6.PANEL_MAPPING      — panel knob mappings point at real (node, numeric param) pairs
+//   • T6.TERMINALS_PRESENT  — at least one input and one output terminal exist
+//   • T6.ORPHAN_NODE        — every node has at least one wire touching it (warn)
+//   • T6.FB_CYCLE_DECLARED  — every wire-graph cycle routes through an `fb` port
+//   • T6.FB_DC_TRAP         — every `fb` input has a dcBlock op upstream
+//   • T6.FB_SAFETY_NODE     — every `fb` input has a softLimit op upstream
 //
 // Deferred to later stages (see sandbox_modulation_roadmap.md):
 //   • modulation-source DAG legality (Stage-B: signal→param, curves)
-//   • cycle / feedback-loop legality (must declare in graph.feedback)
 //   • capability aggregation (aggregate per-op flags into graph caps)
-//   • T6 rule bodies for missing_caps / version_skew / etc.
+//   • BPM/host-sync, LFO waveform Bézier curves
 
 import { getOp } from './opRegistry';
 
@@ -103,6 +107,13 @@ export function validateGraph(graph) {
   };
   const nodeById = new Map(graph.nodes.map(n => [n.id, n]));
 
+  // Default-port resolution MUST match compileGraphToWebAudio.js exactly
+  // (first audio port, else first port of any kind). Any drift here =
+  // validator rejects graphs the compiler happily runs, or vice versa.
+  const defaultPortId = (bucket) => {
+    const audio = bucket.find(p => p.kind === 'audio');
+    return audio ? audio.id : bucket[0]?.id;
+  };
   const portKind = (ref, direction) => {
     // direction: 'out' (wire source) or 'in' (wire dest)
     const { id, port } = splitRef(ref);
@@ -116,8 +127,7 @@ export function validateGraph(graph) {
     const op = getOp(node.op);
     if (!op) return null;
     const bucket = direction === 'out' ? op.ports.outputs : op.ports.inputs;
-    const defaultPort = direction === 'out' ? 'out' : 'in';
-    const target = port ?? defaultPort;
+    const target = port ?? defaultPortId(bucket);
     const p = bucket.find(pp => pp.id === target);
     if (!p) {
       push('error', `wire references unknown ${direction}-port "${ref}" on op "${node.op}" (available: ${bucket.map(pp => pp.id).join(', ')})`);
@@ -135,7 +145,16 @@ export function validateGraph(graph) {
     const fromKind = portKind(w.from, 'out');
     const toKind   = portKind(w.to,   'in');
     if (fromKind && toKind && fromKind !== toKind) {
-      push('error', `wire "${w.from}" → "${w.to}" kind mismatch: ${fromKind} → ${toKind}`);
+      // In v1.0 the `kind` field is ADVISORY. Web Audio has no real
+      // distinction at the node level — detector/lfo outputs declared
+      // `control` still emit audio samples at runtime; a `control` input
+      // like gain.gainMod is a regular AudioNode input on the node side
+      // and only becomes "control" when wired to an AudioParam.
+      //
+      // Stage-B of the modulation roadmap will introduce proper control-
+      // rate typing (separate sample rate, ScriptProcessor-free path).
+      // Until then: warn, don't block compilation.
+      push('warning', `wire "${w.from}" → "${w.to}" kind mismatch: ${fromKind} → ${toKind} (v1.0 kind is advisory; Stage-B will enforce)`);
     }
   }
   for (const fb of (graph.feedback || [])) {
@@ -184,6 +203,160 @@ export function validateGraph(graph) {
             push('warning', `panel knob "${k.id}" mapping curve "${m.curve}" unknown — using lin`);
           }
         }
+      }
+    }
+  }
+
+  // --- T6.TERMINALS_PRESENT -----------------------------------------------
+  // A shippable brick needs at least one input and one output terminal —
+  // compileGraphToWebAudio + master-worklet codegen both rely on this.
+  const termKinds = new Set(graph.terminals.map(t => t.kind));
+  if (!termKinds.has('input'))  push('error', 'graph has no input terminal — add a { kind: "input" } to graph.terminals');
+  if (!termKinds.has('output')) push('error', 'graph has no output terminal — add a { kind: "output" } to graph.terminals');
+
+  // --- T6.ORPHAN_NODE -----------------------------------------------------
+  // Every node should have at least one wire touching it. Warn, don't
+  // error — orphans might be mid-edit. But they're dead weight at compile.
+  const touched = new Set();
+  for (const w of graph.wires) {
+    touched.add(splitRef(w.from).id);
+    touched.add(splitRef(w.to).id);
+  }
+  for (const n of graph.nodes) {
+    if (!touched.has(n.id)) {
+      push('warning', `node "${n.id}" (op "${n.op}") has no wires — orphan, will be ignored at compile`);
+    }
+  }
+
+  // --- T6.FB_CYCLE_DECLARED -----------------------------------------------
+  // Find cycles in the wire graph. Every cycle must route through an `fb`
+  // input port — that's how feedback is declared at the schema level. A
+  // cycle that closes without any fb-port edge means someone accidentally
+  // wired output→input and the compiler would hang/explode at runtime.
+  //
+  // Algorithm: for each node, DFS forward following wires; if we revisit a
+  // node already on the current stack, we have a cycle. Walk the cycle and
+  // check whether any edge in it targets a `*.fb` port. If none do, error.
+  {
+    // Build adjacency with per-edge port info.
+    const adj = new Map(); // fromId -> [{ toId, toPort, raw }]
+    for (const w of graph.wires) {
+      const from = splitRef(w.from);
+      const to   = splitRef(w.to);
+      if (!adj.has(from.id)) adj.set(from.id, []);
+      // Resolve default port for the destination so we can tell if this
+      // edge is an fb-port edge. Uses the same rule as the compiler.
+      const node = nodeById.get(to.id);
+      const op   = node ? getOp(node.op) : null;
+      const toPort = to.port ?? (op ? defaultPortId(op.ports.inputs) : null);
+      adj.get(from.id).push({ toId: to.id, toPort, raw: `${w.from} → ${w.to}` });
+    }
+
+    const WHITE = 0, GRAY = 1, BLACK = 2;
+    const color = new Map([...ids.keys()].map(id => [id, WHITE]));
+    const parent = new Map(); // childId -> { fromId, edge }
+
+    const cycles = []; // array of edge-arrays
+
+    function dfs(u) {
+      color.set(u, GRAY);
+      for (const e of (adj.get(u) || [])) {
+        const v = e.toId;
+        const cv = color.get(v);
+        if (cv === WHITE) {
+          parent.set(v, { fromId: u, edge: e });
+          dfs(v);
+        } else if (cv === GRAY) {
+          // Found a back-edge u → v. Reconstruct the cycle: walk parent
+          // pointers from u back to v, then add the u→v edge.
+          const cycleEdges = [];
+          let cur = u;
+          while (cur !== v) {
+            const p = parent.get(cur);
+            if (!p) break;
+            cycleEdges.push(p.edge);
+            cur = p.fromId;
+          }
+          cycleEdges.push(e);
+          cycles.push(cycleEdges);
+        }
+      }
+      color.set(u, BLACK);
+    }
+
+    for (const id of ids.keys()) {
+      if (color.get(id) === WHITE) dfs(id);
+    }
+
+    const seenCycleKeys = new Set();
+    for (const cyc of cycles) {
+      // Dedupe rotations of the same cycle
+      const key = [...cyc].map(e => e.raw).sort().join('|');
+      if (seenCycleKeys.has(key)) continue;
+      seenCycleKeys.add(key);
+
+      const hasFbEdge = cyc.some(e => e.toPort === 'fb');
+      if (!hasFbEdge) {
+        const rendered = cyc.map(e => e.raw).join('  •  ');
+        push('error', `undeclared feedback cycle — route this through an \`fb\` input port: ${rendered}`);
+      }
+    }
+  }
+
+  // --- T6.FB_DC_TRAP + T6.FB_SAFETY_NODE ----------------------------------
+  // For every wire that targets an `fb` input, the upstream chain feeding
+  // that edge must contain a dcBlock AND a softLimit op. This formalizes
+  // the FB-safety ship-gate landed 2026-04-23 (EchoformLite Memory Man
+  // topology + FdnHall softLimit at T=2.0). Without both guards:
+  //   - DC offset from asymmetric saturation self-multiplies through the
+  //     loop (dcBlock catches this)
+  //   - Pathological input can drive fb_sig beyond safe ring-buffer range
+  //     (softLimit catches this)
+  //
+  // Canon: reverb_engine_architecture.md + ship_blockers.md § "DC rejection
+  // under FB" + "feedback runaway guard".
+  {
+    // Build reverse adjacency for upstream walking.
+    const revAdj = new Map(); // toId -> [fromId]
+    for (const w of graph.wires) {
+      const from = splitRef(w.from);
+      const to   = splitRef(w.to);
+      if (!revAdj.has(to.id)) revAdj.set(to.id, []);
+      revAdj.get(to.id).push(from.id);
+    }
+
+    // Find every wire whose destination port is `fb`. Default port uses
+    // the same rule as the compiler.
+    const fbWires = [];
+    for (const w of graph.wires) {
+      const to = splitRef(w.to);
+      const node = nodeById.get(to.id);
+      const op   = node ? getOp(node.op) : null;
+      const toPort = to.port ?? (op ? defaultPortId(op.ports.inputs) : null);
+      if (toPort === 'fb') fbWires.push({ from: splitRef(w.from), to, raw: `${w.from} → ${w.to}` });
+    }
+
+    // For each, walk upstream collecting op ids. Stop at terminals or at
+    // the back-edge-from-downstream (the first node that we'd enter via a
+    // forward wire from elsewhere — that's the FB tap's source).
+    for (const fw of fbWires) {
+      const seen = new Set();
+      const stack = [fw.from.id];
+      const opsUpstream = new Set();
+      while (stack.length) {
+        const cur = stack.pop();
+        if (seen.has(cur)) continue;
+        seen.add(cur);
+        const node = nodeById.get(cur);
+        if (node) opsUpstream.add(node.op);
+        for (const pred of (revAdj.get(cur) || [])) stack.push(pred);
+      }
+
+      if (!opsUpstream.has('dcBlock')) {
+        push('error', `feedback path \`${fw.raw}\` missing dcBlock op upstream — required by FB safety ship-gate`);
+      }
+      if (!opsUpstream.has('softLimit')) {
+        push('error', `feedback path \`${fw.raw}\` missing softLimit op upstream — required by FB safety ship-gate`);
       }
     }
   }
