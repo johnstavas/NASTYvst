@@ -75,6 +75,7 @@ export const RULE_KNOWLEDGE_MAP = Object.freeze({
   lpc_stability:            'safety.nan_or_infinite_output',
   fft_frame_phase:          'spectral.smearing_too_much',
   pitch_idle:               'pitch.tracking_glitches',
+  bpm_detector_accuracy:    'tempo.auto_bpm_locks_to_wrong_multiple',
 
   // ── T4+ stubs (reserved mappings; bodies pending) ───────────────────────
   os_boundary:              'oversampling.mode_changes_latency_unannounced',

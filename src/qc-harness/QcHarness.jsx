@@ -36,7 +36,18 @@ export default function QcHarness({ productId, version }) {
   const [curVersion, setCurVersion] = useState(initialVersion);
   const variant = product.variants[curVersion];
 
-  const [ctx]       = useState(() => new (window.AudioContext || window.webkitAudioContext)());
+  // ── AudioContext is lazily constructed on first user gesture. ───────────
+  // Creating it at mount triggers Chrome's output-device negotiation before
+  // any user click; on some machines that races page-load and Chrome logs
+  // "AudioContext encountered an error from the audio device or the WebAudio
+  // renderer" and the context is dead on arrival. Deferring ctx construction
+  // until the first SOURCE button click puts the negotiation on a user
+  // gesture where Chrome handles it reliably.
+  const ctxRef     = useRef(null);
+  const ctxGenRef  = useRef(0); // bumps on rebuild; engine effect re-fires
+  const [ctxGen,   setCtxGen]   = useState(0);
+  const [ctxState, setCtxState] = useState('uninit'); // uninit|suspended|running|closed|error
+  const [bootError, setBootError] = useState(null);
   const [engine,  setEngine]  = useState(null);
   const [entries, setEntries] = useState([]);
   const [values,  setValues]  = useState({});
@@ -45,45 +56,106 @@ export default function QcHarness({ productId, version }) {
   const [droppedName, setDroppedName] = useState('');
   const sourceRef   = useRef(null);
   const analyserRef = useRef(null);
+  const engineRef   = useRef(null); // mirror of `engine` state for async waits
   const [meter, setMeter] = useState({ peak: -Infinity, rms: -Infinity });
   const [hasSchema, setHasSchema] = useState(true);
 
+  // Create / recreate the AudioContext. Returns the ctx, or null on failure.
+  function _mountCtx() {
+    try {
+      const c = new (window.AudioContext || window.webkitAudioContext)();
+      ctxRef.current = c;
+      const onState = () => setCtxState(c.state);
+      c.addEventListener('statechange', onState);
+      setCtxState(c.state);
+      setBootError(null);
+      ctxGenRef.current++;
+      setCtxGen(ctxGenRef.current);
+      return c;
+    } catch (err) {
+      console.error('[qc-harness] AudioContext create failed:', err);
+      setBootError(`AudioContext create failed: ${err.message}`);
+      setCtxState('error');
+      return null;
+    }
+  }
+
+  // Resume if suspended. Must be called from a user-gesture stack frame.
+  async function _ensureRunning() {
+    let c = ctxRef.current;
+    if (!c) c = _mountCtx();
+    if (!c) return null;
+    if (c.state === 'suspended' || c.state === 'interrupted') {
+      try { await c.resume(); } catch (err) {
+        console.error('[qc-harness] ctx.resume() failed:', err);
+        setBootError(`ctx.resume() failed: ${err.message}`);
+      }
+    }
+    return c;
+  }
+
+  // Tear down ctx + engine and rebuild on demand. Used by the "restart
+  // audio" button when Chrome has silently killed the renderer.
+  async function restartAudio() {
+    stopSource();
+    try { analyserRef.current?.disconnect(); } catch {}
+    analyserRef.current = null;
+    try { engine?.dispose?.(); } catch {}
+    setEngine(null);
+    const old = ctxRef.current;
+    ctxRef.current = null;
+    if (old) { try { await old.close(); } catch {} }
+    _mountCtx();
+    // Engine effect will re-fire because ctxGen bumped.
+  }
+
   // Engine lifecycle ────────────────────────────────────────────────────────
+  // Runs when the user picks a different variant OR when ctx is (re)built.
+  // Gated on ctxRef.current because we no longer create ctx at mount.
   useEffect(() => {
+    const ctx = ctxRef.current;
+    if (!ctx) return; // will re-run once ctxGen bumps
     let disposed = false;
     let e = null;
     (async () => {
-      const created = await variant.engineFactory(ctx);
-      if (disposed) { try { created.dispose?.(); } catch {} ; return; }
-      e = created;
+      try {
+        const created = await variant.engineFactory(ctx);
+        if (disposed) { try { created.dispose?.(); } catch {} ; return; }
+        e = created;
 
-      const built = buildEntries(created);
-      const defaults = {};
-      for (const en of built) {
-        if (en.kind === 'noop')   continue;
-        if (en.kind === 'preset') defaults[en.name] = '';    // no preset selected
-        else if (en.kind === 'bool') defaults[en.name] = en.def ?? 0;
-        else if (en.kind === 'enum') defaults[en.name] = en.def ?? 0;
-        else                         defaults[en.name] = en.def ?? 0;
+        const built = buildEntries(created);
+        const defaults = {};
+        for (const en of built) {
+          if (en.kind === 'noop')   continue;
+          if (en.kind === 'preset') defaults[en.name] = '';    // no preset selected
+          else if (en.kind === 'bool') defaults[en.name] = en.def ?? 0;
+          else if (en.kind === 'enum') defaults[en.name] = en.def ?? 0;
+          else                         defaults[en.name] = en.def ?? 0;
+        }
+
+        const an = ctx.createAnalyser();
+        an.fftSize = 2048;
+        try { created.output.connect(an); } catch {}
+        try { an.connect(ctx.destination); } catch {}
+        analyserRef.current = an;
+
+        setHasSchema(Array.isArray(created.paramSchema));
+        setEngine(created);
+        engineRef.current = created;
+        setEntries(built);
+        setValues(defaults);
+      } catch (err) {
+        console.error('[qc-harness] engineFactory failed:', err);
+        setBootError(`engine build failed: ${err.message}`);
       }
-
-      const an = ctx.createAnalyser();
-      an.fftSize = 2048;
-      try { created.output.connect(an); } catch {}
-      try { an.connect(ctx.destination); } catch {}
-      analyserRef.current = an;
-
-      setHasSchema(Array.isArray(created.paramSchema));
-      setEngine(created);
-      setEntries(built);
-      setValues(defaults);
     })();
     return () => {
       disposed = true;
       try { analyserRef.current?.disconnect(); } catch {}
       try { e?.dispose?.(); } catch {}
+      if (engineRef.current === e) engineRef.current = null;
     };
-  }, [curVersion]);
+  }, [curVersion, ctxGen]);
 
   // Source lifecycle ────────────────────────────────────────────────────────
   function stopSource() {
@@ -92,8 +164,24 @@ export default function QcHarness({ productId, version }) {
     sourceRef.current = null;
   }
   async function startSource(kind, fileArg) {
-    if (!engine) return;
-    if (ctx.state === 'suspended') await ctx.resume();
+    // FIRST CLICK: this is the user gesture that unlocks WebAudio. Create
+    // ctx here (not at mount) so Chrome negotiates the output device on a
+    // gesture instead of racing page load.
+    const ctx = await _ensureRunning();
+    if (!ctx) return;
+    // Engine is async — wait up to 3 s for it to finish building. Poll the
+    // ref (not state) so we see the update inside this closure.
+    if (!engineRef.current) {
+      const deadline = Date.now() + 3000;
+      while (!engineRef.current && Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      if (!engineRef.current) {
+        setBootError('engine not ready after 3 s — try Restart Audio');
+        return;
+      }
+    }
+    const eng = engineRef.current;
     stopSource();
     let src;
     if (kind === 'pink')       src = createPinkNoise(ctx);
@@ -101,7 +189,7 @@ export default function QcHarness({ productId, version }) {
     else if (kind === 'drum')  src = createDrumLoopStub(ctx);
     else if (kind === 'file' && fileArg) src = await loadFileAsSource(ctx, fileArg);
     else return;
-    try { src.connect(engine.input); } catch {}
+    try { src.connect(eng.input); } catch {}
     if (src.start) src.start();
     sourceRef.current = src;
     setSourceKind(kind);
@@ -206,6 +294,10 @@ export default function QcHarness({ productId, version }) {
     setDropActive(false);
     const f = e.dataTransfer?.files?.[0];
     if (!f) return;
+    // Drop is a user gesture — unlock the AudioContext SYNCHRONOUSLY before
+    // we await anything else. _ensureRunning() eats the ctx.resume() promise
+    // but Chrome accepts it as long as it's called in the gesture stack.
+    _ensureRunning();
     // Splice Desktop drag-sources use stream-mode File handles that get
     // revoked as soon as the drop event's microtask queue drains. We MUST
     // read the bytes before any React state update, await, or side effect
@@ -266,9 +358,9 @@ export default function QcHarness({ productId, version }) {
         </Warn>
       )}
 
-      {engine && (
+      {engine && ctxRef.current && (
         <Analyzer
-          ctx={ctx} engine={engine}
+          ctx={ctxRef.current} engine={engine}
           productId={productId} version={curVersion}
           entries={entries} values={values} valuesRef={valuesRef} setParam={setParam}
           syncFromEngineState={syncFromEngineState}
@@ -277,11 +369,18 @@ export default function QcHarness({ productId, version }) {
       )}
 
       <Section title={`SOURCE`}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <AudioStatusStrip
+          ctxState={ctxState}
+          engineReady={!!engine}
+          bootError={bootError}
+          onRestart={restartAudio}
+        />
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
           {['pink', 'sweep', 'drum'].map(k => (
             <Btn key={k} on={sourceKind === k} onClick={() => startSource(k)}>{k}</Btn>
           ))}
-          <label style={{ ...ST.btn, ...(sourceKind === 'file' ? ST.btnOn : {}) }}>
+          <label style={{ ...ST.btn, ...(sourceKind === 'file' ? ST.btnOn : {}) }}
+            onMouseDown={() => { _ensureRunning(); }}>
             file…
             <input type="file" accept="audio/*" style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) startSource('file', f); }} />
@@ -342,6 +441,41 @@ function Btn({ children, on, onClick, small }) {
       style={{ ...ST.btn, ...(on ? ST.btnOn : {}), ...(small ? ST.btnSmall : {}) }}>
       {children}
     </button>
+  );
+}
+function AudioStatusStrip({ ctxState, engineReady, bootError, onRestart }) {
+  // Map ctxState → (color, label). `uninit` means we haven't created the
+  // AudioContext yet — tell the user what unlocks it.
+  const map = {
+    uninit:      { c: '#8a90a0', t: 'CTX: not created — click any source to start' },
+    suspended:   { c: '#e0b040', t: 'CTX: suspended — click any source to resume' },
+    running:     { c: '#7fd090', t: 'CTX: running' },
+    interrupted: { c: '#e08050', t: 'CTX: interrupted' },
+    closed:      { c: '#ff7070', t: 'CTX: closed — click Restart Audio' },
+    error:       { c: '#ff7070', t: 'CTX: error' },
+  };
+  const s = map[ctxState] || { c: '#ff7070', t: `CTX: ${ctxState}` };
+  const engC = engineReady ? '#7fd090' : '#8a90a0';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '6px 10px', background: '#0a0e14',
+      border: '1px solid #1a2028', borderRadius: 4,
+      fontFamily: 'Courier New, monospace', fontSize: 11,
+    }}>
+      <span style={{ color: s.c }}>● {s.t}</span>
+      <span style={{ color: engC }}>● ENGINE: {engineReady ? 'ready' : 'building…'}</span>
+      <div style={{ flex: 1 }} />
+      {bootError && (
+        <span style={{ color: '#ffb060', fontSize: 10, maxWidth: 420,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          title={bootError}>⚠ {bootError}</span>
+      )}
+      <button onMouseDown={(e) => { e.preventDefault(); onRestart(); }}
+        style={{ ...ST.btn, ...ST.btnSmall, color: '#ffd080', borderColor: '#8a6a20' }}>
+        restart audio
+      </button>
+    </div>
   );
 }
 function Meter({ label, db }) {

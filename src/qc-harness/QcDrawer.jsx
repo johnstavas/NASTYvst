@@ -111,41 +111,132 @@ export default function QcDrawer({ instanceId, instances, enginesRef, onClose, o
   }
 
   async function startSource(kind, fileArg) {
-    console.log('[QcDrawer] startSource()', kind, { hasEngine: !!engine, hasInput: !!engine?.input, hasCtx: !!ctx, ctxState: ctx?.state });
-    if (!engine?.input || !ctx) { console.warn('[QcDrawer] aborting — missing engine/ctx'); return; }
-    // Browsers suspend AudioContext until a user gesture unlocks it. The
-    // button click IS a gesture, but we have to explicitly resume — a bare
-    // BufferSource.start() on a suspended context produces silence until
-    // the context clock advances.
-    if (ctx.state === 'suspended') {
-      try { await ctx.resume(); } catch (err) { console.warn('[QcDrawer] ctx.resume failed', err); }
+    const instNow   = inst;
+    const engNow    = instNow ? enginesRef.current.get(instNow.id) : null;
+    console.log(
+      '[QcDrawer] startSource()', kind,
+      'inst:', instNow?.id || '(none)',
+      'productId:', instNow?.productId || '(none)',
+      'version:', instNow?.version || '(none)',
+      'hasEngine:', !!engNow,
+      'hasInput:', !!engNow?.input,
+      'ctxState:', engNow?.input?.context?.state || '(no ctx)',
+      'enginesRefSize:', enginesRef.current.size,
+    );
+
+    // ── DIRECT diagnostic: pink → ctx.destination, bypass engine chain ──
+    // If this makes sound but PINK doesn't, the ctx is fine and the engine
+    // is to blame. If this is silent too, the ctx/device path is broken.
+    if (kind === 'direct') {
+      // Borrow any ctx we can find — engine's if available, else give up.
+      let diagCtx = engNow?.input?.context || null;
+      if (!diagCtx) {
+        // Walk enginesRef for ANY engine with a context.
+        for (const e of enginesRef.current.values()) {
+          if (e?.input?.context) { diagCtx = e.input.context; break; }
+        }
+      }
+      if (!diagCtx) {
+        console.warn('[QcDrawer] DIRECT: no AudioContext available — no engines in chain');
+        return;
+      }
+      if (diagCtx.state === 'suspended' || diagCtx.state === 'interrupted') {
+        console.info('[QcDrawer] DIRECT resuming ctx (state=' + diagCtx.state + ')…');
+        const resumeP  = diagCtx.resume().catch(err => { console.warn('[QcDrawer] DIRECT resume rejected', err); });
+        const timeoutP = new Promise(r => setTimeout(() => r('TIMEOUT'), 500));
+        const which = await Promise.race([resumeP, timeoutP]);
+        console.info('[QcDrawer] DIRECT ctx state after race:', diagCtx.state, which === 'TIMEOUT' ? '(resume TIMED OUT — device is stuck)' : '(resume settled)');
+      }
+      if (diagCtx.state !== 'running') {
+        console.error('[QcDrawer] DIRECT: ctx still "' + diagCtx.state + '" — Chrome audio device is dead. Try: (1) close all other tabs using audio, (2) switch OS output device, (3) restart Chrome.');
+        return;
+      }
+      console.info('[QcDrawer] DIRECT state after resume:', diagCtx.state);
+      stopSource();
+      const src = createPinkNoise(diagCtx);
+      try { src.connect(diagCtx.destination); } catch (err) { console.warn('[QcDrawer] DIRECT connect failed', err); }
+      try { src.start?.(); } catch (err) { console.warn('[QcDrawer] DIRECT start failed', err); }
+      sourceRef.current = src;
+      setSourceKind('direct');
+      return;
     }
-    if (ctx.state !== 'running') {
-      console.error(`[QcDrawer] AudioContext is "${ctx.state}" after resume — reload the page to recover.`);
+    // On the first click after page load, `sharedSource` and its engines may
+    // not exist yet — the unlock listener in main.jsx creates them on this
+    // very click, but React needs a render cycle to propagate. Poll the
+    // enginesRef (which the parent updates synchronously) for up to 3 s.
+    let eng = engine;
+    let c   = eng?.input?.context || null;
+    if (!eng?.input || !c) {
+      const deadline = Date.now() + 3000;
+      while ((!eng?.input || !eng?.input?.context) && Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 50));
+        eng = inst ? enginesRef.current.get(inst.id) : null;
+      }
+      c = eng?.input?.context || null;
+      if (!eng?.input || !c) {
+        console.warn('[QcDrawer] aborting — engine still not ready after 3 s');
+        return;
+      }
+    }
+    // Browsers suspend AudioContext until a user gesture unlocks it. Race
+    // resume() against a 500 ms timeout — if Chrome's audio device is in an
+    // errored state (preceded by the "AudioContext encountered an error"
+    // console message), ctx.resume() can hang forever. Timing out lets us
+    // surface the failure instead of the click vanishing silently.
+    if (c.state === 'suspended' || c.state === 'interrupted') {
+      console.info('[QcDrawer] resuming ctx (state=' + c.state + ')…');
+      const resumeP  = c.resume().catch(err => { console.warn('[QcDrawer] ctx.resume rejected', err); });
+      const timeoutP = new Promise(r => setTimeout(() => r('TIMEOUT'), 500));
+      const which = await Promise.race([resumeP, timeoutP]);
+      console.info('[QcDrawer] ctx state after race:', c.state, which === 'TIMEOUT' ? '(resume TIMED OUT)' : '(resume settled)');
+    }
+    if (c.state !== 'running') {
+      console.error(`[QcDrawer] AudioContext "${c.state}" after resume — device is stuck. Reload the page to recover.`);
       return;
     }
     stopSource();
     let src = null;
-    if      (kind === 'pink')         src = createPinkNoise(ctx);
-    else if (kind === 'sweep')        src = createSineSweep(ctx);
-    else if (kind === 'drum')         src = createDrumLoopStub(ctx);
-    else if (kind === 'file' && fileArg) src = await loadFileAsSource(ctx, fileArg);
+    if      (kind === 'pink')         src = createPinkNoise(c);
+    else if (kind === 'sweep')        src = createSineSweep(c);
+    else if (kind === 'drum')         src = createDrumLoopStub(c);
+    else if (kind === 'file' && fileArg) src = await loadFileAsSource(c, fileArg);
     if (!src) return;
-    try { src.connect(engine.input); } catch (err) { console.warn('[QcDrawer] source.connect failed', err); }
+    try { src.connect(eng.input); } catch (err) { console.warn('[QcDrawer] source.connect failed', err); }
     try { src.start?.(); } catch (err) { console.warn('[QcDrawer] source.start failed', err); }
     sourceRef.current = src;
     setSourceKind(kind);
     if (kind === 'file' && fileArg) setDroppedName(fileArg.name || '');
     // Diagnostic — helps if still silent: you'll see "running" in console.
-    console.info('[QcDrawer] started', kind, '· ctx.state =', ctx.state, '· engine.input =', engine.input);
+    console.info('[QcDrawer] started', kind, '· ctx.state =', c.state, '· engine.input =', eng.input);
   }
 
   // Clean up on unmount / engine change
   useEffect(() => { return () => stopSource(); // eslint-disable-next-line
   }, [engine]);
 
+  // ── Drag-and-drop file loading ─────────────────────────────────────
+  // Drop an audio file anywhere on the drawer to load it as the FILE source.
+  // Same code path as the FILE… button (loadFileAsSource → startSource).
+  // Missing from previous builds — user dragged a file and nothing happened.
+  const [dragOver, setDragOver] = useState(false);
+  function onShellDragOver(e) { e.preventDefault(); e.stopPropagation(); setDragOver(true); }
+  function onShellDragLeave(e) { e.preventDefault(); e.stopPropagation(); setDragOver(false); }
+  function onShellDrop(e) {
+    e.preventDefault(); e.stopPropagation(); setDragOver(false);
+    const f = e.dataTransfer?.files?.[0];
+    if (f && /^audio\//.test(f.type)) startSource('file', f);
+    else if (f) console.warn('[QcDrawer] dropped non-audio file ignored:', f.type);
+  }
+
   return (
-    <div style={shellStyle}>
+    <div style={{
+      ...shellStyle,
+      outline: dragOver ? '2px dashed #7ab8ff' : shellStyle.outline || 'none',
+      outlineOffset: -6,
+    }}
+      onDragOver={onShellDragOver}
+      onDragLeave={onShellDragLeave}
+      onDrop={onShellDrop}>
       {/* ── header ────────────────────────────────────────────────── */}
       <div style={headerStyle}>
         <div style={eyebrowStyle}>QC HARNESS · LIVE ENGINE</div>
@@ -239,10 +330,26 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
     { id: 'sweep', label: 'SWEEP', tint: '#a080ff', hint: 'frequency response' },
     { id: 'drum',  label: 'DRUMS', tint: '#80d0ff', hint: 'attack / release' },
   ];
+  // Defensive button-hit-test fix — see memory/button_click_fix.md.
+  // The QC harness body renders several panels in sequence (source picker,
+  // Analyzer canvas, slider panel, ControlPanel). Parent-drag handlers +
+  // overlapping glows can steal clicks even with zIndex:10. Pattern:
+  //   (1) bump zIndex to 50 (Lofi-Loofy precedent)
+  //   (2) switch onClick → onMouseDown + onTouchStart with preventDefault
+  //       + stopPropagation (ManChild precedent — matches knob event model
+  //       which already survives parent drag handlers)
+  const stopAndFire = (fn) => (e) => {
+    // React 18 registers touchstart as a passive listener, so
+    // preventDefault is a no-op and logs "Unable to preventDefault inside
+    // passive event listener invocation". Gate on `cancelable` to silence.
+    if (e.cancelable) { try { e.preventDefault(); } catch {} }
+    try { e.stopPropagation(); } catch {}
+    fn?.(e);
+  };
   return (
     <div style={{
       position: 'relative',
-      zIndex: 10,                 // sit above whatever the Analyzer paints
+      zIndex: 50,                 // bumped from 10 per button_click_fix.md
       pointerEvents: 'auto',
       display: 'flex', alignItems: 'center', gap: 8,
       padding: '10px 14px', marginBottom: 14,
@@ -258,7 +365,8 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
 
       {kinds.map(k => (
         <button key={k.id}
-          onClick={(e) => { console.log('[SourcePicker] click', k.id); onPick(k.id); }}
+          onMouseDown={stopAndFire(() => { console.log('[SourcePicker] click', k.id); onPick(k.id); })}
+          onTouchStart={stopAndFire(() => { console.log('[SourcePicker] touch', k.id); onPick(k.id); })}
           title={k.hint}
           style={{
             cursor: 'pointer',
@@ -276,6 +384,10 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
         </button>
       ))}
 
+      {/* FILE picker — uses a real <label>/<input type="file"> pair because
+          browsers only open the OS picker in response to a trusted synthetic
+          click on the <input>. We can't replicate that from a mousedown
+          handler, so this one keeps the native label pattern. */}
       <label style={{
         cursor: 'pointer',
         padding: '5px 11px',
@@ -285,6 +397,8 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
         borderRadius: 3,
         fontFamily: '"Courier New", monospace',
         fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+        position: 'relative',
+        zIndex: 51,
       }}>
         {sourceKind === 'file' ? `▶ FILE · ${droppedName}` : 'FILE…'}
         <input type="file" accept="audio/*" style={{ display: 'none' }}
@@ -292,7 +406,8 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
       </label>
 
       {sourceKind && (
-        <button onClick={onStop}
+        <button onMouseDown={stopAndFire(onStop)}
+                onTouchStart={stopAndFire(onStop)}
           style={{
             cursor: 'pointer',
             padding: '5px 11px',
@@ -307,6 +422,28 @@ function SourcePicker({ sourceKind, droppedName, onPick, onFile, onStop }) {
           ■ STOP
         </button>
       )}
+
+      {/* Diagnostic: pink → ctx.destination (bypass engine chain entirely).
+          If you hear this but not PINK, the ctx is fine and the engine
+          chain is the culprit. If you hear nothing, the ctx/output path
+          itself is broken. */}
+      <button
+        onMouseDown={stopAndFire(() => { console.log('[SourcePicker] click direct-pink'); onPick('direct'); })}
+        onTouchStart={stopAndFire(() => { console.log('[SourcePicker] touch direct-pink'); onPick('direct'); })}
+        title="Diagnostic: pink → destination, bypass engine"
+        style={{
+          cursor: 'pointer',
+          padding: '5px 11px',
+          background: sourceKind === 'direct' ? 'rgba(255,224,128,0.12)' : 'rgba(20,26,34,0.9)',
+          color: sourceKind === 'direct' ? '#ffe080' : '#bec6d0',
+          border: `1px solid ${sourceKind === 'direct' ? '#ffe080' : 'rgba(255,224,128,0.45)'}`,
+          borderRadius: 3,
+          fontFamily: '"Courier New", monospace',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+          marginLeft: 8,
+        }}>
+        {sourceKind === 'direct' ? '▶ DIRECT' : 'DIRECT→DEST'}
+      </button>
 
       <div style={{ flex: 1 }} />
 
@@ -334,10 +471,14 @@ function VariantPill({ product, currentVersion, onSwitch }) {
       fontFamily: '"Courier New", monospace',
     }}>
       {variants.map(v => {
+        const isProto  = v.version === 'prototype';
         const isV1     = v.version === 'v1';
+        // prototype = amber (shipped baseline), v1 = green (approved track),
+        // everything else (v2, v3…) = blue (in-dev) so it reads as "not a
+        // shipped release" at a glance. Matches Analyzer.jsx variantVisuals.
         const active   = v.version === currentVersion;
-        const activeFg = isV1 ? '#7fff8f' : '#e0c080';
-        const activeBg = isV1 ? 'rgba(30,100,40,0.35)' : 'rgba(120,80,20,0.35)';
+        const activeFg = isProto ? '#e0c080' : isV1 ? '#7fff8f' : '#8ec6ff';
+        const activeBg = isProto ? 'rgba(120,80,20,0.35)' : isV1 ? 'rgba(30,100,40,0.35)' : 'rgba(60,120,180,0.35)';
         return (
           <button key={v.version}
             onClick={() => !active && onSwitch?.(v.version)}
@@ -353,7 +494,7 @@ function VariantPill({ product, currentVersion, onSwitch }) {
             }}
             title={active ? `currently running ${v.engineName}` : `switch to ${v.engineName}`}
           >
-            {active ? '▶ ' : ''}{v.version === 'prototype' ? 'PROTO' : 'V1'}
+            {active ? '▶ ' : ''}{v.version === 'prototype' ? 'PROTO' : v.version.toUpperCase()}
           </button>
         );
       })}

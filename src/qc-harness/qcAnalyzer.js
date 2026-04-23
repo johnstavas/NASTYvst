@@ -521,17 +521,17 @@ export const RULE_META = {
   pathological_stereo: {
     title:   "Plugin mishandles extreme stereo input",
     meaning: "Sent a pathological stereo signal (hard-panned, phase-inverted, or mono-summed) through the plugin. Output shows cross-channel bleed, sign-flips, or mono collapse that isn't declared in the plugin's stereo behavior.",
-    fix:     "Audit the stereo routing. L-only input should produce mostly-L output unless the plugin is declared a stereo enhancer. Side-only (L=−R) should stay side-heavy unless a mono-compat stage intentionally folds it. Hard-panned inputs must never cross to the silent channel.",
+    fix:     "Audit the stereo routing. L-only input should produce mostly-L output unless the plugin is declared a stereo enhancer. Side-only (L=−R) should stay side-heavy unless a mono-compat stage intentionally folds it. Hard-panned inputs must never cross to the silent channel. If the plugin INTENTIONALLY mono-sums (e.g. a micro-detune thickener, a widener, or a mono-by-design unit), declare `capabilities.stereoBehavior` so this rule downgrades to INFO honestly instead of nagging forever. Values: `'per-channel'` (default), `'mono-sum-thickener'`, `'stereo-enhancer'`, `'mono'`.",
     dev: {
-      files:  ["src/<product>/<product>Worklet.js → per-channel processing", "src/<product>/<product>Engine.js → stereo routing + channel splitters"],
+      files:  ["src/<product>/<product>Worklet.js → per-channel processing + capabilities.stereoBehavior", "src/<product>/<product>Engine.js → stereo routing + channel splitters"],
       refs:   ["MEMORY.md → dry_wet_mix_rule.md (stereo-aware mix)", "MEMORY.md → audio_engineer_mental_model.md (stereo systems)"],
-      checks: ["Per-channel processing must not sum into a shared accumulator.", "Sidechain taps must use correct channel identity (L/R, not swapped).", "Worklet declares 2-channel output explicitly (`outputChannelCount: [2]`)."],
-      antipatterns: ["Shared state for both channels when plugin should be per-channel — make linking explicit.", "Summing L+R for processing then duplicating to both outputs — hidden mono-collapse."],
+      checks: ["Per-channel processing must not sum into a shared accumulator.", "Sidechain taps must use correct channel identity (L/R, not swapped).", "Worklet declares 2-channel output explicitly (`outputChannelCount: [2]`).", "Intentional mono-sum / widener / mono designs declare `capabilities.stereoBehavior` explicitly."],
+      antipatterns: ["Shared state for both channels when plugin should be per-channel — make linking explicit.", "Summing L+R for processing then duplicating to both outputs — hidden mono-collapse.", "Silencing a real cross-bleed bug by mis-declaring `stereoBehavior: 'mono-sum-thickener'` — the capability is an HONEST declaration, not a waiver."],
     },
     bySeverity: {
       info: {
         title:   "Stereo behavior as expected",
-        meaning: "The plugin handled the extreme stereo variant (hard-pan / side-only / mono) without cross-channel bleed or unexpected collapse.",
+        meaning: "The plugin handled the extreme stereo variant (hard-pan / side-only / mono) without cross-channel bleed or unexpected collapse — or declared its stereo behavior via `capabilities.stereoBehavior` and the rule downgraded accordingly.",
         fix:     "Nothing to fix.",
       },
     },
@@ -747,6 +747,17 @@ export const RULE_META = {
       refs:  ["MEMORY.md → jos_pasp_dsp_reference.md (pitch detection, granular)", "MEMORY.md → jos_pasp_physical_modeling.md (source-filter / LPC voicing gate)"],
       checks: ["Stimulus is −80 dBFS white noise. Output peak should stay < −40 dBFS; RMS should stay within +6 dB of input.", "Measured fields: pitchIdlePeakDb, pitchIdleRmsDb, pitchIdleInputRmsDb, pitchIdleGrowthDb.", "If pitchIdleFinite=false, the engine blew up on silence — usually a divide-by-zero in the autocorrelator.", "WARN band (peak −60..−40 dBFS) often means the detector is latching intermittently — look for a hysteresis bug."],
       antipatterns: ["Gating the rule on 'no visible pitch shift' rather than probing with silence.", "Treating a tiny RMS growth (+1 dB) as a FAIL — low-amplitude noise-shaping is normal for many pitch engines."],
+    },
+  },
+  bpm_detector_accuracy: {
+    title:   "Beat-detector locks to 2× or 0.5× the true tempo",
+    meaning: "Onset-driven BPM detectors (kick/snare tracking, transient-lock LFOs) are notorious for half-time / double-time lock-in. A kick-snare-kick-snare groove at 80 BPM produces uniform 375 ms inter-onset intervals → raw 160 BPM; without accent-based rejection the detector sticks at 160 and every tempo-synced effect runs at 2× speed. Mirror failure: a slow ballad with only kick onsets reads half. Canonical fix is (a) fold into a musical range (default 70–160), (b) halve when the interval buffer shows systematic 2× gaps (missed-beat case), (c) halve when even/odd onset amplitudes differ systematically (alternating-accent case — the kick-snare doublet). See Canon:dynamics §4.",
+    fix:     "Two tests, either fires → halve: (1) gap test — if ≥25% of intervals match median×2 within 10%, the true beat is at 2× median; (2) accent test — with ≥6 onsets and detected BPM ≥140, compare mean amplitude of even-indexed vs odd-indexed onsets. Ratio >1.30 (one side systematically louder) = 2× lock → halve. After halving, re-fold to ≥70. Upper fold bound must be inclusive (`>= 160`) so exactly-160 readings from 80-BPM backbeats fold to 80.",
+    dev: {
+      files: ["src/<product>/<product>Orb.jsx → auto-BPM onset tracker", "src/qc-harness/captureHooks.js → renderBpmDetector (stimulus: ground-truth kick-snare pattern at known BPM)"],
+      refs:  ["MEMORY.md → dsp_code_canon_dynamics.md §4 (beat detector class — limits + upgrades)", "MEMORY.md → qc_backlog.md (FJM BPM double-time fix history)"],
+      checks: ["Stimulus: synthetic kick-snare pattern at known BPM (e.g. 80, 100, 120, 140). Plugin auto-BPM should lock within ±2 BPM.", "Measured fields: bpmTrue, bpmDetected, bpmError, bpmFoldedFromDoubleTime (bool — whether the 2× rejection path fired).", "FAIL: |bpmDetected − bpmTrue| ≥ 5 BPM. WARN: 2..5 BPM error. INFO: < 2 BPM.", "Capability gate: capabilities.hasBpmDetector === true."],
+      antipatterns: ["Testing only with 4-on-the-floor kick patterns (hides the alternating-accent case).", "Using `>` strict comparison against the upper fold bound — 80 BPM with kick-snare backbeat lands exactly on 160 and stays stuck.", "Trusting the gap test alone — it fails on perfectly-uniform alternating onsets because no intervals are at 2× median."],
     },
   },
   os_boundary: {
@@ -2037,6 +2048,21 @@ const RULES = [
   //   (a) L_only input → stereoPeakR >> −60 dB below stereoPeakL (cross-bleed)
   //   (b) side_only input → stereoSideRmsDb collapses (unwanted mono-sum)
   // All other variants are informational for now.
+  //
+  // Capability-gated downgrades (honest-design declarations):
+  //   capabilities.stereoBehavior === 'mono-sum-thickener'
+  //     → plugin intentionally mono-sums L+R then re-spreads (e.g. FJM
+  //       DOUBLER micro-detune thickener). All three variants (L_only,
+  //       R_only, side_only) are expected to "fail" the rule's default
+  //       checks. Rule returns INFO and names the declared behavior.
+  //   capabilities.stereoBehavior === 'mono'
+  //     → plugin is pure mono by design (L=R output always). Same
+  //       INFO downgrade as mono-sum-thickener.
+  //   capabilities.stereoBehavior === 'stereo-enhancer'
+  //     → plugin intentionally cross-bleeds for width (e.g. Haas/widener).
+  //       L_only/R_only bleed is expected; side_only collapse is NOT.
+  //       Only the collapse check still fires.
+  //   undefined | 'per-channel' → default. All checks active.
   (_, _snaps, ctx) => {
     const probes = ctx.qcSnaps.filter(s => s?.qc?.ruleId === 'pathological_stereo');
     if (!probes.length) return null;
@@ -2048,20 +2074,43 @@ const RULES = [
         affected: probes.map(s => `${s.label} (measurement pending)`),
       };
     }
+
+    // Read declared stereo behavior from any probe (every snap embeds caps).
+    const stereoBehavior = probes[0]?.capabilities?.stereoBehavior ?? 'per-channel';
+    const isFullyDeclared = stereoBehavior === 'mono-sum-thickener'
+                         || stereoBehavior === 'mono';
+    const isEnhancer      = stereoBehavior === 'stereo-enhancer';
+
+    if (isFullyDeclared) {
+      return {
+        severity: INFO, rule: 'pathological_stereo',
+        msg: `Stereo variants (${withData.length} capture(s)) — plugin declares capabilities.stereoBehavior = '${stereoBehavior}', so cross-channel bleed and mono-collapse are expected design behavior, not bugs.`,
+        affected: withData.map(s => {
+          const m = s.measurements;
+          return `${s.label} (declared ${stereoBehavior}: L=${finite(m.stereoPeakLDb) ? m.stereoPeakLDb.toFixed(1)+'dB' : '—'}, R=${finite(m.stereoPeakRDb) ? m.stereoPeakRDb.toFixed(1)+'dB' : '—'})`;
+        }),
+      };
+    }
+
     const hits = [];
     for (const s of withData) {
       const m = s.measurements;
-      if (m.stereoVariant === 'L_only'
+      // Cross-bleed checks: skipped for stereo-enhancer (bleed is the point).
+      if (!isEnhancer
+          && m.stereoVariant === 'L_only'
           && finite(m.stereoPeakLDb) && finite(m.stereoPeakRDb)
           && (m.stereoPeakRDb - m.stereoPeakLDb) > -40) {
         hits.push(`${s.label} (L-only input → R-peak=${m.stereoPeakRDb.toFixed(1)} dB vs L-peak=${m.stereoPeakLDb.toFixed(1)} dB — cross-channel bleed)`);
-      } else if (m.stereoVariant === 'R_only'
+      } else if (!isEnhancer
+          && m.stereoVariant === 'R_only'
           && finite(m.stereoPeakLDb) && finite(m.stereoPeakRDb)
           && (m.stereoPeakLDb - m.stereoPeakRDb) > -40) {
         hits.push(`${s.label} (R-only input → L-peak=${m.stereoPeakLDb.toFixed(1)} dB vs R-peak=${m.stereoPeakRDb.toFixed(1)} dB — cross-channel bleed)`);
       } else if (m.stereoVariant === 'side_only'
           && finite(m.stereoSideRmsDb) && finite(m.stereoMidRmsDb)
           && (m.stereoMidRmsDb - m.stereoSideRmsDb) > 0) {
+        // Mono-collapse check stays active even for stereo-enhancer —
+        // a widener that collapses side info is still a bug.
         hits.push(`${s.label} (side-only input → M(${m.stereoMidRmsDb.toFixed(1)} dB) > S(${m.stereoSideRmsDb.toFixed(1)} dB) — unwanted mono-collapse)`);
       }
     }
@@ -2072,9 +2121,10 @@ const RULES = [
         affected: hits,
       };
     }
+    const suffix = isEnhancer ? ' (stereo-enhancer: cross-bleed checks skipped by design)' : '';
     return {
       severity: INFO, rule: 'pathological_stereo',
-      msg: `Stereo variants (${withData.length} capture(s)) passed — no cross-bleed or mono-collapse detected.`,
+      msg: `Stereo variants (${withData.length} capture(s)) passed — no cross-bleed or mono-collapse detected.${suffix}`,
       affected: withData.map(s => {
         const m = s.measurements;
         return `${s.label} (L=${finite(m.stereoPeakLDb) ? m.stereoPeakLDb.toFixed(1)+'dB' : '—'}, R=${finite(m.stereoPeakRDb) ? m.stereoPeakRDb.toFixed(1)+'dB' : '—'})`;
@@ -2636,6 +2686,52 @@ const RULES = [
     if (!longSnap) return null;
     return { severity: INFO, rule: 'long_session_drift',
       msg: 'long_session_drift probe registered (long-capture snap present); detection body pending T4.4 implementation.' };
+  },
+
+  // T4.5 bpm_detector_accuracy — onset-driven BPM detectors lock to 2×
+  // or 0.5× the true tempo on alternating kick-snare patterns. Stimulus
+  // (rendered by renderBpmDetector capture hook when wired): ground-truth
+  // kick-snare pattern at a known BPM. Detector must lock within ±5 BPM.
+  // Self-disables silently when the probe hasn't emitted any snaps yet —
+  // no "capture_pending" noise until captureHooks.renderBpmDetector lands.
+  // See Canon:dynamics §4 and qc_backlog.md → bpm_detector_accuracy.
+  (_, _snaps, ctx) => {
+    const probes = (ctx.qcSnaps || []).filter(s => s?.qc?.ruleId === 'bpm_detector_accuracy');
+    if (!probes.length) return null;
+    const measured = probes.filter(s => Number.isFinite(s?.measurements?.bpmDetected)
+                                     && Number.isFinite(s?.measurements?.bpmTrue));
+    if (!measured.length) return null; // capture-pending, stay silent
+
+    const withError = measured.map(s => ({
+      s,
+      err: Math.abs((s.measurements.bpmDetected ?? 0) - (s.measurements.bpmTrue ?? 0)),
+      trueBpm: s.measurements.bpmTrue,
+      detected: s.measurements.bpmDetected,
+    }));
+
+    const fails = withError.filter(x => x.err >= 5);
+    if (fails.length) {
+      return {
+        severity: FAIL, rule: 'bpm_detector_accuracy',
+        msg: `${fails.length} capture(s) show BPM detection error ≥ 5 BPM — detector is locking to the wrong multiple of the true tempo.`,
+        affected: fails.map(x => `${x.s?.qc?.label ?? 'unknown'} (true=${x.trueBpm}, detected=${x.detected}, err=${x.err.toFixed(1)})`),
+      };
+    }
+
+    const warns = withError.filter(x => x.err >= 2 && x.err < 5);
+    if (warns.length) {
+      return {
+        severity: WARN, rule: 'bpm_detector_accuracy',
+        msg: `${warns.length} capture(s) show BPM detection error 2..5 BPM — borderline; consider tightening the onset floor or adding the accent-alternation test.`,
+        affected: warns.map(x => `${x.s?.qc?.label ?? 'unknown'} (true=${x.trueBpm}, detected=${x.detected}, err=${x.err.toFixed(1)})`),
+      };
+    }
+
+    return {
+      severity: INFO, rule: 'bpm_detector_accuracy',
+      msg: `bpm_detector_accuracy clean — detector locks within ±2 BPM across ${measured.length} capture(s).`,
+      affected: withError.map(x => `${x.s?.qc?.label ?? 'unknown'} (true=${x.trueBpm}, detected=${x.detected}, err=${x.err.toFixed(1)})`),
+    };
   },
 
 ];

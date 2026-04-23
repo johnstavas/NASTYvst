@@ -17,6 +17,7 @@ import { runConformanceChecks } from './conformanceChecks.js';
 import { analyzeAudit, reportToMarkdown, diffReports, RULE_META, HEADLINE_HINTS, humanSummary } from './qcAnalyzer.js';
 import { generateQcPresets, summarizeQcPresets } from './qcPresets.js';
 import { renderSeriesNull } from './seriesRender.js';
+import { VERSION_LABELS } from '../migration/registry.js';
 import {
   getEngineFactory,
   renderImpulseIR,
@@ -897,7 +898,7 @@ export default function Analyzer({
   // the previous run. Saves ~5 manual clicks per iteration when debugging
   // a failing finding.
   const runReRun = async () => {
-    if (!presetEntry || sweeping) return;
+    if (sweeping) return;
     // Re-running invalidates any prior approval for this variant — the
     // user is capturing fresh data, so the old blessed artifact no
     // longer describes the current state. They must re-Approve.
@@ -908,14 +909,23 @@ export default function Analyzer({
     // no stale-closure read inside runAnalyze. See commentary in
     // sweepPresets + buildAuditBundle for why the array is passed through
     // explicitly instead of re-reading state.
-    const freshAudit = await sweepPresets({ replace: true });
+    //
+    // Plugins without a preset lane (no `kind:'preset'` in paramSchema)
+    // still need a one-click fix→verify loop. Fall back to QC-only
+    // sweep — same behavior as SWEEP ALL's fallback path.
+    const freshAudit = presetEntry
+      ? await sweepPresets({ replace: true })
+      : await sweepQcPresets({ replace: true });
     if (freshAudit && freshAudit.length > 0) runAnalyze(freshAudit);
   };
 
   // Confirmation entry points — set pendingAction, popup asks "analyze on
   // LEGACY / ENGINE V1?", and only then calls runAnalyze / runReRun.
   const openAnalyzer = () => { if (audit.length > 0) setPendingAction('analyze'); };
-  const reRun        = () => { if (presetEntry && !sweeping) setPendingAction('rerun'); };
+  // RE-RUN is viable whenever we have something to sweep — either a plugin
+  // preset lane OR engine capabilities (QC-only fallback). Plugins without
+  // presets still deserve the fix→verify loop.
+  const reRun        = () => { if (!sweeping && (presetEntry || engine?.capabilities)) setPendingAction('rerun'); };
   const closeAnalyzer = () => setAnalysis(null);
   const cancelConfirm = () => setPendingAction(null);
   const confirmAction = () => {
@@ -1204,6 +1214,14 @@ export default function Analyzer({
     // then QC presets append to the same queue.
     // CRITICAL: pass pluginAudit as `base` — sweepQcPresets' `audit` closure
     // is stale at this point (captured at sweepAll's render, pre-setAudit).
+    //
+    // If the plugin has no preset lane in paramSchema (e.g. Flap Jack Man —
+    // no `kind:'preset'` entry), sweepPresets returns null and we'd silently
+    // no-op. Fall back to QC-only so SWEEP ALL is never a dead button on
+    // plugins that declare capabilities but no preset options.
+    if (!presetEntry) {
+      return await sweepQcPresets({ replace: true, includeLong });
+    }
     const pluginAudit = await sweepPresets({ replace: true });
     if (!pluginAudit) return null;
     return await sweepQcPresets({ replace: false, includeLong, base: pluginAudit });
@@ -1239,11 +1257,16 @@ export default function Analyzer({
                     : "Analyze the audit queue and show a plain-English verdict"}>
             {sweeping ? '⏳ SWEEPING…' : '📊 ANALYZE'}
           </button>
-          {presetEntry && (
+          {/* RE-RUN renders whenever something is sweepable: either plugin
+              presets OR engine capabilities (QC-only fallback). Plugins
+              with no preset lane still get the fix→verify loop. */}
+          {(presetEntry || engine?.capabilities) && (
             <button onClick={reRun} disabled={sweeping}
                     style={{ ...ST.freezeBtn, opacity: sweeping ? 0.5 : 1,
                              borderColor: '#7affc3', color: '#7affc3' }}
-                    title="Clear queue, re-sweep all presets, and auto-open the analyzer (fix→verify loop)">
+                    title={presetEntry
+                      ? "Clear queue, re-sweep all presets, and auto-open the analyzer (fix→verify loop)"
+                      : "Clear queue, re-sweep QC presets, and auto-open the analyzer (fix→verify loop — no plugin presets on this engine)"}>
               {sweeping ? '⏳ RE-RUNNING…' : '🔁 RE-RUN'}
             </button>
           )}
@@ -1274,10 +1297,12 @@ export default function Analyzer({
                 {sweeping ? '⏳ SWEEPING…' : '🧪 SWEEP QC'}
               </button>
               <button onClick={() => sweepAll({ includeLong: longMode })}
-                      disabled={sweeping || !presetEntry}
-                      style={{ ...ST.freezeBtn, opacity: (sweeping || !presetEntry) ? 0.5 : 1,
+                      disabled={sweeping}
+                      style={{ ...ST.freezeBtn, opacity: sweeping ? 0.5 : 1,
                                borderColor: '#7affc3', color: '#7affc3' }}
-                      title="Run plugin presets + QC presets in one sweep (plugin first, QC appended)">
+                      title={presetEntry
+                        ? "Run plugin presets + QC presets in one sweep (plugin first, QC appended)"
+                        : "No plugin preset lane in paramSchema — falls back to QC presets only"}>
                 {sweeping ? '⏳ SWEEPING…' : '🔬 SWEEP ALL'}
               </button>
               <label style={{ fontSize: 10, fontFamily: 'monospace', color: longMode ? '#ffb86b' : '#888',
@@ -1291,8 +1316,16 @@ export default function Analyzer({
           <input ref={fileInputRef} type="file" accept="application/json,.json"
                  style={{ display: 'none' }}
                  onChange={e => { const f = e.target.files?.[0]; onLoadFile(f); e.target.value = ''; }} />
-          <span style={{ marginLeft: 10 }}>
-            Δ PK <span style={{ color: delta < 0 ? '#ff9f6a' : '#7affc3' }}>{deltaStr}</span> dB
+          {/* Fixed-width Δ PK readout: variable-width number was reflowing
+              the whole right-anchored toolbar and yanking SWEEP buttons
+              left/right between frames. tabular-nums + minWidth freezes it. */}
+          <span style={{ marginLeft: 10, fontVariantNumeric: 'tabular-nums' }}>
+            Δ PK <span style={{
+              color: delta < 0 ? '#ff9f6a' : '#7affc3',
+              display: 'inline-block',
+              minWidth: '5ch',
+              textAlign: 'right',
+            }}>{deltaStr}</span> dB
           </span>
         </span>
       </div>
@@ -1337,7 +1370,7 @@ export default function Analyzer({
           onDownload={downloadReport}
           onApprove={approveReport}
           onAcknowledge={acknowledgeReport}
-          onReRun={presetEntry ? reRun : null}
+          onReRun={(presetEntry || engine?.capabilities) ? reRun : null}
           sweeping={sweeping}
         />
       )}
@@ -1770,11 +1803,36 @@ function AcknowledgeModal({ reason, onReasonChange, onCancel, onConfirm }) {
 }
 
 // ── Variant chip — the "you are here" indicator on the verdict banner ─────
+// Tone + label per version string. v1 is the approved-track green; prototype
+// is the shipped-baseline amber; every other version (v2, v3…) is an in-dev
+// blue so "I'm about to sweep a work-in-progress build" reads at a glance.
+function variantVisuals(version) {
+  const label = (VERSION_LABELS && VERSION_LABELS[version])
+    || (typeof version === 'string' ? version.toUpperCase() : 'PROTOTYPE');
+  if (version === 'v1') {
+    return {
+      bg: 'rgba(30,120,50,0.35)', fg: '#7fff8f', bd: '#7fff8f',
+      label,
+      note: 'V1 is under review. A clean pass here clears it for approval.',
+    };
+  }
+  if (version === 'prototype') {
+    return {
+      bg: 'rgba(160,110,30,0.35)', fg: '#ffc080', bd: '#ffc080',
+      label,
+      note: 'Prototype is the shipped baseline. Analyzing it measures — it does not re-approve it.',
+    };
+  }
+  // v2 / v3 / … — in-development build.
+  return {
+    bg: 'rgba(60,120,180,0.35)', fg: '#8ec6ff', bd: '#8ec6ff',
+    label,
+    note: `${label} is an in-development build. Results are diagnostic, not an approval path.`,
+  };
+}
+
 function VariantChip({ version }) {
-  const isV1 = version === 'v1';
-  const c = isV1
-    ? { bg: 'rgba(30,120,50,0.35)',  fg: '#7fff8f', bd: '#7fff8f', label: 'V1' }
-    : { bg: 'rgba(160,110,30,0.35)', fg: '#ffc080', bd: '#ffc080', label: 'PROTOTYPE' };
+  const c = variantVisuals(version);
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
@@ -1796,12 +1854,13 @@ function VariantChip({ version }) {
 // sweeping presets on PROTOTYPE and then mistakenly approving V1 —
 // or vice-versa — because the version switcher isn't in direct eyeline.
 function ConfirmVariantPopup({ action, version, productId, snapshotCount, sourceKind, onCancel, onConfirm }) {
-  const isV1 = version === 'v1';
   const verb = action === 'rerun' ? 'Re-run' : 'Analyze';
-  const variantLabel = isV1 ? 'V1' : 'PROTOTYPE';
-  const tone = isV1
-    ? { fg: '#7fff8f', bd: '#7fff8f', note: 'V1 is under review. A clean pass here clears it for approval.' }
-    : { fg: '#ffc080', bd: '#ffc080', note: 'Prototype is the shipped baseline. Analyzing it measures — it does not re-approve it.' };
+  // Generalized — the safety gate MUST reflect the real version being swept,
+  // not just toggle between v1 and prototype. Anything else (v2, v3…) reads
+  // as an in-dev build so the user can't mistake it for the shipped baseline.
+  const vis = variantVisuals(version);
+  const variantLabel = vis.label;
+  const tone = { fg: vis.fg, bd: vis.bd, note: vis.note };
 
   // Sourceless sweep/analyze measures silence and produces meaningless data.
   // Hard-block the CONTINUE button in this case with an explicit fix-it
