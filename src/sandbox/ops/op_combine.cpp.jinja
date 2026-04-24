@@ -1,0 +1,100 @@
+// op_combine.cpp — Stage-3b C++ sidecar for the `combine` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_combine.worklet.js
+// bit-for-bit. Per-pair control-signal coupling math.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <limits>
+
+namespace shags::ops {
+
+class CombineOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "combine";
+
+    enum class Mode { Mul = 0, Add, Max, Min, Weighted, LastWins };
+
+    explicit CombineOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "weight") == 0) {
+            weight_ = v < 0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+        }
+    }
+
+    void setParamMode(const char* s) {
+        if      (std::strcmp(s, "mul")      == 0) mode_ = Mode::Mul;
+        else if (std::strcmp(s, "add")      == 0) mode_ = Mode::Add;
+        else if (std::strcmp(s, "max")      == 0) mode_ = Mode::Max;
+        else if (std::strcmp(s, "min")      == 0) mode_ = Mode::Min;
+        else if (std::strcmp(s, "weighted") == 0) mode_ = Mode::Weighted;
+        else if (std::strcmp(s, "lastWins") == 0) mode_ = Mode::LastWins;
+        else                                      mode_ = Mode::Mul;
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // a, b: control inputs (nullptr if unwired). out: control output.
+    void process(const float* a, const float* b, float* out, int N) {
+        if (!a && !b) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+
+        // Weighted fast path — missing side = passthrough of the other.
+        if (mode_ == Mode::Weighted) {
+            const double w = weight_;
+            if (!a) { for (int i = 0; i < N; ++i) out[i] = b[i]; return; }
+            if (!b) { for (int i = 0; i < N; ++i) out[i] = a[i]; return; }
+            for (int i = 0; i < N; ++i)
+                out[i] = static_cast<float>((1.0 - w) * a[i] + w * b[i]);
+            return;
+        }
+
+        const double idA = identityA();
+        const double idB = identityB();
+
+        for (int i = 0; i < N; ++i) {
+            const double av = a ? a[i] : idA;
+            const double bv = b ? b[i] : idB;
+            double y = 0.0;
+            switch (mode_) {
+                case Mode::Mul:      y = av * bv; break;
+                case Mode::Add:      y = av + bv; break;
+                case Mode::Max:      y = av > bv ? av : bv; break;
+                case Mode::Min:      y = av < bv ? av : bv; break;
+                case Mode::LastWins: y = std::isnan(bv) ? av : bv; break;
+                case Mode::Weighted: /* unreachable */ break;
+            }
+            out[i] = static_cast<float>(y);
+        }
+    }
+
+private:
+    double identityA() const {
+        switch (mode_) {
+            case Mode::Mul:      return 1.0;
+            case Mode::Add:      return 0.0;
+            case Mode::Max:      return -std::numeric_limits<double>::infinity();
+            case Mode::Min:      return  std::numeric_limits<double>::infinity();
+            case Mode::LastWins: return 0.0;
+            default:             return 0.0;
+        }
+    }
+    double identityB() const {
+        switch (mode_) {
+            case Mode::Mul:      return 1.0;
+            case Mode::Add:      return 0.0;
+            case Mode::Max:      return -std::numeric_limits<double>::infinity();
+            case Mode::Min:      return  std::numeric_limits<double>::infinity();
+            case Mode::LastWins: return std::numeric_limits<double>::quiet_NaN();
+            default:             return 0.0;
+        }
+    }
+
+    double sr_;
+    Mode   mode_   = Mode::Mul;
+    double weight_ = 0.5;
+};
+
+}  // namespace shags::ops

@@ -1,0 +1,49 @@
+// op_saturate.cpp — Stage-3b C++ sidecar for the `saturate` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_saturate.worklet.js
+// bit-for-bit. Canon:character §11 Padé rational tanh.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class SaturateOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "saturate";
+
+    explicit SaturateOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "drive") == 0) {
+            drive_ = v < 0.01 ? 0.01 : v;
+        } else if (std::strcmp(id, "trim") == 0) {
+            trimLin_ = std::pow(10.0, v / 20.0);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        const double drive   = drive_;
+        const double trimLin = trimLin_;
+        for (int i = 0; i < N; ++i) {
+            double u = static_cast<double>(in[i]) * drive;
+            if (u >  3.0) u =  3.0;
+            else if (u < -3.0) u = -3.0;
+            const double u2 = u * u;
+            out[i] = static_cast<float>(trimLin * u * (27.0 + u2) / (27.0 + 9.0 * u2));
+        }
+    }
+
+private:
+    double sr_;
+    double drive_   = 1.0;
+    double trimLin_ = 1.0;  // 10^(0/20)
+};
+
+}  // namespace shags::ops

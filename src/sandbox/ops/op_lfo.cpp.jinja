@@ -1,0 +1,114 @@
+// op_lfo.cpp — Stage-3b C++ sidecar for the `lfo` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_lfo.worklet.js
+// bit-for-bit. Canon:synthesis §6 coupled sin/cos + phase accumulator.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class LfoOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "lfo";
+
+    enum Shape { Sine = 0, Tri = 1, Sq = 2, Saw = 3 };
+
+    // Canon §6 — renorm once per block.
+    static constexpr int kRenormInterval = 128;
+
+    explicit LfoOp_{{ node_id }}(double sampleRate)
+      : sr_(sampleRate), a_(rateToCoef(rate_)) {}
+
+    void reset() {
+        phase_ = 0.0;
+        s0_ = 1.0; s1_ = 0.0;
+        renormCount_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "rateHz") == 0) {
+            rate_ = v;
+            a_ = rateToCoef(rate_);
+            reseedFromPhase();
+        } else if (std::strcmp(id, "shape") == 0) {
+            const int n = static_cast<int>(v);
+            if (n >= 0 && n <= 3) shape_ = static_cast<Shape>(n);
+        } else if (std::strcmp(id, "amount") == 0) {
+            amount_ = v;
+        } else if (std::strcmp(id, "offset") == 0) {
+            offset_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // No inputs — pure generator.
+    void process(float* out, int N) {
+        if (!out) return;
+        const double a = a_;
+        const double amt = amount_;
+        const double off = offset_;
+        const double phaseIncr = rate_ / sr_;
+        double phase = phase_;
+        double s0 = s0_, s1 = s1_;
+        int rc = renormCount_;
+
+        for (int i = 0; i < N; ++i) {
+            s0 -= a * s1;
+            s1 += a * s0;
+
+            phase += phaseIncr;
+            if (phase >= 1.0) phase -= 1.0;
+            else if (phase < 0.0) phase += 1.0;
+
+            if (++rc >= kRenormInterval) {
+                const double mag2 = s0 * s0 + s1 * s1;
+                const double tmp  = 1.5 - 0.5 * mag2;
+                s0 *= tmp;
+                s1 *= tmp;
+                rc = 0;
+            }
+
+            double y;
+            switch (shape_) {
+                case Sine: y = s1; break;
+                case Tri: {
+                    double p = phase + 0.25;
+                    if (p >= 1.0) p -= 1.0;
+                    y = 1.0 - 4.0 * std::fabs(p - 0.5);
+                    break;
+                }
+                case Sq:  y = phase < 0.5 ? 1.0 : -1.0; break;
+                default:  y = 1.0 - 2.0 * phase;   break;  // Saw ↓
+            }
+            out[i] = static_cast<float>(y * amt + off);
+        }
+
+        phase_ = phase;
+        s0_ = s0; s1_ = s1;
+        renormCount_ = rc;
+    }
+
+private:
+    double rateToCoef(double hz) const {
+        return 2.0 * std::sin(M_PI * hz / sr_);
+    }
+    void reseedFromPhase() {
+        const double theta = 2.0 * M_PI * phase_;
+        s0_ = std::cos(theta);
+        s1_ = std::sin(theta);
+    }
+
+    double sr_;
+    double rate_   = 1.0;
+    double a_;
+    Shape  shape_  = Sine;
+    double amount_ = 1.0;
+    double offset_ = 0.0;
+    double phase_  = 0.0;
+    double s0_ = 1.0, s1_ = 0.0;
+    int    renormCount_ = 0;
+};
+
+}  // namespace shags::ops

@@ -50,7 +50,7 @@ writeFileSync(resolve(tmpDir, 'package.json'), '{ "type": "module" }\n');
 // List of ops we currently expect sidecars for. Must match opRegistry.js MVP
 // set. The shape-check (A) catches any divergence between this list and
 // either the registry or the filesystem.
-const OP_IDS = ['gain', 'filter', 'detector', 'envelope', 'gainComputer', 'mix'];
+const OP_IDS = ['gain', 'filter', 'detector', 'envelope', 'gainComputer', 'mix', 'curve', 'smooth', 'combine', 'noise', 'lfo', 'dcBlock', 'softLimit', 'saturate', 'shelf', 'delay', 'bitcrush', 'scaleBy', 'onePole', 'allpass', 'svf', 'peak', 'rms', 'kWeighting', 'lufsIntegrator', 'clamp', 'correlation', 'loudnessGate', 'truePeak', 'sign'];
 
 // -------- copy sources into tmp ESM dir ------------------------------------
 copyFileSync(registryFs, resolve(tmpDir, 'opRegistry.js'));

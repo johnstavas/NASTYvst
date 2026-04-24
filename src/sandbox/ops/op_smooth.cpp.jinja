@@ -1,0 +1,68 @@
+// op_smooth.cpp — Stage-3b C++ sidecar for the `smooth` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_smooth.worklet.js math
+// bit-for-bit (one-pole LP, Web-Audio-semantic time constant).
+// Template language: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+// Regenerated from this file + PCOF at build time — DO NOT hand-edit emitted .cpp.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class SmoothOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "smooth";
+
+    explicit SmoothOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        time_  = 0.01;
+        alpha_ = computeAlpha(time_);
+    }
+
+    void reset() { y_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "time") == 0) {
+            time_  = v < 0 ? 0.0 : v;
+            alpha_ = computeAlpha(time_);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // in:  mono input (nullptr if unwired)
+    // out: mono output
+    void process(const float* in, float* out, int N) {
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+
+        const double a = alpha_;
+        if (a >= 1.0) {
+            for (int i = 0; i < N; ++i) out[i] = in[i];
+            if (N > 0) y_ = in[N - 1];
+            return;
+        }
+
+        double y = y_;
+        for (int i = 0; i < N; ++i) {
+            y += a * (static_cast<double>(in[i]) - y);
+            // Jon Watte denormal flush — Canon:utilities §1 SHIP-CRITICAL.
+            if (y < kDenormal_ && y > -kDenormal_) y = 0.0;
+            out[i] = static_cast<float>(y);
+        }
+        y_ = y;
+    }
+
+private:
+    double computeAlpha(double t) const {
+        if (!(t > 0.0)) return 1.0;
+        return 1.0 - std::exp(-1.0 / (t * sr_));
+    }
+
+    static constexpr double kDenormal_ = 1e-30;
+
+    double sr_;
+    double time_  = 0.01;
+    double alpha_ = 0.0;
+    double y_     = 0.0;
+};
+
+}  // namespace shags::ops

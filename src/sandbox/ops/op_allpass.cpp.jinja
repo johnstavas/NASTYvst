@@ -1,0 +1,63 @@
+// op_allpass.cpp — Stage-3b C++ sidecar for the `allpass` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_allpass.worklet.js
+// bit-for-bit. Catalog #16, Canon:filters 1st-order allpass.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class AllpassOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "allpass";
+
+    explicit AllpassOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { x1_ = 0.0; y1_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "freq") == 0) {
+            freq_ = v;
+            recomputeCoefs();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        const double a = a_;
+        double x1 = x1_, y1 = y1_;
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            double y = a * (x - y1) + x1;
+            if (y < DENORMAL && y > -DENORMAL) y = 0.0;
+            x1 = x;
+            y1 = y;
+            out[i] = static_cast<float>(y);
+        }
+        x1_ = x1;
+        y1_ = y1;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double nyq = 0.5 * sr_ - 100.0;
+        const double fc  = freq_ < 1.0 ? 1.0 : (freq_ > nyq ? nyq : freq_);
+        const double t   = std::tan(M_PI * fc / sr_);
+        a_ = (t - 1.0) / (t + 1.0);
+    }
+
+    double sr_;
+    double freq_ = 1000.0;
+    double a_    = 0.0;
+    double x1_   = 0.0;
+    double y1_   = 0.0;
+};
+
+}  // namespace shags::ops

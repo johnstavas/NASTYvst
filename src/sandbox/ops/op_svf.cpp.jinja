@@ -1,0 +1,89 @@
+// op_svf.cpp — Stage-3b C++ sidecar for the `svf` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_svf.worklet.js
+// bit-for-bit. Catalog #33, Canon:filters §1 (Simper ZDF SVF).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class SvfOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "svf";
+
+    explicit SvfOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { ic1_ = 0.0; ic2_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "cutoff") == 0) { cutoff_ = v; recomputeCoefs(); }
+        else if (std::strcmp(id, "q") == 0) { q_      = v; recomputeCoefs(); }
+    }
+
+    // String-valued enum set via a separate path. The emitter wires this up;
+    // defaults are baked in at construction.
+    void setMode(const char* m) {
+        if      (std::strcmp(m, "lp")    == 0) mode_ = 0;
+        else if (std::strcmp(m, "bp")    == 0) mode_ = 2;
+        else if (std::strcmp(m, "hp")    == 0) mode_ = 1;
+        else if (std::strcmp(m, "notch") == 0) mode_ = 3;
+        else                                   mode_ = 0;
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        const double a1 = a1_, a2 = a2_, a3 = a3_, k = k_;
+        double ic1 = ic1_, ic2 = ic2_;
+        for (int i = 0; i < N; ++i) {
+            const double v0 = static_cast<double>(in[i]);
+            const double v3 = v0 - ic2;
+            const double v1 = a1 * ic1 + a2 * v3;
+            const double v2 = ic2 + a2 * ic1 + a3 * v3;
+            ic1 = 2.0 * v1 - ic1;
+            ic2 = 2.0 * v2 - ic2;
+            if (ic1 < DENORMAL && ic1 > -DENORMAL) ic1 = 0.0;
+            if (ic2 < DENORMAL && ic2 > -DENORMAL) ic2 = 0.0;
+            double y = 0.0;
+            switch (mode_) {
+                case 0: y = v2;                     break;  // lp
+                case 1: y = v0 - k * v1 - v2;       break;  // hp
+                case 2: y = v1;                     break;  // bp
+                case 3: y = v0 - k * v1;            break;  // notch
+            }
+            out[i] = static_cast<float>(y);
+        }
+        ic1_ = ic1;
+        ic2_ = ic2;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double nyq = 0.5 * sr_ - 100.0;
+        const double fc  = std::min(std::max(cutoff_, 20.0), nyq);
+        const double q   = std::min(std::max(q_,      0.05), 50.0);
+        const double g   = std::tan(M_PI * fc / sr_);
+        const double k   = 1.0 / q;
+        const double a1  = 1.0 / (1.0 + g * (g + k));
+        k_  = k;
+        a1_ = a1;
+        a2_ = g * a1;
+        a3_ = g * a2_;
+    }
+
+    double sr_;
+    double cutoff_ = 1000.0;
+    double q_      = 0.707;
+    int    mode_   = 0;   // 0=lp 1=hp 2=bp 3=notch
+    double a1_ = 0.0, a2_ = 0.0, a3_ = 0.0, k_ = 0.0;
+    double ic1_ = 0.0, ic2_ = 0.0;
+};
+
+}  // namespace shags::ops

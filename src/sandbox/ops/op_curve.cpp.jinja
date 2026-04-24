@@ -1,0 +1,132 @@
+// op_curve.cpp — Stage-3b C++ sidecar for the `curve` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_curve.worklet.js math
+// bit-for-bit (cubic Hermite; Bézier-equivalent for 1D y=f(x)).
+// Template language: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+// Regenerated from this file + PCOF at build time — DO NOT hand-edit emitted .cpp.
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class CurveOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "curve";
+
+    enum class Interp { Hermite, Catmull, Linear };
+
+    struct Point { double x, y, tIn, tOut; };
+
+    explicit CurveOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        points_ = { {0.0, 0.0, 1.0, 1.0}, {1.0, 1.0, 1.0, 1.0} };
+        rebuildTangents();
+    }
+
+    void reset() {}
+
+    // points_ is populated from PCOF at codegen; runtime setter for live edit.
+    void setPoints(const Point* pts, int n) {
+        if (n < 2) return;
+        points_.assign(pts, pts + n);
+        rebuildTangents();
+    }
+
+    void setParam(const char* id, double v) {
+        (void)v;
+        // 'bipolar' is the only scalar runtime param; enum/points come via
+        // setParamInterp() / setPoints(). Defensive: ignore unknown ids.
+        if (std::strcmp(id, "bipolar") == 0) bipolar_ = (v != 0.0);
+    }
+
+    void setParamInterp(const char* s) {
+        if      (std::strcmp(s, "hermite") == 0) interp_ = Interp::Hermite;
+        else if (std::strcmp(s, "catmull") == 0) interp_ = Interp::Catmull;
+        else if (std::strcmp(s, "linear")  == 0) interp_ = Interp::Linear;
+        else                                     interp_ = Interp::Hermite;
+        rebuildTangents();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // in:  mono input (nullptr if unwired)
+    // out: mono output
+    void process(const float* in, float* out, int N) {
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        if (bipolar_) {
+            for (int i = 0; i < N; ++i) {
+                const double x   = in[i];
+                const double mag = x < 0 ? -x : x;
+                const double c   = mag > 1.0 ? 1.0 : mag;
+                const double y   = evalUnipolar(c);
+                out[i] = static_cast<float>(x < 0 ? -y : y);
+            }
+        } else {
+            for (int i = 0; i < N; ++i) {
+                const double x = in[i];
+                const double c = x < 0.0 ? 0.0 : (x > 1.0 ? 1.0 : x);
+                out[i] = static_cast<float>(evalUnipolar(c));
+            }
+        }
+    }
+
+private:
+    double evalUnipolar(double x) const {
+        const auto& P = points_;
+        const int   N = static_cast<int>(P.size());
+        if (x <= P.front().x) return P.front().y;
+        if (x >= P.back().x)  return P.back().y;
+
+        // binary search for segment
+        int lo = 0, hi = N - 1;
+        while (hi - lo > 1) {
+            const int mid = (lo + hi) >> 1;
+            if (P[mid].x <= x) lo = mid; else hi = mid;
+        }
+        const Point& p0 = P[lo];
+        const Point& p1 = P[lo + 1];
+        const double dx = p1.x - p0.x;
+        if (dx <= 0) return p0.y;
+        const double t  = (x - p0.x) / dx;
+
+        if (interp_ == Interp::Linear) return p0.y + (p1.y - p0.y) * t;
+
+        double m0, m1;
+        if (interp_ == Interp::Catmull) {
+            m0 = cmM_[lo];
+            m1 = cmM_[lo + 1];
+        } else {
+            m0 = p0.tOut;
+            m1 = p1.tIn;
+        }
+        const double t2 = t * t;
+        const double t3 = t2 * t;
+        const double h00 =  2*t3 - 3*t2 + 1;
+        const double h10 =     t3 - 2*t2 + t;
+        const double h01 = -2*t3 + 3*t2;
+        const double h11 =     t3 -   t2;
+        return h00 * p0.y + h10 * m0 * dx + h01 * p1.y + h11 * m1 * dx;
+    }
+
+    void rebuildTangents() {
+        const int N = static_cast<int>(points_.size());
+        cmM_.assign(N, 0.0);
+        if (interp_ != Interp::Catmull) return;
+        for (int i = 0; i < N; ++i) {
+            double m;
+            if      (i == 0)     m = (points_[1].y     - points_[0].y)     / (points_[1].x     - points_[0].x);
+            else if (i == N - 1) m = (points_[N-1].y   - points_[N-2].y)   / (points_[N-1].x   - points_[N-2].x);
+            else                 m = (points_[i+1].y   - points_[i-1].y)   / (points_[i+1].x   - points_[i-1].x);
+            cmM_[i] = m;
+        }
+    }
+
+    double              sr_;
+    std::vector<Point>  points_;
+    std::vector<double> cmM_;
+    Interp              interp_  = Interp::Hermite;
+    bool                bipolar_ = false;
+};
+
+}  // namespace shags::ops

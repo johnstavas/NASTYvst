@@ -1,0 +1,103 @@
+// op_kWeighting.cpp — Stage-3b C++ sidecar for the `kWeighting` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_kWeighting.worklet.js
+// bit-for-bit. Catalog #51, Canon:loudness §2 (ITU-R BS.1770-5 K-weighting).
+// Template: Jinja2.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class KWeightingOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "kWeighting";
+
+    explicit KWeightingOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        computeCoefs();
+    }
+
+    void reset() {
+        s1x1_ = s1x2_ = s1y1_ = s1y2_ = 0.0;
+        s2x1_ = s2x2_ = s2y1_ = s2y2_ = 0.0;
+    }
+
+    void setParam(const char*, double) { /* no params */ }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        const double b10 = s1b0_, b11 = s1b1_, b12 = s1b2_, a11 = s1a1_, a12 = s1a2_;
+        const double b20 = s2b0_, b21 = s2b1_, b22 = s2b2_, a21 = s2a1_, a22 = s2a2_;
+        double s1x1 = s1x1_, s1x2 = s1x2_, s1y1 = s1y1_, s1y2 = s1y2_;
+        double s2x1 = s2x1_, s2x2 = s2x2_, s2y1 = s2y1_, s2y2 = s2y2_;
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            double y1 = b10 * x + b11 * s1x1 + b12 * s1x2 - a11 * s1y1 - a12 * s1y2;
+            if (y1 < DENORMAL && y1 > -DENORMAL) y1 = 0.0;
+            s1x2 = s1x1; s1x1 = x;
+            s1y2 = s1y1; s1y1 = y1;
+            double y2 = b20 * y1 + b21 * s2x1 + b22 * s2x2 - a21 * s2y1 - a22 * s2y2;
+            if (y2 < DENORMAL && y2 > -DENORMAL) y2 = 0.0;
+            s2x2 = s2x1; s2x1 = y1;
+            s2y2 = s2y1; s2y1 = y2;
+            out[i] = static_cast<float>(y2);
+        }
+        s1x1_ = s1x1; s1x2_ = s1x2; s1y1_ = s1y1; s1y2_ = s1y2;
+        s2x1_ = s2x1; s2x2_ = s2x2; s2y1_ = s2y1; s2y2_ = s2y2;
+    }
+
+private:
+    // Bilinear with pre-warping at fc. α/β are analog prototype coefs.
+    static void bilinear(double b0a, double b1a, double b2a,
+                         double a0a, double a1a, double a2a,
+                         double fc, double sr,
+                         double& b0, double& b1, double& b2,
+                         double& a1, double& a2) {
+        const double w0 = 2.0 * M_PI * fc;
+        const double K  = w0 / std::tan(w0 / (2.0 * sr));
+        const double K2 = K * K;
+        const double a0 = a0a * K2 + a1a * K + a2a;
+        a1 = (-2.0 * a0a * K2 + 2.0 * a2a) / a0;
+        a2 = (a0a * K2 - a1a * K + a2a) / a0;
+        b0 = (b0a * K2 + b1a * K + b2a) / a0;
+        b1 = (-2.0 * b0a * K2 + 2.0 * b2a) / a0;
+        b2 = (b0a * K2 - b1a * K + b2a) / a0;
+    }
+
+    void computeCoefs() {
+        // Stage 1 — pre-filter (high-shelf)
+        constexpr double S1_FC = 1681.974450955533;
+        constexpr double S1_Q  = 0.7071752369554196;
+        constexpr double S1_VH = 1.584864701130855;
+        constexpr double S1_VB = 1.258720930232562;
+        constexpr double S1_VL = 1.0;
+        const double w1  = 2.0 * M_PI * S1_FC;
+        const double w1Q = w1 / S1_Q;
+        const double w1s = w1 * w1;
+        bilinear(S1_VH, S1_VB * w1Q, S1_VL * w1s, 1.0, w1Q, w1s, S1_FC, sr_,
+                 s1b0_, s1b1_, s1b2_, s1a1_, s1a2_);
+
+        // Stage 2 — RLB high-pass
+        constexpr double S2_FC = 38.13547087602444;
+        constexpr double S2_Q  = 0.5003270373238773;
+        const double w2  = 2.0 * M_PI * S2_FC;
+        const double w2Q = w2 / S2_Q;
+        const double w2s = w2 * w2;
+        bilinear(1.0, 0.0, 0.0, 1.0, w2Q, w2s, S2_FC, sr_,
+                 s2b0_, s2b1_, s2b2_, s2a1_, s2a2_);
+        // Pin b0=1 to match BS.1770 canonical Stage 2 form b=[1,-2,1].
+        const double norm = s2b0_;
+        s2b0_ /= norm; s2b1_ /= norm; s2b2_ /= norm;
+    }
+
+    double sr_;
+    double s1b0_ = 0, s1b1_ = 0, s1b2_ = 0, s1a1_ = 0, s1a2_ = 0;
+    double s2b0_ = 0, s2b1_ = 0, s2b2_ = 0, s2a1_ = 0, s2a2_ = 0;
+    double s1x1_ = 0, s1x2_ = 0, s1y1_ = 0, s1y2_ = 0;
+    double s2x1_ = 0, s2x2_ = 0, s2y1_ = 0, s2y2_ = 0;
+};
+
+}  // namespace shags::ops

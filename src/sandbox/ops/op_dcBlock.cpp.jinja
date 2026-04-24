@@ -1,0 +1,61 @@
+// op_dcBlock.cpp — Stage-3b C++ sidecar for the `dcBlock` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_dcBlock.worklet.js
+// bit-for-bit. 1-pole DC trap, SHIP-CRITICAL for feedback-loop topologies.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class DcBlockOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "dcBlock";
+
+    explicit DcBlockOp_{{ node_id }}(double sampleRate)
+      : sr_(sampleRate), R_(std::exp(-2.0 * M_PI * cutoff_ / sr_)) {}
+
+    void reset() {
+        x1_ = 0.0;
+        y1_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "cutoff") == 0) {
+            const double fc = v < 0.01 ? 0.01 : (v > 0.45 * sr_ ? 0.45 * sr_ : v);
+            cutoff_ = fc;
+            R_ = std::exp(-2.0 * M_PI * fc / sr_);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        double x1 = x1_;
+        double y1 = y1_;
+        const double R = R_;
+        for (int i = 0; i < N; ++i) {
+            const double x = in[i];
+            double       y = x - x1 + R * y1;
+            if (y < kDenormal && y > -kDenormal) y = 0.0;
+            out[i] = static_cast<float>(y);
+            x1 = x;
+            y1 = y;
+        }
+        x1_ = x1;
+        y1_ = y1;
+    }
+
+private:
+    static constexpr double kDenormal = 1e-30;
+
+    double sr_;
+    double cutoff_ = 10.0;
+    double R_;
+    double x1_ = 0.0;
+    double y1_ = 0.0;
+};
+
+}  // namespace shags::ops

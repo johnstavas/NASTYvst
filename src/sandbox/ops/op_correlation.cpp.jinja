@@ -1,0 +1,92 @@
+// op_correlation.cpp — Stage-3b C++ sidecar for the `correlation` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_correlation.worklet.js
+// bit-for-bit. Catalog #56 (Analysis, stereo metering — Pearson).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class CorrelationOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "correlation";
+
+    explicit CorrelationOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { eLL_ = eRR_ = eLR_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "timeMs") == 0) {
+            const double clamped = std::min(std::max(v, 1.0), 10000.0);
+            tauS_ = clamped / 1000.0;
+            recomputeCoefs();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // Worklet has two audio inputs (l, r) — in the master-worklet emit,
+    // this compiles to two separate pointer args. Contract mirrors that.
+    void process(const float* l, const float* r, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL    = 1e-30;
+        constexpr double DENOM_FLOOR = 1e-20;
+        const double a   = alpha_;
+        const double oma = 1.0 - alpha_;
+        double eLL = eLL_, eRR = eRR_, eLR = eLR_;
+
+        if (!l || !r) {
+            for (int i = 0; i < N; ++i) {
+                eLL *= a; eRR *= a; eLR *= a;
+                if (std::abs(eLL) < DENORMAL) eLL = 0.0;
+                if (std::abs(eRR) < DENORMAL) eRR = 0.0;
+                if (std::abs(eLR) < DENORMAL) eLR = 0.0;
+                out[i] = 0.0f;
+            }
+            eLL_ = eLL; eRR_ = eRR; eLR_ = eLR;
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            const double li = static_cast<double>(l[i]);
+            const double ri = static_cast<double>(r[i]);
+            eLL = oma * (li * li) + a * eLL;
+            eRR = oma * (ri * ri) + a * eRR;
+            eLR = oma * (li * ri) + a * eLR;
+            if (std::abs(eLL) < DENORMAL) eLL = 0.0;
+            if (std::abs(eRR) < DENORMAL) eRR = 0.0;
+            if (std::abs(eLR) < DENORMAL) eLR = 0.0;
+            const double denom2 = eLL * eRR;
+            double rho;
+            if (denom2 < DENOM_FLOOR) {
+                rho = 0.0;
+            } else {
+                rho = eLR / std::sqrt(denom2);
+                if (rho >  1.0) rho =  1.0;
+                else if (rho < -1.0) rho = -1.0;
+            }
+            out[i] = static_cast<float>(rho);
+        }
+
+        eLL_ = eLL; eRR_ = eRR; eLR_ = eLR;
+    }
+
+private:
+    void recomputeCoefs() {
+        alpha_ = std::exp(-1.0 / (tauS_ * sr_));
+    }
+
+    double sr_;
+    double tauS_  = 0.3;
+    double alpha_ = 0.0;
+    double eLL_   = 0.0;
+    double eRR_   = 0.0;
+    double eLR_   = 0.0;
+};
+
+}  // namespace shags::ops

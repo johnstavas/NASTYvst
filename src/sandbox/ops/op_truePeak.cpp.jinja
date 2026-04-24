@@ -1,0 +1,109 @@
+// op_truePeak.cpp — Stage-3b C++ sidecar for the `truePeak` op.
+// Contract: memory/codegen_design.md § 4. Mirrors worklet bit-for-bit.
+// Catalog #54. Canon:loudness §2 Annex 2 (BS.1770-5 48-tap polyphase).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <array>
+
+namespace shags::ops {
+
+class TruePeakOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "truePeak";
+    static constexpr int    NTAPS    = 12;
+    static constexpr double DENORMAL = 1e-30;
+
+    explicit TruePeakOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() {
+        env_ = 0.0;
+        hist_.fill(0.0);
+        histIdx_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "releaseMs") == 0) {
+            const double clamped = std::min(std::max(v, 1.0), 10000.0);
+            releaseS_ = clamped / 1000.0;
+            recomputeCoefs();
+        }
+    }
+
+    int getLatencySamples() const { return 6; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double a = alpha_;
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                hist_[histIdx_] = 0.0;
+                histIdx_ = (histIdx_ + 1) % NTAPS;
+                env_ *= a;
+                if (env_ < DENORMAL) env_ = 0.0;
+                out[i] = static_cast<float>(env_);
+            }
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            hist_[histIdx_] = static_cast<double>(in[i]);
+            histIdx_ = (histIdx_ + 1) % NTAPS;
+            const int newest = (histIdx_ - 1 + NTAPS) % NTAPS;
+            double pmax = 0.0;
+            for (int ph = 0; ph < 4; ++ph) {
+                const double* h = kH_[ph].data();
+                double acc = 0.0;
+                int p = newest;
+                for (int k = 0; k < NTAPS; ++k) {
+                    acc += h[k] * hist_[p];
+                    p = (p - 1 + NTAPS) % NTAPS;
+                }
+                const double aa = std::abs(acc);
+                if (aa > pmax) pmax = aa;
+            }
+            const double decayed = env_ * a;
+            env_ = pmax > decayed ? pmax : decayed;
+            if (env_ < DENORMAL) env_ = 0.0;
+            out[i] = static_cast<float>(env_);
+        }
+    }
+
+private:
+    void recomputeCoefs() {
+        alpha_ = std::exp(-1.0 / (releaseS_ * sr_));
+    }
+
+    double sr_;
+    double releaseS_ = 1.7;
+    double alpha_    = 0.0;
+    double env_      = 0.0;
+    std::array<double, NTAPS> hist_{};
+    int    histIdx_  = 0;
+
+    // BS.1770-5 Annex 2 Table A2.1 polyphase coefficients.
+    static constexpr std::array<std::array<double, NTAPS>, 4> kH_ = {{
+        {  0.0017089843750000,  0.0109863281250000, -0.0196533203125000,
+           0.0332031250000000, -0.0594482421875000,  0.1373291015625000,
+           0.9721679687500000, -0.1022949218750000,  0.0476074218750000,
+          -0.0266113281250000,  0.0148925781250000, -0.0083007812500000 },
+        { -0.0291748046875000,  0.0292968750000000, -0.0517578125000000,
+           0.0891113281250000, -0.1665039062500000,  0.4650878906250000,
+           0.7797851562500000, -0.2003173828125000,  0.1015625000000000,
+          -0.0582275390625000,  0.0330810546875000, -0.0189208984375000 },
+        { -0.0189208984375000,  0.0330810546875000, -0.0582275390625000,
+           0.1015625000000000, -0.2003173828125000,  0.7797851562500000,
+           0.4650878906250000, -0.1665039062500000,  0.0891113281250000,
+          -0.0517578125000000,  0.0292968750000000, -0.0291748046875000 },
+        { -0.0083007812500000,  0.0148925781250000, -0.0266113281250000,
+           0.0476074218750000, -0.1022949218750000,  0.9721679687500000,
+           0.1373291015625000, -0.0594482421875000,  0.0332031250000000,
+          -0.0196533203125000,  0.0109863281250000,  0.0017089843750000 }
+    }};
+};
+
+}  // namespace shags::ops

@@ -1,0 +1,98 @@
+// op_shelf.cpp — Stage-3b C++ sidecar for the `shelf` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_shelf.worklet.js
+// bit-for-bit. Canon:filters §9 RBJ cookbook shelving biquad, S=1.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class ShelfOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "shelf";
+
+    explicit ShelfOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() {
+        x1_ = x2_ = y1_ = y2_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "mode") == 0) {
+            // enum carried as int in C++ (0=low, 1=high). Emitter wires this.
+            mode_ = (static_cast<int>(v) == 1) ? 1 : 0;
+        } else if (std::strcmp(id, "freq") == 0) {
+            freq_ = v;
+        } else if (std::strcmp(id, "gainDb") == 0) {
+            gainDb_ = v;
+        }
+        recomputeCoefs();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        double x1 = x1_, x2 = x2_, y1 = y1_, y2 = y2_;
+        const double b0 = b0_, b1 = b1_, b2 = b2_;
+        const double a1 = a1_, a2 = a2_;
+        constexpr double DENORMAL = 1e-30;
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            double y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+            if (y < DENORMAL && y > -DENORMAL) y = 0.0;
+            x2 = x1; x1 = x;
+            y2 = y1; y1 = y;
+            out[i] = static_cast<float>(y);
+        }
+        x1_ = x1; x2_ = x2; y1_ = y1; y2_ = y2;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double nyq   = 0.5 * sr_ - 100.0;
+        const double f0    = freq_ < 10.0 ? 10.0 : (freq_ > nyq ? nyq : freq_);
+        const double A     = std::pow(10.0, gainDb_ / 40.0);
+        const double w0    = 2.0 * M_PI * f0 / sr_;
+        const double cosw0 = std::cos(w0);
+        const double sinw0 = std::sin(w0);
+        const double alpha = sinw0 * 0.70710678118654752;  // 1/sqrt(2)
+        const double twoSqrtA_alpha = 2.0 * std::sqrt(A) * alpha;
+
+        double b0, b1, b2, a0, a1, a2;
+        if (mode_ == 1) {
+            b0 =    A * ((A + 1.0) + (A - 1.0) * cosw0 + twoSqrtA_alpha);
+            b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cosw0);
+            b2 =    A * ((A + 1.0) + (A - 1.0) * cosw0 - twoSqrtA_alpha);
+            a0 =        (A + 1.0) - (A - 1.0) * cosw0 + twoSqrtA_alpha;
+            a1 =  2.0 * ((A - 1.0) - (A + 1.0) * cosw0);
+            a2 =        (A + 1.0) - (A - 1.0) * cosw0 - twoSqrtA_alpha;
+        } else {
+            b0 =    A * ((A + 1.0) - (A - 1.0) * cosw0 + twoSqrtA_alpha);
+            b1 =  2.0 * A * ((A - 1.0) - (A + 1.0) * cosw0);
+            b2 =    A * ((A + 1.0) - (A - 1.0) * cosw0 - twoSqrtA_alpha);
+            a0 =        (A + 1.0) + (A - 1.0) * cosw0 + twoSqrtA_alpha;
+            a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cosw0);
+            a2 =        (A + 1.0) + (A - 1.0) * cosw0 - twoSqrtA_alpha;
+        }
+        const double inv_a0 = 1.0 / a0;
+        b0_ = b0 * inv_a0;
+        b1_ = b1 * inv_a0;
+        b2_ = b2 * inv_a0;
+        a1_ = a1 * inv_a0;
+        a2_ = a2 * inv_a0;
+    }
+
+    double sr_;
+    int    mode_   = 0;     // 0=low, 1=high
+    double freq_   = 200.0;
+    double gainDb_ = 0.0;
+    double x1_ = 0, x2_ = 0, y1_ = 0, y2_ = 0;
+    double b0_ = 1, b1_ = 0, b2_ = 0, a1_ = 0, a2_ = 0;
+};
+
+}  // namespace shags::ops

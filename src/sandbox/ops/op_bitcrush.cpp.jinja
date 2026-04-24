@@ -1,0 +1,48 @@
+// op_bitcrush.cpp — Stage-3b C++ sidecar for the `bitcrush` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_bitcrush.worklet.js
+// bit-for-bit. Catalog #14, Canon:character §8 (primitive core; dither
+// and noise-shaping are separate ops).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class BitcrushOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "bitcrush";
+
+    explicit BitcrushOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "bits") == 0) {
+            const int b = static_cast<int>(std::round(v));
+            bits_ = (!std::isfinite(v) || b < 0 || b > 16) ? 0 : b;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        if (bits_ == 0) {
+            for (int i = 0; i < N; ++i) out[i] = in[i];
+            return;
+        }
+        const double invStep = static_cast<double>(1 << bits_) * 0.5;
+        const double step    = 1.0 / invStep;
+        for (int i = 0; i < N; ++i) {
+            out[i] = static_cast<float>(std::round(in[i] * invStep) * step);
+        }
+    }
+
+private:
+    double sr_;
+    int    bits_ = 0;
+};
+
+}  // namespace shags::ops

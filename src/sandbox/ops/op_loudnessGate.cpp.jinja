@@ -1,0 +1,126 @@
+// op_loudnessGate.cpp — Stage-3b C++ sidecar for the `loudnessGate` op.
+// Contract: memory/codegen_design.md § 4. Mirrors worklet bit-for-bit.
+// Catalog #53. Canon:loudness §3 (BS.1770-5 §5.1 two-stage gating).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <vector>
+
+namespace shags::ops {
+
+class LoudnessGateOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "loudnessGate";
+    static constexpr double LUFS_OFFSET   = -0.691;
+    static constexpr double LUFS_FLOOR    = -120.691;
+    static constexpr double MS_FLOOR      = 1e-12;
+    static constexpr double ABS_THRESH_DB = -70.0;
+    static constexpr double REL_OFFSET_DB = -10.0;
+    static constexpr int    MAX_BLOCKS    = 36000; // 1 h @ 100 ms hops
+    static constexpr double DENORMAL      = 1e-30;
+
+    explicit LoudnessGateOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        subLen_   = static_cast<int>(std::round(sampleRate * 0.1));
+        blockLen_ = subLen_ * 4;
+        absPassMS_.assign(MAX_BLOCKS, 0.0);
+    }
+
+    void reset() {
+        subAcc_   = 0.0;
+        subCount_ = 0;
+        subRing_.fill(0.0);
+        subRingFill_ = 0;
+        subIdx_   = 0;
+        absPassN_ = 0;
+        integratedLufs_ = LUFS_FLOOR;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "channelWeight") == 0) {
+            G_ = std::min(std::max(v, 0.0), 2.0);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                subCount_++;
+                if (subCount_ >= subLen_) {
+                    closeSubBlock(subAcc_);
+                    subAcc_ = 0.0;
+                    subCount_ = 0;
+                }
+                out[i] = static_cast<float>(integratedLufs_);
+            }
+            if (std::abs(subAcc_) < DENORMAL) subAcc_ = 0.0;
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            subAcc_ += x * x;
+            subCount_++;
+            if (subCount_ >= subLen_) {
+                closeSubBlock(subAcc_);
+                subAcc_ = 0.0;
+                subCount_ = 0;
+            }
+            out[i] = static_cast<float>(integratedLufs_);
+        }
+        if (std::abs(subAcc_) < DENORMAL) subAcc_ = 0.0;
+    }
+
+private:
+    void closeSubBlock(double subSumSq) {
+        subRing_[subIdx_] = subSumSq;
+        subIdx_ = (subIdx_ + 1) & 3;
+        if (subRingFill_ < 4) {
+            subRingFill_++;
+            if (subRingFill_ < 4) return;
+        }
+        const double blockSumSq =
+            subRing_[0] + subRing_[1] + subRing_[2] + subRing_[3];
+        const double ms = blockSumSq / blockLen_;
+        const double absPassMin =
+            std::pow(10.0, (ABS_THRESH_DB - LUFS_OFFSET) / 10.0);
+        if (G_ * ms <= absPassMin) return;
+        if (absPassN_ >= MAX_BLOCKS) return;
+        absPassMS_[absPassN_++] = ms;
+
+        double sum = 0.0;
+        for (int i = 0; i < absPassN_; ++i) sum += absPassMS_[i];
+        const double meanMsAbs = sum / absPassN_;
+        const double msRel = meanMsAbs * 0.1; // -10 LU ⇔ ×0.1 in linear MS
+
+        double sum2 = 0.0;
+        int    n2   = 0;
+        for (int i = 0; i < absPassN_; ++i) {
+            if (absPassMS_[i] > msRel) { sum2 += absPassMS_[i]; ++n2; }
+        }
+        if (n2 == 0) { integratedLufs_ = LUFS_FLOOR; return; }
+        double meanMs2 = sum2 / n2;
+        if (G_ * meanMs2 < MS_FLOOR) meanMs2 = MS_FLOOR / (G_ > 0 ? G_ : 1.0);
+        integratedLufs_ = LUFS_OFFSET + 10.0 * std::log10(G_ * meanMs2);
+    }
+
+    double sr_;
+    double G_        = 1.0;
+    int    subLen_   = 0;
+    int    blockLen_ = 0;
+    double subAcc_   = 0.0;
+    int    subCount_ = 0;
+    std::array<double,4> subRing_{0,0,0,0};
+    int    subRingFill_ = 0;
+    int    subIdx_   = 0;
+    std::vector<double> absPassMS_;
+    int    absPassN_ = 0;
+    double integratedLufs_ = LUFS_FLOOR;
+};
+
+}  // namespace shags::ops

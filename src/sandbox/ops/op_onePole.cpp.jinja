@@ -1,0 +1,67 @@
+// op_onePole.cpp — Stage-3b C++ sidecar for the `onePole` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_onePole.worklet.js
+// bit-for-bit. Catalog #32, Canon:filters §9 1-pole IIR (complementary
+// LP/HP construction).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class OnePoleOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "onePole";
+
+    explicit OnePoleOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { y1_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "mode") == 0) {
+            mode_ = (static_cast<int>(v) == 1) ? 1 : 0;  // 0=LP, 1=HP
+        } else if (std::strcmp(id, "cutoff") == 0) {
+            cutoff_ = v;
+        }
+        recomputeCoefs();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        const double a   = a_;
+        const double oma = oma_;
+        const bool   isHP = (mode_ == 1);
+        double y1 = y1_;
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            double lp = oma * x + a * y1;
+            if (lp < DENORMAL && lp > -DENORMAL) lp = 0.0;
+            y1 = lp;
+            out[i] = static_cast<float>(isHP ? (x - lp) : lp);
+        }
+        y1_ = y1;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double nyq = 0.5 * sr_ - 100.0;
+        const double fc  = cutoff_ < 1.0 ? 1.0 : (cutoff_ > nyq ? nyq : cutoff_);
+        a_   = std::exp(-2.0 * M_PI * fc / sr_);
+        oma_ = 1.0 - a_;
+    }
+
+    double sr_;
+    int    mode_   = 0;        // 0=LP, 1=HP
+    double cutoff_ = 1000.0;
+    double a_      = 0.0;
+    double oma_    = 1.0;
+    double y1_     = 0.0;
+};
+
+}  // namespace shags::ops

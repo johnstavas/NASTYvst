@@ -1,0 +1,68 @@
+// op_rms.cpp — Stage-3b C++ sidecar for the `rms` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_rms.worklet.js
+// bit-for-bit. Catalog #50, Canon:loudness §1 (one-pole averaged RMS).
+// Template: Jinja2.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class RmsOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "rms";
+
+    explicit RmsOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { p_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "window") == 0) {
+            window_ = v;
+            recomputeCoefs();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL = 1e-30;
+        const double a   = alpha_;
+        const double oma = 1.0 - alpha_;
+        double p = p_;
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                p *= a;
+                if (p < DENORMAL) p = 0.0;
+                out[i] = static_cast<float>(std::sqrt(p));
+            }
+            p_ = p;
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            p = oma * (x * x) + a * p;
+            if (p < DENORMAL) p = 0.0;
+            out[i] = static_cast<float>(p > 0.0 ? std::sqrt(p) : 0.0);
+        }
+        p_ = p;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double wMs = std::min(std::max(window_, 1.0), 30000.0);
+        const double tau = wMs * 0.001;
+        alpha_ = std::exp(-1.0 / (tau * sr_));
+    }
+
+    double sr_;
+    double window_ = 300.0;   // ms, one-pole τ
+    double alpha_  = 0.0;
+    double p_      = 0.0;     // running mean-square
+};
+
+}  // namespace shags::ops

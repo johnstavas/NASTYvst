@@ -1,0 +1,49 @@
+// op_clamp.cpp — Stage-3b C++ sidecar for the `clamp` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_clamp.worklet.js
+// bit-for-bit. Catalog #90 (Control primitive, hard min/max).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class ClampOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "clamp";
+
+    explicit ClampOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "lo") == 0) lo_ = v;
+        else if (std::strcmp(id, "hi") == 0) hi_ = v;
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double lo = lo_;
+        const double hi = hi_;
+        if (!in) {
+            const double zc = 0.0 < lo ? lo : (0.0 > hi ? hi : 0.0);
+            for (int i = 0; i < N; ++i) out[i] = static_cast<float>(zc);
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            out[i] = static_cast<float>(x < lo ? lo : (x > hi ? hi : x));
+        }
+    }
+
+private:
+    double sr_;
+    double lo_ = -1.0;
+    double hi_ =  1.0;
+};
+
+}  // namespace shags::ops

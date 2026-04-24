@@ -1,0 +1,68 @@
+// op_peak.cpp — Stage-3b C++ sidecar for the `peak` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_peak.worklet.js
+// bit-for-bit. Catalog #49, Canon:loudness §1 (IEC 60268-10 peak
+// ballistics). Template: Jinja2.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class PeakOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "peak";
+
+    explicit PeakOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { y1_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "release") == 0) {
+            release_ = v;
+            recomputeCoefs();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL = 1e-30;
+        const double r = rCoef_;
+        double y = y1_;
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                y *= r;
+                if (y < DENORMAL) y = 0.0;
+                out[i] = static_cast<float>(y);
+            }
+            y1_ = y;
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const double ax = std::fabs(static_cast<double>(in[i]));
+            y = ax > y ? ax : y * r;
+            if (y < DENORMAL) y = 0.0;
+            out[i] = static_cast<float>(y);
+        }
+        y1_ = y;
+    }
+
+private:
+    void recomputeCoefs() {
+        constexpr double LN_1E_MINUS_3 = -6.907755278982137;
+        const double rMs  = std::min(std::max(release_, 1.0), 30000.0);
+        const double rSec = rMs * 0.001;
+        rCoef_ = std::exp(LN_1E_MINUS_3 / (rSec * sr_));
+    }
+
+    double sr_;
+    double release_ = 400.0;   // ms, 60 dB fall time
+    double rCoef_   = 0.0;
+    double y1_      = 0.0;
+};
+
+}  // namespace shags::ops

@@ -1,0 +1,34 @@
+// op_sign.cpp — Stage-3b C++ sidecar for the `sign` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_sign.worklet.js
+// bit-for-bit. Catalog #91. Template: Jinja2.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class SignOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "sign";
+
+    explicit SignOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+    void setParam(const char*, double) {}
+    int  getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        for (int i = 0; i < N; ++i) {
+            const float x = in[i];
+            // NaN fails both comparisons → collapses to 0 (matches worklet).
+            out[i] = x > 0.0f ? 1.0f : (x < 0.0f ? -1.0f : 0.0f);
+        }
+    }
+
+private:
+    double sr_;
+};
+
+}  // namespace shags::ops

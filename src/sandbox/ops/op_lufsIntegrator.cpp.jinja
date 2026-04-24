@@ -1,0 +1,80 @@
+// op_lufsIntegrator.cpp — Stage-3b C++ sidecar for the `lufsIntegrator` op.
+// Contract: memory/codegen_design.md § 4. Mirrors the worklet bit-for-bit.
+// Catalog #52, Canon:loudness §3 (BS.1770-5 momentary/short-term LUFS).
+// Template: Jinja2.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class LufsIntegratorOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "lufsIntegrator";
+
+    explicit LufsIntegratorOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { p_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "channelWeight") == 0) {
+            G_ = std::min(std::max(v, 0.0), 2.0);
+        }
+    }
+
+    void setMode(const char* m) {
+        if (std::strcmp(m, "short-term") == 0) modeShort_ = true;
+        else                                   modeShort_ = false;
+        recomputeCoefs();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        constexpr double LUFS_OFFSET = -0.691;
+        constexpr double MS_FLOOR    = 1e-12;
+        constexpr double DENORMAL    = 1e-30;
+        const double a   = alpha_;
+        const double oma = 1.0 - alpha_;
+        const double G   = G_;
+        double p = p_;
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                p *= a;
+                if (p < DENORMAL) p = 0.0;
+                double ms = G * p;
+                if (ms < MS_FLOOR) ms = MS_FLOOR;
+                out[i] = static_cast<float>(LUFS_OFFSET + 10.0 * std::log10(ms));
+            }
+            p_ = p;
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            p = oma * (x * x) + a * p;
+            if (p < DENORMAL) p = 0.0;
+            double ms = G * p;
+            if (ms < MS_FLOOR) ms = MS_FLOOR;
+            out[i] = static_cast<float>(LUFS_OFFSET + 10.0 * std::log10(ms));
+        }
+        p_ = p;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double tau = modeShort_ ? 1.5 : 0.2;    // short-term vs momentary
+        alpha_ = std::exp(-1.0 / (tau * sr_));
+    }
+
+    double sr_;
+    bool   modeShort_ = false;
+    double G_         = 1.0;
+    double alpha_     = 0.0;
+    double p_         = 0.0;
+};
+
+}  // namespace shags::ops

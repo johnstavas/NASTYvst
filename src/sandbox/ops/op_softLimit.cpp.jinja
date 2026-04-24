@@ -1,0 +1,45 @@
+// op_softLimit.cpp — Stage-3b C++ sidecar for the `softLimit` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_softLimit.worklet.js
+// bit-for-bit. Canon:character §11 Padé rational tanh.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+
+namespace shags::ops {
+
+class SoftLimitOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "softLimit";
+
+    explicit SoftLimitOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "threshold") == 0) {
+            threshold_ = v < 0.01 ? 0.01 : v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        const double T    = threshold_;
+        const double invT = 1.0 / T;
+        for (int i = 0; i < N; ++i) {
+            double u = static_cast<double>(in[i]) * invT;
+            if (u >  3.0) u =  3.0;
+            else if (u < -3.0) u = -3.0;
+            const double u2 = u * u;
+            out[i] = static_cast<float>(T * u * (27.0 + u2) / (27.0 + 9.0 * u2));
+        }
+    }
+
+private:
+    double sr_;
+    double threshold_ = 0.95;
+};
+
+}  // namespace shags::ops

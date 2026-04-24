@@ -1,0 +1,93 @@
+// op_delay.cpp — Stage-3b C++ sidecar for the `delay` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_delay.worklet.js
+// bit-for-bit. Canon:time_interp §1 Hermite-4 fractional read.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class DelayOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "delay";
+    static constexpr double MAX_TIME_MS = 2000.0;
+
+    explicit DelayOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        lineLen_ = static_cast<int>(std::ceil(MAX_TIME_MS * 0.001 * sr_)) + 4;
+        line_.assign(lineLen_, 0.0f);
+    }
+
+    void reset() {
+        std::fill(line_.begin(), line_.end(), 0.0f);
+        write_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "time") == 0) {
+            time_ = std::min(MAX_TIME_MS, std::max(1.0, v));
+        } else if (std::strcmp(id, "feedback") == 0) {
+            feedback_ = std::min(0.98, std::max(0.0, v));
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, const float* fb, const float* timeMod,
+                 float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        int w = write_;
+        const int L = lineLen_;
+        for (int i = 0; i < N; ++i) {
+            const double modSec = timeMod ? static_cast<double>(timeMod[i]) : 0.0;
+            double delayMs = time_ + modSec * 1000.0;
+            if (delayMs < 1.0)          delayMs = 1.0;
+            else if (delayMs > MAX_TIME_MS) delayMs = MAX_TIME_MS;
+            const double delaySamples = std::max(1.0, delayMs * 0.001 * sr_);
+
+            const double readPos = static_cast<double>(w) - delaySamples;
+            const int    iFloor  = static_cast<int>(std::floor(readPos));
+            const double t       = readPos - iFloor;
+
+            auto idx = [L](int n) {
+                int k = n % L;
+                if (k < 0) k += L;
+                return k;
+            };
+            const double y0 = line_[idx(iFloor - 1)];
+            const double y1 = line_[idx(iFloor    )];
+            const double y2 = line_[idx(iFloor + 1)];
+            const double y3 = line_[idx(iFloor + 2)];
+
+            const double c0 = y1;
+            const double c1 = 0.5 * (y2 - y0);
+            const double c2 = y0 - 2.5 * y1 + 2.0 * y2 - 0.5 * y3;
+            const double c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+            double y = ((c3 * t + c2) * t + c1) * t + c0;
+            if (y < DENORMAL && y > -DENORMAL) y = 0.0;
+            out[i] = static_cast<float>(y);
+
+            const double fbIn = fb ? static_cast<double>(fb[i]) : 0.0;
+            double wVal = static_cast<double>(in[i]) + feedback_ * fbIn;
+            if (wVal < DENORMAL && wVal > -DENORMAL) wVal = 0.0;
+            line_[w] = static_cast<float>(wVal);
+
+            if (++w >= L) w = 0;
+        }
+        write_ = w;
+    }
+
+private:
+    double sr_;
+    double time_     = 250.0;
+    double feedback_ = 0.4;
+    int    lineLen_  = 0;
+    int    write_    = 0;
+    std::vector<float> line_;
+};
+
+}  // namespace shags::ops

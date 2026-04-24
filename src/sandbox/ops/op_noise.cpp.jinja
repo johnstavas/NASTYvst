@@ -1,0 +1,115 @@
+// op_noise.cpp — Stage-3b C++ sidecar for the `noise` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_noise.worklet.js
+// bit-for-bit. LCG white + Trammell-3 pink + leaky-integrator brown.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+
+namespace shags::ops {
+
+class NoiseOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "noise";
+
+    enum class Shape { White = 0, Pink, Brown };
+
+    explicit NoiseOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {
+        seed_ = seed0_;
+        p0_ = p1_ = p2_ = 0.0;
+        brown_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "seed") == 0) {
+            auto n = static_cast<std::int32_t>(v);
+            if (n == 0) n = 1;
+            seed_  = static_cast<std::uint32_t>(n);
+            seed0_ = seed_;
+        } else if (std::strcmp(id, "amount") == 0) {
+            amount_ = v;
+        } else if (std::strcmp(id, "offset") == 0) {
+            offset_ = v;
+        }
+    }
+
+    void setParamShape(const char* s) {
+        if      (std::strcmp(s, "white") == 0) shape_ = Shape::White;
+        else if (std::strcmp(s, "pink")  == 0) shape_ = Shape::Pink;
+        else if (std::strcmp(s, "brown") == 0) shape_ = Shape::Brown;
+        else                                   shape_ = Shape::White;
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // No inputs — pure generator.
+    void process(float* out, int N) {
+        if (!out) return;
+        const double amt = amount_;
+        const double off = offset_;
+
+        if (shape_ == Shape::White) {
+            for (int i = 0; i < N; ++i)
+                out[i] = static_cast<float>(whiteSample() * amt + off);
+            return;
+        }
+
+        if (shape_ == Shape::Pink) {
+            double p0 = p0_, p1 = p1_, p2 = p2_;
+            for (int i = 0; i < N; ++i) {
+                const double w = whiteSample();
+                p0 = kA[0] * p0 + (1.0 - kA[0]) * w;
+                p1 = kA[1] * p1 + (1.0 - kA[1]) * w;
+                p2 = kA[2] * p2 + (1.0 - kA[2]) * w;
+                const double y = (kP[0] * p0 + kP[1] * p1 + kP[2] * p2) / kPinkOutScale;
+                if (p0 < kDenormal && p0 > -kDenormal) p0 = 0.0;
+                if (p1 < kDenormal && p1 > -kDenormal) p1 = 0.0;
+                if (p2 < kDenormal && p2 > -kDenormal) p2 = 0.0;
+                out[i] = static_cast<float>(y * amt + off);
+            }
+            p0_ = p0; p1_ = p1; p2_ = p2;
+            return;
+        }
+
+        // Brown
+        double b = brown_;
+        for (int i = 0; i < N; ++i) {
+            const double w = whiteSample();
+            b = kBrownLeak * b + (1.0 - kBrownLeak) * w;
+            if (b < kDenormal && b > -kDenormal) b = 0.0;
+            out[i] = static_cast<float>(b * kBrownScale * amt + off);
+        }
+        brown_ = b;
+    }
+
+private:
+    double whiteSample() {
+        // Canon:synthesis §10 — Numerical Recipes LCG.
+        seed_ = static_cast<std::uint32_t>(seed_ * 196314165u + 907633515u);
+        const std::uint32_t upper = seed_ >> 8;       // 24 bits
+        const std::int32_t  signed_ = static_cast<std::int32_t>(upper) - 0x800000;
+        return static_cast<double>(signed_) / 8388608.0;  // 2^23
+    }
+
+    // Trammell pink coefficients (Canon:synthesis §8) — do not perturb.
+    static constexpr double kA[3] = { 0.02109238, 0.07113478, 0.68873558 };
+    static constexpr double kP[3] = { 0.3190,     0.2636,     0.4144     };
+    static constexpr double kPinkOutScale = 0.11;
+    static constexpr double kBrownLeak    = 0.996;
+    static constexpr double kBrownScale   = 3.5;
+    static constexpr double kDenormal     = 1e-30;
+
+    double        sr_;
+    Shape         shape_   = Shape::White;
+    std::uint32_t seed_    = 22222u;
+    std::uint32_t seed0_   = 22222u;
+    double        amount_  = 1.0;
+    double        offset_  = 0.0;
+    double        p0_ = 0.0, p1_ = 0.0, p2_ = 0.0;
+    double        brown_   = 0.0;
+};
+
+}  // namespace shags::ops
