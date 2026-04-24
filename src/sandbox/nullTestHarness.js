@@ -38,6 +38,27 @@
 import { LOFI_LIGHT, TOY_COMP } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
+import { buildPCOF } from './buildPCOF';
+import { emitMasterWorklet } from './emitMasterWorklet';
+
+// Sidecar sources inlined via Vite ?raw so emitMasterWorklet can stamp
+// them into the generated processor string at runtime. Any op TOY_COMP
+// references must appear here.
+import src_gain         from './ops/op_gain.worklet.js?raw';
+import src_filter       from './ops/op_filter.worklet.js?raw';
+import src_detector     from './ops/op_detector.worklet.js?raw';
+import src_envelope     from './ops/op_envelope.worklet.js?raw';
+import src_gainComputer from './ops/op_gainComputer.worklet.js?raw';
+import src_mix          from './ops/op_mix.worklet.js?raw';
+
+const SIDECAR_SOURCES = {
+  gain: src_gain,
+  filter: src_filter,
+  detector: src_detector,
+  envelope: src_envelope,
+  gainComputer: src_gainComputer,
+  mix: src_mix,
+};
 
 const SR        = 48000;
 const DURATION  = 0.5;
@@ -366,5 +387,80 @@ export async function runToyCompSanityTest() {
     sampleRate: SR,
     verdict: d.maxErrorDb < -60 ? 'PASS' : 'FAIL',
     graph: 'TOY_COMP',
+  };
+}
+
+// =====================================================================
+// STAGE-3a EXIT GATE — master worklet A/B null-test for TOY_COMP
+// =====================================================================
+//
+// Question this answers: "Does the emitted master-worklet (single flat
+// AudioWorkletProcessor) produce the same audio as the chain-of-worklets
+// compileGraphToWebAudio output for the same graph?"
+//
+// Node-side we already pinned that factory ≡ emitter ≡ hash. This test
+// closes the loop in-browser — renders TOY_COMP through both the
+// chain-of-worklets path AND a freshly-minted master worklet, compares
+// sample-by-sample.
+//
+// PASS threshold is looser than runToyCompSanityTest: the chain-of-worklets
+// path has per-node quantum boundaries that the master worklet doesn't,
+// so a ≤ 128-sample offset is expected and diffSignals compensates for it.
+// Within that alignment window the residual should be below -60 dBFS.
+//
+// One-sample drift caveat: the master worklet computes feedback buffers
+// with a 1-block delay; compileGraphToWebAudio relies on WebAudio's
+// implicit 128-sample node delay. TOY_COMP has no feedback so this is
+// moot today — re-examine when a graph with FB edges is dogfooded.
+
+async function renderToyCompMaster() {
+  const ctx = new OfflineAudioContext(1, FRAMES, SR);
+  const inBuf = ctx.createBuffer(1, FRAMES, SR);
+  renderChirp(inBuf.getChannelData(0));
+
+  // Build PCOF, emit source, register as a one-shot processor.
+  const pcof = buildPCOF(TOY_COMP);
+  pcof.graphId = TOY_COMP.id;
+  const processorName = `master-${TOY_COMP.id}-${Math.random().toString(36).slice(2, 8)}`;
+  const source = emitMasterWorklet({
+    pcof,
+    sidecarSources: SIDECAR_SOURCES,
+    processorName,
+  });
+  const blob = new Blob([source], { type: 'text/javascript' });
+  const url  = URL.createObjectURL(blob);
+  try {
+    await ctx.audioWorklet.addModule(url);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+
+  const src = ctx.createBufferSource();
+  src.buffer = inBuf;
+  const master = new AudioWorkletNode(ctx, processorName, {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
+  });
+  src.connect(master);
+  master.connect(ctx.destination);
+  src.start();
+  const rendered = await ctx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+export async function runToyCompMasterNullTest() {
+  const [chainOut, masterOut] = await Promise.all([
+    renderToyCompSandbox(),   // existing chain-of-worklets path
+    renderToyCompMaster(),    // NEW: emitted single-worklet path
+  ]);
+  const d = diffSignals(chainOut, masterOut);
+  return {
+    ...d,
+    samples: masterOut.length,
+    sampleRate: SR,
+    verdict: d.maxErrorDb < -60 ? 'PASS' : 'FAIL',
+    graph: 'TOY_COMP',
+    test: 'master-vs-chain',
   };
 }
