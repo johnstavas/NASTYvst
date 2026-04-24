@@ -12,11 +12,12 @@
 // exist. Nothing else in this component should need to change at that
 // point beyond swapping <PlaceholderBody/> for <OpGraphCanvas/>.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import OpGraphCanvas from './sandbox/OpGraphCanvas';
 import { getMockGraphForBrick } from './sandbox/mockGraphs';
 import { getLiveGraph, subscribeLiveGraph } from './sandbox/liveGraphStore';
 import { OPS } from './sandbox/opRegistry';
+import { validateGraph, SCHEMA_VERSION } from './sandbox/validateGraph';
 
 /** Type → display label. Mirrors the inline lookup in main.jsx chain-pill
  *  rendering. Kept local for now — will move to a shared util when the
@@ -193,6 +194,84 @@ function OpPalette({ graph }) {
   );
 }
 
+/** T6 Validate-IR strip — shown below the op-graph canvas.
+ *
+ *  Surfaces the same rule output that validateGraphLoud prints to the console
+ *  at module load and that the three scripts/check_*.mjs harnesses gate CI on.
+ *  When a graph is green we render a tiny single-line confirmation; when red
+ *  we expand and enumerate every error / warning inline so the authoring loop
+ *  is "edit graph → see rule output" without leaving the zoom view.
+ *
+ *  This is the QC-rack-side of T6. Rule bodies live in validateGraph.js; this
+ *  component is purely a surface.
+ *
+ *  STAGE-2D NOTE: sandbox_core_scope.md DoD requires T6 to "run on every
+ *  graph mutation." Today the graph is read-only, so this useMemo on the
+ *  zoom view plus module-load validateGraphLoud in mockGraphs.js cover both
+ *  paths. When Stage 2d lands in-canvas drag/wire authoring, the validator
+ *  must ALSO fire from the authoring action (op insert, wire connect, param
+ *  edit) — not just when the zoom view happens to be mounted. Re-check this
+ *  doctrine before shipping Stage 2d. */
+function ValidationPanel({ graph }) {
+  const result = useMemo(() => {
+    try { return validateGraph(graph); }
+    catch (err) { return { ok: false, errors: [`validator threw: ${err.message}`], warnings: [] }; }
+  }, [graph]);
+  const { ok, errors, warnings } = result;
+
+  const tone = ok
+    ? (warnings.length === 0 ? 'green' : 'amber')
+    : 'red';
+  const PAL = {
+    green: { accent: 'rgba(127,255,143,0.75)', bg: 'rgba(127,255,143,0.04)', border: 'rgba(127,255,143,0.2)' },
+    amber: { accent: 'rgba(255,200,120,0.85)', bg: 'rgba(255,200,120,0.04)', border: 'rgba(255,200,120,0.22)' },
+    red:   { accent: 'rgba(255,130,130,0.9)',  bg: 'rgba(255,110,110,0.05)', border: 'rgba(255,110,110,0.28)' },
+  }[tone];
+
+  const summary = ok
+    ? `PASS · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`
+    : `FAIL · ${errors.length} error${errors.length === 1 ? '' : 's'} · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`;
+
+  return (
+    <div style={{
+      borderTop: `1px solid ${PAL.border}`,
+      background: PAL.bg,
+      padding: '8px 14px 10px',
+      fontFamily: 'Courier New, monospace',
+      fontSize: 11, lineHeight: 1.55,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        color: PAL.accent, fontWeight: 600, letterSpacing: '0.16em',
+        textTransform: 'uppercase', fontSize: 9,
+      }}>
+        <span>T6 · Validate IR</span>
+        <span style={{
+          padding: '1px 6px', borderRadius: 3,
+          background: 'rgba(255,255,255,0.04)',
+          color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em',
+        }}>schema v{SCHEMA_VERSION}</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ letterSpacing: '0.1em', color: PAL.accent }}>{summary}</span>
+      </div>
+      {(errors.length > 0 || warnings.length > 0) && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {errors.map((e, i) => (
+            <div key={`e${i}`} style={{ color: 'rgba(255,150,150,0.95)' }}>
+              <span style={{ opacity: 0.6 }}>error ·</span> {e}
+            </div>
+          ))}
+          {warnings.map((w, i) => (
+            <div key={`w${i}`} style={{ color: 'rgba(255,210,140,0.9)' }}>
+              <span style={{ opacity: 0.6 }}>warn  ·</span> {w}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Body picker. Subscribes to the live-graph store for sandbox-native
  *  bricks so the view re-renders when the parent's knobs move. Falls
  *  back to the static mock for hand-coded bricks (or the opaque
@@ -209,11 +288,14 @@ function ZoomBody({ instance }) {
   const graph = liveGraph || getMockGraphForBrick(instance.type);
   if (!graph) return <PlaceholderBody instance={instance} />;
   return (
-    <div style={{ display: 'flex', alignItems: 'stretch' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <OpGraphCanvas graph={graph} />
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <OpGraphCanvas graph={graph} />
+        </div>
+        <OpPalette graph={graph} />
       </div>
-      <OpPalette graph={graph} />
+      <ValidationPanel graph={graph} />
     </div>
   );
 }

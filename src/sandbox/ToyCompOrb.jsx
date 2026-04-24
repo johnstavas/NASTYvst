@@ -23,7 +23,7 @@ import { TOY_COMP } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
 import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
-import { runToyCompSanityTest, runToyCompMasterNullTest } from './nullTestHarness';
+import { runToyCompSanityTest, runToyCompMasterNullTest, runGainOnlyMasterNullTest } from './nullTestHarness';
 
 const ACCENT       = '#7ae1c1';               // muted teal — distinct from ModDuck violet
 const ACCENT_FAINT = 'rgba(122,225,193,';
@@ -216,8 +216,11 @@ export default function ToyCompOrb({
                       `[ToyComp] MASTER null-test: ${r.verdict}  ` +
                       `maxErr=${r.maxErrorDb.toFixed(1)} dB  rms=${r.rmsErrorDb.toFixed(1)} dB  ` +
                       `offset=${r.offsetSamples} samples`,
-                      r,
                     );
+                    console.log(`[ToyComp]   chain:  peak=${r.chain.peakDb.toFixed(1)} dB  rms=${r.chain.rmsDb.toFixed(1)} dB`);
+                    console.log(`[ToyComp]   master: peak=${r.master.peakDb.toFixed(1)} dB  rms=${r.master.rmsDb.toFixed(1)} dB`);
+                    console.log(`[ToyComp]   chain  first16: [${r.chainFirst16.map(v => v.toFixed(4)).join(', ')}]`);
+                    console.log(`[ToyComp]   master first16: [${r.masterFirst16.map(v => v.toFixed(4)).join(', ')}]`);
                   } catch (err) {
                     // eslint-disable-next-line no-console
                     console.error('[ToyComp] MASTER null-test error:', err);
@@ -235,6 +238,36 @@ export default function ToyCompOrb({
                   color: ACCENT,
                   cursor: 'pointer',
                 }}>MASTER</button>
+        <button onMouseDown={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // eslint-disable-next-line no-console
+                  console.log('[ToyComp] running PURE (gain-only static) null-test…');
+                  try {
+                    const r = await runGainOnlyMasterNullTest();
+                    // eslint-disable-next-line no-console
+                    console.log(
+                      `[ToyComp] PURE null-test: ${r.verdict}  ` +
+                      `maxErr=${r.maxErrorDb.toFixed(1)} dB  rms=${r.rmsErrorDb.toFixed(1)} dB  ` +
+                      `offset=${r.offsetSamples} samples  (threshold: -120 dB)`,
+                    );
+                  } catch (err) {
+                    // eslint-disable-next-line no-console
+                    console.error('[ToyComp] PURE null-test error:', err);
+                  }
+                }}
+                onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                title="Gain-only static graph — proves master-worklet is mechanically bit-identical to chain (no dynamics, no sidechain latency). Expect < -120 dB."
+                style={{
+                  fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+                  fontWeight: 700, padding: '5px 10px',
+                  marginLeft: 6,
+                  background: 'rgba(180,140,255,0.10)',
+                  border: '1px solid rgba(180,140,255,0.35)',
+                  borderRadius: 4,
+                  color: 'rgb(200,170,255)',
+                  cursor: 'pointer',
+                }}>PURE</button>
         </div>
       </div>
 

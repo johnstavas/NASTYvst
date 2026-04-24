@@ -449,12 +449,135 @@ async function renderToyCompMaster() {
   return rendered.getChannelData(0);
 }
 
+// =====================================================================
+// GAIN-ONLY NULL — pure mechanical verification of the master worklet
+// =====================================================================
+//
+// A compression null-test can't isolate math bugs from timing artefacts
+// (the chain-of-worklets has sidechain latency the master doesn't). A
+// gain-only graph has NO dynamic behaviour — no envelope, no sidechain,
+// no compression — so both paths MUST produce bit-identical samples.
+// If this null is tight, every moving part of the master-worklet
+// pipeline (buildPCOF ordering, input terminals, output terminals,
+// sidecar params, buffer routing, gain math) is mechanically correct.
+// Any residual on TOY_COMP is then known to be the compressor-timing
+// difference, not a master-worklet bug.
+//
+// Graph:  in → gain(gainDb=-6) → out
+
+const GAIN_ONLY_GRAPH = {
+  schemaVersion: '1.0',
+  id: 'gain-only-null',
+  label: 'GainOnlyNull',
+  canvas: { width: 400, height: 200 },
+  terminals: [
+    { id: 'in',  kind: 'input',  x:  40, y: 100 },
+    { id: 'out', kind: 'output', x: 360, y: 100 },
+  ],
+  nodes: [
+    { id: 'n_g', op: 'gain', x: 200, y: 100, params: { gainDb: -6 } },
+  ],
+  wires: [
+    { from: 'in',  to: 'n_g' },
+    { from: 'n_g', to: 'out' },
+  ],
+  feedback: [],
+  legendOps: ['gain'],
+  panel: { knobs: [] },
+};
+
+async function renderGainOnlyChain() {
+  const ctx = new OfflineAudioContext(1, FRAMES, SR);
+  await ensureSandboxWorklets(ctx);
+  const inBuf = ctx.createBuffer(1, FRAMES, SR);
+  renderChirp(inBuf.getChannelData(0));
+  const inst = compileGraphToWebAudio(GAIN_ONLY_GRAPH, ctx);
+  const src = ctx.createBufferSource();
+  src.buffer = inBuf;
+  src.connect(inst.inputNode);
+  inst.outputNode.connect(ctx.destination);
+  src.start();
+  const rendered = await ctx.startRendering();
+  inst.dispose();
+  return rendered.getChannelData(0);
+}
+
+async function renderGainOnlyMaster() {
+  const ctx = new OfflineAudioContext(1, FRAMES, SR);
+  const inBuf = ctx.createBuffer(1, FRAMES, SR);
+  renderChirp(inBuf.getChannelData(0));
+
+  const pcof = buildPCOF(GAIN_ONLY_GRAPH);
+  pcof.graphId = GAIN_ONLY_GRAPH.id;
+  const processorName = `master-${GAIN_ONLY_GRAPH.id}-${Math.random().toString(36).slice(2, 8)}`;
+  const source = emitMasterWorklet({
+    pcof,
+    sidecarSources: SIDECAR_SOURCES,
+    processorName,
+  });
+  const blob = new Blob([source], { type: 'text/javascript' });
+  const url  = URL.createObjectURL(blob);
+  try {
+    await ctx.audioWorklet.addModule(url);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+
+  const src = ctx.createBufferSource();
+  src.buffer = inBuf;
+  const master = new AudioWorkletNode(ctx, processorName, {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
+  });
+  src.connect(master);
+  master.connect(ctx.destination);
+  src.start();
+  const rendered = await ctx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+export async function runGainOnlyMasterNullTest() {
+  const [chainOut, masterOut] = await Promise.all([
+    renderGainOnlyChain(),
+    renderGainOnlyMaster(),
+  ]);
+  const d = diffSignals(chainOut, masterOut);
+  return {
+    ...d,
+    samples: masterOut.length,
+    sampleRate: SR,
+    // Expect true bit-identity on a static graph → -120 dB is generous.
+    verdict: d.maxErrorDb < -120 ? 'PASS' : 'FAIL',
+    graph: 'GAIN_ONLY',
+    test: 'master-vs-chain-static',
+  };
+}
+
 export async function runToyCompMasterNullTest() {
   const [chainOut, masterOut] = await Promise.all([
     renderToyCompSandbox(),   // existing chain-of-worklets path
     renderToyCompMaster(),    // NEW: emitted single-worklet path
   ]);
   const d = diffSignals(chainOut, masterOut);
+
+  // Diagnostic: peak + RMS of each side, so a FAIL reads obvious — e.g. if
+  // master output is all zeros, masterPeak ≈ 0 and chainPeak ≈ signal level.
+  const stat = (buf) => {
+    let pk = 0, sq = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const x = buf[i];
+      const a = x < 0 ? -x : x;
+      if (a > pk) pk = a;
+      sq += x * x;
+    }
+    const rms = Math.sqrt(sq / buf.length);
+    const toDb = (x) => x > 1e-20 ? 20 * Math.log10(x) : -400;
+    return { peak: pk, peakDb: toDb(pk), rms, rmsDb: toDb(rms) };
+  };
+  const chainStat  = stat(chainOut);
+  const masterStat = stat(masterOut);
+
   return {
     ...d,
     samples: masterOut.length,
@@ -462,5 +585,9 @@ export async function runToyCompMasterNullTest() {
     verdict: d.maxErrorDb < -60 ? 'PASS' : 'FAIL',
     graph: 'TOY_COMP',
     test: 'master-vs-chain',
+    chain:  chainStat,
+    master: masterStat,
+    chainFirst16:  Array.from(chainOut.slice(0, 16)),
+    masterFirst16: Array.from(masterOut.slice(0, 16)),
   };
 }
