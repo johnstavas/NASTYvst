@@ -1,0 +1,74 @@
+// op_haas.cpp.jinja — C++ mirror of op_haas.worklet.js.
+// Haas stereo widener. Math-by-definition dsp; psychoacoustic defaults
+// from Haas 1951 (Acustica 1:49-58 / JAES 1972 20(2):146-159).
+// Windows: <2 ms summing, 2-5 ms precedence, 5-30 ms echo-suppression
+// (+10 dB headroom), >30 ms perceived echo. Defaults mid-window (18 ms, 0 dB).
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <vector>
+
+struct OpHaas_{{ instance }} {
+    static constexpr float MAX_DELAY_MS = 50.0f;
+
+    float sr = 48000.0f;
+    float p_delayMs = 18.0f, p_levelDb = 0.0f;
+    int   p_side = 0;
+    float p_mix = 1.0f;
+
+    std::vector<float> buf;
+    int mask = 0, w = 0;
+
+    void resize() {
+        int need = (int)std::ceil(MAX_DELAY_MS * 0.001f * sr) + 2;
+        int n = 4; while (n < need) n <<= 1;
+        buf.assign(n, 0.0f);
+        mask = n - 1; w = 0;
+    }
+
+    void setSampleRate(float s) { sr = s; resize(); }
+    void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; }
+
+    void setParam_delayMs(float v){ if(std::isfinite(v)){ p_delayMs = std::clamp(v, 0.0f, MAX_DELAY_MS); } }
+    void setParam_levelDb(float v){ if(std::isfinite(v)){ p_levelDb = std::clamp(v, -24.0f, 10.0f); } }
+    void setParam_side   (float v){ if(std::isfinite(v)){ p_side    = (v >= 0.5f) ? 1 : 0; } }
+    void setParam_mix    (float v){ if(std::isfinite(v)){ p_mix     = std::clamp(v, 0.0f, 1.0f); } }
+
+    void process(const float* inA, const float* inB,
+                 float* lOut, float* rOut, int N) {
+        if (!lOut && !rOut) return;
+        const float delaySamp = p_delayMs * 0.001f * sr;
+        const int   d0        = (int)std::floor(delaySamp);
+        const float frac      = delaySamp - (float)d0;
+        const float gain      = std::pow(10.0f, p_levelDb / 20.0f);
+        const float mix       = p_mix;
+        const bool  delayedIsR = (p_side == 0);
+
+        for (int n = 0; n < N; ++n) {
+            const float a = inA ? inA[n] : 0.0f;
+            const float b = inB ? inB[n] : 0.0f;
+            const float x = inB ? (a + b) * 0.5f : a;
+
+            buf[w] = x;
+
+            const int r0 = (w - d0)     & mask;
+            const int r1 = (w - d0 - 1) & mask;
+            const float delayed = buf[r0] + (buf[r1] - buf[r0]) * frac;
+
+            const float delayedScaled = delayed * gain;
+            const float wet = delayedScaled * mix + x * (1.0f - mix);
+
+            if (delayedIsR) {
+                if (lOut) lOut[n] = x;
+                if (rOut) rOut[n] = wet;
+            } else {
+                if (lOut) lOut[n] = wet;
+                if (rOut) rOut[n] = x;
+            }
+            w = (w + 1) & mask;
+        }
+    }
+
+    int getLatencySamples() const { return (int)std::ceil(p_delayMs * 0.001f * sr); }
+};

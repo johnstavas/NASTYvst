@@ -1,0 +1,149 @@
+// op_warpedLPC.cpp.jinja — Stage-3 native mirror of op_warpedLPC.worklet.js.
+//
+// Warped linear predictive coding — analysis per musicdsp #137, inverse
+// filter via warped-FIR allpass chain (canonical substitution z⁻¹ → D(z)).
+// Catalog #72.
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct WarpedLpcOp {
+    static constexpr const char* opId = "warpedLPC";
+    static constexpr int MAX_ORDER = 32;
+    static constexpr int MAX_BLOCK = 8192;
+
+    double sr        = 48000.0;
+    int    order     = 12;
+    int    blockN    = 1024;
+    double lambda    = 0.65;
+
+    float  buf[MAX_BLOCK] = {0};
+    int    wPos      = 0;
+    int    filled    = 0;
+
+    double coefs[MAX_ORDER + 1] = {0};
+    bool   hasCoefs  = false;
+    double R[MAX_ORDER + 1]   = {0};
+    double tmpA[MAX_ORDER + 1] = {0};
+    double dl[MAX_BLOCK] = {0};
+
+    double apPrev[MAX_ORDER + 1] = {0};
+    double apCur [MAX_ORDER + 1] = {0};
+
+    explicit WarpedLpcOp(double sampleRate) : sr(sampleRate) {}
+
+    void reset() {
+        std::memset(buf,    0, sizeof(buf));
+        std::memset(coefs,  0, sizeof(coefs));
+        std::memset(apPrev, 0, sizeof(apPrev));
+        std::memset(apCur,  0, sizeof(apCur));
+        wPos = 0; filled = 0; hasCoefs = false;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "order") == 0) {
+            int c = (int)std::round(v);
+            int o = c < 1 ? 1 : (c > MAX_ORDER ? MAX_ORDER : c);
+            if (o != order) {
+                order = o;
+                std::memset(coefs, 0, sizeof(coefs));
+                hasCoefs = false;
+            }
+        } else if (std::strcmp(id, "blockN") == 0) {
+            int c = (int)std::round(v);
+            int b = c < 64 ? 64 : (c > MAX_BLOCK ? MAX_BLOCK : c);
+            if (b != blockN) {
+                blockN = b; wPos = 0; filled = 0;
+                std::memset(coefs, 0, sizeof(coefs));
+                std::memset(dl, 0, sizeof(dl));
+                hasCoefs = false;
+            }
+        } else if (std::strcmp(id, "lambda") == 0) {
+            double L = v;
+            if (L >  0.99) L =  0.99;
+            if (L < -0.99) L = -0.99;
+            lambda = L;
+            std::memset(coefs, 0, sizeof(coefs));
+            hasCoefs = false;
+        }
+    }
+
+    int getLatencySamples() const { return blockN; }
+
+    void computeCoefs() {
+        const int P = order;
+        const int N = blockN;
+        double r1 = 0.0, r2 = 0.0;
+        R[0] = 0.0;
+        for (int k = 0; k < N; ++k) {
+            double xk = buf[(wPos + k) % N];
+            R[0] += xk * xk;
+            double d = r1 - lambda * (xk - r2);
+            dl[k] = d; r1 = xk; r2 = d;
+        }
+        if (R[0] < 1e-12) {
+            for (int i = 0; i <= P; ++i) coefs[i] = 0.0;
+            hasCoefs = false; return;
+        }
+        for (int i = 1; i <= P; ++i) {
+            double Rt = 0.0, u1 = 0.0, u2 = 0.0;
+            for (int k = 0; k < N; ++k) {
+                double xk = buf[(wPos + k) % N];
+                Rt += dl[k] * xk;
+                double r1t = dl[k];
+                double d   = u1 - lambda * (r1t - u2);
+                dl[k] = d; u1 = r1t; u2 = d;
+            }
+            R[i] = Rt;
+        }
+        for (int i = 0; i <= P; ++i) coefs[i] = 0.0;
+        coefs[0] = 1.0;
+        double E = R[0];
+        for (int i = 1; i <= P; ++i) {
+            double num = R[i];
+            for (int j = 1; j < i; ++j) num += coefs[j] * R[i - j];
+            double k = -num / E;
+            if (k >  0.999) k =  0.999;
+            if (k < -0.999) k = -0.999;
+            for (int j = 0; j <= i; ++j) tmpA[j] = coefs[j];
+            tmpA[i] = k;
+            for (int j = 1; j < i; ++j) tmpA[j] = coefs[j] + k * coefs[i - j];
+            for (int j = 0; j <= i; ++j) coefs[j] = tmpA[j];
+            E *= (1.0 - k * k);
+            if (E <= 0.0) {
+                for (int z = 0; z <= P; ++z) coefs[z] = 0.0;
+                hasCoefs = false; return;
+            }
+        }
+        hasCoefs = true;
+    }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int P  = order;
+        const int bN = blockN;
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            buf[wPos] = (float)x;
+            apCur[0] = x;
+            for (int k = 1; k <= P; ++k) {
+                apCur[k] = apPrev[k - 1] - lambda * (apCur[k - 1] - apPrev[k]);
+            }
+            double e = 0.0;
+            if (hasCoefs) {
+                e = apCur[0];
+                for (int k = 1; k <= P; ++k) e += coefs[k] * apCur[k];
+            }
+            out[i] = (float)e;
+            for (int k = 0; k <= P; ++k) apPrev[k] = apCur[k];
+            wPos = (wPos + 1) % bN;
+            if (++filled >= bN) { filled = 0; computeCoefs(); }
+        }
+    }
+};
+
+} // namespace shags

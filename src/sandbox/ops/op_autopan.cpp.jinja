@@ -1,0 +1,71 @@
+// op_autopan.cpp.jinja — C++ mirror of op_autopan.worklet.js.
+// Composition op: LFO (Puckette §5.2 AM formula, sub-audio modulator) driving
+// constant-power pan (Dannenberg/Dobson CMU ICM). Math-by-def of two opened
+// primaries — sibling ops #11 lfo + #103 panner.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpAutopan_{{ instance }} {
+    static constexpr float TWO_PI    = 6.283185307179586f;
+    static constexpr float PI_OVER_4 = 0.7853981633974483f;
+
+    float sr = 48000.0f;
+    float p_rateHz = 1.0f, p_depth = 1.0f, p_phaseDeg = 0.0f;
+    int   p_shape = 0;
+    float phase = 0.0f;
+
+    void recomputePhase() {
+        phase = std::fmod((p_phaseDeg / 360.0f) * TWO_PI, TWO_PI);
+        if (phase < 0) phase += TWO_PI;
+    }
+
+    void setSampleRate(float s) { sr = s; }
+    void reset() { recomputePhase(); }
+
+    void setParam_rateHz  (float v){ if(std::isfinite(v)){ p_rateHz   = std::clamp(v, 0.01f, 20.0f); } }
+    void setParam_depth   (float v){ if(std::isfinite(v)){ p_depth    = std::clamp(v, 0.0f,  1.0f); } }
+    void setParam_shape   (float v){ if(std::isfinite(v)){ p_shape    = std::clamp((int)v, 0, 2); } }
+    void setParam_phaseDeg(float v){ if(std::isfinite(v)){ p_phaseDeg = std::clamp(v, 0.0f, 360.0f); } }
+
+    float lfo(float ph) const {
+        switch (p_shape) {
+            case 1: { // triangle
+                float p = ph / TWO_PI;
+                return 1.0f - 4.0f * std::fabs(p - 0.5f);
+            }
+            case 2: // square
+                return ph < 3.14159265358979f ? 1.0f : -1.0f;
+            case 0:
+            default:
+                return std::sin(ph);
+        }
+    }
+
+    void process(const float* inA, const float* inB,
+                 float* lOut, float* rOut, int N) {
+        if (!lOut && !rOut) return;
+        const float phaseInc = TWO_PI * p_rateHz / sr;
+        const float depth = p_depth;
+        float ph = phase;
+        for (int n = 0; n < N; ++n) {
+            const float a = inA ? inA[n] : 0.0f;
+            const float b = inB ? inB[n] : 0.0f;
+            const float x = inB ? (a + b) * 0.5f : a;
+
+            const float lv = lfo(ph);
+            const float theta = PI_OVER_4 * (1.0f + depth * lv);
+            const float gL = std::cos(theta);
+            const float gR = std::sin(theta);
+            if (lOut) lOut[n] = x * gL;
+            if (rOut) rOut[n] = x * gR;
+
+            ph += phaseInc;
+            if (ph >= TWO_PI) ph -= TWO_PI;
+        }
+        phase = ph;
+    }
+
+    int getLatencySamples() const { return 0; }
+};

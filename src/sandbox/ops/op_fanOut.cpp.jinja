@@ -1,0 +1,42 @@
+// op_fanOut.cpp — Stage-3b C++ sidecar for the `fanOut` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_fanOut.worklet.js
+// bit-for-bit. Catalog #92. Template: Jinja2.
+#pragma once
+#include <cstring>
+
+namespace shags::ops {
+
+class FanOutOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "fanOut";
+
+    explicit FanOutOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+    void setParam(const char*, double) {}
+    int  getLatencySamples() const { return 0; }
+
+    void process(const float* in,
+                 float* out0, float* out1, float* out2, float* out3,
+                 int N) {
+        if (!in) {
+            if (out0) std::memset(out0, 0, sizeof(float) * N);
+            if (out1) std::memset(out1, 0, sizeof(float) * N);
+            if (out2) std::memset(out2, 0, sizeof(float) * N);
+            if (out3) std::memset(out3, 0, sizeof(float) * N);
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const float x = in[i];
+            if (out0) out0[i] = x;
+            if (out1) out1[i] = x;
+            if (out2) out2[i] = x;
+            if (out3) out3[i] = x;
+        }
+    }
+
+private:
+    double sr_;
+};
+
+}  // namespace shags::ops

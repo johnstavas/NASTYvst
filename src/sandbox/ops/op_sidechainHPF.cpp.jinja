@@ -1,0 +1,12 @@
+// op_sidechainHPF.cpp.jinja — Stage-3 native emission (stub).
+// RBJ HPF biquad, Direct Form 1, cascaded for order=2.
+// Primary: rbj_cookbook.txt L116-L123.
+
+{# This stub mirrors the JS worklet exactly. Master-worklet codegen will #}
+{# stitch this in once native emission lands. #}
+struct SidechainHPFState_{{uid}} {
+    double b0{1.0}, b1{0.0}, b2{0.0}, a1{0.0}, a2{0.0};
+    double x1a{0.0}, x2a{0.0}, y1a{0.0}, y2a{0.0};
+    double x1b{0.0}, x2b{0.0}, y1b{0.0}, y2b{0.0};
+    int    order{1};
+};

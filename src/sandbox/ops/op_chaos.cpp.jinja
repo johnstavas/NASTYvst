@@ -1,0 +1,50 @@
+// op_chaos.cpp.jinja — C++ mirror of op_chaos.worklet.js.
+// SC Logistic_next_k held-iteration logistic map.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpChaos_{{ instance }} {
+    float sr      = 48000.0f;
+    float p_r     = 3.99f;
+    float p_freq  = 100.0f;
+    float p_y0    = 0.5f;
+    int   p_mode  = 1;
+    float p_level = 1.0f;
+    double y      = 0.5;
+    int   counter = 0;
+    int   period  = 480;
+
+    void setSampleRate(float s) { sr = s; recalc(); }
+    void reset() { y = (double)p_y0; counter = 0; }
+
+    void recalc() {
+        const float f = std::max(0.001f, p_freq);
+        period = std::max(1, (int)std::round(sr / f));
+    }
+
+    void setParam_r(float v)     { if (std::isfinite(v)) p_r     = std::clamp(v, 2.5f, 4.0f); }
+    void setParam_freq(float v)  { if (std::isfinite(v)) { p_freq = std::clamp(v, 0.01f, 24000.0f); recalc(); } }
+    void setParam_y0(float v)    { if (std::isfinite(v)) p_y0    = std::clamp(v, 0.001f, 0.999f); }
+    void setParam_mode(float v)  { if (std::isfinite(v)) p_mode  = ((int)v == 1) ? 1 : 0; }
+    void setParam_level(float v) { if (std::isfinite(v)) p_level = std::clamp(v, 0.0f, 1.0f); }
+
+    void process(float* out, int N) {
+        if (!out) return;
+        const double r = p_r;
+        const float lvl = p_level;
+        const bool bi = (p_mode == 1);
+        for (int n = 0; n < N; ++n) {
+            if (counter <= 0) {
+                y = r * y * (1.0 - y);
+                counter = period;
+            }
+            counter--;
+            const double ym = bi ? (2.0 * y - 1.0) : y;
+            out[n] = (float)(ym * lvl);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

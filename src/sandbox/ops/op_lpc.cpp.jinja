@@ -1,0 +1,129 @@
+// op_lpc.cpp.jinja — Stage-3 native mirror of op_lpc.worklet.js.
+//
+// Linear predictive coding — autocorrelation + Levinson-Durbin.
+// Canon:analysis §2 (musicdsp #137).
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct LpcOp {
+    static constexpr const char* opId = "lpc";
+    static constexpr int MAX_ORDER = 32;
+    static constexpr int MAX_BLOCK = 8192;
+
+    double sr        = 48000.0;
+    int    order     = 12;
+    int    blockN    = 1024;
+    float  buf[MAX_BLOCK] = {0};
+    int    wPos      = 0;
+    int    filled    = 0;
+    double coefs[MAX_ORDER + 1] = {0};
+    bool   hasCoefs  = false;
+    double R[MAX_ORDER + 1]   = {0};
+    double tmp[MAX_ORDER + 1] = {0};
+
+    explicit LpcOp(double sampleRate) : sr(sampleRate) {}
+
+    void reset() {
+        std::memset(buf,   0, sizeof(buf));
+        std::memset(coefs, 0, sizeof(coefs));
+        wPos = 0; filled = 0; hasCoefs = false;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "order") == 0) {
+            int c = (int)std::round(v);
+            int o = c < 1 ? 1 : (c > MAX_ORDER ? MAX_ORDER : c);
+            if (o != order) {
+                order = o;
+                std::memset(coefs, 0, sizeof(coefs));
+                hasCoefs = false;
+            }
+        } else if (std::strcmp(id, "blockN") == 0) {
+            int c = (int)std::round(v);
+            int b = c < 64 ? 64 : (c > MAX_BLOCK ? MAX_BLOCK : c);
+            if (b != blockN) {
+                blockN = b;
+                wPos = 0; filled = 0;
+                std::memset(coefs, 0, sizeof(coefs));
+                hasCoefs = false;
+            }
+        }
+    }
+
+    int getLatencySamples() const { return blockN; }
+
+    void computeCoefs() {
+        const int P = order;
+        const int N = blockN;
+        for (int k = 0; k <= P; ++k) R[k] = 0.0;
+        for (int k = 0; k <= P; ++k) {
+            double sum = 0.0;
+            for (int n = k; n < N; ++n) {
+                int i1 = (wPos + n)     % N;
+                int i2 = (wPos + n - k) % N;
+                if (i2 < 0) i2 += N;
+                sum += (double)buf[i1] * (double)buf[i2];
+            }
+            R[k] = sum;
+        }
+        if (R[0] < 1e-12) {
+            for (int i = 0; i <= P; ++i) coefs[i] = 0.0;
+            hasCoefs = false;
+            return;
+        }
+        for (int i = 0; i <= P; ++i) coefs[i] = 0.0;
+        coefs[0] = 1.0;
+        double E = R[0];
+        for (int i = 1; i <= P; ++i) {
+            double num = R[i];
+            for (int j = 1; j < i; ++j) num += coefs[j] * R[i - j];
+            double k = -num / E;
+            if (k >  0.999) k =  0.999;
+            if (k < -0.999) k = -0.999;
+            for (int j = 0; j <= i; ++j) tmp[j] = coefs[j];
+            tmp[i] = k;
+            for (int j = 1; j < i; ++j) tmp[j] = coefs[j] + k * coefs[i - j];
+            for (int j = 0; j <= i; ++j) coefs[j] = tmp[j];
+            E *= (1.0 - k * k);
+            if (E <= 0.0) {
+                for (int z = 0; z <= P; ++z) coefs[z] = 0.0;
+                hasCoefs = false;
+                return;
+            }
+        }
+        hasCoefs = true;
+    }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int P  = order;
+        const int bN = blockN;
+        for (int i = 0; i < N; ++i) {
+            float x = in ? in[i] : 0.0f;
+            buf[wPos] = x;
+            double e = (double)x;
+            if (hasCoefs) {
+                for (int k = 1; k <= P; ++k) {
+                    int idx = wPos - k;
+                    if (idx < 0) idx += bN;
+                    e += coefs[k] * (double)buf[idx];
+                }
+            } else {
+                e = 0.0;
+            }
+            out[i] = (float)e;
+            wPos = (wPos + 1) % bN;
+            if (++filled >= bN) {
+                filled = 0;
+                computeCoefs();
+            }
+        }
+    }
+};
+
+} // namespace shags

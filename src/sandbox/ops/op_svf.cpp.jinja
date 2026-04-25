@@ -1,6 +1,8 @@
 // op_svf.cpp — Stage-3b C++ sidecar for the `svf` op.
 // Contract: memory/codegen_design.md § 4. Mirrors op_svf.worklet.js
-// bit-for-bit. Catalog #33, Canon:filters §1 (Simper ZDF SVF).
+// bit-for-bit. Catalog #33. Simper/Cytomic 2013 "Linear Trapezoidal
+// Integrated SVF" — primary source is the 2013 Cytomic paper directly;
+// Canon:filters §1 is Stilson Moog, §2 is older double-sampled Simper.
 // Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
 #pragma once
 #include <cstring>

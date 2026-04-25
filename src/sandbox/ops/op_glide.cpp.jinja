@@ -1,0 +1,83 @@
+// op_glide.cpp.jinja — Stage-3 native mirror of op_glide.worklet.js.
+//
+// Constant-time glide (portamento). See worklet header for full design
+// rationale.
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct GlideOp {
+    static constexpr const char* opId = "glide";
+
+    double sr      = 48000.0;
+    double glideMs = 100.0;
+    double y       = 0.0;
+    double target  = 0.0;
+    double step    = 0.0;
+    bool   active  = false;
+    bool   init    = false;
+
+    explicit GlideOp(double sampleRate) : sr(sampleRate) {}
+
+    void reset() {
+        y = 0.0; target = 0.0; step = 0.0; active = false; init = false;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "glideMs") != 0) return;
+        if (!std::isfinite(v)) return;
+        glideMs = v < 0.0 ? 0.0 : (v > 60000.0 ? 60000.0 : v);
+        if (active) {
+            double samples = glideMs * sr * 0.001;
+            if (samples <= 0.0) {
+                y = target; step = 0.0; active = false;
+            } else {
+                step = (target - y) / samples;
+                if (step == 0.0) active = false;
+            }
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double glideSamples = glideMs * sr * 0.001;
+        double yl = y, tgt = target, st = step;
+        bool act = active, ini = init;
+
+        if (!in) {
+            for (int i = 0; i < N; ++i) out[i] = (float)yl;
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            double x = in[i];
+            if (!ini) {
+                yl = x; tgt = x; st = 0.0; act = false; ini = true;
+            } else if (x != tgt) {
+                tgt = x;
+                if (glideSamples <= 0.0) {
+                    yl = tgt; st = 0.0; act = false;
+                } else {
+                    st  = (tgt - yl) / glideSamples;
+                    act = (st != 0.0);
+                    if (!act) yl = tgt;
+                }
+            }
+            if (act) {
+                yl += st;
+                if (st > 0.0) { if (yl >= tgt) { yl = tgt; act = false; } }
+                else          { if (yl <= tgt) { yl = tgt; act = false; } }
+            }
+            out[i] = (float)yl;
+        }
+
+        y = yl; target = tgt; step = st; active = act; init = ini;
+    }
+};
+
+} // namespace shags

@@ -1,0 +1,101 @@
+// op_gate.cpp.jinja — Stage-3 native mirror of op_gate.worklet.js.
+//
+// Primary: Bram de Jong envelope detector (musicdsp #97) from
+// dsp_code_canon_dynamics.md §1 + math-by-definition gate state machine.
+// Catalog #41. See worklet docstring for full passage / deviations.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class GateOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "gate";
+
+    explicit GateOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        detA_ = timeCoef(1.0, sr_);
+        detR_ = timeCoef(10.0, sr_);
+        gA_   = timeCoef(1.0, sr_);
+        gR_   = timeCoef(100.0, sr_);
+        thClose_ = threshold_ * std::pow(10.0, -3.0 / 20.0);
+        holdTarget_ = (int)std::round(20.0 / 1000.0 * sr_);
+    }
+
+    void reset() {
+        env_ = 0; state_ = ST_CLOSED; gain_ = 0; holdS_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "threshold")) {
+            threshold_ = std::max(0.0, v);
+            thClose_ = threshold_ * std::pow(10.0, -3.0 / 20.0);
+        } else if (!std::strcmp(id, "attackMs")) {
+            double a = std::max(0.01, v); gA_ = timeCoef(a, sr_);
+        } else if (!std::strcmp(id, "holdMs")) {
+            holdTarget_ = (int)std::round(std::max(0.0, v) / 1000.0 * sr_);
+        } else if (!std::strcmp(id, "releaseMs")) {
+            double r = std::max(0.01, v); gR_ = timeCoef(r, sr_);
+        } else if (!std::strcmp(id, "floor")) {
+            floor_ = std::clamp(v, 0.0, 1.0);
+        } else if (!std::strcmp(id, "mix")) {
+            mix_ = std::clamp(v, 0.0, 1.0);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, const float* sc, float* out, int N) {
+        if (!out) return;
+        const double gDry = std::cos(mix_ * M_PI * 0.5);
+        const double gWet = std::sin(mix_ * M_PI * 0.5);
+
+        for (int i = 0; i < N; ++i) {
+            double x  = in ? (double)in[i] : 0.0;
+            double sx = sc ? (double)sc[i] : x;
+
+            double envIn = std::fabs(sx);
+            if (env_ < envIn) env_ = env_ * detA_ + (1.0 - detA_) * envIn;
+            else              env_ = env_ * detR_ + (1.0 - detR_) * envIn;
+            if (env_ > -DENORMAL && env_ < DENORMAL) env_ = 0.0;
+
+            switch (state_) {
+                case ST_CLOSED:  if (env_ >= threshold_) state_ = ST_ATTACK; break;
+                case ST_ATTACK:  if (gain_ >= 0.9999) { gain_ = 1; state_ = ST_OPEN; }
+                                 else if (env_ < thClose_) state_ = ST_RELEASE; break;
+                case ST_OPEN:    if (env_ < thClose_) { holdS_ = holdTarget_; state_ = ST_HOLD; } break;
+                case ST_HOLD:    if (env_ >= threshold_) state_ = ST_OPEN;
+                                 else if (--holdS_ <= 0) state_ = ST_RELEASE; break;
+                case ST_RELEASE: if (env_ >= threshold_) state_ = ST_ATTACK;
+                                 else if (gain_ <= floor_ + 1e-5) { gain_ = floor_; state_ = ST_CLOSED; } break;
+            }
+
+            double target = (state_ == ST_RELEASE || state_ == ST_CLOSED) ? floor_ : 1.0;
+            double coef   = (state_ == ST_ATTACK) ? gA_ : gR_;
+            gain_ = gain_ * coef + (1.0 - coef) * target;
+            if (gain_ > -DENORMAL && gain_ < DENORMAL) gain_ = 0.0;
+
+            double wet = x * gain_;
+            out[i] = (float)(gDry * x + gWet * wet);
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr int ST_CLOSED = 0, ST_ATTACK = 1, ST_OPEN = 2, ST_HOLD = 3, ST_RELEASE = 4;
+
+    static double timeCoef(double ms, double sr) {
+        double tc = std::max(ms, 0.01) / 1000.0;
+        return std::exp(-1.0 / (sr * tc));
+    }
+
+    double sr_;
+    double detA_, detR_, gA_, gR_;
+    double env_ = 0, gain_ = 0;
+    double threshold_ = 0.1, thClose_ = 0.1, floor_ = 0.0, mix_ = 1.0;
+    int state_ = ST_CLOSED, holdS_ = 0, holdTarget_ = 0;
+};
+
+} // namespace shags::ops

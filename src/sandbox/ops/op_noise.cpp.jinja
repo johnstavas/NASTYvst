@@ -1,6 +1,8 @@
 // op_noise.cpp — Stage-3b C++ sidecar for the `noise` op.
 // Contract: memory/codegen_design.md § 4. Mirrors op_noise.worklet.js
-// bit-for-bit. LCG white + Trammell-3 pink + leaky-integrator brown.
+// bit-for-bit. LCG white + Kellett-economy-3 pink (sibling to Canon §8
+// Trammell; same number-vectors with POLE/AMPLITUDE roles swapped) +
+// leaky-integrator brown.
 // Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
 #pragma once
 #include <cmath>
@@ -94,7 +96,9 @@ private:
         return static_cast<double>(signed_) / 8388608.0;  // 2^23
     }
 
-    // Trammell pink coefficients (Canon:synthesis §8) — do not perturb.
+    // Kellett economy pink coefficients (sibling to Canon §8 Trammell — poles
+    // and amplitudes swapped relative to §8). Do not perturb without
+    // re-calibrating slope and re-blessing goldens.
     static constexpr double kA[3] = { 0.02109238, 0.07113478, 0.68873558 };
     static constexpr double kP[3] = { 0.3190,     0.2636,     0.4144     };
     static constexpr double kPinkOutScale = 0.11;

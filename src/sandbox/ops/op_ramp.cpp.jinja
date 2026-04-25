@@ -1,0 +1,76 @@
+// op_ramp.cpp.jinja — Stage-3 native mirror of op_ramp.worklet.js.
+//
+// Triggered one-shot linear ramp generator. See worklet header for full
+// design rationale.
+
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <limits>
+
+namespace shags {
+
+struct RampOp {
+    static constexpr const char* opId = "ramp";
+
+    double sr        = 48000.0;
+    double startVal  = 0.0;
+    double endVal    = 1.0;
+    double timeMs    = 100.0;
+    double step      = 0.0;
+    double phase     = 0.0;
+    bool   active    = false;
+    bool   trigHigh  = false;
+
+    explicit RampOp(double sampleRate) : sr(sampleRate) { recompute(); }
+
+    void reset() { phase = 0.0; active = false; trigHigh = false; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "startVal") == 0)       startVal = v;
+        else if (std::strcmp(id, "endVal") == 0)    endVal = v;
+        else if (std::strcmp(id, "timeMs") == 0) {
+            double c = v < 0.0 ? 0.0 : (v > 60000.0 ? 60000.0 : v);
+            timeMs = c;
+            recompute();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void recompute() {
+        if (timeMs <= 0.0) step = std::numeric_limits<double>::infinity();
+        else               step = 1.0 / (timeMs * sr * 0.001);
+    }
+
+    void process(const float* trig, float* out, int N) {
+        if (!out) return;
+        const double start = startVal;
+        const double end   = endVal;
+        const double span  = end - start;
+        const double st    = step;
+        double ph          = phase;
+        bool   act         = active;
+        bool   th          = trigHigh;
+
+        for (int i = 0; i < N; ++i) {
+            if (trig) {
+                double t = trig[i];
+                if (!th && t > 0.5) { th = true;  ph = 0.0; act = true; }
+                else if (th && t < 0.5) { th = false; }
+            }
+            if (act) {
+                ph += st;
+                if (ph >= 1.0) { ph = 1.0; act = false; }
+            }
+            out[i] = (float)(start + span * ph);
+        }
+
+        phase    = ph;
+        active   = act;
+        trigHigh = th;
+    }
+};
+
+} // namespace shags

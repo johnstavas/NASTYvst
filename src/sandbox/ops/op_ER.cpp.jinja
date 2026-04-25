@@ -1,0 +1,117 @@
+// op_ER.cpp.jinja — Stage-3 native mirror of op_ER.worklet.js.
+//
+// Primary: JOS PASP "Early Reflections" + "Tapped Delay Lines". Catalog #21.
+// Structural TDL + per-tap gain + post-sum air-absorption LPF. See worklet
+// docstring for tap-vector derivation and deviation list.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <array>
+#include <algorithm>
+
+namespace shags::ops {
+
+class EROp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "ER";
+    static constexpr int NTAPS = 12;
+
+    explicit EROp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        int maxSamples = (int)std::ceil(MAX_TAP_MS / 1000.0 * sr_) + 2;
+        buf_.assign(maxSamples, 0.0);
+        bufLen_ = maxSamples;
+        for (int k = 0; k < NTAPS; ++k) tapGain_[k] = 0.85 / (1.0 + k * 0.45);
+        updateTaps();
+        designLPF(8000.0);
+    }
+
+    void reset() {
+        std::fill(buf_.begin(), buf_.end(), 0.0);
+        writeIdx_ = 0;
+        x1_ = x2_ = y1_ = y2_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "roomSize")) {
+            roomSize_ = std::clamp(v, 0.25, 2.0);
+            updateTaps();
+        } else if (!std::strcmp(id, "airHz"))  designLPF(v);
+        else  if (!std::strcmp(id, "level"))   level_ = v;
+        else  if (!std::strcmp(id, "mix"))     mix_ = std::clamp(v, 0.0, 1.0);
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int blen = bufLen_;
+        const double gDry = std::cos(mix_ * M_PI * 0.5);
+        const double gWet = std::sin(mix_ * M_PI * 0.5);
+
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            buf_[writeIdx_] = x;
+
+            double erSum = 0.0;
+            for (int k = 0; k < NTAPS; ++k) {
+                int readIdx = ((writeIdx_ - tapSamples_[k]) % blen + blen) % blen;
+                double t = buf_[readIdx];
+                if (t > -DENORMAL && t < DENORMAL) t = 0.0;
+                erSum += tapGain_[k] * t;
+            }
+            writeIdx_ = (writeIdx_ + 1) % blen;
+
+            double wetIn = level_ * erSum;
+            double wetOut = b0_ * wetIn + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
+            x2_ = x1_; x1_ = wetIn;
+            y2_ = y1_; y1_ = wetOut;
+
+            out[i] = (float)(gDry * x + gWet * wetOut);
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr double MAX_TAP_MS = 200.0;
+    static constexpr std::array<double, 12> BASE_TAP_MS = {
+        5.3, 8.7, 13.1, 18.9, 24.7, 31.4,
+        38.2, 45.9, 53.6, 61.4, 70.2, 79.3,
+    };
+
+    void designLPF(double fc) {
+        double f = std::clamp(fc, 20.0, sr_ * 0.49);
+        double w0 = 2.0 * M_PI * f / sr_;
+        double cw = std::cos(w0), sw = std::sin(w0);
+        double Q = M_SQRT1_2;
+        double alpha = sw / (2.0 * Q);
+        double a0 = 1.0 + alpha;
+        b0_ = (1.0 - cw) / 2.0 / a0;
+        b1_ = (1.0 - cw)       / a0;
+        b2_ = (1.0 - cw) / 2.0 / a0;
+        a1_ = -2.0 * cw        / a0;
+        a2_ = (1.0 - alpha)    / a0;
+    }
+
+    void updateTaps() {
+        for (int k = 0; k < NTAPS; ++k) {
+            double ms = BASE_TAP_MS[k] * roomSize_;
+            int d = (int)std::round(ms / 1000.0 * sr_);
+            if (d < 1) d = 1;
+            if (d > bufLen_ - 1) d = bufLen_ - 1;
+            tapSamples_[k] = d;
+        }
+    }
+
+    double sr_ = 0.0;
+    std::vector<double> buf_;
+    int bufLen_ = 0, writeIdx_ = 0;
+    std::array<int, NTAPS> tapSamples_{};
+    std::array<double, NTAPS> tapGain_{};
+    double roomSize_ = 1.0, level_ = 1.0, mix_ = 1.0;
+    double b0_=0, b1_=0, b2_=0, a1_=0, a2_=0;
+    double x1_=0, x2_=0, y1_=0, y2_=0;
+};
+
+} // namespace shags::ops

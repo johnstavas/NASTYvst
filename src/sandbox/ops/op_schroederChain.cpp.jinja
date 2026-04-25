@@ -1,0 +1,115 @@
+// op_schroederChain.cpp.jinja — C++ mirror of op_schroederChain.worklet.js.
+// Schroeder 1962 JAES "Natural Sounding Artificial Reverberation":
+// 4 parallel feedback combs → 2 series Schroeder allpasses.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <vector>
+
+struct OpSchroederChain_{{ instance }} {
+    static constexpr std::array<float, 4> COMB_MS  = {29.7f, 37.1f, 41.1f, 43.7f};
+    static constexpr std::array<float, 2> AP_MS    = {5.0f, 1.7f};
+    static constexpr float AP_G = 0.7f;
+
+    struct Comb {
+        std::vector<float> buf;
+        int mask = 0, w = 0, len = 1;
+        float g = 0.7f, damp = 0.0f, z = 0.0f;
+        void init(int maxLen) {
+            int s = 1; while (s < maxLen + 2) s <<= 1;
+            buf.assign(s, 0.0f); mask = s - 1; w = 0;
+        }
+        void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; z = 0.0f; }
+        inline float process(float x) {
+            int rd = (w - len) & mask;
+            float y = buf[rd];
+            float yLp = (1.0f - damp) * y + damp * z;
+            z = yLp;
+            buf[w] = x + g * yLp;
+            w = (w + 1) & mask;
+            return y;
+        }
+    };
+    struct Allpass {
+        std::vector<float> buf;
+        int mask = 0, w = 0, len = 1;
+        float g = AP_G;
+        void init(int maxLen) {
+            int s = 1; while (s < maxLen + 2) s <<= 1;
+            buf.assign(s, 0.0f); mask = s - 1; w = 0;
+        }
+        void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; }
+        inline float process(float x) {
+            int rd = (w - len) & mask;
+            float d = buf[rd];
+            float v = x - g * d;
+            buf[w] = v;
+            w = (w + 1) & mask;
+            return g * v + d;
+        }
+    };
+
+    float sr = 48000.0f;
+    float p_rt60 = 2.0f, p_damping = 0.0f, p_size = 1.0f;
+    int   p_spread = 23;
+    std::array<Comb, 4>    combsL{}, combsR{};
+    std::array<Allpass, 2> apsL{},   apsR{};
+
+    void setSampleRate(float s) {
+        sr = s;
+        int maxSamps = (int)std::ceil(44.0f * 2.0f * sr / 1000.0f) + 64;
+        for (auto& c : combsL) c.init(maxSamps);
+        for (auto& c : combsR) c.init(maxSamps);
+        int maxAP = (int)std::ceil(6.0f * 2.0f * sr / 1000.0f) + 16;
+        for (auto& a : apsL) a.init(maxAP);
+        for (auto& a : apsR) a.init(maxAP);
+        recompute();
+    }
+    void reset() {
+        for (auto& c : combsL) c.reset();
+        for (auto& c : combsR) c.reset();
+        for (auto& a : apsL)   a.reset();
+        for (auto& a : apsR)   a.reset();
+    }
+    void recompute() {
+        float size = std::clamp(p_size,    0.3f, 2.0f);
+        float rt60 = std::clamp(p_rt60,    0.1f, 10.0f);
+        float damp = std::clamp(p_damping, 0.0f, 0.95f);
+        int sprd   = std::clamp(p_spread,  0,    40);
+        for (int i = 0; i < 4; ++i) {
+            float tau = COMB_MS[i] * size / 1000.0f;
+            float g   = std::pow(10.0f, -3.0f * tau / rt60);
+            int lenL  = (int)std::round(sr * tau);
+            combsL[i].len = std::max(1, std::min(combsL[i].mask - 1, lenL));
+            combsR[i].len = std::max(1, std::min(combsR[i].mask - 1, lenL + sprd));
+            combsL[i].g = g; combsR[i].g = g;
+            combsL[i].damp = damp; combsR[i].damp = damp;
+        }
+        for (int i = 0; i < 2; ++i) {
+            float tau = AP_MS[i] * size / 1000.0f;
+            int lenL  = (int)std::round(sr * tau);
+            apsL[i].len = std::max(1, std::min(apsL[i].mask - 1, lenL));
+            apsR[i].len = std::max(1, std::min(apsR[i].mask - 1, lenL + std::min(sprd, 7)));
+        }
+    }
+    void setParam_rt60   (float v){ if(std::isfinite(v)){ p_rt60   =std::clamp(v,0.1f,10.0f);  recompute(); } }
+    void setParam_damping(float v){ if(std::isfinite(v)){ p_damping=std::clamp(v,0.0f,0.95f); recompute(); } }
+    void setParam_size   (float v){ if(std::isfinite(v)){ p_size   =std::clamp(v,0.3f,2.0f);  recompute(); } }
+    void setParam_spread (float v){ if(std::isfinite(v)){ p_spread =(int)std::clamp(v,0.0f,40.0f); recompute(); } }
+
+    void process(const float* in, float* outL, float* outR, int N) {
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            float sL = combsL[0].process(x) + combsL[1].process(x)
+                     + combsL[2].process(x) + combsL[3].process(x);
+            float sR = combsR[0].process(x) + combsR[1].process(x)
+                     + combsR[2].process(x) + combsR[3].process(x);
+            float aL = apsL[1].process(apsL[0].process(sL));
+            float aR = apsR[1].process(apsR[0].process(sR));
+            if (outL) outL[n] = 0.25f * aL;
+            if (outR) outR[n] = 0.25f * aR;
+        }
+    }
+};

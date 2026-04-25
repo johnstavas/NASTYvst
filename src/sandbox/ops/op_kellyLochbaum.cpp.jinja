@@ -1,0 +1,99 @@
+// op_kellyLochbaum.cpp.jinja — Stage-3 native mirror of op_kellyLochbaum.worklet.js.
+//
+// Kelly-Lochbaum lattice — concatenated 1-sample waveguide sections
+// with 2-port scattering junctions (JOS §7.1, §10.1, one-multiply §10.2).
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct KellyLochbaumOp {
+    static constexpr const char* opId = "kellyLochbaum";
+    static constexpr int MAX_N = 512;
+
+    double sr       = 48000.0;
+    int    length   = 32;
+    double taper    = 0.0;
+    double glottis  = -0.9;
+    double lip      = -0.85;
+    double damp     = 0.05;
+    float  fp[MAX_N]       = {0};
+    float  fm[MAX_N]       = {0};
+    float  tmpPlus[MAX_N]  = {0};
+    float  tmpMinus[MAX_N] = {0};
+    double dampState = 0.0;
+
+    explicit KellyLochbaumOp(double sampleRate) : sr(sampleRate) {}
+
+    void reset() {
+        std::memset(fp,       0, sizeof(fp));
+        std::memset(fm,       0, sizeof(fm));
+        std::memset(tmpPlus,  0, sizeof(tmpPlus));
+        std::memset(tmpMinus, 0, sizeof(tmpMinus));
+        dampState = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "length") == 0) {
+            int c = (int)std::round(v);
+            int newLen = c < 4 ? 4 : (c > MAX_N ? MAX_N : c);
+            if (newLen != length) {
+                std::memset(fp,       0, sizeof(fp));
+                std::memset(fm,       0, sizeof(fm));
+                std::memset(tmpPlus,  0, sizeof(tmpPlus));
+                std::memset(tmpMinus, 0, sizeof(tmpMinus));
+                dampState = 0.0;
+                length = newLen;
+            }
+        } else if (std::strcmp(id, "taper") == 0) {
+            taper = v < -0.99 ? -0.99 : (v > 0.99 ? 0.99 : v);
+        } else if (std::strcmp(id, "glottis") == 0) {
+            glottis = v < -0.99 ? -0.99 : (v > 0.99 ? 0.99 : v);
+        } else if (std::strcmp(id, "lip") == 0) {
+            lip = v < -0.99 ? -0.99 : (v > 0.99 ? 0.99 : v);
+        } else if (std::strcmp(id, "damp") == 0) {
+            damp = v < 0 ? 0 : (v > 1 ? 1 : v);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int    Ns    = length;
+        const double k     = taper;
+        const double gR    = glottis;
+        const double lR    = lip;
+        const double dHalf = 0.5 * damp;
+        const double pass  = 1.0 - dHalf;
+        double ds = dampState;
+
+        for (int s = 0; s < N; ++s) {
+            double x = in ? (double)in[s] : 0.0;
+
+            for (int i = 0; i < Ns - 1; ++i) {
+                double delta = k * ((double)fp[i] - (double)fm[i + 1]);
+                tmpPlus[i + 1] = (float)((double)fp[i]     + delta);
+                tmpMinus[i]    = (float)((double)fm[i + 1] + delta);
+            }
+            tmpPlus[0]      = (float)(x + gR * (double)fm[0]);
+            double lipIn    = (double)fp[Ns - 1];
+            double damped   = pass * lipIn + dHalf * ds;
+            ds              = lipIn;
+            tmpMinus[Ns - 1] = (float)(lR * damped);
+
+            out[s] = (float)lipIn;
+
+            for (int i = 0; i < Ns; ++i) {
+                fp[i] = tmpPlus[i];
+                fm[i] = tmpMinus[i];
+            }
+        }
+        dampState = ds;
+    }
+};
+
+} // namespace shags

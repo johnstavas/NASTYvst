@@ -1,0 +1,61 @@
+// op_panner.cpp.jinja — C++ mirror of op_panner.worklet.js.
+// Primary: Dannenberg/Dobson "Loudness Concepts & Panning Laws",
+// CMU ICM online readings — three laws (linear, const-power, -4.5 dB).
+// θ ∈ [0, π/2] via pan ∈ [-1,+1] mapping.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpPanner_{{ instance }} {
+    static constexpr float TWO_OVER_PI = 0.6366197723675814f; // 2/π
+    static constexpr float PI_OVER_2   = 1.5707963267948966f;
+    static constexpr float PI_OVER_4   = 0.7853981633974483f;
+
+    float sr = 48000.0f;
+    float p_pan = 0.0f;
+    int   p_law = 1;
+    float gL = 0.7071067811865476f;
+    float gR = 0.7071067811865476f;
+
+    void recomputeGains() {
+        const float theta = (p_pan + 1.0f) * PI_OVER_4;
+        float a, b;
+        switch (p_law) {
+            case 0: // linear
+                a = (PI_OVER_2 - theta) * TWO_OVER_PI;
+                b =  theta             * TWO_OVER_PI;
+                break;
+            case 2: // -4.5 dB compromise (geometric mean)
+                a = std::sqrt((PI_OVER_2 - theta) * TWO_OVER_PI * std::cos(theta));
+                b = std::sqrt( theta              * TWO_OVER_PI * std::sin(theta));
+                break;
+            case 1:
+            default: // constant power
+                a = std::cos(theta);
+                b = std::sin(theta);
+                break;
+        }
+        gL = a; gR = b;
+    }
+
+    void setSampleRate(float s) { sr = s; }
+    void reset() { /* stateless */ }
+
+    void setParam_pan(float v){ if(std::isfinite(v)){ p_pan = std::clamp(v, -1.0f, 1.0f); recomputeGains(); } }
+    void setParam_law(float v){ if(std::isfinite(v)){ p_law = std::clamp((int)v, 0, 2); recomputeGains(); } }
+
+    void process(const float* inA, const float* inB,
+                 float* lOut, float* rOut, int N) {
+        if (!lOut && !rOut) return;
+        for (int n = 0; n < N; ++n) {
+            const float a = inA ? inA[n] : 0.0f;
+            const float b = inB ? inB[n] : 0.0f;
+            const float x = inB ? (a + b) * 0.5f : a;
+            if (lOut) lOut[n] = x * gL;
+            if (rOut) rOut[n] = x * gR;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

@@ -1,0 +1,95 @@
+// op_expander.cpp.jinja — Stage-3 native mirror of op_expander.worklet.js.
+//
+// Catalog #42. Downward expander. Bram env detector (Canon:dynamics §1) +
+// math-by-definition dB static curve (mirror of compressor law in #5
+// gainComputer / Zölzer §4.2.2). See worklet for full docstring.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class ExpanderOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "expander";
+
+    explicit ExpanderOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        detA_ = timeCoef(1.0,  sr_);
+        detR_ = timeCoef(10.0, sr_);
+        gA_   = timeCoef(1.0,  sr_);
+        gR_   = timeCoef(100.0, sr_);
+    }
+
+    void reset() { env_ = 0; gain_ = 1; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if      (!std::strcmp(id, "thresholdDb")) thrDb_ = v;
+        else if (!std::strcmp(id, "ratio"))       ratio_ = std::clamp(v, 1.0, 100.0);
+        else if (!std::strcmp(id, "kneeDb"))      kneeDb_ = std::max(0.0, v);
+        else if (!std::strcmp(id, "attackMs"))  { double a = std::max(0.01, v); gA_ = timeCoef(a, sr_); }
+        else if (!std::strcmp(id, "releaseMs")) { double r = std::max(0.01, v); gR_ = timeCoef(r, sr_); }
+        else if (!std::strcmp(id, "floor"))       floor_ = std::clamp(v, 0.0, 1.0);
+        else if (!std::strcmp(id, "mix"))         mix_   = std::clamp(v, 0.0, 1.0);
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, const float* sc, float* out, int N) {
+        if (!out) return;
+        const double gDry = std::cos(mix_ * M_PI * 0.5);
+        const double gWet = std::sin(mix_ * M_PI * 0.5);
+        const double halfK = kneeDb_ * 0.5;
+        const double rm1   = ratio_ - 1.0;
+
+        for (int i = 0; i < N; ++i) {
+            double x  = in ? (double)in[i] : 0.0;
+            double sx = sc ? (double)sc[i] : x;
+
+            double envIn = std::fabs(sx);
+            if (env_ < envIn) env_ = env_ * detA_ + (1.0 - detA_) * envIn;
+            else              env_ = env_ * detR_ + (1.0 - detR_) * envIn;
+            if (env_ > -DENORMAL && env_ < DENORMAL) env_ = 0.0;
+
+            double xDb = 20.0 * std::log(env_ + DB_FLOOR) / LOG10;
+            double yDb;
+            if (xDb >= thrDb_ + halfK) {
+                yDb = xDb;
+            } else if (kneeDb_ > 0 && xDb > thrDb_ - halfK) {
+                double d = xDb - thrDb_ - halfK;
+                yDb = xDb + rm1 * d * d / (2.0 * kneeDb_);
+            } else {
+                yDb = thrDb_ + (xDb - thrDb_) * ratio_;
+            }
+            double grDb = yDb - xDb;
+            double target = std::exp(grDb * LOG10 / 20.0);
+            if (target < floor_) target = floor_;
+            if (target > 1.0)    target = 1.0;
+
+            double coef = target > gain_ ? gA_ : gR_;
+            gain_ = gain_ * coef + (1.0 - coef) * target;
+            if (gain_ > -DENORMAL && gain_ < DENORMAL) gain_ = 0.0;
+
+            double wet = x * gain_;
+            out[i] = (float)(gDry * x + gWet * wet);
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr double LOG10    = 2.302585092994046;
+    static constexpr double DB_FLOOR = 1e-12;
+
+    static double timeCoef(double ms, double sr) {
+        double tc = std::max(ms, 0.01) / 1000.0;
+        return std::exp(-1.0 / (sr * tc));
+    }
+
+    double sr_;
+    double detA_, detR_, gA_, gR_;
+    double env_ = 0, gain_ = 1;
+    double thrDb_ = -40, ratio_ = 2, kneeDb_ = 6, floor_ = 0, mix_ = 1;
+};
+
+} // namespace shags::ops

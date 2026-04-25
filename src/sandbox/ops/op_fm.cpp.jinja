@@ -1,0 +1,104 @@
+// op_fm.cpp — Stage-3b C++ sidecar for the `fm` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_fm.worklet.js.
+//
+// PRIMARIES (same as JS worklet):
+//   A. CCRMA Snd, Chowning 1973 formulation:
+//        e(t) = A · sin(ω_c · t + I · sin(ω_m · t))
+//   B. Wikipedia FM synthesis (cross-check):
+//        FM(t) = A · Σ J_n(β) · sin((ω_c + n·ω_m) t) ;  β ≡ I
+//
+// Discrete-time form shipped:
+//   m[n]  = sin(φ_m);      y[n] = amp · sin(φ_c + I·m[n])
+//   φ_c  += 2π · f_c / sr ; φ_m += 2π · (f_c · modRatio) / sr
+//   wrap φ_c, φ_m into [0, 2π).
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class FmOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "fm";
+
+    explicit FmOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() { phaseC_ = 0.0; phaseM_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "carrierFreq") == 0) {
+            double f = v;
+            if (!(f > 0.01))              f = 0.01;
+            const double nyq = sr_ * 0.5;
+            if (f > nyq - 1.0)            f = nyq - 1.0;
+            carrierFreq_ = f;
+        } else if (std::strcmp(id, "modRatio") == 0) {
+            double r = v;
+            if (!std::isfinite(r)) r = 1.0;
+            if (r >  64.0) r =  64.0;
+            if (r < -64.0) r = -64.0;
+            modRatio_ = r;
+        } else if (std::strcmp(id, "modIndex") == 0) {
+            double I = v;
+            if (!std::isfinite(I)) I = 0.0;
+            if (I >  100.0) I =  100.0;
+            if (I < -100.0) I = -100.0;
+            modIndex_ = I;
+        } else if (std::strcmp(id, "amp") == 0) {
+            amp_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* freqMod, const float* idxMod, float* out, int N) {
+        if (!out) return;
+        const double sr  = sr_;
+        const double nyq = sr * 0.5;
+        double phaseC = phaseC_;
+        double phaseM = phaseM_;
+
+        for (int n = 0; n < N; ++n) {
+            double fc = carrierFreq_;
+            if (freqMod) {
+                fc += static_cast<double>(freqMod[n]);
+                if (!(fc > 0.01))       fc = 0.01;
+                else if (fc > nyq - 1)  fc = nyq - 1.0;
+            }
+            const double fm_freq = fc * modRatio_;
+
+            double I = modIndex_;
+            if (idxMod) I += static_cast<double>(idxMod[n]);
+
+            const double m = std::sin(phaseM);
+            out[n] = static_cast<float>(amp_ * std::sin(phaseC + I * m));
+
+            phaseC += kTwoPi * fc      / sr;
+            phaseM += kTwoPi * fm_freq / sr;
+            if (phaseC >=  kTwoPi) phaseC -= kTwoPi;
+            if (phaseC <   0.0)    phaseC += kTwoPi;
+            if (phaseM >=  kTwoPi) phaseM -= kTwoPi;
+            if (phaseM <   0.0)    phaseM += kTwoPi;
+        }
+
+        if (std::fabs(phaseC) < 1e-30) phaseC = 0.0;
+        if (std::fabs(phaseM) < 1e-30) phaseM = 0.0;
+        phaseC_ = phaseC;
+        phaseM_ = phaseM;
+    }
+
+private:
+    static constexpr double kTwoPi = 6.283185307179586;
+
+    double sr_;
+    double carrierFreq_ = 440.0;
+    double modRatio_    = 1.0;
+    double modIndex_    = 1.0;
+    double amp_         = 1.0;
+    double phaseC_      = 0.0;
+    double phaseM_      = 0.0;
+};
+
+}  // namespace shags::ops

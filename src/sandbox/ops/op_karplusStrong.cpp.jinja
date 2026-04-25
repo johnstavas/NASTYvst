@@ -1,0 +1,119 @@
+// op_karplusStrong.cpp.jinja — Stage-3 native mirror of
+// op_karplusStrong.worklet.js.
+//
+// Original 1983 Karplus-Strong plucked-string synthesizer. See worklet
+// header for full design rationale. Canon:synthesis §10 (PRNG).
+
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <cstdint>
+
+namespace shags {
+
+struct KarplusStrongOp {
+    static constexpr const char* opId   = "karplusStrong";
+    static constexpr int          MAX_N = 4096;
+    static constexpr double       DENORMAL = 1e-30;
+    static constexpr double       INV_U32  = 1.0 / 4294967295.0;
+
+    double  sr        = 48000.0;
+    double  freq      = 220.0;
+    double  decay     = 0.996;
+    double  bright    = 0.5;
+    int     N         = 218;       // round(48000/220)
+    double  buf[MAX_N]{};
+    int     idx       = 0;
+    double  prev      = 0.0;
+    uint32_t rngState = 0x12345678u;
+    bool    trigHigh  = false;
+
+    explicit KarplusStrongOp(double sampleRate) : sr(sampleRate) {
+        int nn = (int)std::round(sr / 220.0);
+        if (nn < 2) nn = 2;
+        if (nn > MAX_N) nn = MAX_N;
+        N = nn;
+    }
+
+    void reset() {
+        std::memset(buf, 0, sizeof(buf));
+        idx      = 0;
+        prev     = 0.0;
+        rngState = 0x12345678u;
+        trigHigh = false;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "freq") == 0) {
+            double hi = sr * 0.5;
+            double c  = v < 1.0 ? 1.0 : (v > hi ? hi : v);
+            freq = c;
+            int nn = (int)std::round(sr / c);
+            if (nn < 2) nn = 2;
+            if (nn > MAX_N) nn = MAX_N;
+            N = nn;
+            if (idx >= N) idx = 0;
+        } else if (std::strcmp(id, "decay") == 0) {
+            decay = v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+        } else if (std::strcmp(id, "bright") == 0) {
+            bright = v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    double nextRand() {
+        rngState = rngState * 1664525u + 1013904223u;
+        return ((double)rngState * INV_U32) * 2.0 - 1.0;
+    }
+
+    void pluck() {
+        for (int i = 0; i < N; ++i)        buf[i] = nextRand();
+        for (int i = N; i < MAX_N; ++i)    buf[i] = 0.0;
+        idx  = 0;
+        prev = 0.0;
+    }
+
+    // trig may be nullptr → no pluck trigger stream; buffer plays through
+    // whatever was last plucked (or silence).
+    void process(const float* trig, float* out, int Nblock) {
+        if (!out) return;
+        const int    Nloop  = N;
+        const double dec    = decay;
+        const double br     = bright;
+        const double avgAmt = 1.0 - br;
+        int     i_          = idx;
+        double  p_          = prev;
+        bool    th          = trigHigh;
+
+        for (int i = 0; i < Nblock; ++i) {
+            if (trig) {
+                double t = trig[i];
+                if (!th && t > 0.5) {
+                    th = true;
+                    pluck();
+                    i_ = 0;
+                    p_ = 0.0;
+                } else if (th && t < 0.5) {
+                    th = false;
+                }
+            }
+            double x   = buf[i_];
+            double avg = 0.5 * (x + p_);
+            double y   = dec * (br * x + avgAmt * avg);
+            buf[i_]    = y;
+            p_         = y;
+            i_         = i_ + 1;
+            if (i_ >= Nloop) i_ = 0;
+            out[i] = (float)y;
+        }
+
+        if (p_ < DENORMAL && p_ > -DENORMAL) p_ = 0.0;
+        idx      = i_;
+        prev     = p_;
+        trigHigh = th;
+    }
+};
+
+} // namespace shags

@@ -1,0 +1,178 @@
+// op_SDN.cpp.jinja — C++ mirror of op_SDN.worklet.js.
+// De Sena et al. 2015 IEEE/ACM TASLP "Efficient Synthesis of Room Acoustics
+// via Scattering Delay Networks" — rectangular shoebox SDN, K=5 neighbours.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <vector>
+
+struct OpSDN_{{ instance }} {
+    static constexpr int   K       = 5;
+    static constexpr int   N_NODES = 6;
+    static constexpr float C_SOUND = 343.0f;
+
+    struct Delay {
+        std::vector<float> buf;
+        int mask = 0, w = 0, len = 1;
+        void init(int d) {
+            int s = 1; while (s < d + 2) s <<= 1;
+            buf.assign(s, 0.0f); mask = s - 1; w = 0; len = d;
+        }
+        void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; }
+        inline float readD() const { return buf[(w - len) & mask]; }
+        inline void  write(float x) { buf[w] = x; w = (w + 1) & mask; }
+    };
+
+    float sr = 48000.0f;
+    float p_rt60 = 1.2f, p_size = 1.0f, p_damping = 0.3f, p_width = 0.3f;
+
+    // Base geometry.
+    float baseLx = 8.0f, baseLy = 6.0f, baseLz = 3.0f;
+    std::array<float,3> baseSrc  = {2.0f, 2.0f, 1.6f};
+    std::array<float,3> baseMicL = {5.0f, 4.0f, 1.6f};
+
+    std::array<std::array<int, K>, N_NODES> NEIGHBOURS{};
+    std::array<float, N_NODES * K> pIn{};
+    std::array<float, N_NODES * K> wallZ{};
+    float wallA = 0.3f, beta = 0.8f;
+
+    std::array<std::array<Delay, N_NODES>, N_NODES> edge{};  // edge[k][m]
+    std::array<Delay, N_NODES> srcNode{};
+    std::array<float, N_NODES> gSk{};
+    std::array<Delay, N_NODES> nodeMicL{};
+    std::array<Delay, N_NODES> nodeMicR{};
+    std::array<float, N_NODES> gkML{}, gkMR{};
+    Delay losL, losR;
+    float losGL = 0, losGR = 0;
+
+    static inline float dist(const std::array<float,3>& a, const std::array<float,3>& b) {
+        float dx = a[0]-b[0], dy = a[1]-b[1], dz = a[2]-b[2];
+        return std::sqrt(dx*dx + dy*dy + dz*dz);
+    }
+    static inline std::array<float,3> wallNode(int axis, float coord,
+                                               const std::array<float,3>& src,
+                                               const std::array<float,3>& mic) {
+        auto img = src; img[axis] = 2*coord - src[axis];
+        float t = (coord - img[axis]) / (mic[axis] - img[axis]);
+        return { img[0] + t*(mic[0]-img[0]),
+                 img[1] + t*(mic[1]-img[1]),
+                 img[2] + t*(mic[2]-img[2]) };
+    }
+
+    void setSampleRate(float s) {
+        sr = s;
+        for (int k = 0; k < N_NODES; ++k) {
+            int j = 0;
+            for (int m = 0; m < N_NODES; ++m) if (m != k) NEIGHBOURS[k][j++] = m;
+        }
+        recompute();
+    }
+    void reset() {
+        pIn.fill(0.0f); wallZ.fill(0.0f);
+        for (int k = 0; k < N_NODES; ++k) {
+            for (int m = 0; m < N_NODES; ++m) if (k != m) edge[k][m].reset();
+            srcNode[k].reset(); nodeMicL[k].reset(); nodeMicR[k].reset();
+        }
+        losL.reset(); losR.reset();
+    }
+
+    void recompute() {
+        float s = std::clamp(p_size, 0.3f, 3.0f);
+        float Lx = baseLx*s, Ly = baseLy*s, Lz = baseLz*s;
+        std::array<float,3> src  = { baseSrc[0]*s,  baseSrc[1]*s,  baseSrc[2]*s };
+        std::array<float,3> micL = { baseMicL[0]*s, baseMicL[1]*s, baseMicL[2]*s };
+        float w = std::clamp(p_width, 0.0f, 1.0f);
+        std::array<float,3> micR = { micL[0], micL[1] + 0.18f + w*0.4f, micL[2] };
+        std::array<float,3> micRef = {
+            0.5f*(micL[0]+micR[0]), 0.5f*(micL[1]+micR[1]), 0.5f*(micL[2]+micR[2])
+        };
+        std::array<std::array<float,3>, N_NODES> nodes = {
+            wallNode(0, 0.0f, src, micRef),
+            wallNode(0, Lx,   src, micRef),
+            wallNode(1, 0.0f, src, micRef),
+            wallNode(1, Ly,   src, micRef),
+            wallNode(2, 0.0f, src, micRef),
+            wallNode(2, Lz,   src, micRef),
+        };
+        for (int k = 0; k < N_NODES; ++k) {
+            for (int m = 0; m < N_NODES; ++m) {
+                if (k == m) continue;
+                int d = std::max(1, (int)std::floor(sr * dist(nodes[k], nodes[m]) / C_SOUND));
+                edge[k][m].init(d);
+            }
+            float rSk = std::max(0.1f, dist(src, nodes[k]));
+            int d = std::max(1, (int)std::floor(sr * rSk / C_SOUND));
+            srcNode[k].init(d);
+            gSk[k] = 1.0f / rSk;
+
+            float rkL = std::max(0.1f, dist(nodes[k], micL));
+            float rkR = std::max(0.1f, dist(nodes[k], micR));
+            nodeMicL[k].init(std::max(1, (int)std::floor(sr * rkL / C_SOUND)));
+            nodeMicR[k].init(std::max(1, (int)std::floor(sr * rkR / C_SOUND)));
+            gkML[k] = 1.0f / (1.0f + rkL / rSk);
+            gkMR[k] = 1.0f / (1.0f + rkR / rSk);
+        }
+        float rSML = std::max(0.1f, dist(src, micL));
+        float rSMR = std::max(0.1f, dist(src, micR));
+        losL.init(std::max(1, (int)std::floor(sr * rSML / C_SOUND)));
+        losR.init(std::max(1, (int)std::floor(sr * rSMR / C_SOUND)));
+        losGL = 1.0f / rSML; losGR = 1.0f / rSMR;
+
+        float V = Lx * Ly * Lz;
+        float S = 2.0f * (Lx*Ly + Lx*Lz + Ly*Lz);
+        float T = std::clamp(p_rt60, 0.2f, 8.0f);
+        float alpha = 1.0f - std::exp(-13.82f * V / (C_SOUND * S * T));
+        alpha = std::clamp(alpha, 0.02f, 0.9f);
+        beta = std::sqrt(1.0f - alpha);
+        wallA = 0.2f + 0.75f * std::clamp(p_damping, 0.0f, 1.0f);
+    }
+
+    void setParam_rt60   (float v){ if(std::isfinite(v)){ p_rt60   =std::clamp(v,0.2f,8.0f); recompute(); } }
+    void setParam_size   (float v){ if(std::isfinite(v)){ p_size   =std::clamp(v,0.3f,3.0f); recompute(); } }
+    void setParam_damping(float v){ if(std::isfinite(v)){ p_damping=std::clamp(v,0.0f,1.0f); recompute(); } }
+    void setParam_width  (float v){ if(std::isfinite(v)){ p_width  =std::clamp(v,0.0f,1.0f); recompute(); } }
+
+    void process(const float* in, float* outL, float* outR, int N) {
+        constexpr float twoOverK   = 2.0f / K;
+        constexpr float micWeight  = 2.0f / K;
+        float pBarIn[K], pOut[K];
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            for (int k = 0; k < N_NODES; ++k) srcNode[k].write(x);
+            losL.write(x); losR.write(x);
+            float yL = losL.readD() * losGL;
+            float yR = losR.readD() * losGR;
+            for (int k = 0; k < N_NODES; ++k) {
+                float sSum = 0.0f;
+                for (int i = 0; i < K; ++i) {
+                    int m = NEIGHBOURS[k][i];
+                    pIn[k*K+i] = edge[m][k].readD();
+                }
+                float pS = srcNode[k].readD() * gSk[k];
+                float half_pS = 0.5f * pS;
+                for (int i = 0; i < K; ++i) { pBarIn[i] = pIn[k*K+i] + half_pS; sSum += pBarIn[i]; }
+                for (int i = 0; i < K; ++i) pOut[i] = twoOverK * sSum - pBarIn[i];
+                for (int i = 0; i < K; ++i) {
+                    int zi = k*K + i;
+                    float f = (1.0f - wallA)*pOut[i] + wallA*wallZ[zi];
+                    wallZ[zi] = f;
+                    pOut[i]   = beta * f;
+                }
+                float pMinusSum = 0.0f;
+                for (int i = 0; i < K; ++i) pMinusSum += pOut[i];
+                nodeMicL[k].write(micWeight * pMinusSum * gkML[k]);
+                nodeMicR[k].write(micWeight * pMinusSum * gkMR[k]);
+                yL += nodeMicL[k].readD();
+                yR += nodeMicR[k].readD();
+                for (int i = 0; i < K; ++i) {
+                    int m = NEIGHBOURS[k][i];
+                    edge[k][m].write(pOut[i]);
+                }
+            }
+            if (outL) outL[n] = yL;
+            if (outR) outR[n] = yR;
+        }
+    }
+};

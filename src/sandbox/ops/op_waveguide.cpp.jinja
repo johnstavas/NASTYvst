@@ -1,0 +1,95 @@
+// op_waveguide.cpp.jinja — Stage-3 native mirror of op_waveguide.worklet.js.
+//
+// Bidirectional lossy digital waveguide (JOS §4.3–§4.5).
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct WaveguideOp {
+    static constexpr const char* opId = "waveguide";
+    static constexpr int MAX_L = 4096;
+
+    double sr    = 48000.0;
+    double freq  = 220.0;
+    double reflL = 0.98;
+    double reflR = 0.98;
+    double damp  = 0.1;
+    int    L     = 109;
+    float  bufR[MAX_L] = {0};
+    float  bufL[MAX_L] = {0};
+    int    idx   = 0;
+    double prevR = 0.0;
+    double prevL = 0.0;
+
+    explicit WaveguideOp(double sampleRate) : sr(sampleRate) { recomputeL(); }
+
+    void reset() {
+        std::memset(bufR, 0, sizeof(bufR));
+        std::memset(bufL, 0, sizeof(bufL));
+        idx = 0; prevR = 0.0; prevL = 0.0;
+    }
+
+    void recomputeL() {
+        int newL = (int)std::round(sr / (2.0 * freq));
+        if (newL < 4)      newL = 4;
+        if (newL > MAX_L)  newL = MAX_L;
+        if (newL != L) {
+            std::memset(bufR, 0, sizeof(bufR));
+            std::memset(bufL, 0, sizeof(bufL));
+            idx = 0; prevR = 0.0; prevL = 0.0;
+            L = newL;
+        }
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "freq") == 0) {
+            double lo = 20.0, hi = sr * 0.125;
+            freq = v < lo ? lo : (v > hi ? hi : v);
+            recomputeL();
+        } else if (std::strcmp(id, "reflL") == 0) {
+            reflL = v < -1 ? -1 : (v > 1 ? 1 : v);
+        } else if (std::strcmp(id, "reflR") == 0) {
+            reflR = v < -1 ? -1 : (v > 1 ? 1 : v);
+        } else if (std::strcmp(id, "damp") == 0) {
+            damp = v < 0 ? 0 : (v > 1 ? 1 : v);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int    Ln    = L;
+        const double dHalf = 0.5 * damp;
+        const double pass  = 1.0 - dHalf;
+        int    ix = idx;
+        double pR = prevR;
+        double pL = prevL;
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            double endR = bufR[ix];
+            double endL = bufL[ix];
+            double dampedR = pass * endR + dHalf * pR;
+            double dampedL = pass * endL + dHalf * pL;
+            pR = endR;
+            pL = endL;
+            double reflectedR = reflR * dampedR;
+            double reflectedL = reflL * dampedL;
+            double newR = x + reflectedL;
+            double newL = reflectedR;
+            bufR[ix] = (float)newR;
+            bufL[ix] = (float)newL;
+            out[i]   = (float)(newR + endL);
+            if (++ix >= Ln) ix = 0;
+        }
+        idx   = ix;
+        prevR = pR;
+        prevL = pL;
+    }
+};
+
+} // namespace shags

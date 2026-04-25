@@ -1,0 +1,65 @@
+// op_hiss.cpp.jinja — C++ mirror of op_hiss.worklet.js.
+// feldkirch fast-whitenoise + Kellett pink filter (both musicdsp archive, open).
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <cstdint>
+
+struct OpHiss_{{ instance }} {
+    static constexpr float SCALE = 2.0f / (float)0xffffffffu;
+
+    float sr = 48000.0f;
+    float p_level = -24.0f;
+    int   p_tint  = 1;
+    float lvlLin  = 0.0631f;  // 10^(-24/20)
+
+    int32_t x1 = (int32_t)0x67452301;
+    int32_t x2 = (int32_t)0xefcdab89;
+    float b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+
+    void setSampleRate(float s) { sr = s; }
+    void reset() {
+        x1 = (int32_t)0x67452301;
+        x2 = (int32_t)0xefcdab89;
+        b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0f;
+    }
+
+    void setParam_level(float v) {
+        if (std::isfinite(v)) {
+            p_level = std::clamp(v, -60.0f, 0.0f);
+            lvlLin  = std::pow(10.0f, p_level / 20.0f);
+        }
+    }
+    void setParam_tint(float v) {
+        if (std::isfinite(v)) p_tint = std::clamp((int)v, 0, 1);
+    }
+
+    void process(float* out, int N) {
+        if (!out) return;
+        const float lvl = lvlLin;
+        const bool wantPink = (p_tint == 1);
+        for (int n = 0; n < N; ++n) {
+            x1 = x1 ^ x2;
+            const float white = (float)x2 * SCALE;
+            x2 = x2 + x1;
+            float y;
+            if (wantPink) {
+                b0 = 0.99886f * b0 + white * 0.0555179f;
+                b1 = 0.99332f * b1 + white * 0.0750759f;
+                b2 = 0.96900f * b2 + white * 0.1538520f;
+                b3 = 0.86650f * b3 + white * 0.3104856f;
+                b4 = 0.55000f * b4 + white * 0.5329522f;
+                b5 = -0.7616f * b5 - white * 0.0168980f;
+                y  = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362f;
+                b6 = white * 0.115926f;
+                y *= 0.11f;
+            } else {
+                y = white;
+            }
+            out[n] = y * lvl;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

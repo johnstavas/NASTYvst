@@ -1,0 +1,115 @@
+// op_comb.cpp.jinja — Stage-3 native mirror of op_comb.worklet.js.
+//
+// Classic comb filter. Primary: Julius O. Smith III, PASP,
+// Feedforward_Comb_Filters + Feedback_Comb_Filters. Catalog #36.
+// Mirrors the worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class CombOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "comb";
+
+    explicit CombOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        allocBuf(500.0);
+        setDelayMs(10.0);
+    }
+
+    void reset() {
+        std::fill(buf_.begin(), buf_.end(), 0.0);
+        writeIdx_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "mode")) {
+            mode_ = (v >= 0.5) ? MODE_FB : MODE_FF;
+        } else if (!std::strcmp(id, "delayMs")) {
+            setDelayMs(v);
+        } else if (!std::strcmp(id, "g")) {
+            g_ = v;
+        } else if (!std::strcmp(id, "maxDelayMs")) {
+            double m = std::clamp(v, 1.0, 10000.0);
+            if (m != maxMs_) {
+                maxMs_ = m;
+                allocBuf(m);
+                setDelayMs((double)delay_ / sr_ * 1000.0);
+            }
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int blen = bufLen_;
+        const int D    = delay_;
+        const double g = effectiveG();
+
+        if (mode_ == MODE_FF) {
+            for (int i = 0; i < N; ++i) {
+                double x = in ? (double)in[i] : 0.0;
+                int readIdx = ((writeIdx_ - D) % blen + blen) % blen;
+                double xDelayed = buf_[readIdx];
+                if (xDelayed > -DENORMAL && xDelayed < DENORMAL) xDelayed = 0.0;
+                buf_[writeIdx_] = x;
+                writeIdx_ = (writeIdx_ + 1) % blen;
+                out[i] = (float)(x + g * xDelayed);
+            }
+        } else {
+            for (int i = 0; i < N; ++i) {
+                double x = in ? (double)in[i] : 0.0;
+                int readIdx = ((writeIdx_ - D) % blen + blen) % blen;
+                double yDelayed = buf_[readIdx];
+                if (yDelayed > -DENORMAL && yDelayed < DENORMAL) yDelayed = 0.0;
+                double y = x + g * yDelayed;
+                buf_[writeIdx_] = y;
+                writeIdx_ = (writeIdx_ + 1) % blen;
+                out[i] = (float)y;
+            }
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr int MODE_FF = 0;
+    static constexpr int MODE_FB = 1;
+
+    void allocBuf(double maxMs) {
+        int maxSamples = std::max(2, (int)std::ceil(maxMs / 1000.0 * sr_) + 1);
+        buf_.assign(maxSamples, 0.0);
+        bufLen_ = maxSamples;
+        writeIdx_ = 0;
+    }
+
+    void setDelayMs(double ms) {
+        int d = (int)std::round(ms / 1000.0 * sr_);
+        if (d < 1) d = 1;
+        if (d > bufLen_ - 1) d = bufLen_ - 1;
+        delay_ = d;
+    }
+
+    double effectiveG() const {
+        if (mode_ == MODE_FB) {
+            const double G = 0.999;
+            return std::clamp(g_, -G, G);
+        }
+        return g_;
+    }
+
+    double sr_ = 0.0;
+    int mode_ = MODE_FB;
+    int delay_ = 0;
+    double g_ = 0.7;
+    double maxMs_ = 500.0;
+    std::vector<double> buf_;
+    int bufLen_ = 0;
+    int writeIdx_ = 0;
+};
+
+} // namespace shags::ops

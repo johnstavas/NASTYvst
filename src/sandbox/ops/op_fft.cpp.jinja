@@ -1,0 +1,125 @@
+// op_fft.cpp — Stage-3b C++ sidecar for the `fft` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_fft.worklet.js
+// bit-for-bit. Catalog #64. Primary: textbook Cooley-Tukey iterative
+// radix-2 (Wikipedia / Cormen et al. Ch. 30).
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class FftOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "fft";
+
+    explicit FftOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        alloc(1024);
+    }
+
+    void reset() {
+        std::fill(buf_.begin(), buf_.end(), 0.0);
+        std::fill(re_.begin(), re_.end(), 0.0);
+        std::fill(im_.begin(), im_.end(), 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "size") == 0) {
+            int N = static_cast<int>(v);
+            if (N != size_) alloc(N);
+        }
+    }
+
+    int getLatencySamples() const { return size_; }
+
+    void process(const float* in, float* outRe, float* outIm, int N) {
+        if (!outRe && !outIm) return;
+        constexpr double DENORMAL = 1e-30;
+
+        for (int i = 0; i < N; ++i) {
+            if (writeIdx_ >= size_) {
+                writeIdx_ = 0;
+                fft();            // resets readIdx_ = 0
+                filled_ = size_;
+            }
+
+            const int bin = readIdx_++;
+            if (readIdx_ >= size_) readIdx_ = 0;
+            if (outRe) outRe[i] = static_cast<float>(re_[bin]);
+            if (outIm) outIm[i] = static_cast<float>(im_[bin]);
+
+            buf_[writeIdx_++] = in ? static_cast<double>(in[i]) : 0.0;
+            if (filled_ < size_) ++filled_;
+        }
+
+        if (re_[0] < DENORMAL && re_[0] > -DENORMAL) re_[0] = 0.0;
+        if (im_[0] < DENORMAL && im_[0] > -DENORMAL) im_[0] = 0.0;
+    }
+
+private:
+    static bool isPow2(int n) { return n > 0 && (n & (n - 1)) == 0; }
+    static int  floorPow2(int n) { int p = 1; while ((p << 1) <= n) p <<= 1; return p; }
+
+    void alloc(int n) {
+        int N = std::min(std::max(isPow2(n) ? n : floorPow2(n), 16), 32768);
+        size_ = N;
+        buf_.assign(N, 0.0);
+        re_.assign(N, 0.0);
+        im_.assign(N, 0.0);
+        sRe_.assign(N, 0.0);
+        sIm_.assign(N, 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void fft() {
+        const int N = size_;
+        double* re = sRe_.data();
+        double* im = sIm_.data();
+        int logN = 0; { int t = N; while (t > 1) { t >>= 1; ++logN; } }
+
+        for (int k = 0; k < N; ++k) {
+            int r = 0, kk = k;
+            for (int b = 0; b < logN; ++b) { r = (r << 1) | (kk & 1); kk >>= 1; }
+            re[r] = buf_[k];
+            im[r] = 0.0;
+        }
+
+        for (int s = 1; s <= logN; ++s) {
+            const int m = 1 << s;
+            const int mHalf = m >> 1;
+            const double theta = -2.0 * M_PI / static_cast<double>(m);
+            const double wmr = std::cos(theta);
+            const double wmi = std::sin(theta);
+            for (int k = 0; k < N; k += m) {
+                double wr = 1.0, wi = 0.0;
+                for (int j = 0; j < mHalf; ++j) {
+                    const int iT = k + j;
+                    const int iB = k + j + mHalf;
+                    const double tr = wr * re[iB] - wi * im[iB];
+                    const double ti = wr * im[iB] + wi * re[iB];
+                    const double ur = re[iT];
+                    const double ui = im[iT];
+                    re[iT] = ur + tr;
+                    im[iT] = ui + ti;
+                    re[iB] = ur - tr;
+                    im[iB] = ui - ti;
+                    const double nwr = wr * wmr - wi * wmi;
+                    const double nwi = wr * wmi + wi * wmr;
+                    wr = nwr; wi = nwi;
+                }
+            }
+        }
+
+        for (int i = 0; i < N; ++i) { re_[i] = re[i]; im_[i] = im[i]; }
+        readIdx_ = 0;
+    }
+
+    double sr_;
+    int    size_     = 0;
+    std::vector<double> buf_, re_, im_, sRe_, sIm_;
+    int    writeIdx_ = 0, readIdx_ = 0, filled_ = 0;
+};
+
+}  // namespace shags::ops

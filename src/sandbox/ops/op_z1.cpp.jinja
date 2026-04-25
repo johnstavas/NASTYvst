@@ -1,0 +1,44 @@
+// op_z1.cpp — Stage-3b C++ sidecar for the `z1` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_z1.worklet.js
+// bit-for-bit. Catalog #93. Template: Jinja2.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class Z1Op_{{ node_id }} {
+public:
+    static constexpr const char* opId = "z1";
+    static constexpr double DENORMAL = 1e-30;
+
+    explicit Z1Op_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate), z_(0.0) {}
+
+    void reset() { z_ = 0.0; }
+    void setParam(const char*, double) {}
+    int  getLatencySamples() const { return 1; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) {
+            out[0] = static_cast<float>(z_);
+            std::memset(out + 1, 0, sizeof(float) * (N - 1));
+            z_ = 0.0;
+            return;
+        }
+        double z = z_;
+        for (int i = 0; i < N; ++i) {
+            out[i] = static_cast<float>(z);
+            z = in[i];
+        }
+        if (z < DENORMAL && z > -DENORMAL) z = 0.0;
+        z_ = z;
+    }
+
+private:
+    double sr_;
+    double z_;
+};
+
+}  // namespace shags::ops

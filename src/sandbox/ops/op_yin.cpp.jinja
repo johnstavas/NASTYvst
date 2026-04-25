@@ -1,0 +1,122 @@
+// op_yin.cpp.jinja — C++ mirror of op_yin.worklet.js.
+// de Cheveigné & Kawahara 2002 YIN, Steps 1–5 (Step 6 skipped per MVP).
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <vector>
+
+struct OpYin_{{ instance }} {
+    float sr = 48000.0f;
+    float p_f0Min = 80.0f, p_f0Max = 1000.0f;
+    float p_threshold = 0.1f, p_windowMs = 25.0f;
+
+    int W = 1200, tauMin = 48, tauMax = 600;
+    std::vector<float> buf;
+    int bufMask = 0, w = 0, filled = 0;
+
+    std::vector<float> frame;
+    std::vector<float> df, cmndf;
+
+    float lastF0 = 0.0f, lastConf = 0.0f;
+
+    void recompute() {
+        W = std::max(32, (int)std::round(p_windowMs * 0.001f * sr));
+        tauMin = std::max(2,       (int)std::floor(sr / p_f0Max));
+        tauMax = std::min(W - 1,   (int)std::ceil (sr / p_f0Min));
+        if (tauMax <= tauMin) tauMax = tauMin + 1;
+
+        int frameLen = W + tauMax + 2;
+        int n = 1; while (n < frameLen + 2) n <<= 1;
+        buf.assign(n, 0.0f);
+        bufMask = n - 1; w = 0; filled = 0;
+
+        frame.assign(frameLen, 0.0f);
+        df.assign(tauMax + 1, 0.0f);
+        cmndf.assign(tauMax + 1, 0.0f);
+    }
+
+    void setSampleRate(float s) { sr = s; recompute(); }
+    void reset() {
+        std::fill(buf.begin(), buf.end(), 0.0f);
+        std::fill(frame.begin(), frame.end(), 0.0f);
+        std::fill(df.begin(), df.end(), 0.0f);
+        std::fill(cmndf.begin(), cmndf.end(), 0.0f);
+        w = 0; filled = 0; lastF0 = 0; lastConf = 0;
+    }
+
+    void setParam_f0Min    (float v){ if(std::isfinite(v)){ p_f0Min     = std::clamp(v, 10.0f, 2000.0f);     recompute(); } }
+    void setParam_f0Max    (float v){ if(std::isfinite(v)){ p_f0Max     = std::clamp(v, 20.0f, sr * 0.25f);  recompute(); } }
+    void setParam_threshold(float v){ if(std::isfinite(v)){ p_threshold = std::clamp(v, 0.01f, 0.5f); } }
+    void setParam_windowMs (float v){ if(std::isfinite(v)){ p_windowMs  = std::clamp(v, 5.0f, 200.0f);       recompute(); } }
+
+    void computeFrame() {
+        int frameLen = W + tauMax;
+        int rd = (w - frameLen) & bufMask;
+        for (int i = 0; i < frameLen; ++i) {
+            frame[i] = buf[rd]; rd = (rd + 1) & bufMask;
+        }
+        // Silent-frame gate: bail early to avoid spurious f0 from Step-4 fallback.
+        float energy = 0;
+        for (int j = 0; j < W; ++j) energy += frame[j] * frame[j];
+        if (energy < 1e-10f) { lastF0 = 0; lastConf = 0; return; }
+        // Step 2: difference function (Eq. 6)
+        df[0] = 0;
+        for (int tau = 1; tau <= tauMax; ++tau) {
+            float s = 0;
+            for (int j = 0; j < W; ++j) {
+                float d = frame[j] - frame[j + tau];
+                s += d * d;
+            }
+            df[tau] = s;
+        }
+        // Step 3: CMNDF (Eq. 8)
+        cmndf[0] = 1.0f;
+        float runSum = 0;
+        for (int tau = 1; tau <= tauMax; ++tau) {
+            runSum += df[tau];
+            cmndf[tau] = (runSum > 0) ? (df[tau] * tau / runSum) : 1.0f;
+        }
+        // Step 4: absolute threshold with local-min descent
+        int tauEst = 0;
+        for (int tau = tauMin; tau <= tauMax; ++tau) {
+            if (cmndf[tau] < p_threshold) {
+                while (tau + 1 <= tauMax && cmndf[tau + 1] < cmndf[tau]) ++tau;
+                tauEst = tau; break;
+            }
+        }
+        if (tauEst == 0) {
+            float best = std::numeric_limits<float>::infinity();
+            int   bestTau = tauMin;
+            for (int tau = tauMin; tau <= tauMax; ++tau) {
+                if (cmndf[tau] < best) { best = cmndf[tau]; bestTau = tau; }
+            }
+            tauEst = bestTau;
+        }
+        // Step 5: parabolic interpolation over RAW d(τ)
+        float tauRefined = (float)tauEst;
+        if (tauEst > 0 && tauEst < tauMax) {
+            float y0 = df[tauEst - 1], y1 = df[tauEst], y2 = df[tauEst + 1];
+            float den = 2.0f * (y0 - 2.0f * y1 + y2);
+            if (den != 0.0f) {
+                float delta = (y0 - y2) / den;
+                if (delta > -1.0f && delta < 1.0f) tauRefined = (float)tauEst + delta;
+            }
+        }
+        float dp = cmndf[tauEst];
+        float conf = (dp < 0.0f) ? 1.0f : (dp > 1.0f ? 0.0f : 1.0f - dp);
+        float f0 = (tauRefined > 0) ? (sr / tauRefined) : 0.0f;
+        lastF0   = std::isfinite(f0)   ? f0   : 0.0f;
+        lastConf = std::isfinite(conf) ? conf : 0.0f;
+    }
+
+    void process(const float* in, float* f0Out, float* confOut, int N) {
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            buf[w] = x; w = (w + 1) & bufMask; ++filled;
+            if (filled >= W) { filled = 0; computeFrame(); }
+            if (f0Out)   f0Out[n]   = lastF0;
+            if (confOut) confOut[n] = lastConf;
+        }
+    }
+};

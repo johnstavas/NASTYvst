@@ -1,0 +1,159 @@
+// op_mfcc.cpp — Stage-3b C++ sidecar for the `mfcc` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_mfcc.worklet.js
+// bit-for-bit. Catalog #69. Primary: python_speech_features + Wikipedia MFCC.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class MfccOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "mfcc";
+
+    explicit MfccOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        alloc(1024);
+        buildFbank();
+    }
+
+    void reset() {
+        std::fill(inRe_.begin(),  inRe_.end(),  0.0);
+        std::fill(inIm_.begin(),  inIm_.end(),  0.0);
+        std::fill(coefs_.begin(), coefs_.end(), 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "size") == 0) {
+            int n = static_cast<int>(v);
+            if (n != size_) { alloc(n); buildFbank(); }
+        } else if (std::strcmp(id, "numFilters") == 0) {
+            numFilters_ = std::min(std::max(static_cast<int>(v), 1), 128);
+            energies_.assign(numFilters_, 0.0);
+            buildFbank();
+        } else if (std::strcmp(id, "numCoefs") == 0) {
+            numCoefs_ = std::min(std::max(static_cast<int>(v), 1), numFilters_);
+        } else if (std::strcmp(id, "lowFreq") == 0) {
+            lowFreq_ = v; buildFbank();
+        } else if (std::strcmp(id, "highFreq") == 0) {
+            highFreq_ = v; buildFbank();
+        }
+    }
+
+    int getLatencySamples() const { return size_; }
+
+    void process(const float* inRe, const float* inIm, float* out, int N) {
+        if (!out) return;
+
+        for (int i = 0; i < N; ++i) {
+            if (filled_ >= size_) {
+                computeFrame();
+                filled_  = 0;
+                readIdx_ = 0;
+            }
+            out[i] = static_cast<float>(coefs_[readIdx_]);
+            readIdx_ = (readIdx_ + 1) % size_;
+
+            inRe_[writeIdx_] = inRe ? static_cast<double>(inRe[i]) : 0.0;
+            inIm_[writeIdx_] = inIm ? static_cast<double>(inIm[i]) : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % size_;
+            ++filled_;
+        }
+    }
+
+private:
+    static bool isPow2(int n) { return n > 0 && (n & (n - 1)) == 0; }
+    static int  floorPow2(int n) { int p = 1; while ((p << 1) <= n) p <<= 1; return p; }
+    static double hz2mel(double hz)  { return 2595.0 * std::log10(1.0 + hz / 700.0); }
+    static double mel2hz(double mel) { return 700.0 * (std::pow(10.0, mel / 2595.0) - 1.0); }
+
+    void alloc(int N) {
+        int size = std::min(std::max(isPow2(N) ? N : floorPow2(N), 16), 32768);
+        size_ = size;
+        inRe_.assign(size, 0.0);
+        inIm_.assign(size, 0.0);
+        coefs_.assign(size, 0.0);
+        powBuf_.assign((size >> 1) + 1, 0.0);
+        energies_.assign(numFilters_, 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void buildFbank() {
+        constexpr double LOG_FLOOR = 1e-10;
+        (void)LOG_FLOOR;
+        const int nfft    = size_;
+        const int nfilt   = numFilters_;
+        const int binCols = (nfft >> 1) + 1;
+        const double hi   = highFreq_ > 0 ? highFreq_ : sr_ / 2.0;
+        const double lo   = std::max(lowFreq_, 0.0);
+        const double lowmel  = hz2mel(lo);
+        const double highmel = hz2mel(hi);
+
+        std::vector<double> melpoints(nfilt + 2);
+        for (int i = 0; i < nfilt + 2; ++i) {
+            melpoints[i] = lowmel + (highmel - lowmel) * i / static_cast<double>(nfilt + 1);
+        }
+        std::vector<int> bin(nfilt + 2);
+        for (int i = 0; i < nfilt + 2; ++i) {
+            int b = static_cast<int>(std::floor((nfft + 1) * mel2hz(melpoints[i]) / sr_));
+            if (b >= binCols) b = binCols - 1;
+            if (b < 0) b = 0;
+            bin[i] = b;
+        }
+
+        fbank_.assign(nfilt * binCols, 0.0);
+        for (int j = 0; j < nfilt; ++j) {
+            const int bj0 = bin[j], bj1 = bin[j + 1], bj2 = bin[j + 2];
+            const int up = bj1 - bj0;
+            const int dn = bj2 - bj1;
+            for (int i = bj0; i < bj1; ++i) fbank_[j * binCols + i] = up > 0 ? static_cast<double>(i - bj0) / up : 0.0;
+            for (int i = bj1; i < bj2; ++i) fbank_[j * binCols + i] = dn > 0 ? static_cast<double>(bj2 - i) / dn : 0.0;
+        }
+        binCols_ = binCols;
+    }
+
+    void computeFrame() {
+        constexpr double LOG_FLOOR = 1e-10;
+        constexpr double DENORMAL  = 1e-30;
+
+        const int nfft    = size_;
+        const int nfilt   = numFilters_;
+        const int ncoef   = numCoefs_;
+        const int binCols = binCols_;
+
+        for (int k = 0; k < binCols; ++k) {
+            const double re = inRe_[k];
+            const double im = inIm_[k];
+            powBuf_[k] = re * re + im * im;
+        }
+        for (int j = 0; j < nfilt; ++j) {
+            double s = 0.0;
+            const int row = j * binCols;
+            for (int k = 0; k < binCols; ++k) s += fbank_[row + k] * powBuf_[k];
+            energies_[j] = s;
+        }
+        for (int j = 0; j < nfilt; ++j) energies_[j] = std::log(energies_[j] + LOG_FLOOR);
+
+        std::fill(coefs_.begin(), coefs_.end(), 0.0);
+        const double piN = M_PI / nfilt;
+        for (int i = 0; i < ncoef; ++i) {
+            double c = 0.0;
+            for (int j = 0; j < nfilt; ++j) c += energies_[j] * std::cos(i * (j + 0.5) * piN);
+            if (c < DENORMAL && c > -DENORMAL) c = 0.0;
+            coefs_[i] = c;
+        }
+        (void)nfft;
+    }
+
+    double sr_;
+    int    size_ = 0;
+    int    numFilters_ = 26, numCoefs_ = 13;
+    double lowFreq_ = 0.0, highFreq_ = 0.0;
+    int    binCols_ = 0;
+    std::vector<double> inRe_, inIm_, coefs_, powBuf_, energies_, fbank_;
+    int    writeIdx_ = 0, readIdx_ = 0, filled_ = 0;
+};
+
+}  // namespace shags::ops

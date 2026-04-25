@@ -1,0 +1,40 @@
+// op_constant.cpp — Stage-3b C++ sidecar for the `constant` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_constant.worklet.js
+// bit-for-bit. Catalog #31. Template: Jinja2.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class ConstantOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "constant";
+
+    explicit ConstantOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate), value_(0.0f) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (!id) return;
+        if (std::strcmp(id, "value") == 0) {
+            if (!std::isfinite(v)) return;  // sticky last-good
+            value_ = static_cast<float>(v);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(float* out, int N) {
+        if (!out) return;
+        const float v = value_;
+        for (int i = 0; i < N; ++i) out[i] = v;
+    }
+
+private:
+    double sr_;
+    float  value_;
+};
+
+}  // namespace shags::ops

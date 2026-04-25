@@ -1,0 +1,73 @@
+// op_stereoWidth.cpp — Stage-3b C++ sidecar for the `stereoWidth` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_stereoWidth.worklet.js
+// bit-for-bit. Catalog #57. Template: Jinja2.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class StereoWidthOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "stereoWidth";
+
+    explicit StereoWidthOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate), tauS_(0.3), alpha_(0.0), oma_(1.0),
+          eMM_(0.0), eSS_(0.0) {
+        recomputeCoefs();
+    }
+
+    void reset() { eMM_ = 0.0; eSS_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (!id) return;
+        if (std::strcmp(id, "timeMs") == 0) {
+            if (!std::isfinite(v)) return;
+            double ms = v < 1.0 ? 1.0 : (v > 10000.0 ? 10000.0 : v);
+            tauS_ = ms / 1000.0;
+            recomputeCoefs();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // Dual-input: L=in0, R=in1; output=width.
+    void process(const float* l, const float* r, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL    = 1e-30;
+        constexpr double DENOM_FLOOR = 1e-20;
+        constexpr double INV_SQRT2   = 0.7071067811865475;
+
+        if (!l || !r) {
+            for (int i = 0; i < N; ++i) {
+                eMM_ *= alpha_; eSS_ *= alpha_;
+                if (eMM_ < DENORMAL) eMM_ = 0.0;
+                if (eSS_ < DENORMAL) eSS_ = 0.0;
+                out[i] = 0.5f;
+            }
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            const double li = l[i], ri = r[i];
+            const double m = (li + ri) * INV_SQRT2;
+            const double s = (li - ri) * INV_SQRT2;
+            eMM_ = oma_ * (m * m) + alpha_ * eMM_;
+            eSS_ = oma_ * (s * s) + alpha_ * eSS_;
+            if (eMM_ < DENORMAL) eMM_ = 0.0;
+            if (eSS_ < DENORMAL) eSS_ = 0.0;
+            const double total = eMM_ + eSS_;
+            out[i] = static_cast<float>(total < DENOM_FLOOR ? 0.5 : eSS_ / total);
+        }
+    }
+
+private:
+    void recomputeCoefs() {
+        alpha_ = std::exp(-1.0 / (tauS_ * sr_));
+        oma_   = 1.0 - alpha_;
+    }
+
+    double sr_, tauS_, alpha_, oma_, eMM_, eSS_;
+};
+
+}  // namespace shags::ops

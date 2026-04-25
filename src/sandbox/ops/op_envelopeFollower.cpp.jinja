@@ -1,0 +1,51 @@
+// op_envelopeFollower.cpp.jinja — C++ mirror of op_envelopeFollower.worklet.js.
+// Bram de Jong asymmetric AR envelope follower (musicdsp #136, 2003).
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpEnvelopeFollower_{{ instance }} {
+    float sr = 48000.0f;
+    float p_attack = 5.0f, p_release = 120.0f;
+    int   p_mode = 0;
+
+    float atkCoef = 0.0f, relCoef = 0.0f;
+    float env = 0.0f, meanSq = 0.0f;
+
+    void recompute() {
+        const float atkMs = std::max(0.1f, p_attack);
+        const float relMs = std::max(0.1f, p_release);
+        atkCoef = std::exp(std::log(0.01f) / (atkMs * sr * 0.001f));
+        relCoef = std::exp(std::log(0.01f) / (relMs * sr * 0.001f));
+    }
+
+    void setSampleRate(float s) { sr = s; recompute(); }
+    void reset() { env = 0.0f; meanSq = 0.0f; }
+
+    void setParam_attack (float v) { if (std::isfinite(v)) { p_attack  = std::clamp(v, 0.1f, 1000.0f); recompute(); } }
+    void setParam_release(float v) { if (std::isfinite(v)) { p_release = std::clamp(v, 1.0f, 5000.0f); recompute(); } }
+    void setParam_mode   (float v) { if (std::isfinite(v)) { p_mode    = std::clamp((int)v, 0, 1); } }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int n = 0; n < N; ++n) out[n] = 0.0f; env = 0.0f; meanSq = 0.0f; return; }
+        const bool isRms = (p_mode == 1);
+        for (int n = 0; n < N; ++n) {
+            const float x = in[n];
+            float tmp;
+            if (isRms) {
+                meanSq = relCoef * (meanSq - x * x) + x * x;
+                if (meanSq < 0.0f) meanSq = 0.0f;
+                tmp = std::sqrt(meanSq);
+            } else {
+                tmp = std::fabs(x);
+            }
+            if (tmp > env) env = atkCoef * (env - tmp) + tmp;
+            else           env = relCoef * (env - tmp) + tmp;
+            out[n] = env;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

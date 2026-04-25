@@ -1,0 +1,59 @@
+// op_tubeSim.cpp.jinja — C++ mirror of op_tubeSim.worklet.js
+// Koren 1996 triode model (12AX7 defaults). See worklet.js header.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpTubeSim_{{ instance }} {
+    float sr = 48000.0f;
+    float drive = 1.5f, bias = 1.5f, plateV = 250.0f;
+    float mu = 100.0f, ex = 1.4f, kg1 = 1060.0f, kp = 600.0f, kvb = 300.0f;
+    float trim = 1.0f;
+    float ip0 = 0.0f, gain = 1.0f;
+
+    static constexpr float DENORMAL = 1e-30f;
+
+    void setSampleRate(float s) { sr = s; }
+    void reset() {}
+
+    inline float koren(float EG) const {
+        const float EP = plateV;
+        const float inner = kp * (1.0f/mu + EG / std::sqrt(kvb + EP*EP));
+        float softplus;
+        if (inner >  30.0f) softplus = inner;
+        else if (inner < -30.0f) softplus = std::exp(inner);
+        else softplus = std::log(1.0f + std::exp(inner));
+        const float E1 = (EP / kp) * softplus;
+        if (E1 <= 0.0f) return 0.0f;
+        const float sgn = E1 >= 0.0f ? 1.0f : -1.0f;
+        return (std::pow(E1, ex) / kg1) * (1.0f + sgn);
+    }
+
+    void recompute() {
+        ip0 = koren(-bias);
+        gain = kg1 / 400.0f;
+    }
+
+    void setParam_drive(float v)  { if(std::isfinite(v)) drive = std::clamp(v, 0.0f, 20.0f); }
+    void setParam_bias(float v)   { if(std::isfinite(v)) { bias = std::clamp(v, 0.0f, 5.0f); recompute(); } }
+    void setParam_plateV(float v) { if(std::isfinite(v)) { plateV = std::clamp(v, 50.0f, 500.0f); recompute(); } }
+    void setParam_mu(float v)     { if(std::isfinite(v)) { mu = std::clamp(v, 5.0f, 200.0f); recompute(); } }
+    void setParam_ex(float v)     { if(std::isfinite(v)) { ex = std::clamp(v, 1.0f, 2.0f); recompute(); } }
+    void setParam_kg1(float v)    { if(std::isfinite(v)) { kg1 = std::clamp(v, 100.0f, 5000.0f); recompute(); } }
+    void setParam_kp(float v)     { if(std::isfinite(v)) { kp = std::clamp(v, 50.0f, 2000.0f); recompute(); } }
+    void setParam_kvb(float v)    { if(std::isfinite(v)) { kvb = std::clamp(v, 10.0f, 1000.0f); recompute(); } }
+    void setParam_trim(float v)   { if(std::isfinite(v)) trim = std::clamp(v, 0.0f, 4.0f); }
+
+    inline void process(const float* in, float* out, int N) {
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            float EG = -bias + drive * x;
+            float ip = koren(EG);
+            float y = (ip - ip0) * gain * trim;
+            if (std::fabs(y) < DENORMAL) y = 0.0f;
+            if (!std::isfinite(y)) y = 0.0f;
+            out[n] = y;
+        }
+    }
+};

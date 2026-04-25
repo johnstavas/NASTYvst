@@ -1,0 +1,133 @@
+// op_granularBuffer.cpp.jinja — C++ mirror of op_granularBuffer.worklet.js.
+// SC GrainBuf-style active-grain pool over self-owned circular buffer.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+
+struct OpGranularBuffer_{{ instance }} {
+    static constexpr int   MAX_GRAINS = 16;
+    static constexpr int   MAX_BUF_MS = 2000;
+    static constexpr float SCALE      = 2.0f / (float)0xffffffffu;
+    static inline const float POOL_NORM = 0.25f; // 1/sqrt(16)
+
+    float sr = 48000.0f;
+    int   bufFrames = 96000; // worst-case 2000 ms @ 48 kHz
+    float* buf = nullptr;    // owned; allocate at construct
+    int   w = 0;
+
+    float p_delayS  = 0.1f;
+    float p_grainS  = 0.05f;
+    float p_density = 20.0f;
+    float p_jitterS = 0.0f;
+    float p_pitchR  = 1.0f;
+    float p_detuneC = 0.0f;
+    float p_level   = 1.0f;
+
+    double gPhase[MAX_GRAINS]   = {};
+    double gRate [MAX_GRAINS]   = {};
+    int    gCount[MAX_GRAINS]   = {};
+    int    gDur  [MAX_GRAINS]   = {};
+    uint8_t gActive[MAX_GRAINS] = {};
+
+    int32_t x1 = (int32_t)0x67452301;
+    int32_t x2 = (int32_t)0xefcdab89;
+
+    void setSampleRate(float s) {
+        sr = s;
+        const int newFrames = std::max(1, (int)std::ceil(MAX_BUF_MS * 0.001f * sr));
+        if (buf && newFrames == bufFrames) return;
+        delete[] buf;
+        bufFrames = newFrames;
+        buf = new float[bufFrames]();
+    }
+
+    OpGranularBuffer_{{ instance }}() {
+        bufFrames = std::max(1, (int)std::ceil(MAX_BUF_MS * 0.001f * sr));
+        buf = new float[bufFrames]();
+    }
+    ~OpGranularBuffer_{{ instance }}() { delete[] buf; }
+
+    void reset() {
+        if (buf) std::memset(buf, 0, sizeof(float) * bufFrames);
+        w = 0;
+        std::memset(gActive, 0, sizeof(gActive));
+        std::memset(gCount,  0, sizeof(gCount));
+        std::memset(gDur,    0, sizeof(gDur));
+        for (int i = 0; i < MAX_GRAINS; ++i) { gPhase[i] = 0; gRate[i] = 0; }
+        x1 = (int32_t)0x67452301;
+        x2 = (int32_t)0xefcdab89;
+    }
+
+    void setParam_bufMs(float)        { /* cap; allocated at ctor */ }
+    void setParam_delayMs(float v)    { if (std::isfinite(v)) p_delayS  = std::clamp(v, 0.0f, (float)MAX_BUF_MS) * 0.001f; }
+    void setParam_grainMs(float v)    { if (std::isfinite(v)) p_grainS  = std::clamp(v, 1.0f, 500.0f) * 0.001f; }
+    void setParam_density(float v)    { if (std::isfinite(v)) p_density = std::clamp(v, 0.1f, 200.0f); }
+    void setParam_jitterMs(float v)   { if (std::isfinite(v)) p_jitterS = std::clamp(v, 0.0f, 1000.0f) * 0.001f; }
+    void setParam_pitchCents(float v) { if (std::isfinite(v)) p_pitchR  = std::pow(2.0f, std::clamp(v, -2400.0f, 2400.0f) / 1200.0f); }
+    void setParam_detuneCents(float v){ if (std::isfinite(v)) p_detuneC = std::clamp(v, 0.0f, 1200.0f); }
+    void setParam_level(float v)      { if (std::isfinite(v)) p_level   = std::clamp(v, 0.0f, 1.0f); }
+
+    float rand_() {
+        x1 = x1 ^ x2;
+        const float u = (float)x2 * SCALE;
+        x2 = x2 + x1;
+        return u;
+    }
+
+    void spawn_(int wHead) {
+        int slot = -1;
+        for (int i = 0; i < MAX_GRAINS; ++i) if (!gActive[i]) { slot = i; break; }
+        if (slot < 0) return;
+        const int dur = std::max(4, (int)std::round(p_grainS * sr));
+        const float jitterSamples = p_jitterS * sr * rand_();
+        const float detuneCents   = p_detuneC * rand_();
+        const double rate = p_pitchR * std::pow(2.0, detuneCents / 1200.0);
+        const float offset = p_delayS * sr + jitterSamples;
+        double phase = (double)wHead - offset;
+        phase = phase - bufFrames * std::floor(phase / bufFrames);
+        gPhase[slot]  = phase;
+        gRate[slot]   = rate;
+        gCount[slot]  = dur;
+        gDur[slot]    = dur;
+        gActive[slot] = 1;
+    }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int   M   = bufFrames;
+        const float lvl = p_level;
+        const float triggerProb = p_density / sr;
+
+        for (int n = 0; n < N; ++n) {
+            buf[w] = in ? in[n] : 0.0f;
+            if (++w >= M) w = 0;
+
+            const float u = (rand_() + 1.0f) * 0.5f;
+            if (u < triggerProb) spawn_(w);
+
+            float acc = 0.0f;
+            for (int g = 0; g < MAX_GRAINS; ++g) {
+                if (!gActive[g]) continue;
+                const int dur = gDur[g];
+                const int t   = dur - gCount[g];
+                const float win = 0.5f * (1.0f - std::cos(2.0f * 3.1415926535897932f * (float)t / std::max(1, dur - 1)));
+                double p = gPhase[g];
+                p = p - M * std::floor(p / M);
+                const int i0 = (int)p;
+                const int i1 = (i0 + 1) % M;
+                const double a = p - i0;
+                const float sample = (float)((1.0 - a) * buf[i0] + a * buf[i1]);
+                acc += win * sample;
+                gPhase[g] = p + gRate[g];
+                if (--gCount[g] <= 0) gActive[g] = 0;
+            }
+
+            out[n] = acc * POOL_NORM * lvl;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

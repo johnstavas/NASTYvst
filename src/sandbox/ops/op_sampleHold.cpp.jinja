@@ -1,0 +1,30 @@
+// op_sampleHold.cpp.jinja — C++ mirror of op_sampleHold.worklet.js.
+// SC Latch_next_aa algorithm (GPLv3 code not copied).
+
+#pragma once
+
+struct OpSampleHold_{{ instance }} {
+    float sr       = 48000.0f;
+    float level    = 0.0f;
+    float prevTrig = 0.0f;
+
+    void setSampleRate(float s) { sr = s; }
+    void reset() { level = 0.0f; prevTrig = 0.0f; }
+
+    void process(const float* in, const float* trig, float* out, int N) {
+        if (!out) return;
+        float lvl = level;
+        float pt  = prevTrig;
+        for (int n = 0; n < N; ++n) {
+            const float x = in   ? in[n]   : 0.0f;
+            const float t = trig ? trig[n] : 0.0f;
+            if (pt <= 0.0f && t > 0.0f) lvl = x;
+            out[n] = lvl;
+            pt = t;
+        }
+        level    = lvl;
+        prevTrig = pt;
+    }
+
+    int getLatencySamples() const { return 0; }
+};

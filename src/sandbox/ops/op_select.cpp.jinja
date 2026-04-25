@@ -1,0 +1,50 @@
+// op_select.cpp.jinja — Stage-3 native mirror of op_select.worklet.js.
+//
+// 1-of-4 hard switch. Math-by-definition: out = in_k where k = floor(index).
+// Catalog #24. Mirrors the worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class SelectOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "select";
+
+    explicit SelectOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "index")) {
+            int k = (int)std::floor(v);
+            index_ = std::clamp(k, 0, 3);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in0, const float* in1,
+                 const float* in2, const float* in3,
+                 float* out, int N) {
+        if (!out) return;
+        const float* src =
+            index_ == 0 ? in0 :
+            index_ == 1 ? in1 :
+            index_ == 2 ? in2 : in3;
+        if (src) {
+            for (int i = 0; i < N; ++i) out[i] = src[i];
+        } else {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+        }
+    }
+
+private:
+    double sr_ = 0.0;
+    int index_ = 0;
+};
+
+} // namespace shags::ops

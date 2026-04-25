@@ -1,0 +1,72 @@
+// op_fpDacRipple.cpp.jinja — C++ mirror of op_fpDacRipple.worklet.js
+// FP-DAC ripple. See worklet.js for primary-source status + concept citations.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <cstdint>
+
+struct OpFpDacRipple_{{ instance }} {
+    int   bits    = 12;
+    int   expBits = 3;
+    float noise   = 0.0005f;
+    uint32_t seed0 = 1;
+    uint32_t s     = 1;
+    float M    = 2048.0f;   // 2^(bits-1)
+    int   maxE = 3;
+
+    static constexpr float DENORMAL = 1e-30f;
+    static constexpr float LOG2 = 0.6931471805599453f;
+
+    void reset() { s = seed0 ? seed0 : 1u; }
+
+    inline float rand01() {
+        s = s * 1664525u + 1013904223u;
+        return (float)s / 4294967296.0f;
+    }
+
+    void setParam_bits(float v) {
+        int b = std::isfinite(v) ? (int)std::lround(v) : 12;
+        bits = std::clamp(b, 4, 16);
+        M = std::pow(2.0f, bits - 1);
+    }
+    void setParam_expBits(float v) {
+        int e = std::isfinite(v) ? (int)std::lround(v) : 3;
+        expBits = std::clamp(e, 0, 4);
+        maxE = expBits;
+    }
+    void setParam_noise(float v) {
+        if (!std::isfinite(v)) v = 0.0005f;
+        noise = std::clamp(v, 0.0f, 0.01f);
+    }
+    void setParam_seed(float v) {
+        uint32_t sv = std::isfinite(v) ? (uint32_t)std::max(1.0f, std::round(v)) : 1u;
+        seed0 = sv;
+        s = sv;
+    }
+
+    inline void process(const float* in, float* out, int N) {
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            float ax = std::fabs(x);
+            int e = 0;
+            if (ax > DENORMAL && maxE > 0) {
+                float raw = -std::log(ax) / LOG2;
+                if (raw < 0) e = 0;
+                else if (raw > maxE) e = maxE;
+                else e = (int)std::floor(raw);
+            }
+            float scale = std::pow(2.0f, e);
+            float inv   = 1.0f / scale;
+            float mantissa = x * scale;
+            float mq = std::round(mantissa * M) / M;
+            float y = mq * inv;
+            if (noise > 0) {
+                float r = rand01();
+                y += noise * (2.0f * r - 1.0f) * inv;
+            }
+            if (std::fabs(y) < DENORMAL) y = 0.0f;
+            out[n] = y;
+        }
+    }
+};

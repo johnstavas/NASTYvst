@@ -1,0 +1,72 @@
+// op_chamberlinZeroCross.cpp — Stage-3b C++ sidecar. Mirrors
+// op_chamberlinZeroCross.worklet.js.
+//
+// Primary status: math-by-definition paraphrase of Chamberlin 1985 §12.4
+// (physical book, not directly opened). Two artifacts modeled:
+//   1. sign-magnitude dead zone: |x| < dz → 0
+//   2. zero-crossing spike: on input sign change, output += ±glitch
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class ChamberlinZeroCrossOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "chamberlinZeroCross";
+
+    explicit ChamberlinZeroCrossOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() { prev_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "deadZone") == 0) {
+            double dz = v;
+            if (!std::isfinite(dz)) dz = 0.002;
+            if (dz < 0.0) dz = 0.0;
+            if (dz > 0.5) dz = 0.5;
+            deadZone_ = dz;
+        } else if (std::strcmp(id, "glitch") == 0) {
+            double g = v;
+            if (!std::isfinite(g)) g = 0.05;
+            if (g < 0.0) g = 0.0;
+            if (g > 1.0) g = 1.0;
+            glitch_ = g;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double dz = deadZone_;
+        const double gl = glitch_;
+        double prev = prev_;
+        constexpr double kDenormal = 1e-30;
+
+        for (int n = 0; n < N; ++n) {
+            const double x = in ? static_cast<double>(in[n]) : 0.0;
+            double y = (std::fabs(x) < dz) ? 0.0 : x;
+            const int sx = x    > 0.0 ? 1 : (x    < 0.0 ? -1 : 0);
+            const int sp = prev > 0.0 ? 1 : (prev < 0.0 ? -1 : 0);
+            if (sx != 0 && sp != 0 && sx != sp) {
+                y += gl * static_cast<double>(sx);
+            }
+            if (std::fabs(y) < kDenormal) y = 0.0;
+            out[n] = static_cast<float>(y);
+            prev = x;
+        }
+
+        prev_ = prev;
+    }
+
+private:
+    double sr_;
+    double deadZone_ = 0.002;
+    double glitch_   = 0.05;
+    double prev_     = 0.0;
+};
+
+}  // namespace shags::ops

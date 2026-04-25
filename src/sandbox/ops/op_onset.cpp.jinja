@@ -1,0 +1,225 @@
+// op_onset.cpp.jinja — Stage-3 native mirror of op_onset.worklet.js.
+//
+// Spectral-flux onset detection. Primary: librosa onset.onset_strength +
+// util.peak_pick (ISC); Böck-Widmer 2013; Böck-Krebs-Schedl 2012.
+// Catalog #74. Mirrors the worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class OnsetOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "onset";
+
+    explicit OnsetOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        hist_.assign(256, 0.0);
+        histLen_ = 256;
+        alloc(1024);
+    }
+
+    void reset() {
+        std::fill(inRe_.begin(),    inRe_.end(),    0.0);
+        std::fill(inIm_.begin(),    inIm_.end(),    0.0);
+        std::fill(refRing_.begin(), refRing_.end(), 0.0);
+        std::fill(hist_.begin(),    hist_.end(),    0.0);
+        writeIdx_ = 0; filled_ = 0; ringPos_ = 0; framesSeen_ = 0;
+        histPos_ = 0; heldStr_ = 0; heldOn_ = 0; readIdx_ = 0;
+        strMax_ = 1e-12; lastPeak_ = -1;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "size")) {
+            int n = (int)v;
+            if (n != size_) alloc(n);
+        } else if (!std::strcmp(id, "lag")) {
+            int L = std::clamp((int)std::round(v), 1, 128);
+            if (L != lag_) { lag_ = L; reallocRings(); }
+        } else if (!std::strcmp(id, "maxSize")) {
+            int M = std::clamp((int)std::round(v), 1, 99);
+            if ((M & 1) == 0) ++M;
+            maxSize_ = M;
+        } else if (!std::strcmp(id, "preMax")) {
+            preMax_ = std::clamp((int)std::round(v), 0, 255); ensureHist();
+        } else if (!std::strcmp(id, "preAvg")) {
+            preAvg_ = std::clamp((int)std::round(v), 0, 255); ensureHist();
+        } else if (!std::strcmp(id, "delta")) {
+            delta_ = v < 0 ? 0 : v;
+        } else if (!std::strcmp(id, "wait")) {
+            wait_ = std::clamp((int)std::round(v), 0, 255); ensureHist();
+        }
+    }
+
+    int getLatencySamples() const { return size_; }
+
+    void process(const float* inRe, const float* inIm,
+                 float* outS, float* outO, int N) {
+        const int size = size_;
+        for (int i = 0; i < N; ++i) {
+            if (outS) outS[i] = (float)heldStr_;
+            if (outO) outO[i] = (readIdx_ == 0) ? (float)heldOn_ : 0.0f;
+            readIdx_ = (readIdx_ + 1) % size;
+
+            inRe_[writeIdx_] = inRe ? (double)inRe[i] : 0.0;
+            inIm_[writeIdx_] = inIm ? (double)inIm[i] : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % size;
+            ++filled_;
+
+            if (filled_ >= size) {
+                filled_ = 0;
+                computeFrame();
+            }
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+
+    void alloc(int n) {
+        auto isPow2    = [](int x){ return x > 0 && (x & (x - 1)) == 0; };
+        auto floorPow2 = [](int x){ int p = 1; while (p * 2 <= x) p *= 2; return p; };
+        int size = std::clamp(isPow2(n) ? n : floorPow2(n), 16, 32768);
+        size_    = size;
+        binCols_ = (size >> 1) + 1;
+        inRe_.assign(size, 0.0);
+        inIm_.assign(size, 0.0);
+        writeIdx_ = 0; filled_ = 0; readIdx_ = 0;
+        heldStr_  = 0; heldOn_ = 0;
+        reallocRings();
+    }
+
+    void reallocRings() {
+        ringLen_ = lag_ + 1;
+        refRing_.assign((size_t)ringLen_ * binCols_, 0.0);
+        ringPos_ = 0; framesSeen_ = 0;
+    }
+
+    void ensureHist() {
+        int need = std::max({preMax_, preAvg_, wait_}) + 2;
+        if (need > histLen_) {
+            int grown = std::max(need, histLen_ * 2);
+            hist_.assign(grown, 0.0);
+            histLen_ = grown;
+            histPos_ = 0;
+        }
+    }
+
+    void computeFrame() {
+        const int nfft    = size_;
+        const int binCols = binCols_;
+        const int ringLen = ringLen_;
+        const int maxSize = maxSize_;
+        const int half    = (maxSize - 1) >> 1;
+
+        std::vector<double> cur((size_t)binCols);
+        for (int k = 0; k < binCols; ++k) {
+            double re = inRe_[k], im = inIm_[k];
+            cur[k] = re * re + im * im;
+        }
+
+        const double* ref = nullptr;
+        if (framesSeen_ >= lag_) {
+            int lagIdx = ((ringPos_ - lag_) % ringLen + ringLen) % ringLen;
+            ref = &refRing_[(size_t)lagIdx * binCols];
+        }
+
+        std::vector<double> refLMBuf;
+        const double* refLM = ref;
+        if (ref && maxSize > 1) {
+            refLMBuf.assign((size_t)binCols, 0.0);
+            for (int k = 0; k < binCols; ++k) {
+                double m = 0.0;
+                int k0 = std::max(0, k - half);
+                int k1 = std::min(binCols - 1, k + half);
+                for (int j = k0; j <= k1; ++j) if (ref[j] > m) m = ref[j];
+                refLMBuf[k] = m;
+            }
+            refLM = refLMBuf.data();
+        }
+
+        double sum = 0.0;
+        if (refLM) {
+            for (int k = 0; k < binCols; ++k) {
+                double d = cur[k] - refLM[k];
+                if (d > 0) sum += d;
+            }
+        } else {
+            for (int k = 0; k < binCols; ++k) sum += cur[k];
+        }
+        double strength = sum / binCols;
+        if (strength < DENORMAL) strength = 0.0;
+
+        for (int k = 0; k < binCols; ++k) {
+            refRing_[(size_t)ringPos_ * binCols + k] = cur[k];
+        }
+        ringPos_ = (ringPos_ + 1) % ringLen;
+        ++framesSeen_;
+
+        if (strength > strMax_) strMax_ = strength;
+        int normWindow = std::max(preMax_, preAvg_) + 1;
+        strMax_ *= (1.0 - 1.0 / (normWindow * 8.0));
+        if (strMax_ < 1e-12) strMax_ = 1e-12;
+        double normStrength = strength / strMax_;
+
+        hist_[histPos_] = normStrength;
+        histPos_ = (histPos_ + 1) % histLen_;
+        int curHistIdx = (histPos_ - 1 + histLen_) % histLen_;
+
+        bool isPeak = false;
+        if (framesSeen_ > preAvg_ && framesSeen_ > preMax_) {
+            double localMax = normStrength;
+            for (int i = 1; i <= preMax_; ++i) {
+                int idx = (curHistIdx - i + histLen_) % histLen_;
+                if (hist_[idx] > localMax) { localMax = hist_[idx]; break; }
+            }
+            bool isLocalMax = (localMax == normStrength);
+
+            double meanN = 0.0; int cnt = 0;
+            for (int i = 0; i <= preAvg_; ++i) {
+                int idx = (curHistIdx - i + histLen_) % histLen_;
+                meanN += hist_[idx]; ++cnt;
+            }
+            meanN = cnt > 0 ? meanN / cnt : 0.0;
+            bool aboveMean = normStrength >= meanN + delta_;
+
+            long long curFrame = framesSeen_ - 1;
+            bool spaced = (lastPeak_ < 0) || (curFrame - lastPeak_ > wait_);
+
+            if (isLocalMax && aboveMean && spaced) {
+                isPeak = true;
+                lastPeak_ = curFrame;
+            }
+        }
+
+        heldStr_ = normStrength;
+        heldOn_  = isPeak ? 1.0 : 0.0;
+        readIdx_ = 0;
+    }
+
+    double sr_ = 0.0;
+    int size_ = 0, binCols_ = 0;
+    int lag_ = 1, maxSize_ = 1, preMax_ = 3, preAvg_ = 10, wait_ = 3;
+    double delta_ = 0.07;
+
+    std::vector<double> inRe_, inIm_;
+    int writeIdx_ = 0, filled_ = 0;
+
+    int ringLen_ = 2, ringPos_ = 0;
+    long long framesSeen_ = 0;
+    std::vector<double> refRing_;
+
+    std::vector<double> hist_;
+    int histLen_ = 0, histPos_ = 0;
+
+    double heldStr_ = 0.0, heldOn_ = 0.0;
+    int readIdx_ = 0;
+
+    double strMax_ = 1e-12;
+    long long lastPeak_ = -1;
+};
+
+} // namespace shags::ops

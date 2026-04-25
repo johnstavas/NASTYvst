@@ -1,0 +1,8 @@
+// op_meters.cpp.jinja — Stage-3 native emission (stub).
+// Composition of peak (op_peak) + rms (op_rms) ballistics with preset enum.
+
+struct MetersState_{{uid}} {
+    double rCoef{0.0};
+    double alpha{0.0}, oma{1.0};
+    double peakY{0.0}, p{0.0};
+};

@@ -1,0 +1,130 @@
+// op_lra.cpp — Stage-3b C++ sidecar for the `lra` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_lra.worklet.js
+// bit-for-bit modulo std::sort vs TypedArray.sort comparison semantics
+// (both are ascending numeric on doubles → identical permutation).
+// Catalog #55. Template: Jinja2.
+#pragma once
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <vector>
+
+namespace shags::ops {
+
+class LraOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "lra";
+
+    static constexpr double LUFS_OFFSET   = -0.691;
+    static constexpr double ABS_THRESH_DB = -70.0;
+    static constexpr double REL_OFFSET_DB = -20.0;
+    static constexpr int    SUB_PER_BLOCK = 30;
+    static constexpr int    MAX_BLOCKS    = 36000;
+    static constexpr double DENORMAL      = 1e-30;
+
+    explicit LraOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate), G_(1.0),
+          subLen_(static_cast<int>(std::lround(sampleRate * 0.1))),
+          blockLen_(subLen_ * SUB_PER_BLOCK),
+          subAcc_(0.0), subCount_(0),
+          subRing_(SUB_PER_BLOCK, 0.0), subRingFill_(0), subIdx_(0),
+          absPassMS_(MAX_BLOCKS, 0.0), absPassN_(0),
+          scratch_(MAX_BLOCKS, 0.0), lraLU_(0.0) {}
+
+    void reset() {
+        subAcc_ = 0.0; subCount_ = 0;
+        std::fill(subRing_.begin(), subRing_.end(), 0.0);
+        subRingFill_ = 0; subIdx_ = 0;
+        absPassN_ = 0; lraLU_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!id) return;
+        if (std::strcmp(id, "channelWeight") == 0) {
+            if (!std::isfinite(v)) return;
+            G_ = v < 0.0 ? 0.0 : (v > 2.0 ? 2.0 : v);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                subCount_++;
+                if (subCount_ >= subLen_) {
+                    closeSubBlock(subAcc_);
+                    subAcc_ = 0.0; subCount_ = 0;
+                }
+                out[i] = static_cast<float>(lraLU_);
+            }
+            if (subAcc_ < DENORMAL && subAcc_ > -DENORMAL) subAcc_ = 0.0;
+            return;
+        }
+        for (int i = 0; i < N; ++i) {
+            const double x = in[i];
+            subAcc_ += x * x;
+            subCount_++;
+            if (subCount_ >= subLen_) {
+                closeSubBlock(subAcc_);
+                subAcc_ = 0.0; subCount_ = 0;
+            }
+            out[i] = static_cast<float>(lraLU_);
+        }
+        if (subAcc_ < DENORMAL && subAcc_ > -DENORMAL) subAcc_ = 0.0;
+    }
+
+private:
+    void closeSubBlock(double subSumSq) {
+        subRing_[subIdx_] = subSumSq;
+        subIdx_ = (subIdx_ + 1) % SUB_PER_BLOCK;
+        if (subRingFill_ < SUB_PER_BLOCK) {
+            subRingFill_++;
+            if (subRingFill_ < SUB_PER_BLOCK) return;
+        }
+        double blockSumSq = 0.0;
+        for (int i = 0; i < SUB_PER_BLOCK; ++i) blockSumSq += subRing_[i];
+        const double ms = blockSumSq / blockLen_;
+        const double absPassMin = std::pow(10.0, (ABS_THRESH_DB - LUFS_OFFSET) / 10.0);
+        if (G_ * ms <= absPassMin) return;
+        if (absPassN_ >= MAX_BLOCKS) return;
+        absPassMS_[absPassN_++] = ms;
+        recomputeLRA();
+    }
+
+    void recomputeLRA() {
+        const int n = absPassN_;
+        if (n == 0) { lraLU_ = 0.0; return; }
+        double sum = 0.0;
+        for (int i = 0; i < n; ++i) sum += absPassMS_[i];
+        const double meanMsAbs = sum / n;
+        const double msRel = meanMsAbs * 0.01;  // -20 LU
+        int m = 0;
+        for (int i = 0; i < n; ++i) {
+            const double msi = absPassMS_[i];
+            if (msi > msRel) {
+                scratch_[m++] = LUFS_OFFSET + 10.0 * std::log10(G_ * msi);
+            }
+        }
+        if (m == 0) { lraLU_ = 0.0; return; }
+        std::sort(scratch_.begin(), scratch_.begin() + m);
+        // Tech 3342 V4 §5 nearest-rank 1-based: p_idx_0 = round((m-1)·p/100)
+        const int i10 = std::min(m - 1, std::max(0, static_cast<int>(std::lround((m - 1) * 0.10))));
+        const int i95 = std::min(m - 1, std::max(0, static_cast<int>(std::lround((m - 1) * 0.95))));
+        lraLU_ = scratch_[i95] - scratch_[i10];
+    }
+
+    double sr_, G_;
+    int subLen_, blockLen_;
+    double subAcc_;
+    int subCount_;
+    std::vector<double> subRing_;
+    int subRingFill_, subIdx_;
+    std::vector<double> absPassMS_;
+    int absPassN_;
+    std::vector<double> scratch_;
+    double lraLU_;
+};
+
+}  // namespace shags::ops

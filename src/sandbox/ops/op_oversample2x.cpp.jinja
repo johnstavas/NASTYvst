@@ -1,0 +1,42 @@
+// op_oversample2x.cpp.jinja — #12. Stage-3 codegen stub.
+// Primary: hiir by Laurent de Soras (WTFPL v2), StageProcFpu.hpp L60–L80,
+// Upsampler2xFpuTpl.hpp L106–L121, Downsampler2xFpuTpl.hpp L104–L122,
+// PolyphaseIir2Designer.h L451–L585.
+struct Oversample2x_{{slot}} {
+    static constexpr int MAX_COEFS = 16;
+    float coef[MAX_COEFS];
+    int   nCoefs;
+    float xU[MAX_COEFS], yU[MAX_COEFS];
+    float xD[MAX_COEFS], yD[MAX_COEFS];
+    float pendingOdd;
+
+    void reset() {
+        for (int i = 0; i < MAX_COEFS; ++i) { xU[i]=yU[i]=xD[i]=yD[i]=0.f; }
+        pendingOdd = 0.f;
+    }
+
+    // Polyphase stage pair (lane0 ← even coef indices, lane1 ← odd).
+    inline void stage(float& s0, float& s1, float* x, float* y) {
+        int i = 0;
+        for (; i + 1 < nCoefs; i += 2) {
+            const float t0 = (s0 - y[i])     * coef[i]     + x[i];
+            const float t1 = (s1 - y[i + 1]) * coef[i + 1] + x[i + 1];
+            x[i]   = s0;     x[i + 1] = s1;
+            y[i]   = t0;     y[i + 1] = t1;
+            s0 = t0;         s1 = t1;
+        }
+        if (i < nCoefs) {
+            const float t0 = (s0 - y[i]) * coef[i] + x[i];
+            x[i] = s0; y[i] = t0; s0 = t0;
+        }
+    }
+
+    inline float tick(float in) {
+        float evenU = in, oddU = in;
+        stage(evenU, oddU, xU, yU);
+        float d0 = evenU, d1 = pendingOdd;
+        stage(d0, d1, xD, yD);
+        pendingOdd = oddU;
+        return 0.5f * (d0 + d1);
+    }
+};

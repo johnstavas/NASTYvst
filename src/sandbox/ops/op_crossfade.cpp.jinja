@@ -1,0 +1,64 @@
+// op_crossfade.cpp.jinja — Stage-3 native mirror of op_crossfade.worklet.js.
+//
+// Equal-power A/B crossfader. Canonical cos/sin law (Blumlein 1933; Bauer
+// 1961; JOS "Equal-Power Panning"). Bit-for-bit clone of op_mix DSP with
+// A/B routing vocabulary. Catalog #25.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+namespace shags::ops {
+
+class CrossfadeOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "crossfade";
+
+    explicit CrossfadeOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recalc();
+    }
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "position")) {
+            double p = v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+            position_ = p;
+            recalc();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* a, const float* b, float* out, int N) {
+        if (!out) return;
+        const float gA = (float)gA_;
+        const float gB = (float)gB_;
+        if (a && b) {
+            for (int i = 0; i < N; ++i) out[i] = a[i] * gA + b[i] * gB;
+        } else if (a) {
+            for (int i = 0; i < N; ++i) out[i] = a[i] * gA;
+        } else if (b) {
+            for (int i = 0; i < N; ++i) out[i] = b[i] * gB;
+        } else {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+        }
+    }
+
+private:
+    void recalc() {
+        gA_ = std::cos(position_ * M_PI * 0.5);
+        gB_ = std::sin(position_ * M_PI * 0.5);
+    }
+
+    double sr_ = 0.0;
+    double position_ = 0.5;
+    double gA_ = 0.0;
+    double gB_ = 0.0;
+};
+
+} // namespace shags::ops

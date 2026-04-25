@@ -1,0 +1,52 @@
+// op_transformerSim.cpp.jinja — C++ mirror of op_transformerSim.worklet.js
+// Jiles-Atherton anhysteretic Langevin waveshaper.
+// See worklet.js header for primary-source citation + deviations.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpTransformerSim_{{ instance }} {
+    float drive  = 1.0f;
+    float bias   = 0.0f;
+    float output = 1.0f;
+    float biasOffset = 0.0f;
+
+    static constexpr float DENORMAL = 1e-30f;
+
+    static inline float langevin(float x) {
+        float ax = std::fabs(x);
+        if (ax < 1e-4f) {
+            return x / 3.0f - (x * x * x) / 45.0f;
+        }
+        float t = std::tanh(x);
+        return (1.0f / t) - (1.0f / x);
+    }
+
+    void reset() { /* memoryless */ }
+
+    void setParam_drive(float v) {
+        if (!std::isfinite(v)) v = 1.0f;
+        drive = std::clamp(v, 0.01f, 100.0f);
+    }
+    void setParam_bias(float v) {
+        if (!std::isfinite(v)) v = 0.0f;
+        bias = std::clamp(v, -10.0f, 10.0f);
+        biasOffset = langevin(bias);
+    }
+    void setParam_output(float v) {
+        if (!std::isfinite(v)) v = 1.0f;
+        output = std::clamp(v, 0.0f, 10.0f);
+    }
+
+    inline void process(const float* in, float* out, int N) {
+        const float d = drive, b = bias, off = biasOffset, og = output;
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            float u = d * x + b;
+            float y = og * (langevin(u) - off);
+            if (std::fabs(y) < DENORMAL) y = 0.0f;
+            out[n] = y;
+        }
+    }
+};

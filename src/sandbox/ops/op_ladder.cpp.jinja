@@ -1,0 +1,92 @@
+// op_ladder.cpp — Stage-3b C++ sidecar for the `ladder` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_ladder.worklet.js
+// bit-for-bit. Catalog #34. Primary source: musicdsp.org archive #24
+// ("Moog VCF" C++ port by "mistertoast") — Huovilainen-inspired 4-pole
+// cascade with inverted feedback and cubic soft-clip on y4.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class LadderOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "ladder";
+
+    explicit LadderOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() {
+        x_ = y1_ = y2_ = y3_ = y4_ = 0.0;
+        oldx_ = oldy1_ = oldy2_ = oldy3_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "cutoff")    == 0) { cutoff_    = v; recomputeCoefs(); }
+        else if (std::strcmp(id, "resonance") == 0) { resonance_ = v; recomputeCoefs(); }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        const double p = p_, k = k_, r = r_;
+        double y1 = y1_, y2 = y2_, y3 = y3_, y4 = y4_;
+        double oldx = oldx_, oldy1 = oldy1_, oldy2 = oldy2_, oldy3 = oldy3_;
+
+        for (int i = 0; i < N; ++i) {
+            const double x   = static_cast<double>(in[i]) - r * y4;
+            const double ny1 = x   * p + oldx  * p - k * y1;
+            const double ny2 = ny1 * p + oldy1 * p - k * y2;
+            const double ny3 = ny2 * p + oldy2 * p - k * y3;
+            double       ny4 = ny3 * p + oldy3 * p - k * y4;
+            ny4 -= (ny4 * ny4 * ny4) / 6.0;
+
+            oldx = x;  oldy1 = ny1;  oldy2 = ny2;  oldy3 = ny3;
+            y1 = ny1;  y2 = ny2;     y3 = ny3;     y4 = ny4;
+
+            out[i] = static_cast<float>(y4);
+        }
+
+        if (y1 < DENORMAL && y1 > -DENORMAL) y1 = 0.0;
+        if (y2 < DENORMAL && y2 > -DENORMAL) y2 = 0.0;
+        if (y3 < DENORMAL && y3 > -DENORMAL) y3 = 0.0;
+        if (y4 < DENORMAL && y4 > -DENORMAL) y4 = 0.0;
+        if (oldx  < DENORMAL && oldx  > -DENORMAL) oldx  = 0.0;
+        if (oldy1 < DENORMAL && oldy1 > -DENORMAL) oldy1 = 0.0;
+        if (oldy2 < DENORMAL && oldy2 > -DENORMAL) oldy2 = 0.0;
+        if (oldy3 < DENORMAL && oldy3 > -DENORMAL) oldy3 = 0.0;
+
+        y1_ = y1; y2_ = y2; y3_ = y3; y4_ = y4;
+        oldx_ = oldx; oldy1_ = oldy1; oldy2_ = oldy2; oldy3_ = oldy3;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double nyq = 0.5 * sr_ - 100.0;
+        const double fc  = std::min(std::max(cutoff_, 20.0), nyq);
+        const double res = std::min(std::max(resonance_, 0.0), 1.2);
+        const double f   = (fc + fc) / sr_;
+        const double p   = f * (1.8 - 0.8 * f);
+        const double k   = 2.0 * std::sin(f * M_PI * 0.5) - 1.0;
+        const double t   = (1.0 - p) * 1.386249;
+        const double t2  = 12.0 + t * t;
+        const double denom = t2 - 6.0 * t;
+        const double r   = denom != 0.0 ? res * (t2 + 6.0 * t) / denom : 0.0;
+        p_ = p; k_ = k; r_ = r;
+    }
+
+    double sr_;
+    double cutoff_    = 1000.0;
+    double resonance_ = 0.0;
+    double p_ = 0.0, k_ = 0.0, r_ = 0.0;
+    double x_ = 0.0, y1_ = 0.0, y2_ = 0.0, y3_ = 0.0, y4_ = 0.0;
+    double oldx_ = 0.0, oldy1_ = 0.0, oldy2_ = 0.0, oldy3_ = 0.0;
+};
+
+}  // namespace shags::ops

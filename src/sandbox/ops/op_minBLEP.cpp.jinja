@@ -1,0 +1,226 @@
+// op_minBLEP.cpp — Stage-3b C++ sidecar for the `minBLEP` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_minBLEP.worklet.js
+// bit-for-bit: same OMEGA/NZ constants, same cepstral min-phase build,
+// same event-pool/correction per-sample path, same getLatencySamples()=0.
+//
+// Primaries:
+//   A. Eli Brandt, "Hard Sync Without Aliasing", ICMC 2001, CMU-CS.
+//      §4.2 windowed-sinc; §6.2 cepstral homomorphic min-phase; §6.3
+//      integrate → MinBLEP; residual = MinBLEP − 1.
+//   B. martinfinke/PolyBLEP — discontinuity convention (jump=−2 saw).
+//
+// Table is generated ONCE per instance in the constructor via an inline
+// radix-2 Cooley–Tukey FFT + cepstral homomorphic filter (Oppenheim &
+// Schafer 1975, "zero the upper half of the cepstrum"). No runtime FFT
+// cost. Static-local would share across instances — we keep it per-
+// instance to avoid static-init ordering concerns in the emitted code.
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <array>
+
+namespace shags::ops {
+
+class MinBlepOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "minBLEP";
+
+    static constexpr int    OMEGA     = 32;
+    static constexpr int    NZ        = 8;
+    static constexpr int    TABLE_N   = 2 * NZ * OMEGA;   // 512
+    static constexpr int    BLEP_LEN  = NZ;               // 8
+    static constexpr int    TABLE_RES = BLEP_LEN * OMEGA; // 256
+    static constexpr double kPi       = 3.141592653589793;
+
+    explicit MinBlepOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        dt_ = freq_ / sr_;
+        buildResidualTable();
+        reset();
+    }
+
+    void reset() {
+        phase_ = 0.0;
+        for (int i = 0; i < BLEP_LEN; ++i) evActive_[i] = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "freq") == 0) {
+            freq_ = v;
+            const double nyq = sr_ * 0.5;
+            double f = freq_;
+            if (!(f > 0.01))   f = 0.01;
+            if (f > nyq - 1.0) f = nyq - 1.0;
+            dt_ = f / sr_;
+        } else if (std::strcmp(id, "amp") == 0) {
+            amp_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* freqMod, float* out, int N) {
+        if (!out) return;
+        double phase = phase_;
+        double dt    = dt_;
+        const double nyq = sr_ * 0.5;
+
+        for (int n = 0; n < N; ++n) {
+            if (freqMod) {
+                double f = freq_ + static_cast<double>(freqMod[n]);
+                if (!(f > 0.01))       f = 0.01;
+                else if (f > nyq - 1)  f = nyq - 1.0;
+                dt = f / sr_;
+            }
+
+            phase += dt;
+            if (phase >= 1.0) {
+                phase -= 1.0;
+                const double alpha = (dt > 0.0) ? (phase / dt) : 0.0;
+                insertEvent(alpha, -2.0);
+            }
+
+            const double naive = 2.0 * phase - 1.0;
+
+            double correction = 0.0;
+            for (int k = 0; k < BLEP_LEN; ++k) {
+                if (!evActive_[k]) continue;
+                const int age = evAge_[k];
+                if (age >= BLEP_LEN) { evActive_[k] = 0; continue; }
+                const double idxF = (static_cast<double>(age) + evAlpha_[k]) * OMEGA;
+                const int    idxI = static_cast<int>(idxF);
+                const double frac = idxF - idxI;
+                const double r0 = (idxI     < TABLE_RES) ? residual_[idxI]     : 0.0;
+                const double r1 = (idxI + 1 < TABLE_RES) ? residual_[idxI + 1] : 0.0;
+                correction += evJump_[k] * (r0 + frac * (r1 - r0));
+                evAge_[k] = age + 1;
+            }
+
+            out[n] = static_cast<float>((naive + correction) * amp_);
+        }
+
+        phase_ = phase;
+        dt_    = dt;
+    }
+
+private:
+    void insertEvent(double alpha, double jump) {
+        for (int k = 0; k < BLEP_LEN; ++k) {
+            if (!evActive_[k]) {
+                evAge_[k]    = 0;
+                evAlpha_[k]  = alpha;
+                evJump_[k]   = jump;
+                evActive_[k] = 1;
+                return;
+            }
+        }
+        // Pool full — drop silently (freq < sr ⇒ ≤ BLEP_LEN events live).
+    }
+
+    // In-place radix-2 Cooley–Tukey FFT. Only used during table build.
+    static void fft(double* re, double* im, int N, bool inverse) {
+        for (int i = 1, j = 0; i < N; ++i) {
+            int bit = N >> 1;
+            for (; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) { std::swap(re[i], re[j]); std::swap(im[i], im[j]); }
+        }
+        for (int len = 2; len <= N; len <<= 1) {
+            const int    half = len >> 1;
+            const double step = (inverse ? 2.0 : -2.0) * kPi / len;
+            for (int i = 0; i < N; i += len) {
+                for (int k = 0; k < half; ++k) {
+                    const double ang = step * k;
+                    const double cs  = std::cos(ang), sn = std::sin(ang);
+                    const double rR  = re[i + k + half] * cs - im[i + k + half] * sn;
+                    const double rI  = re[i + k + half] * sn + im[i + k + half] * cs;
+                    re[i + k + half] = re[i + k] - rR;
+                    im[i + k + half] = im[i + k] - rI;
+                    re[i + k] += rR;
+                    im[i + k] += rI;
+                }
+            }
+        }
+        if (inverse) {
+            for (int i = 0; i < N; ++i) { re[i] /= N; im[i] /= N; }
+        }
+    }
+
+    void buildResidualTable() {
+        constexpr int N = TABLE_N;
+        std::array<double, N> re{}, im{}, logMag{}, cep{};
+
+        // (1) Blackman-windowed sinc, fc=1/Ω, centered at N/2.
+        const double center = N / 2.0;
+        for (int k = 0; k < N; ++k) {
+            const double x    = (k - center) / OMEGA;
+            const double sinc = (x == 0.0) ? 1.0 : std::sin(kPi * x) / (kPi * x);
+            const double w    = 0.42
+                              - 0.5  * std::cos(2.0 * kPi * k / (N - 1))
+                              + 0.08 * std::cos(4.0 * kPi * k / (N - 1));
+            re[k] = sinc * w / OMEGA;
+            im[k] = 0.0;
+        }
+
+        // (2) FFT → log|H(k)|.
+        fft(re.data(), im.data(), N, false);
+        for (int k = 0; k < N; ++k) {
+            const double m = std::hypot(re[k], im[k]);
+            logMag[k] = std::log(std::max(m, 1e-30));
+        }
+
+        // (3) IFFT(log|H|) → real cepstrum.
+        for (int k = 0; k < N; ++k) { re[k] = logMag[k]; im[k] = 0.0; }
+        fft(re.data(), im.data(), N, true);
+        for (int k = 0; k < N; ++k) cep[k] = re[k];
+
+        // (4) Fold cepstrum for min-phase reconstruction.
+        for (int k = 0; k < N; ++k) {
+            if (k == 0 || k == N / 2)      re[k] = cep[k];
+            else if (k < N / 2)            re[k] = 2.0 * cep[k];
+            else                           re[k] = 0.0;
+            im[k] = 0.0;
+        }
+
+        // (5) FFT → complex log-spectrum.
+        fft(re.data(), im.data(), N, false);
+
+        // (6) exp() → H_min(k).
+        for (int k = 0; k < N; ++k) {
+            const double em = std::exp(re[k]);
+            const double cs = std::cos(im[k]);
+            const double sn = std::sin(im[k]);
+            re[k] = em * cs;
+            im[k] = em * sn;
+        }
+
+        // (7) IFFT → h_min (real).
+        fft(re.data(), im.data(), N, true);
+
+        // (8) Integrate → MinBLEP; normalize final to 1.
+        std::array<double, N> blep{};
+        double acc = 0.0;
+        for (int k = 0; k < N; ++k) { acc += re[k]; blep[k] = acc; }
+        const double finalVal = (blep[N - 1] != 0.0) ? blep[N - 1] : 1.0;
+        for (int k = 0; k < N; ++k) blep[k] /= finalVal;
+
+        // (9) Residual = MinBLEP − 1.
+        for (int k = 0; k < TABLE_RES; ++k) residual_[k] = static_cast<float>(blep[k] - 1.0);
+    }
+
+    double sr_;
+    double freq_  = 440.0;
+    double amp_   = 1.0;
+    double dt_    = 0.0;
+    double phase_ = 0.0;
+
+    float residual_[TABLE_RES]{};
+
+    int    evAge_[BLEP_LEN]{};
+    float  evAlpha_[BLEP_LEN]{};
+    float  evJump_[BLEP_LEN]{};
+    unsigned char evActive_[BLEP_LEN]{};
+};
+
+}  // namespace shags::ops

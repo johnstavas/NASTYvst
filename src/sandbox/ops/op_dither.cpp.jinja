@@ -1,0 +1,106 @@
+// op_dither.cpp — Stage-3b C++ sidecar. Mirrors op_dither.worklet.js.
+// Primary: Paul Kellett 2002, musicdsp #61 "Dither Code".
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <cstdint>
+
+namespace shags::ops {
+
+class DitherOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "dither";
+
+    explicit DitherOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recompute();
+        applySeed();
+    }
+
+    void reset() {
+        s1_ = 0.0;
+        s2_ = 0.0;
+        applySeed();
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "bits") == 0) {
+            int b = static_cast<int>(v);
+            if (b != bits_) { bits_ = b; recompute(); }
+        } else if (std::strcmp(id, "shape") == 0) {
+            double s = v;
+            if (!std::isfinite(s)) s = 0.5;
+            if (s < 0.0) s = 0.0;
+            if (s > 1.0) s = 1.0;
+            shape_ = s;
+        } else if (std::strcmp(id, "seed") == 0) {
+            int32_t s = static_cast<int32_t>(v);
+            if (s == 0) s = 1;
+            if (s != seed_) { seed_ = s; applySeed(); }
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double w  = w_;
+        const double wi = wi_;
+        const double o  = o_;
+        const double s  = shape_;
+        double s1 = s1_, s2 = s2_;
+        constexpr double kDenormal = 1e-30;
+
+        for (int n = 0; n < N; ++n) {
+            const double x = in ? static_cast<double>(in[n]) : 0.0;
+            const double shaped = x + s * (2.0 * s1 - s2);
+            const double r1 = rand01();
+            const double r2 = rand01();
+            const double tmp = shaped + o + wi * (r1 - r2);
+            const double wTmp = w * tmp;
+            long q = static_cast<long>(wTmp);
+            if (tmp < 0.0 && static_cast<double>(q) != wTmp) --q;
+            const double y = static_cast<double>(q) * wi;
+            out[n] = static_cast<float>(y);
+            s2 = s1;
+            s1 = shaped - y;
+            if (std::fabs(s1) < kDenormal) s1 = 0.0;
+        }
+
+        s1_ = s1;
+        s2_ = s2;
+    }
+
+private:
+    void recompute() {
+        int b = bits_;
+        if (b < 1)  b = 1;
+        if (b > 24) b = 24;
+        w_  = std::pow(2.0, b - 1);
+        wi_ = 1.0 / w_;
+        o_  = wi_ * 0.5;
+    }
+
+    void applySeed() { rng_ = seed_ ? seed_ : 1; }
+
+    double rand01() {
+        rng_ = static_cast<int32_t>(
+                   static_cast<uint32_t>(rng_) * 1664525u + 1013904223u);
+        return static_cast<double>(
+                   (static_cast<uint32_t>(rng_) >> 8) & 0xFFFFFFu) / 16777216.0;
+    }
+
+    double  sr_;
+    int     bits_   = 16;
+    double  shape_  = 0.5;
+    int32_t seed_   = 1;
+    int32_t rng_    = 1;
+    double  w_      = 32768.0;
+    double  wi_     = 1.0 / 32768.0;
+    double  o_      = 0.5 / 32768.0;
+    double  s1_     = 0.0;
+    double  s2_     = 0.0;
+};
+
+}  // namespace shags::ops

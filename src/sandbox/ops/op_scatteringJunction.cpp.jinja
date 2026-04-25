@@ -1,0 +1,59 @@
+// op_scatteringJunction.cpp — Stage-3b C++ sidecar. Mirrors
+// op_scatteringJunction.worklet.js. Primary: JOS PASP §7 "One-Multiply
+// Scattering Junctions" — https://ccrma.stanford.edu/~jos/pasp/
+// One_Multiply_Scattering_Junctions.html
+//
+//   Δ        = κ · (f⁺_in − f⁻_in)
+//   f⁺_out   = f⁺_in + Δ
+//   f⁻_out   = f⁻_in + Δ
+//
+// Memoryless. Latency=0. |k|≤0.99 passivity clamp.
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class ScatteringJunctionOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "scatteringJunction";
+
+    explicit ScatteringJunctionOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() { /* memoryless */ }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "k") == 0) {
+            double k = v;
+            if (!std::isfinite(k)) k = 0.0;
+            if (k >  0.99) k =  0.99;
+            if (k < -0.99) k = -0.99;
+            k_ = k;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* fInPlus, const float* fInMinus,
+                 float* fOutPlus, float* fOutMinus, int N) {
+        if (!fOutPlus && !fOutMinus) return;
+        const double k = k_;
+        constexpr double kDenormal = 1e-30;
+        for (int n = 0; n < N; ++n) {
+            const double fp = fInPlus  ? static_cast<double>(fInPlus[n])  : 0.0;
+            const double fm = fInMinus ? static_cast<double>(fInMinus[n]) : 0.0;
+            double d = k * (fp - fm);
+            if (std::fabs(d) < kDenormal) d = 0.0;
+            if (fOutPlus)  fOutPlus[n]  = static_cast<float>(fp + d);
+            if (fOutMinus) fOutMinus[n] = static_cast<float>(fm + d);
+        }
+    }
+
+private:
+    double sr_;
+    double k_ = 0.0;
+};
+
+}  // namespace shags::ops

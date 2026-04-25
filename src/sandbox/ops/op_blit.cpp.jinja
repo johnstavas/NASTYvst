@@ -1,0 +1,113 @@
+// op_blit.cpp — Stage-3b C++ sidecar for the `blit` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_blit.worklet.js.
+//
+// Primaries:
+//   A. Stilson & Smith, ICMC 1996, §3.7 Eq. 3 — closed-form BLIT.
+//   B. STK Blit.h tick() — Davies 2005 / Scavone 2005 (STK BSD-family).
+//
+// Closed form (both sources agree after normalization):
+//     y = sin(M·φ) / (M·sin(φ))                   |sin(φ)| > ε
+//     y = 1                                        |sin(φ)| ≤ ε
+//     φ ← φ + π/P ; if φ ≥ π: φ −= π
+//     M = 2·⌊P/2⌋ + 1   ;   P = sr/freq
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class BlitOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "blit";
+
+    explicit BlitOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        updateCoefs();
+    }
+
+    void reset() { phase_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "freq") == 0) {
+            freq_ = v;
+            updateCoefs();
+        } else if (std::strcmp(id, "amp") == 0) {
+            amp_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // freqMod: optional per-sample control buffer (Hz offset). Pass
+    // nullptr for constant-freq fast path.
+    void process(const float* freqMod, float* out, int N) {
+        if (!out) return;
+        double phase = phase_;
+
+        if (freqMod == nullptr) {
+            const int    M    = M_;
+            const double rate = rate_;
+            for (int i = 0; i < N; ++i) {
+                const double den = std::sin(phase);
+                double y;
+                if (den <= kEps && den >= -kEps) {
+                    y = 1.0;
+                } else {
+                    y = std::sin(M * phase) / (M * den);
+                }
+                out[i] = static_cast<float>(y * amp_);
+                phase += rate;
+                if (phase >= kPi) phase -= kPi;
+            }
+        } else {
+            const double baseF = freq_;
+            const double nyq   = sr_ * 0.5;
+            for (int i = 0; i < N; ++i) {
+                double f = baseF + static_cast<double>(freqMod[i]);
+                if (!(f > 0.01))       f = 0.01;
+                else if (f > nyq - 1)  f = nyq - 1.0;
+                const double P    = sr_ / f;
+                const int    M    = 2 * static_cast<int>(std::floor(P * 0.5)) + 1;
+                const double rate = kPi / P;
+                const double den  = std::sin(phase);
+                double y;
+                if (den <= kEps && den >= -kEps) {
+                    y = 1.0;
+                } else {
+                    y = std::sin(M * phase) / (M * den);
+                }
+                out[i] = static_cast<float>(y * amp_);
+                phase += rate;
+                if (phase >= kPi) phase -= kPi;
+            }
+        }
+
+        phase_ = phase;
+    }
+
+private:
+    void updateCoefs() {
+        const double nyq = sr_ * 0.5;
+        double f = freq_;
+        if (!(f > 0.01))       f = 0.01;
+        if (f > nyq - 1)       f = nyq - 1.0;
+        const double P = sr_ / f;
+        P_    = P;
+        M_    = 2 * static_cast<int>(std::floor(P * 0.5)) + 1;
+        rate_ = kPi / P;
+    }
+
+    static constexpr double kPi  = 3.141592653589793;
+    static constexpr double kEps = 1e-12;
+
+    double sr_;
+    double freq_  = 440.0;
+    double amp_   = 1.0;
+    double phase_ = 0.0;
+    double rate_  = 0.0;
+    double P_     = 0.0;
+    int    M_     = 1;
+};
+
+}  // namespace shags::ops

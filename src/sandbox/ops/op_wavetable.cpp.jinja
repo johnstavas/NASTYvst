@@ -1,0 +1,132 @@
+// op_wavetable.cpp — Stage-3b C++ sidecar for the `wavetable` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_wavetable.worklet.js.
+//
+// PRIMARIES (same as JS worklet):
+//   A. SuperCollider OscUGens.cpp Osc UGen — lookupi1 linear interp
+//      between adjacent table samples AND between two tables.
+//   B. OscN UGen — un-interpolated pattern (sanity cross-check).
+//
+// Shipped discrete-time form (bilinear on phase × position):
+//   idx = phase·TABLE_LEN;  i = floor(idx);  f = idx − i
+//   a0  = T[k]  [i] + f·(T[k]  [i+1] − T[k]  [i])
+//   a1  = T[k+1][i] + f·(T[k+1][i+1] − T[k+1][i])
+//   y   = amp·(a0 + pos·(a1 − a0))
+//   phase += f_carrier / sr ; wrap [0,1)
+//
+// Table bank built once per-instance in constructor:
+//   T[0]=sin, T[1]=tri, T[2]=saw, T[3]=square (all 2048 samples, naive).
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class WavetableOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "wavetable";
+    static constexpr int TABLE_LEN  = 2048;
+    static constexpr int NUM_TABLES = 4;
+    static constexpr int GUARD      = 1;
+
+    explicit WavetableOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        buildBank();
+    }
+
+    void reset() { phase_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "freq") == 0) {
+            double f = v;
+            if (!(f > 0.01))               f = 0.01;
+            const double nyq = sr_ * 0.5;
+            if (f > nyq - 1.0)             f = nyq - 1.0;
+            freq_ = f;
+        } else if (std::strcmp(id, "position") == 0) {
+            double p = v;
+            if (!std::isfinite(p))         p = 0.0;
+            if (p < 0.0)                   p = 0.0;
+            if (p > NUM_TABLES - 1)        p = NUM_TABLES - 1;
+            position_ = p;
+        } else if (std::strcmp(id, "amp") == 0) {
+            amp_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* freqMod, const float* posMod,
+                 float* out, int N) {
+        if (!out) return;
+        const double sr  = sr_;
+        const double nyq = sr * 0.5;
+        double phase = phase_;
+
+        for (int n = 0; n < N; ++n) {
+            double f = freq_;
+            if (freqMod) {
+                f += static_cast<double>(freqMod[n]);
+                if (!(f > 0.01))       f = 0.01;
+                else if (f > nyq - 1)  f = nyq - 1.0;
+            }
+
+            double pos = position_;
+            if (posMod) pos += static_cast<double>(posMod[n]);
+            if (pos < 0.0)                pos = 0.0;
+            if (pos > NUM_TABLES - 1)     pos = NUM_TABLES - 1;
+
+            const int    k   = static_cast<int>(pos);
+            const double kf  = pos - k;
+            const int    kUp = (k + 1 >= NUM_TABLES) ? k : k + 1;
+
+            const double idx = phase * TABLE_LEN;
+            const int    i   = static_cast<int>(idx);
+            const double ff  = idx - i;
+
+            const float* Tk = bank_[k];
+            const float* Tu = bank_[kUp];
+            const double a0 = Tk[i] + ff * (Tk[i + 1] - Tk[i]);
+            const double a1 = Tu[i] + ff * (Tu[i + 1] - Tu[i]);
+            out[n] = static_cast<float>(amp_ * (a0 + kf * (a1 - a0)));
+
+            phase += f / sr;
+            if (phase >= 1.0) phase -= 1.0;
+            if (phase <  0.0) phase += 1.0;
+        }
+
+        if (std::fabs(phase) < 1e-30) phase = 0.0;
+        phase_ = phase;
+    }
+
+private:
+    static constexpr double kPi    = 3.141592653589793;
+    static constexpr double kTwoPi = 6.283185307179586;
+
+    void buildBank() {
+        for (int t = 0; t < NUM_TABLES; ++t) {
+            for (int i = 0; i < TABLE_LEN; ++i) {
+                const double p = static_cast<double>(i) / TABLE_LEN;
+                double y;
+                if (t == 0)      y = std::sin(kTwoPi * p);
+                else if (t == 1) y = (p < 0.25) ?  4.0 * p
+                                   : (p < 0.75) ?  2.0 - 4.0 * p
+                                   :              -4.0 + 4.0 * p;
+                else if (t == 2) y = 2.0 * p - 1.0;
+                else             y = (p < 0.5) ? 1.0 : -1.0;
+                bank_[t][i] = static_cast<float>(y);
+            }
+            bank_[t][TABLE_LEN] = bank_[t][0];
+        }
+    }
+
+    double sr_;
+    double freq_     = 440.0;
+    double position_ = 0.0;
+    double amp_      = 1.0;
+    double phase_    = 0.0;
+
+    float bank_[NUM_TABLES][TABLE_LEN + GUARD]{};
+};
+
+}  // namespace shags::ops

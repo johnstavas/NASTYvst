@@ -1,0 +1,100 @@
+// op_microDetune.cpp.jinja — C++ mirror of op_microDetune.worklet.js.
+// Two-tap crossfading delay-line pitch shifter (Faust transpose, MIT).
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <cstring>
+
+struct OpMicroDetune_{{ instance }} {
+    static constexpr int   MAX_WINDOW_MS = 200;
+
+    float sr = 48000.0f;
+    int   N  = 9600;       // ring-buffer capacity = 200 ms @ 48 kHz
+    float* buf = nullptr;
+    int   w = 0;
+    double d = 0.0;
+
+    float p_cents = 0.0f;
+    double p_rate = 1.0;
+    double p_step = 0.0;
+    int   p_winSamps   = 2400;   // 50 ms @ 48 kHz
+    int   p_xfadeSamps = 480;    // 10 ms @ 48 kHz
+    float p_level = 1.0f;
+
+    OpMicroDetune_{{ instance }}() {
+        N = std::max(1, (int)std::ceil(MAX_WINDOW_MS * 0.001f * sr));
+        buf = new float[N]();
+    }
+    ~OpMicroDetune_{{ instance }}() { delete[] buf; }
+
+    void setSampleRate(float s) {
+        sr = s;
+        const int newN = std::max(1, (int)std::ceil(MAX_WINDOW_MS * 0.001f * sr));
+        if (buf && newN == N) return;
+        delete[] buf;
+        N = newN;
+        buf = new float[N]();
+    }
+
+    void reset() {
+        if (buf) std::memset(buf, 0, sizeof(float) * N);
+        w = 0;
+        d = 0.0;
+    }
+
+    void setParam_cents(float v) {
+        if (!std::isfinite(v)) return;
+        p_cents = std::clamp(v, -1200.0f, 1200.0f);
+        p_rate  = std::pow(2.0, p_cents / 1200.0);
+        p_step  = 1.0 - p_rate;
+    }
+    void setParam_windowMs(float v) {
+        if (!std::isfinite(v)) return;
+        const float ms = std::clamp(v, 10.0f, (float)MAX_WINDOW_MS);
+        p_winSamps = std::max(2, (int)std::round(ms * 0.001f * sr));
+        const int W = p_winSamps;
+        d = d - W * std::floor(d / W);
+    }
+    void setParam_xfadeMs(float v) {
+        if (!std::isfinite(v)) return;
+        const float ms = std::clamp(v, 1.0f, 50.0f);
+        p_xfadeSamps = std::max(1, (int)std::round(ms * 0.001f * sr));
+    }
+    void setParam_level(float v) {
+        if (std::isfinite(v)) p_level = std::clamp(v, 0.0f, 1.0f);
+    }
+
+    void process(const float* in, float* out, int Nsamps) {
+        if (!out) return;
+        const int M = N;
+        const int W = p_winSamps;
+        const int X = p_xfadeSamps;
+        const float lvl = p_level;
+        const double step = p_step;
+
+        for (int n = 0; n < Nsamps; ++n) {
+            buf[w] = in ? in[n] : 0.0f;
+            if (++w >= M) w = 0;
+
+            d = d + step;
+            d = d - W * std::floor(d / W);
+
+            auto read = [&](double off) -> float {
+                double p = (double)w - off;
+                p = p - M * std::floor(p / M);
+                const int i0 = (int)p;
+                const int i1 = (i0 + 1) % M;
+                const double a = p - i0;
+                return (float)((1.0 - a) * buf[i0] + a * buf[i1]);
+            };
+            const float tap1 = read(d);
+            const float tap2 = read(d + W);
+
+            const float wgt = d < X ? (float)(d / X) : 1.0f;
+            out[n] = (wgt * tap1 + (1.0f - wgt) * tap2) * lvl;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

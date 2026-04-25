@@ -1,0 +1,140 @@
+// op_noiseShaper.cpp — Stage-3b C++ sidecar. Mirrors
+// op_noiseShaper.worklet.js. Primary: musicdsp #99 NS9dither16.h (2002).
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <cstdint>
+
+namespace shags::ops {
+
+class NoiseShaperOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "noiseShaper";
+
+    // Coefficient banks (verbatim from NS9dither16.h).
+    static constexpr double kSimple2[2] = { 1.0, -0.5 };
+    static constexpr double kF3[3]      = { 1.623, -0.982, 0.109 };
+    static constexpr double kIE5[5]     = { 2.033, -2.165, 1.959, -1.590, 0.6149 };
+    static constexpr double kF9[9]      = { 2.412, -3.370, 3.937, -4.174,
+                                            3.353, -2.205, 1.281, -0.569, 0.0847 };
+    static constexpr double kME9[9]     = { 1.662, -1.263, 0.4827, -0.2913,
+                                            0.1268, -0.1124, 0.03252, -0.01265, -0.03524 };
+    static constexpr double kIE9[9]     = { 2.847, -4.685, 6.214, -7.184,
+                                            6.639, -5.032, 3.263, -1.632, 0.4191 };
+
+    explicit NoiseShaperOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeGrid();
+        selectCoefs();
+        applySeed();
+    }
+
+    void reset() {
+        for (int i = 0; i < 2 * 9; ++i) EH_[i] = 0.0;
+        histPos_ = 0;
+        applySeed();
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "bits") == 0) {
+            int b = static_cast<int>(v);
+            if (b != bits_) { bits_ = b; recomputeGrid(); }
+        } else if (std::strcmp(id, "order") == 0) {
+            int o = static_cast<int>(v);
+            if (o != order_) { order_ = o; selectCoefs(); }
+        } else if (std::strcmp(id, "weighting") == 0) {
+            int w = static_cast<int>(v);
+            if (w != weighting_) { weighting_ = w; selectCoefs(); }
+        } else if (std::strcmp(id, "seed") == 0) {
+            int32_t s = static_cast<int32_t>(v);
+            if (s == 0) s = 1;
+            if (s != seed_) { seed_ = s; applySeed(); }
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double wi = wi_;
+        const double w  = w_;
+        const int order = orderSnap_;
+        const double* c = c_;
+        constexpr double kDenormal = 1e-30;
+        int pos = histPos_;
+
+        for (int n = 0; n < N; ++n) {
+            const double x = in ? static_cast<double>(in[n]) : 0.0;
+            double samp = x;
+            for (int k = 0; k < order; ++k) {
+                samp -= c[k] * EH_[pos + k] * wi;
+            }
+            const double r1 = rand01();
+            const double r2 = rand01();
+            const double dithered = samp + wi * (r1 - r2);
+            const long code = static_cast<long>(std::lround(w * dithered));
+            const double y = static_cast<double>(code) * wi;
+            out[n] = static_cast<float>(y);
+            double err = (y - samp) / wi;
+            if (!std::isfinite(err)) err = 0.0;
+            if (std::fabs(err) < kDenormal) err = 0.0;
+            EH_[pos]         = err;
+            EH_[pos + order] = err;
+            pos -= 1;
+            if (pos < 0) pos += order;
+        }
+
+        histPos_ = pos;
+    }
+
+private:
+    void recomputeGrid() {
+        int b = bits_;
+        if (b < 1)  b = 1;
+        if (b > 24) b = 24;
+        w_  = std::pow(2.0, b - 1);
+        wi_ = 1.0 / w_;
+    }
+
+    void selectCoefs() {
+        int o = order_;
+        if (o <= 2)      o = 2;
+        else if (o <= 3) o = 3;
+        else if (o <= 5) o = 5;
+        else             o = 9;
+        orderSnap_ = o;
+        if (o == 2)      c_ = kSimple2;
+        else if (o == 3) c_ = kF3;
+        else if (o == 5) c_ = kIE5;
+        else {
+            if (weighting_ == 2)      c_ = kME9;
+            else if (weighting_ == 3) c_ = kIE9;
+            else                      c_ = kF9;
+        }
+    }
+
+    void applySeed() { rng_ = seed_ ? seed_ : 1; }
+
+    double rand01() {
+        rng_ = static_cast<int32_t>(
+                   static_cast<uint32_t>(rng_) * 1664525u + 1013904223u);
+        return static_cast<double>(
+                   (static_cast<uint32_t>(rng_) >> 8) & 0xFFFFFFu) / 16777216.0;
+    }
+
+    double        sr_;
+    int           bits_      = 16;
+    int           order_     = 9;
+    int           weighting_ = 1;
+    int           orderSnap_ = 9;
+    int32_t       seed_      = 1;
+    int32_t       rng_       = 1;
+    double        w_         = 32768.0;
+    double        wi_        = 1.0 / 32768.0;
+    const double* c_         = kF9;
+    double        EH_[2 * 9] = { 0.0 };
+    int           histPos_   = 0;
+};
+
+}  // namespace shags::ops

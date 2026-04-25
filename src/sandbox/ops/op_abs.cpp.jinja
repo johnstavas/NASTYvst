@@ -1,0 +1,33 @@
+// op_abs.cpp — Stage-3b C++ sidecar for the `abs` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_abs.worklet.js
+// bit-for-bit. Catalog #89. Template: Jinja2.
+#pragma once
+#include <cmath>
+
+namespace shags::ops {
+
+class AbsOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "abs";
+
+    explicit AbsOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+    void setParam(const char*, double) {}
+    int  getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        for (int i = 0; i < N; ++i) {
+            // std::fabs mirrors JS Math.abs: -0.0 → +0.0, NaN propagates.
+            // Compiles to a single VABSSS / ANDPS on x86-64 / ARM NEON.
+            out[i] = std::fabs(in[i]);
+        }
+    }
+
+private:
+    double sr_;
+};
+
+}  // namespace shags::ops

@@ -1,0 +1,44 @@
+// op_polarity.cpp — Stage-3b C++ sidecar for the `polarity` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_polarity.worklet.js
+// bit-for-bit. Catalog #30. Template: Jinja2.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class PolarityOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "polarity";
+
+    explicit PolarityOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate), invert_(false) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (!id) return;
+        if (std::strcmp(id, "invert") == 0) {
+            // Accept any non-zero finite as true; NaN/0/±0 → false.
+            invert_ = std::isfinite(v) && v != 0.0;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        if (invert_) {
+            for (int i = 0; i < N; ++i) out[i] = -in[i];
+        } else {
+            for (int i = 0; i < N; ++i) out[i] = in[i];
+        }
+    }
+
+private:
+    double sr_;
+    bool   invert_;
+};
+
+}  // namespace shags::ops

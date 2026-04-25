@@ -1,0 +1,89 @@
+// op_goertzel.cpp.jinja — Stage-3 native mirror of op_goertzel.worklet.js.
+//
+// Goertzel single-tone magnitude detector. Canon:analysis §1
+// (musicdsp #107, Riskedal 2004). Uses the correct squared-magnitude
+// form, not the buggy real-only shortcut.
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct GoertzelOp {
+    static constexpr const char* opId = "goertzel";
+
+    double sr       = 48000.0;
+    double freq     = 1000.0;
+    int    blockN   = 512;
+    double coeff    = 0.0;
+    double invN2    = 0.0;
+    double skn      = 0.0;
+    double skn1     = 0.0;
+    double skn2     = 0.0;
+    int    cnt      = 0;
+    double lastMag  = 0.0;
+
+    explicit GoertzelOp(double sampleRate) : sr(sampleRate) { recompute(); }
+
+    void reset() {
+        skn = skn1 = skn2 = 0.0;
+        cnt = 0;
+        lastMag = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "freq") == 0) {
+            double hi = sr * 0.5;
+            freq = v < 1.0 ? 1.0 : (v > hi ? hi : v);
+            recompute();
+        } else if (std::strcmp(id, "blockN") == 0) {
+            int c = (int)std::round(v);
+            blockN = c < 16 ? 16 : (c > 8192 ? 8192 : c);
+            skn = skn1 = skn2 = 0.0;
+            cnt = 0;
+            recompute();
+        }
+    }
+
+    int getLatencySamples() const { return blockN; }
+
+    void recompute() {
+        coeff = 2.0 * std::cos(2.0 * M_PI * freq / sr);
+        invN2 = 2.0 / (double)blockN;
+    }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double cf  = coeff;
+        const int    bN  = blockN;
+        const double iN2 = invN2;
+        double a = skn, b = skn1, c2 = skn2;
+        int    cn = cnt;
+        double lm = lastMag;
+
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            c2 = b;
+            b  = a;
+            a  = x + cf * b - c2;
+            ++cn;
+            if (cn >= bN) {
+                double mag2 = a * a + b * b - cf * a * b;
+                lm = mag2 > 0.0 ? std::sqrt(mag2) * iN2 : 0.0;
+                a = b = c2 = 0.0;
+                cn = 0;
+            }
+            out[i] = (float)lm;
+        }
+
+        skn     = a;
+        skn1    = b;
+        skn2    = c2;
+        cnt     = cn;
+        lastMag = lm;
+    }
+};
+
+} // namespace shags

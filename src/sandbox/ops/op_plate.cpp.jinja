@@ -1,0 +1,174 @@
+// op_plate.cpp.jinja — C++ mirror of op_plate.worklet.js
+// Dattorro 1997 JAES plate topology. See worklet.js header for source.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <vector>
+
+struct OpPlate_{{ instance }} {
+    static constexpr float SR_REF = 29761.0f;
+    static constexpr float TAU = 6.283185307179586f;
+
+    struct Line {
+        std::vector<float> buf; int mask = 0, w = 0;
+        void init(int maxLen) {
+            int n = 1; while (n < maxLen + 2) n <<= 1;
+            buf.assign(n, 0.0f); mask = n - 1; w = 0;
+        }
+        void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; }
+        inline void write(float x) { buf[w] = x; w = (w + 1) & mask; }
+        inline float readInt(int d) const { return buf[(w - d) & mask]; }
+        inline float readFrac(float d) const {
+            int i = (int)std::floor(d); float f = d - i;
+            float a = buf[(w - i)     & mask];
+            float b = buf[(w - i - 1) & mask];
+            return a + (b - a) * f;
+        }
+    };
+
+    float sr = 48000.0f;
+    float p_decay = 0.5f, p_predelayMs = 0.0f, p_bandwidth = 0.9999f;
+    float p_damping = 0.0005f, p_size = 1.0f, p_modDepth = 16.0f, p_modRateHz = 1.0f;
+
+    Line pre, id1a, id1b, id2a, id2b;
+    Line Lmap, Ld1, Lap, Ld2;
+    Line Rmap, Rd1, Rap, Rd2;
+    int preMax = 0;
+
+    int L_id1a=0,L_id1b=0,L_id2a=0,L_id2b=0;
+    int L_Lmap=0,L_Ld1=0,L_Lap=0,L_Ld2=0;
+    int L_Rmap=0,L_Rd1=0,L_Rap=0,L_Rd2=0;
+    int L_pre = 0;
+    float dd2g = 0.65f;
+
+    float bwZ=0.0f, LdampZ=0.0f, RdampZ=0.0f, fbL=0.0f, fbR=0.0f;
+    float lfoS=0.0f, lfoC=1.0f, lfoA=1.0f, lfoB=0.0f;
+
+    const float id1g = 0.750f, id2g = 0.625f, dd1g = 0.70f;
+
+    void setSampleRate(float s) {
+        sr = s;
+        float k = (sr / SR_REF) * 1.5f;
+        preMax = (int)std::ceil(sr * 0.2f) + 8;
+        pre.init(preMax);
+        id1a.init((int)std::ceil(142 * k) + 4);
+        id1b.init((int)std::ceil(107 * k) + 4);
+        id2a.init((int)std::ceil(379 * k) + 4);
+        id2b.init((int)std::ceil(277 * k) + 4);
+        Lmap.init((int)std::ceil((672 + 32) * k) + 8);
+        Ld1 .init((int)std::ceil(4453 * k) + 4);
+        Lap .init((int)std::ceil(1800 * k) + 4);
+        Ld2 .init((int)std::ceil(3720 * k) + 4);
+        Rmap.init((int)std::ceil((908 + 32) * k) + 8);
+        Rd1 .init((int)std::ceil(4217 * k) + 4);
+        Rap .init((int)std::ceil(2656 * k) + 4);
+        Rd2 .init((int)std::ceil(3163 * k) + 4);
+        recomputeLfo();
+        recomputeScaled();
+    }
+
+    void reset() {
+        pre.reset(); id1a.reset(); id1b.reset(); id2a.reset(); id2b.reset();
+        Lmap.reset(); Ld1.reset(); Lap.reset(); Ld2.reset();
+        Rmap.reset(); Rd1.reset(); Rap.reset(); Rd2.reset();
+        bwZ=LdampZ=RdampZ=fbL=fbR=0.0f; lfoS=0.0f; lfoC=1.0f;
+    }
+
+    void recomputeLfo() {
+        float w = TAU * p_modRateHz / sr;
+        lfoA = std::cos(w); lfoB = std::sin(w);
+    }
+    void recomputeScaled() {
+        float k = (sr / SR_REF) * p_size;
+        auto R = [](float x){ return std::max(1, (int)std::lround(x)); };
+        L_id1a = R(142*k); L_id1b = R(107*k); L_id2a = R(379*k); L_id2b = R(277*k);
+        L_Lmap = R(672*k); L_Ld1 = R(4453*k); L_Lap = R(1800*k); L_Ld2 = R(3720*k);
+        L_Rmap = R(908*k); L_Rd1 = R(4217*k); L_Rap = R(2656*k); L_Rd2 = R(3163*k);
+        dd2g = std::clamp(p_decay + 0.15f, 0.25f, 0.50f);
+        L_pre = std::max(0, std::min(preMax - 2, (int)std::lround(p_predelayMs * 0.001f * sr)));
+    }
+
+    void setParam_decay     (float v){ if(std::isfinite(v)){ p_decay     = std::clamp(v,0.0f,0.99f);  recomputeScaled(); } }
+    void setParam_predelayMs(float v){ if(std::isfinite(v)){ p_predelayMs= std::clamp(v,0.0f,200.0f); recomputeScaled(); } }
+    void setParam_bandwidth (float v){ if(std::isfinite(v)){ p_bandwidth = std::clamp(v,0.0f,1.0f); } }
+    void setParam_damping   (float v){ if(std::isfinite(v)){ p_damping   = std::clamp(v,0.0f,0.99f); } }
+    void setParam_size      (float v){ if(std::isfinite(v)){ p_size      = std::clamp(v,0.5f,1.5f); recomputeScaled(); } }
+    void setParam_modDepth  (float v){ if(std::isfinite(v)){ p_modDepth  = std::clamp(v,0.0f,32.0f); } }
+    void setParam_modRateHz (float v){ if(std::isfinite(v)){ p_modRateHz = std::clamp(v,0.1f,5.0f); recomputeLfo(); } }
+
+    inline float allpass(Line& line, int M, float g, float x) {
+        float d = line.readInt(M);
+        float v = x + g * d;
+        line.write(v);
+        return d - g * v;
+    }
+
+    void process(const float* inL, const float* inR, float* outL, float* outR, int N) {
+        const float k = (sr / SR_REF) * p_size;
+        auto T = [&](Line& line, float base) {
+            int d = std::max(1, (int)std::lround(base * k));
+            return line.readInt(d);
+        };
+        for (int n = 0; n < N; ++n) {
+            float xl = inL ? inL[n] : 0.0f;
+            float xr = inR ? inR[n] : 0.0f;
+            float x = 0.5f * (xl + xr);
+
+            if (L_pre > 0) { float p = pre.readInt(L_pre); pre.write(x); x = p; }
+            else pre.write(x);
+
+            bwZ = (1.0f - p_bandwidth) * x + p_bandwidth * bwZ;
+            x = bwZ;
+
+            x = allpass(id1a, L_id1a, id1g, x);
+            x = allpass(id1b, L_id1b, id1g, x);
+            x = allpass(id2a, L_id2a, id2g, x);
+            x = allpass(id2b, L_id2b, id2g, x);
+
+            float sN = lfoA * lfoS + lfoB * lfoC;
+            float cN = lfoA * lfoC - lfoB * lfoS;
+            lfoS = sN; lfoC = cN;
+            float modL = p_modDepth * sN;
+            float modR = p_modDepth * cN;
+
+            float LmapRead = Lmap.readFrac((float)L_Lmap + modL);
+            float LmapV = (x + fbL) + (-dd1g) * LmapRead;
+            Lmap.write(LmapV);
+            float Lmap_out = LmapRead - (-dd1g) * LmapV;
+
+            float Ld1_out = Ld1.readInt(L_Ld1);
+            Ld1.write(Lmap_out);
+            LdampZ = (1.0f - p_damping) * Ld1_out + p_damping * LdampZ;
+            float Lpost = LdampZ * p_decay;
+            float Lap_out = allpass(Lap, L_Lap, dd2g, Lpost);
+            float Ld2_out = Ld2.readInt(L_Ld2);
+            Ld2.write(Lap_out);
+            fbR = Ld2_out * p_decay;
+
+            float RmapRead = Rmap.readFrac((float)L_Rmap + modR);
+            float RmapV = (x + fbR) + (-dd1g) * RmapRead;
+            Rmap.write(RmapV);
+            float Rmap_out = RmapRead - (-dd1g) * RmapV;
+
+            float Rd1_out = Rd1.readInt(L_Rd1);
+            Rd1.write(Rmap_out);
+            RdampZ = (1.0f - p_damping) * Rd1_out + p_damping * RdampZ;
+            float Rpost = RdampZ * p_decay;
+            float Rap_out = allpass(Rap, L_Rap, dd2g, Rpost);
+            float Rd2_out = Rd2.readInt(L_Rd2);
+            Rd2.write(Rap_out);
+            fbL = Rd2_out * p_decay;
+
+            float yL = 0.6f*T(Rd1,266) + 0.6f*T(Rd1,2974) - 0.6f*T(Rap,1913)
+                     + 0.6f*T(Rd2,1996) - 0.6f*T(Ld1,1990) + 0.6f*T(Lap,187)
+                     - 0.6f*T(Ld2,1066);
+            float yR = 0.6f*T(Ld1,353) + 0.6f*T(Ld1,3627) - 0.6f*T(Lap,1228)
+                     + 0.6f*T(Ld2,2673) - 0.6f*T(Rd1,2111) + 0.6f*T(Rap,335)
+                     - 0.6f*T(Rd2,121);
+
+            if (outL) outL[n] = yL;
+            if (outR) outR[n] = yR;
+        }
+    }
+};

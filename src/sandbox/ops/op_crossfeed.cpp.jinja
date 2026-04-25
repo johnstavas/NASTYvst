@@ -1,0 +1,70 @@
+// op_crossfeed.cpp.jinja — C++ mirror of op_crossfeed.worklet.js.
+// Port of libbs2b v3.1.0 Bauer-family crossfeed (MIT).
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+
+struct OpCrossfeed_{{ instance }} {
+    float sr = 48000.0f;
+    float p_fcut = 700.0f;
+    float p_feed = 4.5f;
+
+    float a0_lo=0, b1_lo=0;
+    float a0_hi=0, a1_hi=0, b1_hi=0;
+    float gainK = 1.0f;
+
+    float loL=0, loR=0, hiL=0, hiR=0, asL=0, asR=0;
+
+    void recompute() {
+        const float Fc_lo = p_fcut;
+        const float level = p_feed;
+        const float GB_lo = level * -5.0f / 6.0f - 3.0f;
+        const float GB_hi = level /  6.0f        - 3.0f;
+        const float G_lo  = std::pow(10.0f, GB_lo / 20.0f);
+        const float G_hi  = 1.0f - std::pow(10.0f, GB_hi / 20.0f);
+        const float Fc_hi = Fc_lo * std::pow(2.0f,
+            (GB_lo - 20.0f * std::log10(G_hi)) / 12.0f);
+
+        float x = std::exp(-2.0f * 3.14159265358979f * Fc_lo / sr);
+        b1_lo = x;
+        a0_lo = G_lo * (1.0f - x);
+
+        x = std::exp(-2.0f * 3.14159265358979f * Fc_hi / sr);
+        b1_hi = x;
+        a0_hi = 1.0f - G_hi * (1.0f - x);
+        a1_hi = -x;
+
+        gainK = 1.0f / (1.0f - G_hi + G_lo);
+    }
+
+    void setSampleRate(float s) { sr = s; recompute(); }
+    void reset() {
+        loL = loR = hiL = hiR = asL = asR = 0.0f;
+    }
+
+    void setParam_fcut(float v) {
+        if (std::isfinite(v)) { p_fcut = std::clamp(v, 300.0f, 2000.0f); recompute(); }
+    }
+    void setParam_feed(float v) {
+        if (std::isfinite(v)) { p_feed = std::clamp(v, 1.0f, 15.0f); recompute(); }
+    }
+
+    void process(const float* inL, const float* inR,
+                 float* lOut, float* rOut, int N) {
+        if (!lOut && !rOut) return;
+        for (int n = 0; n < N; ++n) {
+            const float xL = inL ? inL[n] : 0.0f;
+            const float xR = inR ? inR[n] : 0.0f;
+            loL = a0_lo * xL + b1_lo * loL;
+            loR = a0_lo * xR + b1_lo * loR;
+            hiL = a0_hi * xL + a1_hi * asL + b1_hi * hiL;
+            hiR = a0_hi * xR + a1_hi * asR + b1_hi * hiR;
+            asL = xL; asR = xR;
+            if (lOut) lOut[n] = (hiL + loR) * gainK;
+            if (rOut) rOut[n] = (hiR + loL) * gainK;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

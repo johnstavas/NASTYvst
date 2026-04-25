@@ -1,0 +1,125 @@
+// op_spring.cpp.jinja — C++ mirror of op_spring.worklet.js.
+// Parker 2011 §2 (Välimäki 2010) parametric spring reverb.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <vector>
+
+struct OpSpring_{{ instance }} {
+    static constexpr float TAU = 6.283185307179586f;
+
+    struct APCascade {
+        std::vector<float> buf;
+        int sz=0, mask=0, w=0;
+        int maxM=0, maxK=0;
+        int M=0, k=1;
+        float a=0.0f;
+        void init(int mK, int mM) {
+            maxK = mK; maxM = mM;
+            int s = 1; while (s < mK + 2) s <<= 1;
+            sz = s; mask = s - 1;
+            buf.assign(mM * sz, 0.0f); w = 0;
+        }
+        void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; }
+        void setConfig(int M_, int k_, float a_) {
+            M = std::clamp(M_, 0, maxM);
+            k = std::clamp(k_, 1, maxK);
+            a = std::clamp(a_, -0.95f, 0.95f);
+        }
+        inline float process(float x) {
+            int wRead = (w - k) & mask;
+            float y = x;
+            for (int s = 0; s < M; ++s) {
+                int base = s * sz;
+                float d = buf[base + wRead];
+                float v = y - a * d;
+                buf[base + w] = v;
+                y = a * v + d;
+            }
+            w = (w + 1) & mask;
+            return y;
+        }
+    };
+    struct Delay {
+        std::vector<float> buf; int mask=0, w=0;
+        void init(int maxLen) {
+            int s = 1; while (s < maxLen + 2) s <<= 1;
+            buf.assign(s, 0.0f); mask = s - 1; w = 0;
+        }
+        void reset() { std::fill(buf.begin(), buf.end(), 0.0f); w = 0; }
+        inline float readInt(int d) const { return buf[(w - d) & mask]; }
+        inline void  write(float x) { buf[w] = x; w = (w + 1) & mask; }
+    };
+
+    float sr = 48000.0f;
+    APCascade apLF, apHF;
+    Delay delayL, delayR;
+    int lenL = 1, lenR = 1;
+    float lpZ = 0.0f, lpA = 0.0f;
+
+    static constexpr int MAX_M_LF = 60;
+    static constexpr int MAX_M_HF = 40;
+    static constexpr int MAX_K_LF = 120;
+    static constexpr int K_LF_BASE = 40;
+    static constexpr int K_HF = 1;
+
+    float p_decay = 0.7f, p_dispersion = 0.65f, p_transitionHz = 4300.0f;
+    float p_chirpRate = 1.0f;
+    int p_mLF = 30, p_mHF = 12;
+    float p_mixLF = 1.0f, p_mixHF = 0.3f;
+
+    void setSampleRate(float s) {
+        sr = s;
+        apLF.init(MAX_K_LF, MAX_M_LF);
+        apHF.init(2,        MAX_M_HF);
+        delayL.init((int)std::ceil(sr * 0.12f));
+        delayR.init((int)std::ceil(sr * 0.12f));
+        recompute();
+    }
+    void reset() {
+        apLF.reset(); apHF.reset();
+        delayL.reset(); delayR.reset();
+        lpZ = 0.0f;
+    }
+
+    void recompute() {
+        int k_lf = std::clamp((int)std::lround(K_LF_BASE * p_chirpRate), 1, MAX_K_LF);
+        apLF.setConfig(p_mLF, k_lf,  p_dispersion);
+        apHF.setConfig(p_mHF, K_HF, -p_dispersion);
+        lenL = std::max(1, (int)std::lround(0.055f * sr * p_chirpRate));
+        lenR = std::max(1, (int)std::lround(0.061f * sr * p_chirpRate));
+        int cap = (int)(delayL.buf.size() * 0.8f);
+        if (lenL > cap) lenL = cap;
+        if (lenR > cap) lenR = cap;
+        float fc = std::clamp(p_transitionHz, 200.0f, sr * 0.45f);
+        lpA = std::exp(-TAU * fc / sr);
+    }
+
+    void setParam_decay       (float v){ if(std::isfinite(v)){ p_decay        = std::clamp(v,0.0f,0.95f); } }
+    void setParam_dispersion  (float v){ if(std::isfinite(v)){ p_dispersion   = std::clamp(v,0.0f,0.9f); recompute(); } }
+    void setParam_transitionHz(float v){ if(std::isfinite(v)){ p_transitionHz = std::clamp(v,500.0f,12000.0f); recompute(); } }
+    void setParam_chirpRate   (float v){ if(std::isfinite(v)){ p_chirpRate    = std::clamp(v,0.3f,3.0f); recompute(); } }
+    void setParam_numStagesLF (float v){ if(std::isfinite(v)){ p_mLF          = std::clamp((int)v,0,MAX_M_LF); recompute(); } }
+    void setParam_numStagesHF (float v){ if(std::isfinite(v)){ p_mHF          = std::clamp((int)v,0,MAX_M_HF); recompute(); } }
+    void setParam_mixLF       (float v){ if(std::isfinite(v)){ p_mixLF        = std::clamp(v,0.0f,1.0f); } }
+    void setParam_mixHF       (float v){ if(std::isfinite(v)){ p_mixHF        = std::clamp(v,0.0f,1.0f); } }
+
+    void process(const float* in, float* outL, float* outR, int N) {
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            float fbL = delayL.readInt(lenL);
+            float vL = apLF.process(x - p_decay * fbL);
+            lpZ = (1.0f - lpA) * vL + lpA * lpZ;
+            vL = lpZ;
+            delayL.write(vL);
+            float fbR = delayR.readInt(lenR);
+            float vR = apHF.process(x - p_decay * fbR);
+            delayR.write(vR);
+            float yL = p_mixLF * vL + 0.3f * p_mixHF * vR;
+            float yR = p_mixHF * vR + 0.3f * p_mixLF * vL;
+            if (outL) outL[n] = yL;
+            if (outR) outR[n] = yR;
+        }
+    }
+};

@@ -2,7 +2,10 @@
 //
 // Catalog #33 (Filters family). Andy Simper's Zero-Delay-Feedback state-
 // variable filter (Cytomic technical paper, "Linear Trapezoidal Integrated
-// State Variable Filter", 2013). Canon:filters §1.
+// State Variable Filter", 2013 — primary source).
+// Canon:filters does NOT currently have a §1 entry for this form; §1 is
+// Stilson Moog, §2 is the older musicdsp-92 double-sampled Simper.
+// Math verified against the 2013 Cytomic paper directly.
 //
 // Why this topology (vs. biquad/ladder):
 //   - **Mod stability**: ZDF (trapezoidal) integrators eliminate the unit

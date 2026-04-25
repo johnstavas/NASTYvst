@@ -4,11 +4,16 @@
 //   - dsp_code_canon_synthesis.md §10 — 32-bit LCG (Numerical Recipes pair:
 //     a = 196314165, c = 907633515, m = 2^32). Cheap, stateless aside from
 //     a single uint32, period 2^32. Upper 24 bits → float ∈ [-1, 1).
-//   - dsp_code_canon_synthesis.md §8 — Trammell 3-stage pink-noise filter.
-//     Three parallel leaky integrators at calibrated {A[], P[]} coefficients
-//     approximate the -3 dB/oct pink slope from ~20 Hz up. Canon drives this
-//     with rand(); UPGRADE step: drive with our own LCG so the entire op is
-//     seed-deterministic and golden-testable.
+//   - Paul Kellett "economy" 3-stage pink-noise filter (sibling to Canon §8
+//     Trammell; different coefficient recipe). Three parallel one-pole LPFs
+//     at poles {0.02109238, 0.07113478, 0.68873558} summed with amplitudes
+//     {0.3190, 0.2636, 0.4144}, normalized by 0.11, driven by LCG white.
+//     Canon §8 Trammell uses poles {0.3190, 0.7756, 0.9613} and amplitudes
+//     {0.02109238, 0.07113478, 0.68873558} — same numeric vectors but with
+//     role (pole ↔ amplitude) swapped. Both produce 1/f to within audible
+//     tolerance; they are DISTINCT recipes, not interchangeable.
+//   - Canon §8 is cited as the family reference; the shipped recipe here is
+//     Kellett economy. See `sandbox_ops_research_debt.md` noise row.
 //   - dsp_code_canon_utilities.md §1 — Jon Watte denormal flush. IIR stages
 //     (pink leaky integrators, brown integrator) are the classic source of
 //     denormal stalls; we flush any state < 1e-30 to zero.
@@ -27,12 +32,15 @@
 const LCG_A = 196314165 >>> 0;
 const LCG_C = 907633515 >>> 0;
 
-// Canon §8 Trammell pink-noise filter coefficients. Three parallel stages.
-// A[k] = one-pole smoothing coefficient; P[k] = output scale for stage k.
-// Published Trammell values — do not perturb without re-calibrating slope.
+// Kellett "economy" pink-noise filter coefficients. Three parallel stages.
+// PINK_A[k] = one-pole POLE for stage k (a in y = a·y₋₁ + (1-a)·x).
+// PINK_P[k] = output AMPLITUDE for stage k in the mixed sum.
+// Published Kellett values — do not perturb without re-calibrating slope.
+// Note: Canon §8 Trammell uses the same two number-vectors but with the
+// POLE/AMPLITUDE roles swapped; the two recipes are NOT equivalent.
 const PINK_A = [0.02109238, 0.07113478, 0.68873558];
 const PINK_P = [0.3190,     0.2636,     0.4144];
-const PINK_OUT_SCALE = 0.11;  // Trammell normalization → RMS ≈ white.
+const PINK_OUT_SCALE = 0.11;  // Kellett normalization → RMS ≈ white.
 
 // Brown (leaky integrator) — Canon tradition. Pole at ~20 Hz @ 48 kHz.
 const BROWN_LEAK  = 0.996;

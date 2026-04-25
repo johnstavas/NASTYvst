@@ -1,0 +1,124 @@
+// op_adsr.cpp — Stage-3b C++ sidecar for the `adsr` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_adsr.worklet.js
+// bit-for-bit. Catalog #40. Primary: musicdsp.org #189 (Schoenebeck
+// 2005, fast exponential envelope), Canon:synthesis §12.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class AdsrOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "adsr";
+
+    explicit AdsrOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() {
+        state_ = ST_IDLE;
+        level_ = 0.0;
+        prevGate_ = 0.0f;
+    }
+
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "attackMs")  == 0) attackMs_  = v;
+        else if (std::strcmp(id, "decayMs")   == 0) decayMs_   = v;
+        else if (std::strcmp(id, "sustain")   == 0) sustain_   = v;
+        else if (std::strcmp(id, "releaseMs") == 0) releaseMs_ = v;
+        else return;
+        recomputeCoefs();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* gate, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL = 1e-30;
+        const double sus  = std::min(std::max(sustain_, 0.0), 1.0);
+        const double aInc = attackInc_;
+        const double dC   = decayC_;
+        const double rC   = releaseC_;
+
+        int    st    = state_;
+        double level = level_;
+        float  prev  = prevGate_;
+
+        for (int i = 0; i < N; ++i) {
+            const float g = gate ? gate[i] : 0.0f;
+
+            if (prev <= 0.0f && g > 0.0f) {
+                st = ST_ATTACK;
+            } else if (prev > 0.0f && g <= 0.0f) {
+                st = ST_RELEASE;
+            }
+            prev = g;
+
+            if (st == ST_ATTACK) {
+                level += aInc;
+                if (level >= 1.0) { level = 1.0; st = ST_DECAY; }
+            } else if (st == ST_DECAY) {
+                const double delta = level - sus;
+                level = sus + delta + dC * delta;
+                if ((sus == 0.0 && level <= FLOOR)
+                 || (sus >  0.0 && std::fabs(level - sus) <= FLOOR)) {
+                    level = sus;
+                    st = ST_SUSTAIN;
+                }
+            } else if (st == ST_SUSTAIN) {
+                level = sus;
+            } else if (st == ST_RELEASE) {
+                level += rC * level;
+                if (level <= FLOOR) { level = 0.0; st = ST_IDLE; }
+            } else {
+                level = 0.0;
+            }
+
+            out[i] = static_cast<float>(level);
+        }
+
+        if (level < DENORMAL && level > -DENORMAL) level = 0.0;
+
+        state_    = st;
+        level_    = level;
+        prevGate_ = prev;
+    }
+
+private:
+    void recomputeCoefs() {
+        const double aMs = std::max(attackMs_,  0.01);
+        const double dMs = std::max(decayMs_,   0.01);
+        const double rMs = std::max(releaseMs_, 0.01);
+        const double sus = std::min(std::max(sustain_, 0.0), 1.0);
+
+        const double aSamp = aMs * 1e-3 * sr_;
+        const double dSamp = dMs * 1e-3 * sr_;
+        const double rSamp = rMs * 1e-3 * sr_;
+
+        attackInc_ = 1.0 / aSamp;
+        const double dTop = std::max(1.0 - sus, FLOOR);
+        decayC_   = std::log(FLOOR / dTop) / dSamp;
+        releaseC_ = std::log(FLOOR / std::max(sus, FLOOR)) / rSamp;
+    }
+
+    static constexpr int ST_IDLE    = 0;
+    static constexpr int ST_ATTACK  = 1;
+    static constexpr int ST_DECAY   = 2;
+    static constexpr int ST_SUSTAIN = 3;
+    static constexpr int ST_RELEASE = 4;
+    static constexpr double FLOOR   = 1e-4;
+
+    double sr_;
+    double attackMs_  = 5.0;
+    double decayMs_   = 50.0;
+    double sustain_   = 0.7;
+    double releaseMs_ = 200.0;
+    double attackInc_ = 0.0, decayC_ = 0.0, releaseC_ = 0.0;
+    int    state_     = ST_IDLE;
+    double level_     = 0.0;
+    float  prevGate_  = 0.0f;
+};
+
+}  // namespace shags::ops

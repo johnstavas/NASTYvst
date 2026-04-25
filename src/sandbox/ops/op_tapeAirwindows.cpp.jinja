@@ -1,0 +1,269 @@
+// op_tapeAirwindows.cpp.jinja — C++ mirror of op_tapeAirwindows.worklet.js
+// Airwindows ToTape9 mono port. See worklet.js header for citations.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <cstdint>
+
+struct OpTapeAirwindows_{{ instance }} {
+    float sr = 48000.0f;
+    float overallscale = 48000.0f / 44100.0f;
+    int   slewsing = 2;
+
+    float drive = 0.5f, dubly = 0.5f, encCross = 0.5f;
+    float flutterDepth = 0.0f, flutterRate = 0.5f;
+    float bias = 0.5f, bumpMix = 0.25f, bumpHz = 0.5f;
+
+    static constexpr float DENORMAL = 1e-30f;
+    static constexpr double PHI     = 1.618033988749894848;
+    static constexpr double INV_PHI = 0.618033988749894848;
+    static constexpr double TWO_PI  = 6.28318530717958648;
+
+    // Flutter
+    float d[1002] = {0};
+    int gcount = 0;
+    double sweep = 0, nextmax = 0.5;
+    uint32_t fpd = 17;
+
+    // Dubly
+    double iirEnc = 0, avgEnc = 0, compEnc = 0;
+    double iirDec = 0, avgDec = 0, compDec = 0;
+
+    // Bias chain
+    double gsPrev[9] = {0};
+    double gsThresh[9] = {0};
+
+    // Hysteresis
+    double hyst = 0;
+
+    // Averaging
+    double avg2[2]={0}, avg4[4]={0}, avg8[8]={0}, avg16[16]={0}, avg32[32]={0};
+    double post2[2]={0}, post4[4]={0}, post8[8]={0}, post16[16]={0}, post32[32]={0};
+    int avgPos = 0;
+    double lastDark = 0;
+
+    // Head bump
+    double hb = 0;
+    struct Biq { double a0=0,a1=0,a2=0,b1=0,b2=0,s1=0,s2=0; };
+    Biq hA, hB;
+
+    void setSampleRate(float s) {
+        sr = s;
+        overallscale = s / 44100.0f;
+        slewsing = (int)std::floor(overallscale * 2.0f);
+        if (slewsing < 2)  slewsing = 2;
+        if (slewsing > 32) slewsing = 32;
+        recomputeBiquads();
+    }
+
+    void reset() {
+        for (auto& v : d) v = 0.0f;
+        gcount = 0; sweep = 0; nextmax = 0.5; fpd = 17;
+        iirEnc=avgEnc=compEnc=iirDec=avgDec=compDec=0;
+        for (auto& v : gsPrev) v = 0; for (auto& v : gsThresh) v = 0;
+        hyst = 0; avgPos = 0; lastDark = 0; hb = 0;
+        for (auto& v : avg2) v=0;  for (auto& v : avg4) v=0;
+        for (auto& v : avg8) v=0;  for (auto& v : avg16) v=0;
+        for (auto& v : avg32) v=0;
+        for (auto& v : post2) v=0; for (auto& v : post4) v=0;
+        for (auto& v : post8) v=0; for (auto& v : post16) v=0;
+        for (auto& v : post32) v=0;
+        hA.s1=hA.s2=hB.s1=hB.s2=0;
+    }
+
+    void recomputeBiquads() {
+        double H = bumpHz;
+        double freqA = ((H * H) * 175.0 + 25.0) / sr;
+        double freqB = freqA * 0.9375;
+        double reso  = INV_PHI;
+        auto setB = [&](Biq& b, double f) {
+            double K = std::tan(M_PI * f);
+            double norm = 1.0 / (1.0 + K / reso + K * K);
+            b.a0 = (K / reso) * norm;
+            b.a1 = 0.0;
+            b.a2 = -b.a0;
+            b.b1 = 2.0 * (K * K - 1.0) * norm;
+            b.b2 = (1.0 - K / reso + K * K) * norm;
+        };
+        setB(hA, freqA);
+        setB(hB, freqB);
+    }
+
+    void setParam_drive(float v)        { if(std::isfinite(v)) drive = std::clamp(v,0.0f,1.0f); }
+    void setParam_dubly(float v)        { if(std::isfinite(v)) dubly = std::clamp(v,0.0f,1.0f); }
+    void setParam_encCross(float v)     { if(std::isfinite(v)) encCross = std::clamp(v,0.0f,1.0f); }
+    void setParam_flutterDepth(float v) { if(std::isfinite(v)) flutterDepth = std::clamp(v,0.0f,1.0f); }
+    void setParam_flutterRate(float v)  { if(std::isfinite(v)) flutterRate  = std::clamp(v,0.0f,1.0f); }
+    void setParam_bias(float v)         { if(std::isfinite(v)) bias = std::clamp(v,0.0f,1.0f); }
+    void setParam_bumpMix(float v)      { if(std::isfinite(v)) bumpMix = std::clamp(v,0.0f,1.0f); }
+    void setParam_bumpHz(float v)       { if(std::isfinite(v)) { bumpHz = std::clamp(v,0.0f,1.0f); recomputeBiquads(); } }
+
+    inline void process(const float* in, float* out, int N) {
+        double ovs = overallscale;
+        double A = drive, B = dubly, C = encCross;
+        double D = flutterDepth, E = flutterRate;
+        double F = bias, G = bumpMix;
+
+        double inputGain = (A*2.0)*(A*2.0);
+        double outputGain = inputGain * 2.0;
+        double dublyAmount = B * 2.0;
+        double outlyAmount = (1.0 - B) * -2.0;
+        if (outlyAmount < -1.0) outlyAmount = -1.0;
+        double iirEncFreq = (1.0 - C) / ovs;
+        double iirDecFreq = C / ovs;
+
+        double flutDepth = std::pow(D, 6.0) * ovs * 50.0;
+        if (flutDepth > 498.0) flutDepth = 498.0;
+        double flutFrequency = (0.02 * std::pow(E, 3.0)) / ovs;
+
+        double biasV = F * 2.0 - 1.0;
+        double underBias = (std::pow(biasV, 4.0) * 0.25) / ovs;
+        double overBias  = std::pow(1.0 - biasV, 3.0) / ovs;
+        if (biasV > 0) underBias = 0;
+        if (biasV < 0) overBias  = 1.0 / ovs;
+
+        double ob = overBias;
+        for (int i = 8; i >= 0; --i) { gsThresh[i] = ob; ob *= PHI; }
+
+        double headBumpDrive = (G * 0.1) / ovs;
+        double headBumpMix   = G * 0.5;
+        double cubicClipK = 0.0618 / std::sqrt(ovs);
+
+        for (int n = 0; n < N; ++n) {
+            double x = in ? (double)in[n] : 0.0;
+            if (std::fabs(x) < 1.18e-23) x = (double)fpd * 1.18e-17 / 4294967296.0;
+
+            if (inputGain != 1.0) x *= inputGain;
+
+            if (B > 0) {
+                iirEnc = (iirEnc * (1.0 - iirEncFreq)) + (x * iirEncFreq);
+                double highPart = (x - iirEnc) * 2.848;
+                highPart += avgEnc;
+                avgEnc = (x - iirEnc) * 1.152;
+                if (highPart >  1.0) highPart =  1.0;
+                if (highPart < -1.0) highPart = -1.0;
+                double dub = std::fabs(highPart);
+                if (dub > 0) {
+                    double adj = std::log(1.0 + 255.0 * dub) / 2.40823996531;
+                    if (adj > 0) dub /= adj;
+                    compEnc = (compEnc * (1.0 - iirEncFreq)) + (dub * iirEncFreq);
+                    x += (highPart * compEnc) * dublyAmount;
+                }
+            }
+
+            if (flutDepth > 0) {
+                if (gcount < 0 || gcount > 999) gcount = 999;
+                d[gcount] = (float)x;
+                int count = gcount;
+                double offset = flutDepth + (flutDepth * std::sin(sweep));
+                sweep += nextmax * flutFrequency;
+                if (sweep > TWO_PI) {
+                    sweep -= TWO_PI;
+                    double flutA = 0.24 + ((double)fpd / 4294967295.0) * 0.74;
+                    fpd ^= fpd << 13; fpd ^= fpd >> 17; fpd ^= fpd << 5;
+                    double flutB = 0.24 + ((double)fpd / 4294967295.0) * 0.74;
+                    double target = std::sin(sweep + nextmax);
+                    nextmax = (std::fabs(flutA - target) < std::fabs(flutB - target)) ? flutA : flutB;
+                }
+                count += (int)std::floor(offset);
+                double frac = offset - std::floor(offset);
+                int i0 = count - (count > 999 ? 1000 : 0);
+                int i1 = (count + 1) - ((count + 1) > 999 ? 1000 : 0);
+                x  = (double)d[i0] * (1.0 - frac);
+                x += (double)d[i1] * frac;
+                gcount--;
+            }
+
+            if (std::fabs(biasV) > 0.001) {
+                for (int k = 0; k < 9; ++k) {
+                    double prev = gsPrev[k];
+                    double th = gsThresh[k];
+                    if (underBias > 0) {
+                        double stuck = std::fabs(x - (prev / 0.975)) / underBias;
+                        if (stuck < 1.0) x = (x * stuck) + ((prev / 0.975) * (1.0 - stuck));
+                    }
+                    if ((x - prev) >  th) x = prev + th;
+                    if (-(x - prev) >  th) x = prev - th;
+                    gsPrev[k] = x * 0.975;
+                }
+            }
+
+            double ax = std::fabs(x);
+            double apply = (1.0 - ax) * (1.0 - ax) * 0.012;
+            hyst = std::max(std::min(hyst + (x * ax), 0.011449), -0.011449) * 0.999;
+            x += hyst * apply;
+
+            double dark = x;
+            int posCap = avgPos; if (posCap > 31) posCap = 0;
+            if (slewsing > 31) { avg32[posCap] = dark; double s=0; for(int k=0;k<32;k++) s+=avg32[k]; dark = s/32.0; }
+            if (slewsing > 15) { avg16[posCap%16] = dark; double s=0; for(int k=0;k<16;k++) s+=avg16[k]; dark = s/16.0; }
+            if (slewsing > 7)  { avg8[posCap%8]   = dark; double s=0; for(int k=0;k<8;k++)  s+=avg8[k];  dark = s/8.0; }
+            if (slewsing > 3)  { avg4[posCap%4]   = dark; double s=0; for(int k=0;k<4;k++)  s+=avg4[k];  dark = s/4.0; }
+            if (slewsing > 1)  { avg2[posCap%2]   = dark; double s=0; for(int k=0;k<2;k++)  s+=avg2[k];  dark = s/2.0; }
+            double avgSlew = std::min(std::fabs(lastDark - x) * 0.12 * ovs, 1.0);
+            avgSlew = 1.0 - (1.0 - avgSlew - avgSlew);
+            x = (x * (1.0 - avgSlew)) + (dark * avgSlew);
+            lastDark = dark;
+
+            if (x >  2.305929007734908) x =  2.305929007734908;
+            if (x < -2.305929007734908) x = -2.305929007734908;
+            double xx = x * x;
+            double emp = x * xx;
+            x -= emp / 6.0;
+            emp *= xx;
+            x += emp / 69.0;
+            emp *= xx;
+            x -= emp / 2530.08;
+            emp *= xx;
+            x += emp / 224985.6;
+            emp *= xx;
+            x -= emp / 9979200.0;
+
+            dark = x;
+            posCap = avgPos; if (posCap > 31) posCap = 0;
+            if (slewsing > 31) { post32[posCap] = dark; double s=0; for(int k=0;k<32;k++) s+=post32[k]; dark = s/32.0; }
+            if (slewsing > 15) { post16[posCap%16] = dark; double s=0; for(int k=0;k<16;k++) s+=post16[k]; dark = s/16.0; }
+            if (slewsing > 7)  { post8[posCap%8]   = dark; double s=0; for(int k=0;k<8;k++)  s+=post8[k];  dark = s/8.0; }
+            if (slewsing > 3)  { post4[posCap%4]   = dark; double s=0; for(int k=0;k<4;k++)  s+=post4[k];  dark = s/4.0; }
+            if (slewsing > 1)  { post2[posCap%2]   = dark; double s=0; for(int k=0;k<2;k++)  s+=post2[k];  dark = s/2.0; }
+            avgPos++;
+            x = (x * (1.0 - avgSlew)) + (dark * avgSlew);
+
+            double hbOut = 0;
+            if (headBumpMix > 0) {
+                hb += x * headBumpDrive;
+                hb -= (hb * hb * hb) * cubicClipK;
+                double yA = hA.a0 * hb + hA.s1;
+                hA.s1 = hA.a1 * hb - hA.b1 * yA + hA.s2;
+                hA.s2 = hA.a2 * hb - hA.b2 * yA;
+                double yB = hB.a0 * yA + hB.s1;
+                hB.s1 = hB.a1 * yA - hB.b1 * yB + hB.s2;
+                hB.s2 = hB.a2 * yA - hB.b2 * yB;
+                hbOut = yB;
+            }
+            x += hbOut * headBumpMix;
+
+            if (B > 0) {
+                iirDec = (iirDec * (1.0 - iirDecFreq)) + (x * iirDecFreq);
+                double highPart = (x - iirDec) * 2.628;
+                highPart += avgDec;
+                avgDec = (x - iirDec) * 1.372;
+                if (highPart >  1.0) highPart =  1.0;
+                if (highPart < -1.0) highPart = -1.0;
+                double dub = std::fabs(highPart);
+                if (dub > 0) {
+                    double adj = std::log(1.0 + 255.0 * dub) / 2.40823996531;
+                    if (adj > 0) dub /= adj;
+                    compDec = (compDec * (1.0 - iirDecFreq)) + (dub * iirDecFreq);
+                    x += (highPart * compDec) * outlyAmount;
+                }
+            }
+
+            if (outputGain != 1.0) x *= outputGain;
+            if (std::fabs(x) < DENORMAL) x = 0;
+            if (!std::isfinite(x)) x = 0;
+            out[n] = (float)x;
+        }
+    }
+};

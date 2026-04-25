@@ -1,0 +1,221 @@
+// op_padSynth.cpp — Stage-3b C++ sidecar for the `padSynth` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_padSynth.worklet.js.
+//
+// PRIMARIES (same as JS worklet):
+//   A. zynaddsubfx PADsynth §3.2.1 (Nasca) verbatim pseudocode:
+//        profile(fi,bwi){ x=fi/bwi; return exp(-x*x)/bwi; }
+//        FOR nh = 1..N_HARM
+//            bw_Hz = (2^(bw/1200)-1)·f·nh
+//            bwi   = bw_Hz / (2·sr)
+//            fi    = f·nh / sr
+//            FOR i = 0..N/2-1
+//                freq_amp[i] += profile((i/N)-fi, bwi) · A[nh]
+//        random-phase fill; IFFT; normalize_sample.
+//   B. zynaddsubfx src/Params/PADnoteParameters.cpp — confirms
+//      Gaussian default profile + cents-based bandwidth scaling.
+//
+// Inline radix-2 IFFT (no FFTW). Deterministic LCG for phase fill —
+// see op_padSynth.worklet.js header for deviation notes.
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <cstdint>
+
+namespace shags::ops {
+
+class PadSynthOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "padSynth";
+
+    static constexpr int    N       = 16384;
+    static constexpr int    N_HARM  = 64;
+    static constexpr double kTwoPi  = 6.283185307179586;
+
+    explicit PadSynthOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        tableBase_ = freq_;
+        buildTable();
+    }
+
+    void reset() { phase_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        bool dirty = false;
+        if (std::strcmp(id, "freq") == 0) {
+            double f = v;
+            if (!(f > 0.01))        f = 0.01;
+            const double nyq = sr_ * 0.5;
+            if (f > nyq - 1.0)      f = nyq - 1.0;
+            freq_ = f;
+        } else if (std::strcmp(id, "bandwidth") == 0) {
+            double bw = v;
+            if (!std::isfinite(bw)) bw = 40.0;
+            if (bw < 0)    bw = 0;
+            if (bw > 1200) bw = 1200;
+            if (bw != bw_) { bw_ = bw; dirty = true; }
+        } else if (std::strcmp(id, "shape") == 0) {
+            int s = static_cast<int>(v);
+            if (s < 0) s = 0;
+            if (s > 3) s = 3;
+            if (s != shape_) { shape_ = s; dirty = true; }
+        } else if (std::strcmp(id, "seed") == 0) {
+            int32_t s = static_cast<int32_t>(v);
+            if (s == 0) s = 1;
+            if (s != seed_) { seed_ = s; dirty = true; }
+        } else if (std::strcmp(id, "amp") == 0) {
+            amp_ = v;
+        }
+        if (dirty) { tableBase_ = freq_; buildTable(); }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* freqMod, float* out, int Nblock) {
+        if (!out) return;
+        const double sr  = sr_;
+        const double nyq = sr * 0.5;
+        double phase = phase_;
+
+        for (int n = 0; n < Nblock; ++n) {
+            double f = freq_;
+            if (freqMod) {
+                f += static_cast<double>(freqMod[n]);
+                if (!(f > 0.01))       f = 0.01;
+                else if (f > nyq - 1)  f = nyq - 1.0;
+            }
+            const double rate = f / tableBase_;
+            const double idx  = phase * N;
+            const int    i    = static_cast<int>(idx);
+            const double ff   = idx - i;
+            const double s0   = table_[i];
+            const double s1   = table_[i + 1];
+            out[n] = static_cast<float>(amp_ * (s0 + ff * (s1 - s0)));
+            phase += rate / N;
+            while (phase >= 1.0) phase -= 1.0;
+            while (phase <  0.0) phase += 1.0;
+        }
+
+        if (std::fabs(phase) < 1e-30) phase = 0.0;
+        phase_ = phase;
+    }
+
+private:
+    static double profile(double fi, double bwi) {
+        if (bwi <= 0.0) return 0.0;
+        const double x = fi / bwi;
+        return std::exp(-x * x) / bwi;
+    }
+
+    void harmonicAmps(double* A) const {
+        for (int nh = 0; nh <= N_HARM; ++nh) A[nh] = 0.0;
+        switch (shape_) {
+            case 0: // saw
+                for (int nh = 1; nh <= N_HARM; ++nh) A[nh] = 1.0 / nh;
+                break;
+            case 1: // square
+                for (int nh = 1; nh <= N_HARM; ++nh)
+                    A[nh] = (nh & 1) ? 1.0 / nh : 0.0;
+                break;
+            case 2: // organ
+                A[1] = 1.0; A[2] = 0.5; A[3] = 0.3;
+                A[4] = 0.4; A[6] = 0.2; A[8] = 0.15;
+                break;
+            default: // bell
+                for (int nh = 1; nh <= N_HARM; ++nh)
+                    A[nh] = (1.0 / (nh * nh)) * ((nh & 1) ? 1.2 : 0.6);
+                break;
+        }
+    }
+
+    // In-place radix-2 Cooley-Tukey FFT.
+    static void fft(double* re, double* im, int M, bool inverse) {
+        for (int i = 1, j = 0; i < M; ++i) {
+            int bit = M >> 1;
+            for (; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) { std::swap(re[i], re[j]); std::swap(im[i], im[j]); }
+        }
+        for (int len = 2; len <= M; len <<= 1) {
+            const int    half = len >> 1;
+            const double step = (inverse ? 2.0 : -2.0) * 3.141592653589793 / len;
+            for (int i = 0; i < M; i += len) {
+                for (int k = 0; k < half; ++k) {
+                    const double ang = step * k;
+                    const double cs  = std::cos(ang), sn = std::sin(ang);
+                    const double rR  = re[i + k + half] * cs - im[i + k + half] * sn;
+                    const double rI  = re[i + k + half] * sn + im[i + k + half] * cs;
+                    re[i + k + half] = re[i + k] - rR;
+                    im[i + k + half] = im[i + k] - rI;
+                    re[i + k]         += rR;
+                    im[i + k]         += rI;
+                }
+            }
+        }
+        if (inverse) for (int i = 0; i < M; ++i) { re[i] /= M; im[i] /= M; }
+    }
+
+    void buildTable() {
+        static thread_local double re[N];
+        static thread_local double im[N];
+        for (int i = 0; i < N; ++i) { re[i] = 0.0; im[i] = 0.0; }
+
+        double A[N_HARM + 1];
+        harmonicAmps(A);
+
+        for (int nh = 1; nh <= N_HARM; ++nh) {
+            const double amp   = A[nh];
+            if (amp == 0.0) continue;
+            const double f_nh  = tableBase_ * nh;
+            if (f_nh >= sr_ * 0.5) break;
+            const double bw_Hz = (std::pow(2.0, bw_ / 1200.0) - 1.0) * f_nh;
+            const double bwi   = bw_Hz / (2.0 * sr_);
+            const double fi    = f_nh / sr_;
+            for (int i = 0; i < N / 2; ++i) {
+                const double hp = profile((static_cast<double>(i) / N) - fi, bwi);
+                re[i] += hp * amp;
+            }
+        }
+
+        // Deterministic LCG (Canon:synthesis §10) for phase fill.
+        int32_t s = seed_ ? seed_ : 1;
+        for (int i = 0; i < N / 2; ++i) {
+            s = static_cast<int32_t>(static_cast<uint32_t>(s) * 1664525u + 1013904223u);
+            const double r = static_cast<double>(
+                                 (static_cast<uint32_t>(s) >> 8) & 0xFFFFFFu) / 16777216.0;
+            const double ph  = r * kTwoPi;
+            const double mag = re[i];
+            re[i] = mag * std::cos(ph);
+            im[i] = mag * std::sin(ph);
+        }
+        re[N / 2] = 0.0; im[N / 2] = 0.0;
+        for (int i = 1; i < N / 2; ++i) {
+            re[N - i] =  re[i];
+            im[N - i] = -im[i];
+        }
+
+        fft(re, im, N, true);
+
+        double peak = 0.0;
+        for (int i = 0; i < N; ++i) {
+            const double a = std::fabs(re[i]);
+            if (a > peak) peak = a;
+        }
+        const double inv = peak > 0.0 ? (1.0 / peak) : 1.0;
+        for (int i = 0; i < N; ++i) table_[i] = static_cast<float>(re[i] * inv);
+        table_[N] = table_[0];
+    }
+
+    double  sr_;
+    double  freq_      = 220.0;
+    double  bw_        = 40.0;
+    int     shape_     = 0;
+    int32_t seed_      = 1;
+    double  amp_       = 1.0;
+    double  phase_     = 0.0;
+    double  tableBase_ = 220.0;
+
+    float   table_[N + 1]{};
+};
+
+}  // namespace shags::ops

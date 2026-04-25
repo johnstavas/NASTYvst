@@ -1,0 +1,162 @@
+// op_chromagram.cpp.jinja — Stage-3 native mirror of op_chromagram.worklet.js.
+//
+// Chroma feature extraction. Primary: librosa feature.chroma_stft +
+// filters.chroma (ISC). Catalog #73. Mirrors the worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class ChromagramOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "chromagram";
+
+    explicit ChromagramOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        alloc(1024);
+        buildFbank();
+    }
+
+    void reset() {
+        std::fill(inRe_.begin(),  inRe_.end(),  0.0);
+        std::fill(inIm_.begin(),  inIm_.end(),  0.0);
+        std::fill(coefs_.begin(), coefs_.end(), 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "size") == 0) {
+            int n = static_cast<int>(v);
+            if (n != size_) { alloc(n); buildFbank(); }
+        } else if (std::strcmp(id, "nChroma") == 0) {
+            int c = std::min(std::max(static_cast<int>(std::round(v)), 3), 64);
+            if (c != nChroma_) { nChroma_ = c; buildFbank(); }
+        } else if (std::strcmp(id, "tuning") == 0)   { tuning_   = v; buildFbank(); }
+          else if (std::strcmp(id, "ctroct") == 0)   { ctroct_   = v; buildFbank(); }
+          else if (std::strcmp(id, "octwidth") == 0) { octwidth_ = v; buildFbank(); }
+          else if (std::strcmp(id, "baseC") == 0)    { baseC_    = v ? 1 : 0; buildFbank(); }
+    }
+
+    int getLatencySamples() const { return size_; }
+
+    void process(const float* inRe, const float* inIm, float* out, int N) {
+        if (!out) return;
+        for (int i = 0; i < N; ++i) {
+            if (filled_ >= size_) { computeFrame(); filled_ = 0; readIdx_ = 0; }
+            out[i] = static_cast<float>(coefs_[readIdx_]);
+            readIdx_ = (readIdx_ + 1) % size_;
+            inRe_[writeIdx_] = inRe ? static_cast<double>(inRe[i]) : 0.0;
+            inIm_[writeIdx_] = inIm ? static_cast<double>(inIm[i]) : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % size_;
+            ++filled_;
+        }
+    }
+
+private:
+    static bool isPow2(int n) { return n > 0 && (n & (n - 1)) == 0; }
+    static int  floorPow2(int n) { int p = 1; while ((p << 1) <= n) p <<= 1; return p; }
+
+    void alloc(int n) {
+        int size = std::min(std::max(isPow2(n) ? n : floorPow2(n), 16), 32768);
+        size_    = size;
+        binCols_ = (size >> 1) + 1;
+        inRe_.assign(size, 0.0);
+        inIm_.assign(size, 0.0);
+        coefs_.assign(size, 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void buildFbank() {
+        constexpr double A0_HZ = 27.5;
+        const int nC  = nChroma_;
+        const int bin = binCols_;
+        const double A0 = A0_HZ * std::pow(2.0, tuning_ / nC);
+        auto toFrq = [&](double hz) { return nC * std::log2(hz / A0); };
+
+        std::vector<double> frqbins(bin);
+        for (int k = 1; k < bin; ++k) frqbins[k] = toFrq(sr_ * k / size_);
+        frqbins[0] = frqbins[1] - 1.5 * nC;
+
+        std::vector<double> binw(bin);
+        for (int k = 0; k < bin - 1; ++k) {
+            double d = frqbins[k + 1] - frqbins[k];
+            binw[k] = d > 1.0 ? d : 1.0;
+        }
+        binw[bin - 1] = 1.0;
+
+        std::vector<double> wts(nC * bin, 0.0);
+        const int half = static_cast<int>(std::round(nC / 2.0));
+        for (int c = 0; c < nC; ++c) {
+            for (int k = 0; k < bin; ++k) {
+                double D = frqbins[k] - c;
+                D = std::fmod(D + half + 10 * nC, (double)nC) - half;
+                double z = 2.0 * D / binw[k];
+                wts[c * bin + k] = std::exp(-0.5 * z * z);
+            }
+        }
+
+        for (int k = 0; k < bin; ++k) {
+            double n2 = 0.0;
+            for (int c = 0; c < nC; ++c) n2 += wts[c * bin + k] * wts[c * bin + k];
+            double nrm = std::sqrt(n2);
+            if (nrm > 1e-12) for (int c = 0; c < nC; ++c) wts[c * bin + k] /= nrm;
+        }
+
+        if (std::isfinite(octwidth_) && octwidth_ > 0) {
+            for (int k = 0; k < bin; ++k) {
+                double octs = frqbins[k] / nC - ctroct_;
+                double w    = std::exp(-0.5 * (octs / octwidth_) * (octs / octwidth_));
+                for (int c = 0; c < nC; ++c) wts[c * bin + k] *= w;
+            }
+        }
+        for (int c = 0; c < nC; ++c) wts[c * bin + 0] = 0.0;
+
+        if (baseC_ && (nC % 12 == 0)) {
+            const int shift = 3 * (nC / 12);
+            std::vector<double> rot(nC * bin);
+            for (int c = 0; c < nC; ++c) {
+                int src = ((c + shift) % nC + nC) % nC;
+                for (int k = 0; k < bin; ++k) rot[c * bin + k] = wts[src * bin + k];
+            }
+            fbank_ = std::move(rot);
+        } else {
+            fbank_ = std::move(wts);
+        }
+    }
+
+    void computeFrame() {
+        constexpr double DENORMAL = 1e-30;
+        const int nC = nChroma_, bin = binCols_;
+        std::fill(coefs_.begin(), coefs_.end(), 0.0);
+        double maxAbs = 0.0;
+        for (int c = 0; c < nC; ++c) {
+            double s = 0.0;
+            const int row = c * bin;
+            for (int k = 0; k < bin; ++k) {
+                double re = inRe_[k], im = inIm_[k];
+                s += fbank_[row + k] * (re * re + im * im);
+            }
+            if (s < DENORMAL && s > -DENORMAL) s = 0.0;
+            coefs_[c] = s;
+            double a = s < 0 ? -s : s;
+            if (a > maxAbs) maxAbs = a;
+        }
+        if (maxAbs > 1e-20) {
+            const double inv = 1.0 / maxAbs;
+            for (int c = 0; c < nC; ++c) coefs_[c] *= inv;
+        }
+    }
+
+    double sr_;
+    int    size_ = 0, binCols_ = 0;
+    int    nChroma_ = 12;
+    double tuning_  = 0.0, ctroct_ = 5.0, octwidth_ = 2.0;
+    int    baseC_   = 1;
+    std::vector<double> inRe_, inIm_, coefs_, fbank_;
+    int    writeIdx_ = 0, readIdx_ = 0, filled_ = 0;
+};
+
+}  // namespace shags::ops

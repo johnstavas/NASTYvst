@@ -1,0 +1,49 @@
+// op_randomWalk.cpp.jinja — C++ mirror of op_randomWalk.worklet.js.
+// SC BrownNoise_next algorithm over feldkirch PRNG.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <cstdint>
+
+struct OpRandomWalk_{{ instance }} {
+    static constexpr float SCALE = 2.0f / (float)0xffffffffu;
+
+    float sr      = 48000.0f;
+    float p_step  = 0.125f;
+    float p_level = 1.0f;
+    float z       = 0.0f;
+    int32_t x1 = (int32_t)0x67452301;
+    int32_t x2 = (int32_t)0xefcdab89;
+
+    void setSampleRate(float s) { sr = s; }
+    void reset() {
+        z  = 0.0f;
+        x1 = (int32_t)0x67452301;
+        x2 = (int32_t)0xefcdab89;
+    }
+
+    void setParam_step(float v) {
+        if (std::isfinite(v)) p_step = std::clamp(v, 0.0001f, 0.5f);
+    }
+    void setParam_level(float v) {
+        if (std::isfinite(v)) p_level = std::clamp(v, 0.0f, 1.0f);
+    }
+
+    void process(float* out, int N) {
+        if (!out) return;
+        const float step = p_step;
+        const float lvl  = p_level;
+        for (int n = 0; n < N; ++n) {
+            x1 = x1 ^ x2;
+            const float u = (float)x2 * SCALE;
+            x2 = x2 + x1;
+            z += u * step;
+            if      (z >  1.0f) z =  2.0f - z;
+            else if (z < -1.0f) z = -2.0f - z;
+            out[n] = z * lvl;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+};

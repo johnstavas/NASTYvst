@@ -13,10 +13,11 @@
 //     op's job is only to read/write the line, not to couple it.
 //
 // Why Hermite-4 interpolation:
-//   - Canon:time_interp §1 (memory/dsp_code_canon_time_interp.md).
+//   - Canon:time_interp §2 (Niemitalo direct-algebraic; same cubic as §1
+//     de Soras, just a different arithmetic arrangement).
 //   - 4-tap cubic Hermite on the ring buffer — smooth under `timeMod`
 //     modulation without zipper (linear interp buzzes on fast sweeps).
-//   - Coefficients (Laurent/Niemitalo form):
+//   - Coefficients (Niemitalo form):
 //       c0 = y1
 //       c1 = 0.5 · (y2 − y0)
 //       c2 =       y0 − 2.5·y1 + 2·y2 − 0.5·y3
@@ -128,7 +129,7 @@ export class DelayOp {
       const y2 = line[idx(iFloor + 1)];
       const y3 = line[idx(iFloor + 2)];
 
-      // Canon:time_interp §1 Hermite-4 (Horner form).
+      // Canon:time_interp §2 Niemitalo (Horner form).
       const c0 = y1;
       const c1 = 0.5 * (y2 - y0);
       const c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;

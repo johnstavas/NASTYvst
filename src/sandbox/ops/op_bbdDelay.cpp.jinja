@@ -1,0 +1,114 @@
+// op_bbdDelay.cpp.jinja — Stage-3 native mirror of op_bbdDelay.worklet.js.
+//
+// Primary: Holters & Parker, "A Combined Model for a Bucket Brigade Device
+// and Its Input and Output Filters," DAFx-18 (2018). Catalog #27.
+// v1 PRAGMATIC REDUCTION — topology only; 5-pole HP model + dn fractional
+// timing deferred to v2. See worklet docstring for full deviation list.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class BbdDelayOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "bbdDelay";
+
+    explicit BbdDelayOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        int maxSamples = (int)std::ceil(maxDelayMs_ / 1000.0 * sr_) + 2;
+        buf_.assign(maxSamples, 0.0);
+        bufLen_ = maxSamples;
+        designLPF(6000.0, pre_);
+        designLPF(6000.0, post_);
+        setDelayMs(250.0);
+    }
+
+    void reset() {
+        std::fill(buf_.begin(), buf_.end(), 0.0);
+        writeIdx_ = 0;
+        preX1_ = preX2_ = preY1_ = preY2_ = 0.0;
+        postX1_ = postX2_ = postY1_ = postY2_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "delayMs"))       setDelayMs(v);
+        else if (!std::strcmp(id, "aaHz"))     { designLPF(v, pre_); designLPF(v, post_); }
+        else if (!std::strcmp(id, "feedback")) fb_ = std::clamp(v, -MAX_FB, MAX_FB);
+        else if (!std::strcmp(id, "mix"))      mix_ = std::clamp(v, 0.0, 1.0);
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const int blen = bufLen_;
+        const int D    = delay_;
+        const double gDry = std::cos(mix_ * M_PI * 0.5);
+        const double gWet = std::sin(mix_ * M_PI * 0.5);
+
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+
+            int readIdx = ((writeIdx_ - D) % blen + blen) % blen;
+            double yBBD = buf_[readIdx];
+            if (yBBD > -DENORMAL && yBBD < DENORMAL) yBBD = 0.0;
+
+            double preIn = x + fb_ * postY1_;
+
+            double preOut = pre_.b0 * preIn + pre_.b1 * preX1_ + pre_.b2 * preX2_
+                          - pre_.a1 * preY1_ - pre_.a2 * preY2_;
+            preX2_ = preX1_; preX1_ = preIn;
+            preY2_ = preY1_; preY1_ = preOut;
+
+            buf_[writeIdx_] = preOut;
+            writeIdx_ = (writeIdx_ + 1) % blen;
+
+            double postOut = post_.b0 * yBBD + post_.b1 * postX1_ + post_.b2 * postX2_
+                           - post_.a1 * postY1_ - post_.a2 * postY2_;
+            postX2_ = postX1_; postX1_ = yBBD;
+            postY2_ = postY1_; postY1_ = postOut;
+
+            out[i] = (float)(gDry * x + gWet * postOut);
+        }
+    }
+
+private:
+    struct Biquad { double b0, b1, b2, a1, a2; };
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr double MAX_FB   = 0.95;
+
+    void designLPF(double fc, Biquad& bq) {
+        double f = std::clamp(fc, 20.0, sr_ * 0.49);
+        double w0 = 2.0 * M_PI * f / sr_;
+        double cw = std::cos(w0), sw = std::sin(w0);
+        double Q = M_SQRT1_2;
+        double alpha = sw / (2.0 * Q);
+        double a0 = 1.0 + alpha;
+        bq.b0 = (1.0 - cw) / 2.0 / a0;
+        bq.b1 = (1.0 - cw)       / a0;
+        bq.b2 = (1.0 - cw) / 2.0 / a0;
+        bq.a1 = -2.0 * cw        / a0;
+        bq.a2 = (1.0 - alpha)    / a0;
+    }
+
+    void setDelayMs(double ms) {
+        int d = (int)std::round(ms / 1000.0 * sr_);
+        if (d < 1) d = 1;
+        if (d > bufLen_ - 1) d = bufLen_ - 1;
+        delay_ = d;
+    }
+
+    double sr_ = 0.0;
+    double maxDelayMs_ = 1000.0;
+    std::vector<double> buf_;
+    int bufLen_ = 0, writeIdx_ = 0, delay_ = 1;
+    Biquad pre_{}, post_{};
+    double preX1_ = 0, preX2_ = 0, preY1_ = 0, preY2_ = 0;
+    double postX1_ = 0, postX2_ = 0, postY1_ = 0, postY2_ = 0;
+    double fb_ = 0.35, mix_ = 0.5;
+};
+
+} // namespace shags::ops

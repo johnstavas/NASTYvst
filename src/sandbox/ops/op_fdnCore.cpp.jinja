@@ -1,0 +1,124 @@
+// op_fdnCore.cpp.jinja — Stage-3 native mirror of op_fdnCore.worklet.js.
+//
+// 8-channel Geraint Luff FDN core — Householder feedback + per-channel
+// 1.5kHz HF shelf, exponentially spaced delays (100…200ms).
+
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <vector>
+
+namespace shags {
+
+struct FdnCoreOp {
+    static constexpr const char* opId = "fdnCore";
+    static constexpr int   N_CH        = 8;
+    static constexpr double LOOP_MS_REF = 150.0;
+    static constexpr double HF_CORNER_HZ = 1500.0;
+
+    double sr = 48000.0;
+    double decay = 0.5;
+    double hf    = 0.7;
+
+    double gHf    = 0.0;
+    double gShelf = 0.0;
+    double shelfCoeff = 0.0;
+
+    int lens[N_CH]     = {0};
+    int idx[N_CH]      = {0};
+    float fsh[N_CH]    = {0};
+    int maxLen = 0;
+    // Flat buffer: channel c at offset c * (maxLen+4), length lens[c]
+    std::vector<float> buf;
+
+    explicit FdnCoreOp(double sampleRate) : sr(sampleRate) {
+        for (int c = 0; c < N_CH; ++c) {
+            double delayMs = 100.0 * std::pow(2.0, (double)c / (double)N_CH);
+            int L = (int)std::round(sr * delayMs * 0.001);
+            if (L < 1) L = 1;
+            lens[c] = L;
+            if (L > maxLen) maxLen = L;
+        }
+        buf.assign((size_t)N_CH * (maxLen + 4), 0.0f);
+        shelfCoeff = 1.0 - std::exp(-2.0 * M_PI * HF_CORNER_HZ / sr);
+        recomputeGains();
+    }
+
+    void reset() {
+        std::memset(buf.data(), 0, buf.size() * sizeof(float));
+        std::memset(fsh, 0, sizeof(fsh));
+        std::memset(idx, 0, sizeof(idx));
+    }
+
+    void recomputeGains() {
+        double gDc;
+        if (decay >= 0.99) {
+            gDc = 0.9998;
+        } else {
+            double rt60    = 0.3 * std::pow(100.0, decay);
+            double dbPerMs = -60.0 / (rt60 * 1000.0);
+            double dbPerLoop = dbPerMs * LOOP_MS_REF;
+            gDc = std::pow(10.0, dbPerLoop * 0.05);
+            if (gDc > 0.9997) gDc = 0.9997;
+        }
+        double hfRatio = 0.02 + hf * 0.97;
+        gHf    = gDc * hfRatio;
+        gShelf = gDc - gHf;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "decay") == 0) {
+            decay = v < 0 ? 0 : (v > 1 ? 1 : v);
+            recomputeGains();
+        } else if (std::strcmp(id, "hf") == 0) {
+            hf = v < 0 ? 0 : (v > 1 ? 1 : v);
+            recomputeGains();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double gHfL    = gHf;
+        const double gShelfL = gShelf;
+        const double sc      = shelfCoeff;
+        const double inSpread = 1.0 / std::sqrt((double)N_CH);
+
+        const size_t stride = (size_t)maxLen + 4;
+
+        for (int s = 0; s < N; ++s) {
+            double x = in ? (double)in[s] : 0.0;
+
+            // 1. Read raw delay outputs
+            double r[N_CH];
+            double sumR = 0.0;
+            for (int c = 0; c < N_CH; ++c) {
+                r[c] = (double)buf[c * stride + idx[c]];
+                sumR += r[c];
+            }
+
+            // 2. Output = energy-normalised sum of raw reads (pre-mix)
+            out[s] = (float)(sumR * inSpread);
+
+            // 3. Householder mix FIRST: m[c] = r[c] − (2/N)·Σr
+            double hh = sumR * 0.25;
+            // 4. Per-channel HF shelf on post-mix signal, then clamp
+            const double inContrib = x * inSpread;
+            for (int c = 0; c < N_CH; ++c) {
+                double m  = r[c] - hh;
+                double ns = (double)fsh[c] + sc * (m - (double)fsh[c]);
+                fsh[c] = (float)ns;
+                double fb = m * gHfL + ns * gShelfL;
+                if (fb >  1.8) fb =  1.8;
+                if (fb < -1.8) fb = -1.8;
+                // 5. Write & advance
+                buf[c * stride + idx[c]] = (float)(fb + inContrib);
+                idx[c] = (idx[c] + 1) % lens[c];
+            }
+        }
+    }
+};
+
+} // namespace shags

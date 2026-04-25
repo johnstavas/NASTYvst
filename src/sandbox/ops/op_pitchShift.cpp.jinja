@@ -1,0 +1,174 @@
+// op_pitchShift.cpp.jinja — Stage-3 native mirror of op_pitchShift.worklet.js.
+//
+// Primary: Stephan M. Bernsee, smbPitchShift.cpp (1999-2015). Catalog #28.
+// Streaming phase-vocoder pitch shifter with internal FIFO + Hann-windowed
+// STFT + OLA. See worklet docstring for full passage / deviation list.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <array>
+#include <algorithm>
+
+namespace shags::ops {
+
+class PitchShiftOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "pitchShift";
+    static constexpr int FFT_SIZE   = 2048;
+    static constexpr int FFT_SIZE_2 = FFT_SIZE / 2;
+    static constexpr int OSAMP      = 4;
+    static constexpr int STEP_SIZE  = FFT_SIZE / OSAMP;
+    static constexpr int LATENCY    = FFT_SIZE - STEP_SIZE;
+
+    explicit PitchShiftOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate), freqPerBin_(sampleRate / FFT_SIZE) {
+        const double TWO_PI = 2.0 * M_PI;
+        expct_ = TWO_PI * STEP_SIZE / FFT_SIZE;
+        for (int k = 0; k < FFT_SIZE; ++k)
+            window_[k] = -0.5 * std::cos(TWO_PI * k / FFT_SIZE) + 0.5;
+        rover_ = LATENCY;
+    }
+
+    void reset() {
+        inFIFO_.fill(0); outFIFO_.fill(0);
+        fft_.fill(0); lastPhase_.fill(0); sumPhase_.fill(0);
+        outAccum_.fill(0);
+        anaFreq_.fill(0); anaMagn_.fill(0);
+        synFreq_.fill(0); synMagn_.fill(0);
+        rover_ = LATENCY;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "pitch")) pitch_ = std::clamp(v, 0.25, 4.0);
+        else if (!std::strcmp(id, "mix")) mix_ = std::clamp(v, 0.0, 1.0);
+    }
+
+    int getLatencySamples() const { return LATENCY; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double gDry = std::cos(mix_ * M_PI * 0.5);
+        const double gWet = std::sin(mix_ * M_PI * 0.5);
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            inFIFO_[rover_] = x;
+            double y = outFIFO_[rover_ - LATENCY];
+            if (y > -DENORMAL && y < DENORMAL) y = 0.0;
+            out[i] = (float)(gDry * x + gWet * y);
+            if (++rover_ >= FFT_SIZE) { rover_ = LATENCY; processFrame(); }
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+
+    static void smbFft(double* buf, int N, int sign) {
+        // bit reversal
+        for (int i = 2, j = 0; i < 2 * N - 2; i += 2) {
+            int bitm = N;
+            for (; bitm >= 2; bitm >>= 1) { if (!(j & bitm)) break; j ^= bitm; }
+            j ^= bitm;
+            if (i < j) {
+                std::swap(buf[i],     buf[j]);
+                std::swap(buf[i + 1], buf[j + 1]);
+            }
+        }
+        int kMax = (int)std::round(std::log((double)N) / std::log(2.0));
+        int le = 2;
+        for (int k = 0; k < kMax; ++k) {
+            le <<= 1;
+            int le2 = le >> 1;
+            double ur = 1.0, ui = 0.0;
+            double arg = M_PI / (le2 >> 1);
+            double wr = std::cos(arg), wi = sign * std::sin(arg);
+            for (int j = 0; j < le2; j += 2) {
+                for (int i = j; i < 2 * N; i += le) {
+                    double tr = buf[i + le2]     * ur - buf[i + le2 + 1] * ui;
+                    double ti = buf[i + le2]     * ui + buf[i + le2 + 1] * ur;
+                    buf[i + le2]     = buf[i]     - tr;
+                    buf[i + le2 + 1] = buf[i + 1] - ti;
+                    buf[i]           = buf[i]     + tr;
+                    buf[i + 1]       = buf[i + 1] + ti;
+                }
+                double tr = ur * wr - ui * wi;
+                ui        = ur * wi + ui * wr;
+                ur        = tr;
+            }
+        }
+    }
+
+    void processFrame() {
+        const double TWO_PI = 2.0 * M_PI;
+        for (int k = 0; k < FFT_SIZE; ++k) {
+            fft_[2 * k]     = inFIFO_[k] * window_[k];
+            fft_[2 * k + 1] = 0.0;
+        }
+        smbFft(fft_.data(), FFT_SIZE, -1);
+
+        for (int k = 0; k <= FFT_SIZE_2; ++k) {
+            double re = fft_[2 * k], im = fft_[2 * k + 1];
+            double magn = 2.0 * std::sqrt(re * re + im * im);
+            double phase = std::atan2(im, re);
+            double tmp = phase - lastPhase_[k];
+            lastPhase_[k] = phase;
+            tmp -= k * expct_;
+            long qpd = (long)(tmp / M_PI);
+            if (qpd >= 0) qpd += qpd & 1; else qpd -= qpd & 1;
+            tmp -= M_PI * qpd;
+            tmp  = OSAMP * tmp / TWO_PI;
+            tmp  = k * freqPerBin_ + tmp * freqPerBin_;
+            anaMagn_[k] = magn;
+            anaFreq_[k] = tmp;
+        }
+
+        std::fill(synMagn_.begin(), synMagn_.end(), 0.0);
+        std::fill(synFreq_.begin(), synFreq_.end(), 0.0);
+        for (int k = 0; k <= FFT_SIZE_2; ++k) {
+            int index = (int)std::floor(k * pitch_);
+            if (index <= FFT_SIZE_2) {
+                synMagn_[index] += anaMagn_[k];
+                synFreq_[index]  = anaFreq_[k] * pitch_;
+            }
+        }
+
+        for (int k = 0; k <= FFT_SIZE_2; ++k) {
+            double magn = synMagn_[k];
+            double tmp  = synFreq_[k];
+            tmp -= k * freqPerBin_;
+            tmp /= freqPerBin_;
+            tmp  = TWO_PI * tmp / OSAMP;
+            tmp += k * expct_;
+            sumPhase_[k] += tmp;
+            double ph = sumPhase_[k];
+            fft_[2 * k]     = magn * std::cos(ph);
+            fft_[2 * k + 1] = magn * std::sin(ph);
+        }
+        for (int k = FFT_SIZE + 2; k < 2 * FFT_SIZE; ++k) fft_[k] = 0.0;
+
+        smbFft(fft_.data(), FFT_SIZE, 1);
+
+        const double ola = 2.0 / (FFT_SIZE_2 * OSAMP);
+        for (int k = 0; k < FFT_SIZE; ++k)
+            outAccum_[k] += ola * window_[k] * fft_[2 * k];
+
+        for (int k = 0; k < STEP_SIZE; ++k) outFIFO_[k] = outAccum_[k];
+        std::memmove(outAccum_.data(), outAccum_.data() + STEP_SIZE,
+                     FFT_SIZE * sizeof(double));
+        for (int k = FFT_SIZE; k < 2 * FFT_SIZE; ++k) outAccum_[k] = 0.0;
+        std::memmove(inFIFO_.data(), inFIFO_.data() + STEP_SIZE,
+                     (FFT_SIZE - STEP_SIZE) * sizeof(double));
+    }
+
+    double sr_, freqPerBin_, expct_ = 0.0;
+    double pitch_ = 1.0, mix_ = 1.0;
+    int rover_ = LATENCY;
+    std::array<double, FFT_SIZE> window_{};
+    std::array<double, FFT_SIZE> inFIFO_{}, outFIFO_{};
+    std::array<double, 2 * FFT_SIZE> fft_{}, outAccum_{};
+    std::array<double, FFT_SIZE_2 + 1> lastPhase_{}, sumPhase_{};
+    std::array<double, FFT_SIZE> anaFreq_{}, anaMagn_{}, synFreq_{}, synMagn_{};
+};
+
+} // namespace shags::ops

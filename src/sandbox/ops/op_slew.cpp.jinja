@@ -1,0 +1,88 @@
+// op_slew.cpp.jinja — Stage-3 native mirror of op_slew.worklet.js.
+//
+// Linear-rate slew limiter with asymmetric rise/fall. See
+// op_slew.worklet.js header for the full design rationale and
+// contrast with `smooth` (exponential 1-pole).
+//
+//   step_up    = 1 / (riseMs · sr / 1000)
+//   step_down  = 1 / (fallMs · sr / 1000)
+//
+//   delta = x[n] - y[n-1]
+//   if   delta >  step_up  : y[n] = y[n-1] + step_up
+//   elif delta < -step_down: y[n] = y[n-1] - step_down
+//   else                   : y[n] = x[n]
+//
+// Float64 state, Jon Watte denormal flush (Canon:utilities §1).
+// Zero latency — causal, sample-by-sample.
+
+#pragma once
+#include <cmath>
+
+namespace shags {
+
+struct SlewOp {
+    static constexpr const char* opId = "slew";
+
+    double sr        = 48000.0;
+    double riseMs    = 10.0;
+    double fallMs    = 50.0;
+    double stepUp    = 0.0;
+    double stepDown  = 0.0;
+    double y         = 0.0;
+
+    static constexpr double DENORMAL = 1e-30;
+
+    explicit SlewOp(double sampleRate) : sr(sampleRate) {
+        recomputeSteps();
+    }
+
+    void reset() { y = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        double clamped = v < 0.001 ? 0.001 : (v > 10000.0 ? 10000.0 : v);
+        if (std::strcmp(id, "riseMs") == 0)       riseMs = clamped;
+        else if (std::strcmp(id, "fallMs") == 0)  fallMs = clamped;
+        else return;
+        recomputeSteps();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void recomputeSteps() {
+        stepUp   = 1.0 / (riseMs * sr * 0.001);
+        stepDown = 1.0 / (fallMs * sr * 0.001);
+    }
+
+    // in may be nullptr → rate-limited glide toward 0.
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double up   = stepUp;
+        const double down = stepDown;
+        double yl = y;
+
+        if (!in) {
+            for (int i = 0; i < N; ++i) {
+                double delta = -yl;
+                if (delta > up)         yl += up;
+                else if (delta < -down) yl -= down;
+                else                    yl = 0.0;
+                out[i] = static_cast<float>(yl);
+            }
+        } else {
+            for (int i = 0; i < N; ++i) {
+                double target = static_cast<double>(in[i]);
+                double delta  = target - yl;
+                if (delta > up)         yl += up;
+                else if (delta < -down) yl -= down;
+                else                    yl = target;
+                out[i] = static_cast<float>(yl);
+            }
+        }
+
+        if (yl < DENORMAL && yl > -DENORMAL) yl = 0.0;
+        y = yl;
+    }
+};
+
+} // namespace shags

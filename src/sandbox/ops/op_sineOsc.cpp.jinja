@@ -1,0 +1,100 @@
+// op_sineOsc.cpp — Stage-3b C++ sidecar for the `sineOsc` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_sineOsc.worklet.js
+// bit-for-bit. Direct-Form Resonator (DFR) per Julius O. Smith,
+// Physical Audio Signal Processing, "Digital Sinusoid Generators":
+//   https://ccrma.stanford.edu/~jos/pasp/Digital_Sinusoid_Generators.html
+//     x₁(n) = 2·cₙ · x₁(n−1) − x₂(n−1)
+//     x₂(n) =          x₁(n−1)   ; cₙ = cos(2π·fₙ·T); stable |cₙ|≤1.
+// Phase-0 initial conditions from McCartney (musicdsp #9, CMJ 2002) —
+// a specific choice of the (x₁(0), x₂(0)) pair JOS treats abstractly.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class SineOscOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "sineOsc";
+
+    explicit SineOscOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoef();
+        reset();
+    }
+
+    void reset() {
+        y1_ = -std::sin(w_);
+        y2_ = -std::sin(2.0 * w_);
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "freq") == 0) {
+            freq_ = v;
+            recomputeCoef();
+        } else if (std::strcmp(id, "amp") == 0) {
+            amp_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // freqMod is an optional per-sample CONTROL buffer (Hz offset added
+    // to base freq). Pass nullptr for the constant-freq fast path.
+    void process(const float* freqMod, float* out, int N) {
+        if (!out) return;
+        double y1 = y1_, y2 = y2_;
+
+        if (freqMod == nullptr) {
+            const double b1 = b1_;
+            for (int i = 0; i < N; ++i) {
+                const double y0 = b1 * y1 - y2;
+                out[i] = static_cast<float>(y0 * amp_);
+                y2 = y1;
+                y1 = y0;
+            }
+        } else {
+            const double baseF = freq_;
+            const double nyq   = sr_ * 0.5;
+            const double invSr = kTwoPi / sr_;
+            for (int i = 0; i < N; ++i) {
+                double f = baseF + static_cast<double>(freqMod[i]);
+                if (!(f > 0.01))     f = 0.01;
+                else if (f > nyq - 1) f = nyq - 1.0;
+                const double b1 = 2.0 * std::cos(f * invSr);
+                const double y0 = b1 * y1 - y2;
+                out[i] = static_cast<float>(y0 * amp_);
+                y2 = y1;
+                y1 = y0;
+            }
+        }
+
+        if (y1 < kDenormal && y1 > -kDenormal) y1 = 0.0;
+        if (y2 < kDenormal && y2 > -kDenormal) y2 = 0.0;
+        y1_ = y1;
+        y2_ = y2;
+    }
+
+private:
+    void recomputeCoef() {
+        const double nyq = sr_ * 0.5;
+        double f = freq_;
+        if (!(f > 0.01))     f = 0.01;
+        if (f > nyq - 1)     f = nyq - 1.0;
+        w_  = kTwoPi * f / sr_;
+        b1_ = 2.0 * std::cos(w_);
+    }
+
+    static constexpr double kTwoPi    = 6.283185307179586;
+    static constexpr double kDenormal = 1e-30;
+
+    double sr_;
+    double freq_ = 440.0;
+    double amp_  = 1.0;
+    double w_    = 0.0;
+    double b1_   = 0.0;
+    double y1_   = 0.0;
+    double y2_   = 0.0;
+};
+
+}  // namespace shags::ops

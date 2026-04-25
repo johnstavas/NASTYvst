@@ -1,0 +1,82 @@
+// op_transient.cpp.jinja — Stage-3 native mirror of op_transient.worklet.js.
+//
+// Catalog #43. Transient shaper — math-by-definition primitive built on
+// Canon:dynamics §1 Bram envelope detector. See worklet for full docstring.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class TransientOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "transient";
+
+    explicit TransientOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        aFast_ = timeCoef(1.0,   sr_);
+        aSlow_ = timeCoef(30.0,  sr_);
+        rel_   = timeCoef(300.0, sr_);
+    }
+
+    void reset() { envFast_ = 0; envSlow_ = 0; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if      (!std::strcmp(id, "attackAmount"))  kA_ = std::clamp(v, -1.0, 1.0);
+        else if (!std::strcmp(id, "sustainAmount")) kS_ = std::clamp(v, -1.0, 1.0);
+        else if (!std::strcmp(id, "fastMs"))   { double f = std::clamp(v, 0.1, 20.0);  aFast_ = timeCoef(f, sr_); }
+        else if (!std::strcmp(id, "slowMs"))   { double s = std::clamp(v, 1.0, 200.0); aSlow_ = timeCoef(s, sr_); }
+        else if (!std::strcmp(id, "releaseMs")){ double r = std::clamp(v, 1.0, 2000.0); rel_  = timeCoef(r, sr_); }
+        else if (!std::strcmp(id, "mix"))        mix_ = std::clamp(v, 0.0, 1.0);
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double gDry = std::cos(mix_ * M_PI * 0.5);
+        const double gWet = std::sin(mix_ * M_PI * 0.5);
+
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            double ax = std::fabs(x);
+
+            if (envFast_ < ax) envFast_ = envFast_ * aFast_ + (1.0 - aFast_) * ax;
+            else               envFast_ = envFast_ * rel_   + (1.0 - rel_)   * ax;
+            if (envFast_ > -DENORMAL && envFast_ < DENORMAL) envFast_ = 0.0;
+
+            if (envSlow_ < ax) envSlow_ = envSlow_ * aSlow_ + (1.0 - aSlow_) * ax;
+            else               envSlow_ = envSlow_ * rel_   + (1.0 - rel_)   * ax;
+            if (envSlow_ > -DENORMAL && envSlow_ < DENORMAL) envSlow_ = 0.0;
+
+            double diff = envFast_ - envSlow_;
+            double atk  = diff > 0 ?  diff : 0.0;
+            double sus  = diff < 0 ? -diff : 0.0;
+            double norm = envSlow_ + NORM_EPS;
+
+            double gain = 1.0 + kA_ * (atk / norm) + kS_ * (sus / norm);
+            if (gain < 0.0) gain = 0.0;
+            if (gain > 8.0) gain = 8.0;
+
+            double wet = x * gain;
+            out[i] = (float)(gDry * x + gWet * wet);
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr double NORM_EPS = 1e-6;
+
+    static double timeCoef(double ms, double sr) {
+        double tc = std::max(ms, 0.01) / 1000.0;
+        return std::exp(-1.0 / (sr * tc));
+    }
+
+    double sr_;
+    double aFast_, aSlow_, rel_;
+    double envFast_ = 0, envSlow_ = 0;
+    double kA_ = 0, kS_ = 0, mix_ = 1;
+};
+
+} // namespace shags::ops

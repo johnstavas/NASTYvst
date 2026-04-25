@@ -1,0 +1,85 @@
+// op_diffuser.cpp.jinja — Stage-3 native mirror of op_diffuser.worklet.js.
+//
+// 4-section Schroeder allpass diffuser (JOS PASP "Allpass as Two-Comb
+// Cascade" + "Schroeder Allpass Sections"). Direct-Form-II with b0=a_M=g.
+// Mutually-prime delays {23.83, 7.64, 2.56, 0.975} ms × size scale.
+// Catalog #19. Mirrors the worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+
+namespace shags::ops {
+
+class DiffuserOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "diffuser";
+
+    explicit DiffuserOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        max_ = (int)std::ceil(BASE_DELAY_MS[0] * 2.0 * sr_ / 1000.0) + 4;
+        for (int k = 0; k < 4; ++k) v_[k].assign(max_, 0.0f);
+        recalcDelays();
+    }
+
+    void reset() {
+        for (int k = 0; k < 4; ++k) {
+            std::fill(v_[k].begin(), v_[k].end(), 0.0f);
+            w_[k] = 0;
+        }
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "g")) {
+            g_ = std::clamp(v, -0.99, 0.99);
+        } else if (!std::strcmp(id, "size")) {
+            size_ = std::clamp(v, 0.5, 2.0);
+            recalcDelays();
+        }
+    }
+
+    int getLatencySamples() const { return M_[0] + M_[1] + M_[2] + M_[3]; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double g = g_;
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+            for (int k = 0; k < 4; ++k) {
+                const int r = (w_[k] - M_[k] + max_) % max_;
+                const double vd = (double)v_[k][r];
+                double vn = x - g * vd;
+                if (vn > -DENORMAL && vn < DENORMAL) vn = 0.0;
+                const double y = g * vn + vd;
+                v_[k][w_[k]] = (float)vn;
+                w_[k] = (w_[k] + 1) % max_;
+                x = y;
+            }
+            out[i] = (float)x;
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+    static constexpr double BASE_DELAY_MS[4] = { 23.83, 7.64, 2.56, 0.975 };
+
+    void recalcDelays() {
+        for (int k = 0; k < 4; ++k) {
+            int s = (int)std::floor(BASE_DELAY_MS[k] * size_ * sr_ / 1000.0);
+            if (s < 1) s = 1;
+            if (s > max_ - 1) s = max_ - 1;
+            M_[k] = s;
+        }
+    }
+
+    double sr_ = 0.0;
+    double g_  = 0.7;
+    double size_ = 1.0;
+    int max_ = 0;
+    int M_[4] = {0,0,0,0};
+    int w_[4] = {0,0,0,0};
+    std::vector<float> v_[4];
+};
+
+} // namespace shags::ops

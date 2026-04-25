@@ -1,0 +1,125 @@
+// op_bpm.cpp.jinja — Stage-3 native mirror of op_bpm.worklet.js.
+//
+// Energy-based beat detector — Frédéric Patin "Beat Detection Algorithms"
+// (Feb 2003) Simple Sound Energy Algorithm #3. Catalog #75. Mirrors the
+// worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class BpmOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "bpm";
+
+    explicit BpmOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        buf_.assign(windowN_, 0.0);
+        hist_.assign(histDepth_, 0.0);
+    }
+
+    void reset() {
+        std::fill(buf_.begin(),  buf_.end(),  0.0);
+        std::fill(hist_.begin(), hist_.end(), 0.0);
+        writeIdx_ = 0; filled_ = 0;
+        histPos_  = 0; framesSeen_ = 0;
+        heldE_ = 0.0; heldBeat_ = 0.0;
+        readIdx_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "windowN")) {
+            int W = std::clamp((int)std::round(v), 32, 16384);
+            if (W != windowN_) {
+                windowN_ = W;
+                buf_.assign(W, 0.0);
+                writeIdx_ = 0; filled_ = 0; readIdx_ = 0;
+            }
+        } else if (!std::strcmp(id, "histDepth")) {
+            int H = std::clamp((int)std::round(v), 2, 512);
+            if (H != histDepth_) {
+                histDepth_ = H;
+                hist_.assign(H, 0.0);
+                histPos_ = 0; framesSeen_ = 0;
+            }
+        }
+    }
+
+    int getLatencySamples() const { return windowN_; }
+
+    void process(const float* in, float* outE, float* outB, int N) {
+        const int W = windowN_;
+        for (int i = 0; i < N; ++i) {
+            if (outE) outE[i] = (float)heldE_;
+            if (outB) outB[i] = (readIdx_ == 0) ? (float)heldBeat_ : 0.0f;
+            readIdx_ = (readIdx_ + 1) % W;
+
+            buf_[writeIdx_] = in ? (double)in[i] : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % W;
+            ++filled_;
+
+            if (filled_ >= W) {
+                filled_ = 0;
+                computeFrame();
+            }
+        }
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+
+    void computeFrame() {
+        const int W = windowN_;
+        const int H = histDepth_;
+
+        // R1: e = Σ x[k]²
+        double e = 0.0;
+        for (int k = 0; k < W; ++k) {
+            double s = buf_[k];
+            e += s * s;
+        }
+        if (e < DENORMAL) e = 0.0;
+
+        bool isBeat = false;
+        if (framesSeen_ >= H) {
+            // R3
+            double sum = 0.0;
+            for (int i = 0; i < H; ++i) sum += hist_[i];
+            double Eavg = sum / H;
+
+            // R4
+            double vSum = 0.0;
+            for (int i = 0; i < H; ++i) {
+                double d = hist_[i] - Eavg;
+                vSum += d * d;
+            }
+            double V = vSum / H;
+
+            // R6
+            double C = (-0.0025714 * V) + 1.5142857;
+            if (e > C * Eavg) isBeat = true;
+        }
+
+        hist_[histPos_] = e;
+        histPos_ = (histPos_ + 1) % H;
+        ++framesSeen_;
+
+        heldE_    = e / W;
+        heldBeat_ = isBeat ? 1.0 : 0.0;
+        readIdx_  = 0;
+    }
+
+    double sr_ = 0.0;
+    int windowN_ = 1024, histDepth_ = 43;
+    std::vector<double> buf_, hist_;
+    int writeIdx_ = 0, filled_ = 0;
+    int histPos_ = 0;
+    long long framesSeen_ = 0;
+    double heldE_ = 0.0, heldBeat_ = 0.0;
+    int readIdx_ = 0;
+};
+
+} // namespace shags::ops

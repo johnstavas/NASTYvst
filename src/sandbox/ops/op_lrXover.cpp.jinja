@@ -1,0 +1,116 @@
+// op_lrXover.cpp.jinja — Stage-3 native mirror of op_lrXover.worklet.js.
+//
+// 4th-order Linkwitz-Riley crossover. Primaries: linkwitzlab.com (LR4 =
+// cascaded 2nd-order Butterworth, Q=1/√2) + RBJ Audio EQ Cookbook
+// (biquad coefficients). Catalog #39. Mirrors the worklet bit-for-bit.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_SQRT1_2
+#define M_SQRT1_2 0.70710678118654752440
+#endif
+
+namespace shags::ops {
+
+class LrXoverOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "lrXover";
+
+    explicit LrXoverOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recalc();
+    }
+
+    void reset() {
+        lx1_=lx2_=ly1_=ly2_=0; Lx1_=Lx2_=Ly1_=Ly2_=0;
+        hx1_=hx2_=hy1_=hy2_=0; Hx1_=Hx2_=Hy1_=Hy2_=0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "f0")) {
+            f0_ = std::clamp(v, 1.0, sr_ * 0.49);
+            recalc();
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* outL, float* outH, int N) {
+        const double lb0=lb0_, lb1=lb1_, lb2=lb2_, la1=la1_, la2=la2_;
+        const double hb0=hb0_, hb1=hb1_, hb2=hb2_, ha1=ha1_, ha2=ha2_;
+        double lx1=lx1_, lx2=lx2_, ly1=ly1_, ly2=ly2_;
+        double Lx1=Lx1_, Lx2=Lx2_, Ly1=Ly1_, Ly2=Ly2_;
+        double hx1=hx1_, hx2=hx2_, hy1=hy1_, hy2=hy2_;
+        double Hx1=Hx1_, Hx2=Hx2_, Hy1=Hy1_, Hy2=Hy2_;
+
+        for (int i = 0; i < N; ++i) {
+            double x = in ? (double)in[i] : 0.0;
+
+            double yA = lb0*x + lb1*lx1 + lb2*lx2 - la1*ly1 - la2*ly2;
+            if (yA > -DENORMAL && yA < DENORMAL) yA = 0.0;
+            lx2=lx1; lx1=x; ly2=ly1; ly1=yA;
+
+            double yB = lb0*yA + lb1*Lx1 + lb2*Lx2 - la1*Ly1 - la2*Ly2;
+            if (yB > -DENORMAL && yB < DENORMAL) yB = 0.0;
+            Lx2=Lx1; Lx1=yA; Ly2=Ly1; Ly1=yB;
+
+            if (outL) outL[i] = (float)yB;
+
+            double zA = hb0*x + hb1*hx1 + hb2*hx2 - ha1*hy1 - ha2*hy2;
+            if (zA > -DENORMAL && zA < DENORMAL) zA = 0.0;
+            hx2=hx1; hx1=x; hy2=hy1; hy1=zA;
+
+            double zB = hb0*zA + hb1*Hx1 + hb2*Hx2 - ha1*Hy1 - ha2*Hy2;
+            if (zB > -DENORMAL && zB < DENORMAL) zB = 0.0;
+            Hx2=Hx1; Hx1=zA; Hy2=Hy1; Hy1=zB;
+
+            if (outH) outH[i] = (float)zB;
+        }
+
+        lx1_=lx1; lx2_=lx2; ly1_=ly1; ly2_=ly2;
+        Lx1_=Lx1; Lx2_=Lx2; Ly1_=Ly1; Ly2_=Ly2;
+        hx1_=hx1; hx2_=hx2; hy1_=hy1; hy2_=hy2;
+        Hx1_=Hx1; Hx2_=Hx2; Hy1_=Hy1; Hy2_=Hy2;
+    }
+
+private:
+    static constexpr double DENORMAL = 1e-30;
+
+    void recalc() {
+        double w0 = 2.0 * M_PI * f0_ / sr_;
+        double cosw = std::cos(w0);
+        double sinw = std::sin(w0);
+        double alpha = sinw / (2.0 * M_SQRT1_2);
+        double a0 = 1.0 + alpha;
+        double a1 = -2.0 * cosw;
+        double a2 = 1.0 - alpha;
+
+        double lp_b0 = (1.0 - cosw) * 0.5;
+        double lp_b1 =  1.0 - cosw;
+        double lp_b2 = (1.0 - cosw) * 0.5;
+        lb0_ = lp_b0 / a0; lb1_ = lp_b1 / a0; lb2_ = lp_b2 / a0;
+        la1_ = a1 / a0;    la2_ = a2 / a0;
+
+        double hp_b0 =  (1.0 + cosw) * 0.5;
+        double hp_b1 = -(1.0 + cosw);
+        double hp_b2 =  (1.0 + cosw) * 0.5;
+        hb0_ = hp_b0 / a0; hb1_ = hp_b1 / a0; hb2_ = hp_b2 / a0;
+        ha1_ = a1 / a0;    ha2_ = a2 / a0;
+    }
+
+    double sr_ = 0.0;
+    double f0_ = 1000.0;
+    double lb0_=0,lb1_=0,lb2_=0,la1_=0,la2_=0;
+    double hb0_=0,hb1_=0,hb2_=0,ha1_=0,ha2_=0;
+    double lx1_=0,lx2_=0,ly1_=0,ly2_=0;
+    double Lx1_=0,Lx2_=0,Ly1_=0,Ly2_=0;
+    double hx1_=0,hx2_=0,hy1_=0,hy2_=0;
+    double Hx1_=0,Hx2_=0,Hy1_=0,Hy2_=0;
+};
+
+} // namespace shags::ops

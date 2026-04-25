@@ -1,0 +1,146 @@
+// op_phaseVocoder.cpp — Stage-3b C++ sidecar for the `phaseVocoder` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_phaseVocoder.worklet.js
+// bit-for-bit. Catalog #68. Primary: Bernsee smbPitchShift (via TarsosDSP).
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class PhaseVocoderOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "phaseVocoder";
+
+    explicit PhaseVocoderOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        alloc(1024);
+    }
+
+    void reset() {
+        std::fill(inRe_.begin(),      inRe_.end(),      0.0);
+        std::fill(inIm_.begin(),      inIm_.end(),      0.0);
+        std::fill(outRe_.begin(),     outRe_.end(),     0.0);
+        std::fill(outIm_.begin(),     outIm_.end(),     0.0);
+        std::fill(lastPhase_.begin(), lastPhase_.end(), 0.0);
+        std::fill(sumPhase_.begin(),  sumPhase_.end(),  0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "size") == 0) {
+            int N = static_cast<int>(v);
+            if (N != size_) alloc(N);
+        } else if (std::strcmp(id, "pitchShift") == 0) {
+            pitch_ = std::min(std::max(v, 0.25), 4.0);
+        }
+    }
+
+    int getLatencySamples() const { return size_; }
+
+    void process(const float* inRe, const float* inIm,
+                 float* outRe, float* outIm, int N) {
+        if (!outRe && !outIm) return;
+
+        for (int i = 0; i < N; ++i) {
+            if (filled_ >= size_) {
+                processFrame();
+                filled_ = 0;
+                readIdx_ = 0;
+            }
+
+            if (outRe) outRe[i] = static_cast<float>(outRe_[readIdx_]);
+            if (outIm) outIm[i] = static_cast<float>(outIm_[readIdx_]);
+            readIdx_ = (readIdx_ + 1) % size_;
+
+            inRe_[writeIdx_] = inRe ? static_cast<double>(inRe[i]) : 0.0;
+            inIm_[writeIdx_] = inIm ? static_cast<double>(inIm[i]) : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % size_;
+            ++filled_;
+        }
+    }
+
+private:
+    static bool isPow2(int n) { return n > 0 && (n & (n - 1)) == 0; }
+    static int  floorPow2(int n) { int p = 1; while ((p << 1) <= n) p <<= 1; return p; }
+
+    void alloc(int N) {
+        int size = std::min(std::max(isPow2(N) ? N : floorPow2(N), 16), 32768);
+        size_ = size;
+        inRe_.assign(size, 0.0);
+        inIm_.assign(size, 0.0);
+        outRe_.assign(size, 0.0);
+        outIm_.assign(size, 0.0);
+        lastPhase_.assign(size, 0.0);
+        sumPhase_.assign(size, 0.0);
+        anaMagn_.assign(size, 0.0);
+        anaFreq_.assign(size, 0.0);
+        synMagn_.assign(size, 0.0);
+        synFreq_.assign(size, 0.0);
+        writeIdx_ = 0; readIdx_ = 0; filled_ = 0;
+    }
+
+    void processFrame() {
+        constexpr double DENORMAL = 1e-30;
+        const int N = size_;
+        constexpr double osamp = 1.0;
+        const double freqPerBin = sr_ / static_cast<double>(N);
+        const double excpt = 2.0 * M_PI;   // = 2π·N/N/osamp at osamp=1
+
+        for (int k = 0; k < N; ++k) { synMagn_[k] = 0; synFreq_[k] = 0; }
+
+        for (int k = 0; k < N; ++k) {
+            const double re = inRe_[k];
+            const double im = inIm_[k];
+            const double magn  = 2.0 * std::sqrt(re * re + im * im);
+            const double phase = std::atan2(im, re);
+
+            double tmp = phase - lastPhase_[k];
+            lastPhase_[k] = phase;
+
+            tmp -= static_cast<double>(k) * excpt;
+            long long qpd = static_cast<long long>(tmp / M_PI);
+            if (qpd >= 0) qpd += qpd & 1;
+            else          qpd -= qpd & 1;
+            tmp -= M_PI * static_cast<double>(qpd);
+
+            tmp = osamp * tmp / (2.0 * M_PI);
+            tmp = static_cast<double>(k) * freqPerBin + tmp * freqPerBin;
+
+            anaMagn_[k] = magn;
+            anaFreq_[k] = tmp;
+        }
+
+        for (int k = 0; k < N; ++k) {
+            const int bin = static_cast<int>(std::lround(k * pitch_));
+            if (bin >= 0 && bin < N) {
+                synMagn_[bin] += anaMagn_[k];
+                synFreq_[bin]  = anaFreq_[k] * pitch_;
+            }
+        }
+
+        for (int k = 0; k < N; ++k) {
+            const double magn = synMagn_[k];
+            double tmp = synFreq_[k];
+            tmp -= static_cast<double>(k) * freqPerBin;
+            tmp /= freqPerBin;
+            tmp = 2.0 * M_PI * tmp / osamp;
+            tmp += static_cast<double>(k) * excpt;
+            sumPhase_[k] += tmp;
+            if (sumPhase_[k] < DENORMAL && sumPhase_[k] > -DENORMAL) sumPhase_[k] = 0;
+            const double phase = sumPhase_[k];
+            outRe_[k] = magn * std::cos(phase);
+            outIm_[k] = magn * std::sin(phase);
+        }
+    }
+
+    double sr_;
+    int    size_ = 0;
+    double pitch_ = 1.0;
+    std::vector<double> inRe_, inIm_, outRe_, outIm_;
+    std::vector<double> lastPhase_, sumPhase_;
+    std::vector<double> anaMagn_, anaFreq_, synMagn_, synFreq_;
+    int    writeIdx_ = 0, readIdx_ = 0, filled_ = 0;
+};
+
+}  // namespace shags::ops

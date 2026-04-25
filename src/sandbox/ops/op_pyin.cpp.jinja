@@ -1,0 +1,362 @@
+// op_pyin.cpp.jinja — C++ mirror of op_pyin.worklet.js.
+// pYIN: Mauch & Dixon 2014, ICASSP. Primary code: github.com/c4dm/pyin (GPL v2+).
+// Paper vs code: code wins. Beta tables copied verbatim from YinUtil.cpp L178–L181.
+// HMM constants verbatim from MonoPitchHMM.cpp. Our deviations: silent-frame gate,
+// fixed-lag online Viterbi (paper silent on online), parabolic refine on d′.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <vector>
+#include <limits>
+
+namespace shags_pyin_{{ instance }} {
+
+// 100-element threshold PMFs (s = 0.01..1.00 in 0.01 steps).
+static const float UNIFORM_DIST[100] = {
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+    0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,0.01f,
+};
+
+static const float BETA_DIST_1[100] = {
+    0.028911f,0.048656f,0.061306f,0.068539f,0.071703f,0.071877f,0.069915f,0.066489f,0.062117f,0.057199f,
+    0.052034f,0.046844f,0.041786f,0.036971f,0.032470f,0.028323f,0.024549f,0.021153f,0.018124f,0.015446f,
+    0.013096f,0.011048f,0.009275f,0.007750f,0.006445f,0.005336f,0.004397f,0.003606f,0.002945f,0.002394f,
+    0.001937f,0.001560f,0.001250f,0.000998f,0.000792f,0.000626f,0.000492f,0.000385f,0.000300f,0.000232f,
+    0.000179f,0.000137f,0.000104f,0.000079f,0.000060f,0.000045f,0.000033f,0.000024f,0.000018f,0.000013f,
+    0.000009f,0.000007f,0.000005f,0.000003f,0.000002f,0.000002f,0.000001f,0.000001f,0.000001f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+};
+
+static const float BETA_DIST_2[100] = {
+    0.012614f,0.022715f,0.030646f,0.036712f,0.041184f,0.044301f,0.046277f,0.047298f,0.047528f,0.047110f,
+    0.046171f,0.044817f,0.043144f,0.041231f,0.039147f,0.036950f,0.034690f,0.032406f,0.030133f,0.027898f,
+    0.025722f,0.023624f,0.021614f,0.019704f,0.017900f,0.016205f,0.014621f,0.013148f,0.011785f,0.010530f,
+    0.009377f,0.008324f,0.007366f,0.006497f,0.005712f,0.005005f,0.004372f,0.003806f,0.003302f,0.002855f,
+    0.002460f,0.002112f,0.001806f,0.001539f,0.001307f,0.001105f,0.000931f,0.000781f,0.000652f,0.000542f,
+    0.000449f,0.000370f,0.000303f,0.000247f,0.000201f,0.000162f,0.000130f,0.000104f,0.000082f,0.000065f,
+    0.000051f,0.000039f,0.000030f,0.000023f,0.000018f,0.000013f,0.000010f,0.000007f,0.000005f,0.000004f,
+    0.000003f,0.000002f,0.000001f,0.000001f,0.000001f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+};
+
+static const float BETA_DIST_3[100] = {
+    0.006715f,0.012509f,0.017463f,0.021655f,0.025155f,0.028031f,0.030344f,0.032151f,0.033506f,0.034458f,
+    0.035052f,0.035331f,0.035332f,0.035092f,0.034643f,0.034015f,0.033234f,0.032327f,0.031314f,0.030217f,
+    0.029054f,0.027841f,0.026592f,0.025322f,0.024042f,0.022761f,0.021489f,0.020234f,0.019002f,0.017799f,
+    0.016630f,0.015499f,0.014409f,0.013362f,0.012361f,0.011407f,0.010500f,0.009641f,0.008830f,0.008067f,
+    0.007351f,0.006681f,0.006056f,0.005475f,0.004936f,0.004437f,0.003978f,0.003555f,0.003168f,0.002814f,
+    0.002492f,0.002199f,0.001934f,0.001695f,0.001481f,0.001288f,0.001116f,0.000963f,0.000828f,0.000708f,
+    0.000603f,0.000511f,0.000431f,0.000361f,0.000301f,0.000250f,0.000206f,0.000168f,0.000137f,0.000110f,
+    0.000088f,0.000070f,0.000055f,0.000043f,0.000033f,0.000025f,0.000019f,0.000014f,0.000010f,0.000007f,
+    0.000005f,0.000004f,0.000002f,0.000002f,0.000001f,0.000001f,0.000000f,0.000000f,0.000000f,0.000000f,
+    0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+};
+
+static const float BETA_DIST_4[100] = {
+    0.003996f,0.007596f,0.010824f,0.013703f,0.016255f,0.018501f,0.020460f,0.022153f,0.023597f,0.024809f,
+    0.025807f,0.026607f,0.027223f,0.027671f,0.027963f,0.028114f,0.028135f,0.028038f,0.027834f,0.027535f,
+    0.027149f,0.026687f,0.026157f,0.025567f,0.024926f,0.024240f,0.023517f,0.022763f,0.021983f,0.021184f,
+    0.020371f,0.019548f,0.018719f,0.017890f,0.017062f,0.016241f,0.015428f,0.014627f,0.013839f,0.013068f,
+    0.012315f,0.011582f,0.010870f,0.010181f,0.009515f,0.008874f,0.008258f,0.007668f,0.007103f,0.006565f,
+    0.006053f,0.005567f,0.005107f,0.004673f,0.004264f,0.003880f,0.003521f,0.003185f,0.002872f,0.002581f,
+    0.002312f,0.002064f,0.001835f,0.001626f,0.001434f,0.001260f,0.001102f,0.000959f,0.000830f,0.000715f,
+    0.000612f,0.000521f,0.000440f,0.000369f,0.000308f,0.000254f,0.000208f,0.000169f,0.000136f,0.000108f,
+    0.000084f,0.000065f,0.000050f,0.000037f,0.000027f,0.000019f,0.000014f,0.000009f,0.000006f,0.000004f,
+    0.000002f,0.000001f,0.000001f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,0.000000f,
+};
+
+static const float* DIST_TABLE[5] = {
+    UNIFORM_DIST, BETA_DIST_1, BETA_DIST_2, BETA_DIST_3, BETA_DIST_4
+};
+
+static constexpr float HMM_MIN_FREQ = 61.735f;
+static constexpr int   HMM_N_BPS    = 5;
+static constexpr int   HMM_N_PITCH  = 69 * HMM_N_BPS;           // 345
+static constexpr int   HMM_TRANS_W  = 5 * (HMM_N_BPS / 2) + 1;  // 11
+
+} // namespace shags_pyin_{{ instance }}
+
+struct OpPyin_{{ instance }} {
+    using NS = shags_pyin_{{ instance }};
+
+    float sr = 48000.0f;
+    float p_f0Min = 61.735f, p_f0Max = 880.0f;
+    float p_windowMs = 46.4f, p_hopMs = 5.8f;
+    int   p_prior = 2;
+    float p_yinTrust = 0.5f, p_selfTrans = 0.99f;
+    int   p_lagFrames = 8;
+
+    int W = 2048, hop = 256, tauMin = 48, tauMax = 600;
+    std::vector<float> buf;
+    int bufMask = 0, w = 0, filled = 0;
+
+    std::vector<float> frame, df, cmndf, peakProb;
+
+    // HMM state
+    static constexpr int M = NS::HMM_N_PITCH;
+    static constexpr int N_STATE = 2 * M;
+    float hmmFreqs[N_STATE];
+    std::vector<int>   trFrom, trTo;
+    std::vector<float> trProb;
+    float init[N_STATE];
+    float delta[N_STATE];
+    float oldDelta[N_STATE];
+    float obsScratch[N_STATE];
+    // Fixed-lag ring of psi[t] → preceding-state index per state.
+    std::vector<std::vector<int>> psiRing;
+    bool  hmmInitialized = false;
+
+    float lastF0 = 0.0f, lastVoicedProb = 0.0f, lastVoicedFlag = 0.0f;
+
+    void recompute() {
+        W      = std::max(32, (int)std::round(p_windowMs * 0.001f * sr));
+        hop    = std::max(1,  (int)std::round(p_hopMs    * 0.001f * sr));
+        tauMin = std::max(2,        (int)std::floor(sr / p_f0Max));
+        tauMax = std::min(W - 1,    (int)std::ceil (sr / p_f0Min));
+        if (tauMax <= tauMin) tauMax = tauMin + 1;
+
+        int frameLen = W + tauMax + 2;
+        int n = 1; while (n < frameLen + 2) n <<= 1;
+        buf.assign(n, 0.0f);
+        bufMask = n - 1; w = 0; filled = 0;
+
+        frame.assign(frameLen, 0.0f);
+        df.assign(tauMax + 1, 0.0f);
+        cmndf.assign(tauMax + 1, 0.0f);
+        peakProb.assign(tauMax + 1, 0.0f);
+    }
+
+    void buildHMM() {
+        const int halfW = NS::HMM_TRANS_W / 2;
+        const float self_ = p_selfTrans;
+
+        for (int i = 0; i < M; ++i) {
+            hmmFreqs[i]     = NS::HMM_MIN_FREQ * std::pow(2.0f, (float)i / (12.0f * NS::HMM_N_BPS));
+            hmmFreqs[i + M] = -hmmFreqs[i];
+        }
+
+        trFrom.clear(); trTo.clear(); trProb.clear();
+        for (int iPitch = 0; iPitch < M; ++iPitch) {
+            int theoreticalMinNext = iPitch - halfW;
+            int minNext = std::max(0, theoreticalMinNext);
+            int maxNext = std::min(M - 1, iPitch + halfW);
+
+            float weightSum = 0;
+            std::vector<float> weights;
+            weights.reserve(maxNext - minNext + 1);
+            for (int i = minNext; i <= maxNext; ++i) {
+                float wv = (i <= iPitch)
+                    ? (float)(i - theoreticalMinNext + 1)
+                    : (float)(iPitch - theoreticalMinNext + 1 - (i - iPitch));
+                weights.push_back(wv);
+                weightSum += wv;
+            }
+            for (int i = minNext; i <= maxNext; ++i) {
+                float wv = weights[i - minNext] / weightSum;
+                trFrom.push_back(iPitch);       trTo.push_back(i);          trProb.push_back(wv * self_);
+                trFrom.push_back(iPitch);       trTo.push_back(i + M);      trProb.push_back(wv * (1.0f - self_));
+                trFrom.push_back(iPitch + M);   trTo.push_back(i + M);      trProb.push_back(wv * self_);
+                trFrom.push_back(iPitch + M);   trTo.push_back(i);          trProb.push_back(wv * (1.0f - self_));
+            }
+        }
+
+        const float invN = 1.0f / (float)N_STATE;
+        for (int s = 0; s < N_STATE; ++s) {
+            init[s]     = invN;
+            delta[s]    = 0.0f;
+            oldDelta[s] = 0.0f;
+        }
+        psiRing.clear();
+        hmmInitialized = false;
+    }
+
+    void setSampleRate(float s) { sr = s; recompute(); buildHMM(); }
+
+    void reset() {
+        std::fill(buf.begin(), buf.end(), 0.0f);
+        std::fill(frame.begin(), frame.end(), 0.0f);
+        std::fill(df.begin(), df.end(), 0.0f);
+        std::fill(cmndf.begin(), cmndf.end(), 0.0f);
+        std::fill(peakProb.begin(), peakProb.end(), 0.0f);
+        w = 0; filled = 0;
+        lastF0 = 0; lastVoicedProb = 0; lastVoicedFlag = 0;
+        for (int s = 0; s < N_STATE; ++s) { delta[s] = 0; oldDelta[s] = 0; }
+        psiRing.clear();
+        hmmInitialized = false;
+    }
+
+    void setParam_f0Min    (float v){ if(std::isfinite(v)){ p_f0Min     = std::clamp(v, 20.0f, 500.0f);   recompute(); } }
+    void setParam_f0Max    (float v){ if(std::isfinite(v)){ p_f0Max     = std::clamp(v, 200.0f, sr*0.25f); recompute(); } }
+    void setParam_windowMs (float v){ if(std::isfinite(v)){ p_windowMs  = std::clamp(v, 10.0f, 200.0f);    recompute(); } }
+    void setParam_hopMs    (float v){ if(std::isfinite(v)){ p_hopMs     = std::clamp(v, 1.0f,  50.0f);     recompute(); } }
+    void setParam_prior    (float v){ if(std::isfinite(v)){ p_prior     = std::clamp((int)v, 0, 4); } }
+    void setParam_yinTrust (float v){ if(std::isfinite(v)){ p_yinTrust  = std::clamp(v, 0.0f, 1.0f); } }
+    void setParam_selfTrans(float v){ if(std::isfinite(v)){ p_selfTrans = std::clamp(v, 0.0f, 1.0f); buildHMM(); } }
+    void setParam_lagFrames(float v){ if(std::isfinite(v)){ p_lagFrames = std::clamp((int)v, 1, 64); } }
+
+    void computeFrame() {
+        const int frameLen = W + tauMax;
+
+        int rd = (w - frameLen) & bufMask;
+        for (int i = 0; i < frameLen; ++i) { frame[i] = buf[rd]; rd = (rd + 1) & bufMask; }
+
+        float energy = 0;
+        for (int j = 0; j < W; ++j) energy += frame[j] * frame[j];
+        if (energy < 1e-10f) { lastF0 = 0; lastVoicedProb = 0; lastVoicedFlag = 0; return; }
+
+        // YIN d(τ)
+        df[0] = 0;
+        for (int tau = 1; tau <= tauMax; ++tau) {
+            float s = 0;
+            for (int j = 0; j < W; ++j) {
+                float d = frame[j] - frame[j + tau];
+                s += d * d;
+            }
+            df[tau] = s;
+        }
+        // CMNDF
+        cmndf[0] = 1;
+        float runSum = 0;
+        for (int tau = 1; tau <= tauMax; ++tau) {
+            runSum += df[tau];
+            cmndf[tau] = (runSum > 0) ? (df[tau] * tau / runSum) : 1.0f;
+        }
+
+        // pYIN Stage 1: probabilistic thresholding.
+        std::fill(peakProb.begin(), peakProb.end(), 0.0f);
+        const float* dist = NS::DIST_TABLE[p_prior];
+        const int nThr = 100;
+        const float maxThresh = 0.01f + 0.01f * (nThr - 1);
+        float minVal = std::numeric_limits<float>::infinity();
+        int   minInd = 0;
+        float sumProb = 0;
+
+        int tau = tauMin;
+        while (tau + 1 < tauMax) {
+            if (cmndf[tau] < maxThresh && cmndf[tau + 1] < cmndf[tau]) {
+                while (tau + 1 < tauMax && cmndf[tau + 1] < cmndf[tau]) ++tau;
+                if (cmndf[tau] < minVal && tau > 2) { minVal = cmndf[tau]; minInd = tau; }
+                int ci = nThr - 1;
+                const float dp = cmndf[tau];
+                while (ci >= 0 && (0.01f + 0.01f * ci) > dp) {
+                    peakProb[tau] += dist[ci];
+                    --ci;
+                }
+                sumProb += peakProb[tau];
+                ++tau;
+            } else {
+                ++tau;
+            }
+        }
+
+        if (sumProb > 0 && peakProb[minInd] > 0) {
+            const float scale = peakProb[minInd] / sumProb;
+            for (int i = tauMin; i < tauMax; ++i) peakProb[i] *= scale;
+        }
+
+        // Stage 2 observation probs per HMM state.
+        for (int s = 0; s < N_STATE; ++s) obsScratch[s] = 0;
+        float probYinPitched = 0;
+
+        for (int tauC = tauMin; tauC < tauMax; ++tauC) {
+            float p = peakProb[tauC];
+            if (p <= 0) continue;
+            float tauR = (float)tauC;
+            if (tauC > 0 && tauC < tauMax) {
+                float y0 = cmndf[tauC - 1], y1 = cmndf[tauC], y2 = cmndf[tauC + 1];
+                float den = 2.0f * (y0 - 2.0f * y1 + y2);
+                if (den != 0.0f) {
+                    float d = (y0 - y2) / den;
+                    if (d > -1.0f && d < 1.0f) tauR = (float)tauC + d;
+                }
+            }
+            float f = sr / tauR;
+            if (f <= NS::HMM_MIN_FREQ) continue;
+            float oldd = 1e9f;
+            for (int iPitch = 0; iPitch < M; ++iPitch) {
+                float d = std::fabs(f - hmmFreqs[iPitch]);
+                if (oldd < d && iPitch > 0) {
+                    obsScratch[iPitch - 1] += p;
+                    probYinPitched += p;
+                    break;
+                }
+                oldd = d;
+            }
+        }
+
+        const float probReallyPitched = p_yinTrust * probYinPitched;
+        if (probYinPitched > 0) {
+            const float scale = probReallyPitched / probYinPitched; // = yinTrust
+            for (int iPitch = 0; iPitch < M; ++iPitch) obsScratch[iPitch] *= scale;
+        }
+        const float unvoicedMass = (1.0f - probReallyPitched) / (float)M;
+        for (int iPitch = 0; iPitch < M; ++iPitch) obsScratch[iPitch + M] = unvoicedMass;
+
+        // Forward Viterbi step.
+        if (!hmmInitialized) {
+            float dsum = 0;
+            for (int s = 0; s < N_STATE; ++s) {
+                oldDelta[s] = init[s] * obsScratch[s];
+                dsum += oldDelta[s];
+            }
+            if (dsum > 0) for (int s = 0; s < N_STATE; ++s) oldDelta[s] /= dsum;
+            else          for (int s = 0; s < N_STATE; ++s) oldDelta[s] = 1.0f / (float)N_STATE;
+            psiRing.emplace_back(N_STATE, 0);
+            hmmInitialized = true;
+            return;
+        }
+
+        std::vector<int> tempPsi(N_STATE, 0);
+        for (int s = 0; s < N_STATE; ++s) delta[s] = 0;
+        const int nTrans = (int)trProb.size();
+        for (int t = 0; t < nTrans; ++t) {
+            int   fs = trFrom[t], ts = trTo[t];
+            float v  = oldDelta[fs] * trProb[t];
+            if (v > delta[ts]) { delta[ts] = v; tempPsi[ts] = fs; }
+        }
+        float dsum = 0;
+        for (int s = 0; s < N_STATE; ++s) { delta[s] *= obsScratch[s]; dsum += delta[s]; }
+        if (dsum > 0) for (int s = 0; s < N_STATE; ++s) { oldDelta[s] = delta[s] / dsum; delta[s] = 0; }
+        else          for (int s = 0; s < N_STATE; ++s) { oldDelta[s] = 1.0f / (float)N_STATE; delta[s] = 0; }
+
+        psiRing.push_back(std::move(tempPsi));
+        while ((int)psiRing.size() > p_lagFrames + 1) psiRing.erase(psiRing.begin());
+
+        int bestState = 0; float bestVal = -1.0f;
+        for (int s = 0; s < N_STATE; ++s) if (oldDelta[s] > bestVal) { bestVal = oldDelta[s]; bestState = s; }
+        int state = bestState;
+        for (int f = (int)psiRing.size() - 1; f > 0; --f) state = psiRing[f][state];
+
+        bool voiced = (state < M);
+        int pitchBin = voiced ? state : (state - M);
+        lastVoicedFlag = voiced ? 1.0f : 0.0f;
+        lastF0 = voiced ? hmmFreqs[pitchBin] : 0.0f;
+        lastVoicedProb = std::clamp(probReallyPitched, 0.0f, 1.0f);
+    }
+
+    void process(const float* in, float* f0Out, float* vpOut, float* vfOut, int N) {
+        for (int n = 0; n < N; ++n) {
+            float x = in ? in[n] : 0.0f;
+            buf[w] = x; w = (w + 1) & bufMask; ++filled;
+            if (filled >= hop) { filled = 0; computeFrame(); }
+            if (f0Out) f0Out[n] = lastF0;
+            if (vpOut) vpOut[n] = lastVoicedProb;
+            if (vfOut) vfOut[n] = lastVoicedFlag;
+        }
+    }
+
+    int getLatencySamples() const { return W + p_lagFrames * hop; }
+};

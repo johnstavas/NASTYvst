@@ -1,0 +1,88 @@
+// op_trigger.cpp.jinja — Stage-3 native mirror of op_trigger.worklet.js.
+//
+// Schmitt trigger + optional rising-edge pulse. See worklet header for
+// full design rationale. Canon:dynamics §4 (beat detector).
+
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags {
+
+struct TriggerOp {
+    static constexpr const char* opId = "trigger";
+
+    double sr        = 48000.0;
+    double threshHi  = 0.5;
+    double threshLo  = 0.4;
+    int    mode      = 0;       // 0 = gate, 1 = pulse
+    bool   high      = false;
+
+    explicit TriggerOp(double sampleRate) : sr(sampleRate) {}
+
+    void reset() { high = false; }
+
+    // setParam dispatch — string params accepted for `mode`.
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) {
+            // `mode` via numeric path handled below; for thresholds just bail.
+            if (std::strcmp(id, "mode") == 0) return;
+            return;
+        }
+        if (std::strcmp(id, "threshHi") == 0)       threshHi = v;
+        else if (std::strcmp(id, "threshLo") == 0)  threshLo = v;
+        else if (std::strcmp(id, "mode") == 0)      mode = (v != 0.0) ? 1 : 0;
+        else return;
+        if (threshLo > threshHi) threshLo = threshHi;
+    }
+
+    void setParamStr(const char* id, const char* s) {
+        if (std::strcmp(id, "mode") != 0) return;
+        if      (std::strcmp(s, "gate")  == 0) mode = 0;
+        else if (std::strcmp(s, "pulse") == 0) mode = 1;
+        // unknown string: sticky last-good
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        const double hi = threshHi;
+        const double lo = threshLo;
+        bool h = high;
+
+        if (!in) {
+            if (!h) {
+                for (int i = 0; i < N; ++i) out[i] = 0.0f;
+                return;
+            }
+            for (int i = 0; i < N; ++i) {
+                if (h && 0.0 <= lo) h = false;
+                out[i] = (mode == 0) ? (h ? 1.0f : 0.0f) : 0.0f;
+            }
+            high = h;
+            return;
+        }
+
+        if (mode == 0) {
+            for (int i = 0; i < N; ++i) {
+                double x = in[i];
+                if      (!h && x >= hi) h = true;
+                else if ( h && x <= lo) h = false;
+                out[i] = h ? 1.0f : 0.0f;
+            }
+        } else {
+            for (int i = 0; i < N; ++i) {
+                double x = in[i];
+                float edge = 0.0f;
+                if      (!h && x >= hi) { h = true;  edge = 1.0f; }
+                else if ( h && x <= lo) { h = false; }
+                out[i] = edge;
+            }
+        }
+
+        high = h;
+    }
+};
+
+} // namespace shags

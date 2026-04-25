@@ -1,0 +1,147 @@
+// op_istft.cpp — Stage-3b C++ sidecar for the `istft` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_istft.worklet.js
+// bit-for-bit. Catalog #67. Primary: JOS SASP "Overlap-Add (OLA) STFT
+// Processing" + Harris 1978 Hann window.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class IstftOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "istft";
+
+    explicit IstftOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        alloc(1024);
+    }
+
+    void reset() {
+        std::fill(specRe_.begin(), specRe_.end(), 0.0);
+        std::fill(specIm_.begin(), specIm_.end(), 0.0);
+        std::fill(ola_.begin(),    ola_.end(),    0.0);
+        writeIdx_ = 0; filled_ = 0; olaWrite_ = 0; olaRead_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "size") == 0) {
+            int N = static_cast<int>(v);
+            if (N != size_) alloc(N);
+        } else if (std::strcmp(id, "hop") == 0) {
+            hop_ = std::min(std::max(static_cast<int>(v), 1), size_);
+            recomputeScale();
+        }
+    }
+
+    int getLatencySamples() const { return size_; }
+
+    void process(const float* inRe, const float* inIm, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL = 1e-30;
+
+        for (int i = 0; i < N; ++i) {
+            if (filled_ >= size_) {
+                ifftAndOverlap();
+                filled_ = 0;
+            }
+            const int r = olaRead_;
+            const double y = ola_[r];
+            ola_[r] = 0.0;
+            out[i] = static_cast<float>(y);
+            olaRead_ = (r + 1) % size_;
+
+            specRe_[writeIdx_] = inRe ? static_cast<double>(inRe[i]) : 0.0;
+            specIm_[writeIdx_] = inIm ? static_cast<double>(inIm[i]) : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % size_;
+            ++filled_;
+            (void)DENORMAL;
+        }
+    }
+
+private:
+    static bool isPow2(int n) { return n > 0 && (n & (n - 1)) == 0; }
+    static int  floorPow2(int n) { int p = 1; while ((p << 1) <= n) p <<= 1; return p; }
+
+    void alloc(int N) {
+        int size = std::min(std::max(isPow2(N) ? N : floorPow2(N), 16), 32768);
+        size_ = size;
+        hann_.assign(size, 0.0);
+        for (int n = 0; n < size; ++n) {
+            hann_[n] = 0.5 * (1.0 - std::cos(2.0 * M_PI * n / (size - 1)));
+        }
+        specRe_.assign(size, 0.0);
+        specIm_.assign(size, 0.0);
+        sRe_.assign(size, 0.0);
+        sIm_.assign(size, 0.0);
+        ola_.assign(size, 0.0);
+        writeIdx_ = 0; filled_ = 0; olaWrite_ = 0; olaRead_ = 0;
+        hop_ = std::min(std::max(hop_, 1), size_);
+        recomputeScale();
+    }
+
+    void recomputeScale() {
+        double s = 0.0;
+        for (int i = 0; i < size_; ++i) s += hann_[i] * hann_[i];
+        const double olaGain = s / static_cast<double>(hop_);
+        olaScale_ = (olaGain > 0.0) ? 1.0 / olaGain : 1.0;
+    }
+
+    void ifftAndOverlap() {
+        const int N = size_;
+        double* re = sRe_.data();
+        double* im = sIm_.data();
+        int logN = 0; { int t = N; while (t > 1) { t >>= 1; ++logN; } }
+
+        for (int k = 0; k < N; ++k) {
+            int rk = 0, kk = k;
+            for (int b = 0; b < logN; ++b) { rk = (rk << 1) | (kk & 1); kk >>= 1; }
+            re[rk] = specRe_[k];
+            im[rk] = specIm_[k];
+        }
+
+        for (int s = 1; s <= logN; ++s) {
+            const int m = 1 << s;
+            const int mHalf = m >> 1;
+            const double theta = 2.0 * M_PI / static_cast<double>(m);
+            const double wmr = std::cos(theta);
+            const double wmi = std::sin(theta);
+            for (int k = 0; k < N; k += m) {
+                double wr = 1.0, wi = 0.0;
+                for (int j = 0; j < mHalf; ++j) {
+                    const int iT = k + j;
+                    const int iB = k + j + mHalf;
+                    const double tr = wr * re[iB] - wi * im[iB];
+                    const double ti = wr * im[iB] + wi * re[iB];
+                    const double ur = re[iT];
+                    const double ui = im[iT];
+                    re[iT] = ur + tr;
+                    im[iT] = ui + ti;
+                    re[iB] = ur - tr;
+                    im[iB] = ui - ti;
+                    const double nwr = wr * wmr - wi * wmi;
+                    const double nwi = wr * wmi + wi * wmr;
+                    wr = nwr; wi = nwi;
+                }
+            }
+        }
+
+        const double inv   = 1.0 / static_cast<double>(N);
+        const double scale = inv * olaScale_;
+        int o = olaWrite_;
+        for (int k = 0; k < N; ++k) {
+            ola_[o] += re[k] * scale * hann_[k];
+            o = (o + 1) % N;
+        }
+        olaWrite_ = (olaWrite_ + hop_) % N;
+    }
+
+    double sr_;
+    int    size_ = 0, hop_ = 256;
+    double olaScale_ = 1.0;
+    std::vector<double> hann_, specRe_, specIm_, sRe_, sIm_, ola_;
+    int    writeIdx_ = 0, filled_ = 0, olaWrite_ = 0, olaRead_ = 0;
+};
+
+}  // namespace shags::ops

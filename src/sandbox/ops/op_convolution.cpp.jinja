@@ -1,0 +1,80 @@
+// op_convolution.cpp — Stage-3b C++ sidecar for the `convolution` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_convolution.worklet.js
+// bit-for-bit. Catalog #68. Primary: JOS MDFT "Convolution".
+#pragma once
+#include <cstring>
+#include <vector>
+#include <algorithm>
+
+namespace shags::ops {
+
+class ConvolutionOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "convolution";
+
+    explicit ConvolutionOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        alloc(128);
+    }
+
+    void reset() {
+        std::fill(ir_.begin(),   ir_.end(),   0.0);
+        std::fill(ring_.begin(), ring_.end(), 0.0);
+        writeIdx_ = 0; captured_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "length") == 0) {
+            int n = std::min(std::max(static_cast<int>(v), 1), 4096);
+            if (n != length_) alloc(n);
+        }
+    }
+
+    int getLatencySamples() const { return length_; }
+
+    void process(const float* in, const float* ir, float* out, int N) {
+        if (!out) return;
+        constexpr double DENORMAL = 1e-30;
+
+        const int M = length_;
+        for (int i = 0; i < N; ++i) {
+            if (captured_ < M) {
+                ir_[captured_] = ir ? static_cast<double>(ir[i]) : 0.0;
+                ++captured_;
+                ring_[writeIdx_] = in ? static_cast<double>(in[i]) : 0.0;
+                writeIdx_ = (writeIdx_ + 1) % M;
+                out[i] = 0.0f;
+                continue;
+            }
+
+            ring_[writeIdx_] = in ? static_cast<double>(in[i]) : 0.0;
+            writeIdx_ = (writeIdx_ + 1) % M;
+
+            double acc = 0.0;
+            int r = writeIdx_ - 1;
+            if (r < 0) r += M;
+            for (int k = 0; k < M; ++k) {
+                acc += ir_[k] * ring_[r];
+                --r;
+                if (r < 0) r = M - 1;
+            }
+            if (acc < DENORMAL && acc > -DENORMAL) acc = 0.0;
+            out[i] = static_cast<float>(acc);
+        }
+    }
+
+private:
+    void alloc(int n) {
+        length_ = n;
+        ir_.assign(n, 0.0);
+        ring_.assign(n, 0.0);
+        writeIdx_ = 0;
+        captured_ = 0;
+    }
+
+    double sr_;
+    int    length_ = 0;
+    std::vector<double> ir_, ring_;
+    int    writeIdx_ = 0, captured_ = 0;
+};
+
+}  // namespace shags::ops

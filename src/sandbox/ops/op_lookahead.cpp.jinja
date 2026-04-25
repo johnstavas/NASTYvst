@@ -1,0 +1,91 @@
+// op_lookahead.cpp.jinja — Stage-3 native mirror of op_lookahead.worklet.js.
+//
+// Catalog #45. Math-by-definition primitive: pure delay + windowed abs-peak
+// via monotonic deque (Lemire 2006 structural reference). See worklet
+// docstring for full spec.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+#include <cstdint>
+
+namespace shags::ops {
+
+class LookaheadOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "lookahead";
+
+    explicit LookaheadOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        maxSamps_ = (int)std::ceil(sr_ * MAX_LOOKAHEAD_MS / 1000.0) + 1;
+        buf_.assign(maxSamps_, 0.0f);
+        dqV_.assign(maxSamps_, 0.0f);
+        dqI_.assign(maxSamps_, (int64_t)0);
+        L_ = (int)std::round(5.0 / 1000.0 * sr_);
+        if (L_ > maxSamps_ - 1) L_ = maxSamps_ - 1;
+    }
+
+    void reset() {
+        std::fill(buf_.begin(), buf_.end(), 0.0f);
+        writeI_ = 0; filled_ = 0; head_ = 0; tail_ = 0; n_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (!std::strcmp(id, "lookaheadMs")) {
+            double c = std::clamp(v, 0.0, MAX_LOOKAHEAD_MS);
+            int newL = (int)std::round(c / 1000.0 * sr_);
+            if (newL > maxSamps_ - 1) newL = maxSamps_ - 1;
+            if (newL != L_) { L_ = newL; reset(); }
+        }
+    }
+
+    int getLatencySamples() const { return L_; }
+
+    void process(const float* in, float* outAud, float* outPk, int N) {
+        if (!outAud && !outPk) return;
+        const int cap = maxSamps_;
+
+        for (int i = 0; i < N; ++i) {
+            float x = in ? in[i] : 0.0f;
+            buf_[writeI_] = x;
+
+            float absX = std::fabs(x);
+            while (head_ != tail_ && dqV_[(tail_ - 1 + cap) % cap] <= absX) {
+                tail_ = (tail_ - 1 + cap) % cap;
+            }
+            dqV_[tail_] = absX;
+            dqI_[tail_] = n_;
+            tail_ = (tail_ + 1) % cap;
+
+            while (head_ != tail_ && dqI_[head_] < n_ - L_) {
+                head_ = (head_ + 1) % cap;
+            }
+
+            float peakVal = head_ != tail_ ? dqV_[head_] : 0.0f;
+            float outVal;
+            if (L_ == 0)              outVal = x;
+            else if (filled_ < L_)    outVal = 0.0f;
+            else {
+                int readI = (writeI_ - L_ + cap) % cap;
+                outVal = buf_[readI];
+            }
+            if (outAud) outAud[i] = outVal;
+            if (outPk)  outPk[i]  = peakVal;
+
+            writeI_ = (writeI_ + 1) % cap;
+            if (filled_ < cap) filled_++;
+            n_++;
+        }
+    }
+
+private:
+    static constexpr double MAX_LOOKAHEAD_MS = 50.0;
+    double sr_;
+    int maxSamps_ = 0, L_ = 0, writeI_ = 0, filled_ = 0, head_ = 0, tail_ = 0;
+    int64_t n_ = 0;
+    std::vector<float>   buf_, dqV_;
+    std::vector<int64_t> dqI_;
+};
+
+} // namespace shags::ops
