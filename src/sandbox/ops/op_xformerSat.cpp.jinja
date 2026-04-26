@@ -1,0 +1,162 @@
+// op_xformerSat.cpp — Stage-3b C++ sidecar for the `xformerSat` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_xformerSat.worklet.js
+// bit-for-bit. De Paiva 2011 WDF transformer (volt-second LF saturation +
+// Rc hysteresis + HF leakage). See worklet.js header for full citation.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class XformerSatOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "xformerSat";
+
+    explicit XformerSatOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recompute_();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void reset() {
+        phi_ = 0.0;
+        yHp_ = 0.0;
+        xPrev_ = 0.0;
+        yHf_ = 0.0;
+        vrPrev_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) {
+            // Restore default for the addressed param.
+            if      (std::strcmp(id, "drive")    == 0) v = 0.0;
+            else if (std::strcmp(id, "coreSize") == 0) v = 1.0;
+            else if (std::strcmp(id, "sourceZ")  == 0) v = 600.0;
+            else if (std::strcmp(id, "loss")     == 0) v = 0.3;
+            else if (std::strcmp(id, "air")      == 0) v = 1.0;
+            else return;
+        }
+        if (std::strcmp(id, "drive") == 0) {
+            if (v < -24.0) v = -24.0; else if (v > 36.0) v = 36.0;
+            driveDb_ = v;
+        } else if (std::strcmp(id, "coreSize") == 0) {
+            if (v < 0.05) v = 0.05; else if (v > 10.0) v = 10.0;
+            a_ = v;
+        } else if (std::strcmp(id, "sourceZ") == 0) {
+            if (v < 1.0) v = 1.0; else if (v > 10000.0) v = 10000.0;
+            rs_ = v;
+        } else if (std::strcmp(id, "loss") == 0) {
+            if (v < 0.0) v = 0.0; else if (v > 1.0) v = 1.0;
+            b_ = v;
+        } else if (std::strcmp(id, "air") == 0) {
+            if (v < 0.1) v = 0.1; else if (v > 8.0) v = 8.0;
+            air_ = v;
+        } else {
+            return;
+        }
+        recompute_();
+    }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+
+        const double drv     = driveLin_;
+        const double gLfBase = gLfBase_;
+        const double aHf     = aHf_;
+        const double a       = a_;
+        const double b       = b_;
+
+        double phi    = phi_;
+        double yHp    = yHp_;
+        double xPrev  = xPrev_;
+        double yHf    = yHf_;
+        double vrPrev = vrPrev_;
+
+        for (int n = 0; n < N; ++n) {
+            const double xd = drv * static_cast<double>(in[n]);
+
+            // Flux tracker.
+            phi = phi + gLfBase * (xd - phi);
+            if (phi < kDenormal && phi > -kDenormal) phi = 0.0;
+
+            // Eq 34 NL-cap → HP corner modulation. n=3 baked: phi^2.
+            const double sat = a * phi * phi;
+            double gEff = gLfBase * (1.0 + sat);
+            if (gEff > kGHpMax) gEff = kGHpMax;
+            const double Rhp = 1.0 - gEff;
+
+            // 1-pole HP through-path.
+            yHp = Rhp * yHp + (xd - xPrev);
+            xPrev = xd;
+            if (yHp < kDenormal && yHp > -kDenormal) yHp = 0.0;
+
+            // Rc hysteresis (Eq 17, m=3, §3.3 unit-delay).
+            const double ir = b * vrPrev * (vrPrev < 0.0 ? -vrPrev : vrPrev);
+            const double yLoss = yHp - kLossScale * ir;
+            vrPrev = yHp;
+
+            // HF leakage 1-pole LP.
+            yHf = yHf + aHf * (yLoss - yHf);
+            if (yHf < kDenormal && yHf > -kDenormal) yHf = 0.0;
+
+            out[n] = static_cast<float>(yHf);
+        }
+
+        phi_    = phi;
+        yHp_    = yHp;
+        xPrev_  = xPrev;
+        yHf_    = yHf;
+        vrPrev_ = vrPrev;
+    }
+
+private:
+    static constexpr double kDenormal  = 1e-30;
+    static constexpr double kLossScale = 0.25;
+    static constexpr double kFcLfBase  = 25.0;
+    static constexpr double kFcHfBase  = 12000.0;
+    static constexpr double kGHpMax    = 0.999;
+    static constexpr double kGHpMin    = 1e-8;
+    static constexpr double kTwoPi     = 6.28318530717958647692;
+
+    void recompute_() {
+        driveLin_ = std::pow(10.0, driveDb_ / 20.0);
+
+        const double rsRatio = rs_ / 600.0;
+        const double fcLf    = kFcLfBase * rsRatio;
+        double gLf = (kTwoPi * fcLf) / sr_;
+        if (gLf < kGHpMin) gLf = kGHpMin;
+        if (gLf > 0.5)     gLf = 0.5;
+        gLfBase_ = gLf;
+
+        const double fcHf = kFcHfBase * air_;
+        double aHf = 1.0 - std::exp(-kTwoPi * fcHf / sr_);
+        if (aHf < 1e-6)    aHf = 1e-6;
+        if (aHf > 0.99999) aHf = 0.99999;
+        aHf_ = aHf;
+    }
+
+    double sr_;
+
+    // User params (clamped in setParam).
+    double driveDb_ = 0.0;
+    double a_       = 1.0;
+    double rs_      = 600.0;
+    double b_       = 0.3;
+    double air_     = 1.0;
+
+    // Derived.
+    double driveLin_ = 1.0;
+    double gLfBase_  = 0.0;
+    double aHf_      = 0.0;
+
+    // State.
+    double phi_    = 0.0;
+    double yHp_    = 0.0;
+    double xPrev_  = 0.0;
+    double yHf_    = 0.0;
+    double vrPrev_ = 0.0;
+};
+
+}  // namespace shags::ops

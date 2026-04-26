@@ -1,0 +1,75 @@
+// MasterGraph implementation — generated from {{ GRAPH_ID }}.
+// DO NOT hand-edit.
+#include "MasterGraph.h"
+
+namespace shags::codegen {
+
+void MasterGraph::prepare(double sampleRate, int maxBlockSize) {
+    sampleRate_ = sampleRate;
+    maxBlock_   = maxBlockSize;
+    scratch_.assign({{ numBuffers }}, std::vector<float>(maxBlockSize, 0.0f));
+{% for n in nodes %}
+    for (auto& slot : {{ n.id }}_) slot.emplace(sampleRate);
+{% endfor %}
+{% for n in nodes %}
+{% for kv in n.paramSet %}
+    for (auto& slot : {{ n.id }}_) slot->setParam("{{ kv.k }}", {{ kv.v }});
+{% endfor %}
+{% endfor %}
+    reset();
+    latencySamples_ = 0;
+{% for n in nodes %}
+    if ({{ n.id }}_[0]->getLatencySamples() > latencySamples_)
+        latencySamples_ = {{ n.id }}_[0]->getLatencySamples();
+{% endfor %}
+}
+
+void MasterGraph::reset() {
+    for (auto& b : scratch_) std::fill(b.begin(), b.end(), 0.0f);
+{% for n in nodes %}
+    for (auto& slot : {{ n.id }}_) if (slot) slot->reset();
+{% endfor %}
+}
+
+void MasterGraph::setParam(const char* nodeId, const char* opParamId, double v) {
+{% for n in nodes %}
+    if (std::strcmp(nodeId, "{{ n.id }}") == 0) {
+        for (auto& slot : {{ n.id }}_) if (slot) slot->setParam(opParamId, v);
+        return;
+    }
+{% endfor %}
+}
+
+void MasterGraph::process(juce::AudioBuffer<float>& buffer) {
+    const int N         = buffer.getNumSamples();
+    const int numIn     = buffer.getNumChannels();
+    const int numChans  = numIn;
+
+    // Per-channel: copy IN terminal -> scratch, run nodes (using the
+    // op instance owned by THIS channel — never share state across ch),
+    // then sum OUT terminal -> channel.
+    for (int ch = 0; ch < numChans && ch < kMaxChannels; ++ch) {
+        const float* inCh = buffer.getReadPointer(ch);
+        float*       outCh = buffer.getWritePointer(ch);
+
+        // Load input-terminal buffers from this channel.
+{% for t in inputTerminals %}
+        std::memcpy(scratch_[{{ t.bufferIdx }}].data(), inCh, sizeof(float) * (size_t)N);
+{% endfor %}
+
+        // Topological dispatch — per-channel op instance.
+{% for n in nodes %}
+        {{ n.callExpr }}
+{% endfor %}
+
+        // Output-terminal sum: accumulate every source buffer into outCh.
+{% for t in outputTerminals %}
+        std::memset(outCh, 0, sizeof(float) * (size_t)N);
+{% for s in t.sources %}
+        for (int i = 0; i < N; ++i) outCh[i] += scratch_[{{ s.bufferIdx }}][i];
+{% endfor %}
+{% endfor %}
+    }
+}
+
+}  // namespace shags::codegen

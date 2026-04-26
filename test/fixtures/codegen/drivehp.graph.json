@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "id": "drivehp-v0",
+  "label": "DriveHP",
+  "canvas": { "width": 600, "height": 240 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 120 },
+    { "id": "out", "kind": "output", "x": 560, "y": 120 }
+  ],
+  "nodes": [
+    { "id": "n_drv", "op": "drive",  "x": 220, "y": 120, "params": { "drive": 2.0 } },
+    { "id": "n_hp",  "op": "biquad", "x": 400, "y": 120, "params": { "mode": "hp", "cutoff": 200, "q": 0.707, "gainDb": 0 } }
+  ],
+  "wires": [
+    { "from": "in",        "to": "n_drv.in" },
+    { "from": "n_drv.out", "to": "n_hp.in"  },
+    { "from": "n_hp.out",  "to": "out"      }
+  ],
+  "feedback": [],
+  "legendOps": ["drive", "biquad"]
+}

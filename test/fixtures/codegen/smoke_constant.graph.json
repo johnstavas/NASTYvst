@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-constant-v0",
+  "label": "SmokeConstant",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_const", "op": "constant", "x": 240, "y": 100, "params": { "value": 0.25 } }
+  ],
+  "wires": [
+    { "from": "n_const", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["constant"]
+}

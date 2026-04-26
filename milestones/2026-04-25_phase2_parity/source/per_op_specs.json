@@ -1,0 +1,32 @@
+{
+  "$schema": "Phase 2 parity spec — see memory/codegen_pipeline_buildout.md § 5.4",
+  "ops": {
+    "gain": {
+      "signals": ["impulse", "dc_step", "pink_noise"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gain-v0/build/SmokeGainV0_artefacts/Release/VST3/SmokeGainV0.vst3",
+      "params": { "n_gain__gainDb": -6.0 },
+      "paramRanges": { "n_gain__gainDb": { "min": -60, "max": 24 } },
+      "reference": "builtin:gain",
+      "reference_args": { "gainDb": -6.0 },
+      "sr": 48000,
+      "block": 512
+    },
+    "gain_chain2": {
+      "signals": ["impulse", "dc_step", "pink_noise"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gain-chain-v0/build/SmokeGainChainV0_artefacts/Release/VST3/SmokeGainChainV0.vst3",
+      "params": { "n_gain_a__gainDb": -6.0, "n_gain_b__gainDb": -6.0 },
+      "paramRanges": {
+        "n_gain_a__gainDb": { "min": -60, "max": 24 },
+        "n_gain_b__gainDb": { "min": -60, "max": 24 }
+      },
+      "reference": "builtin:gain_chain2",
+      "reference_args": { "a": -6.0, "b": -6.0 },
+      "sr": 48000,
+      "block": 512
+    }
+  }
+}

@@ -1,0 +1,200 @@
+// op_crepe.cpp.jinja — C++ mirror of op_crepe.worklet.js.
+// CREPE (Kim et al. ICASSP 2018) monophonic F0, ML-runtime-gated.
+//
+// === STAGE-3 SHIP (2026-04-24): real ORT-native inference ===
+//
+// Mock estimator gone. dispatchFrame() now calls MLRuntimeNative::runCrepe()
+// inline on the audio thread, which runs Ort::Session::Run against the
+// crepe.onnx weights blob registered in the AudioProcessor's MLRuntimeNative
+// (see src/sandbox/host/ml_runtime_native.{h,cpp}.jinja and
+// codegen_design.md §12 for the JUCE BinaryData registration recipe).
+//
+// === WORKLET / NATIVE ASYMMETRY (declared per Neural Op Exception) ===
+//
+// Native path runs ORT-native synchronously inline at process() time —
+// no MessagePort, no host-thread roundtrip. Latency floor is the 10 ms
+// hop only (~160 samples @ 16 kHz). The worklet path's MessagePort RTT
+// (15–25 ms F0-update lag) does NOT apply here.
+//
+// === LIFETIME ===
+//
+// MLRuntimeNative is owned by the AudioProcessor. The op holds a non-owning
+// pointer; lifetime is enforced by the AudioProcessor outliving every op.
+// Codegen wires this at construction time (§13 implications for §6).
+//
+// === PRIMARY SOURCES ===
+//   1. Architecture: Kim, Salamon, Li, Bello ICASSP 2018, pp. 161–165.
+//   2. Weights:      github.com/yqzhishen/onnxcrepe v1.1.0 tiny.onnx (MIT;
+//                    converted from marl/crepe Keras checkpoints, MIT).
+//   3. Inference:    marl/crepe/core.py:to_local_average_cents + predict.
+//                    Decoder C++ port lives in ml_runtime_native.{h,cpp}.
+
+#pragma once
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <string>
+
+#include "../host/ml_runtime_native.h"
+
+namespace shags::ops {
+
+struct OpCrepe_{{ instance }} {
+    // ---- CREPE constants (verified vs marl/crepe/core.py) ----
+    static constexpr int   MODEL_SR    = 16000;
+    static constexpr int   FRAME_SIZE  = 1024;
+    static constexpr int   HOP_SIZE    = 160;     // 10 ms @ 16 kHz
+    static constexpr int   N_BINS      = 360;
+
+    // ---- Host-rate config ----
+    float sr = 48000.0f;
+    float resampleStep  = (float)MODEL_SR / 48000.0f;
+    float resamplePhase = 0.0f;
+
+    // ---- 16 kHz frame ring + hop counter ----
+    std::array<float, FRAME_SIZE> frameBuf{};
+    int  frameWritePos       = 0;
+    int  samplesSinceLastHop = 0;
+    std::uint64_t frameSeq   = 0;
+
+    // ---- Cached inference output ----
+    float latestF0   = 0.0f;
+    float latestConf = 0.0f;
+
+    // ---- Params ----
+    float       p_voicingThreshold = 0.5f;
+    std::string p_modelSize        = "tiny";
+
+    // ---- Non-owning runtime pointer (codegen-wired) ----
+    //
+    // MLRuntimeNative is constructed once per AudioProcessor with the
+    // crepe.onnx WeightsBlob registered via the JUCE BinaryData stanza
+    // emitted by the JUCE codegen. The op pointer is set immediately
+    // after construction by the master-graph wirer.
+    shags::ml::MLRuntimeNative* mlRuntime = nullptr;
+
+    explicit OpCrepe_{{ instance }}(double sampleRate, shags::ml::MLRuntimeNative* runtime = nullptr)
+        : sr(static_cast<float>(sampleRate)),
+          resampleStep(static_cast<float>(MODEL_SR) / static_cast<float>(sampleRate)),
+          mlRuntime(runtime) {}
+
+    void setSampleRate(float s) {
+        sr = s;
+        resampleStep  = (float)MODEL_SR / sr;
+        resamplePhase = 0.0f;
+    }
+
+    void reset() {
+        resamplePhase = 0.0f;
+        frameBuf.fill(0.0f);
+        frameWritePos       = 0;
+        samplesSinceLastHop = 0;
+        frameSeq            = 0;
+        latestF0   = 0.0f;
+        latestConf = 0.0f;
+    }
+
+    void setParam(const char* id, double v) {
+        if (id == nullptr) return;
+        if (std::strcmp(id, "voicingThreshold") == 0) {
+            if (std::isfinite(v)) {
+                const float fv = static_cast<float>(v);
+                p_voicingThreshold = std::clamp(fv, 0.0f, 1.0f);
+            }
+        }
+        // modelSize is a build-time choice (which onnx is bundled);
+        // a no-op at runtime here. The string param is kept for
+        // worklet/native API parity.
+    }
+
+    void setParam_modelSize(const char* v) {
+        if (v != nullptr) p_modelSize = v;
+    }
+
+    int getLatencySamples() const {
+        return (int)std::round(HOP_SIZE * (sr / (float)MODEL_SR));
+    }
+
+    // -------------------------------------------------------------
+    // dispatchFrame:
+    //   1. Snapshot ring in CHRONOLOGICAL order (not storage order
+    //      — the worklet bug found this 2026-04-24; see comment).
+    //   2. Zero-mean unit-variance normalize per CREPE preprocessing
+    //      (marl/crepe/core.py:get_activation).
+    //   3. Call MLRuntimeNative::runCrepe → decoded {f0, confidence}.
+    //   4. Cache for sample-and-hold readout in process().
+    // -------------------------------------------------------------
+    void dispatchFrame() {
+        // CRITICAL: reconstruct in CHRONOLOGICAL order, not storage order.
+        // After every write `frameWritePos` points to the NEXT slot, which
+        // is the OLDEST sample in the current 1024-sample window. A naïve
+        // copy would put a discontinuity in the middle of the frame after
+        // the ring wraps — the CNN reads that as a spurious fundamental-
+        // shift artifact and the decode drifts ~10–15¢. Mirror of the
+        // op_crepe.worklet.js fix.
+        std::array<float, FRAME_SIZE> snap{};
+        const int wp = frameWritePos;
+        for (int i = 0; i < FRAME_SIZE; ++i) {
+            snap[i] = frameBuf[(wp + i) % FRAME_SIZE];
+        }
+        float mean = 0.0f;
+        for (int i = 0; i < FRAME_SIZE; ++i) mean += snap[i];
+        mean /= (float)FRAME_SIZE;
+        float varSum = 0.0f;
+        for (int i = 0; i < FRAME_SIZE; ++i) {
+            snap[i] -= mean;
+            varSum  += snap[i] * snap[i];
+        }
+        float std_ = std::sqrt(varSum / (float)FRAME_SIZE);
+        if (std_ > 1e-9f) {
+            float inv = 1.0f / std_;
+            for (int i = 0; i < FRAME_SIZE; ++i) snap[i] *= inv;
+        }
+
+        // Run inference. If runtime wasn't wired (graph emitted without
+        // ML weights, or unit-test harness running an op in isolation),
+        // hold last (f0, confidence). This is the same fail-safe the
+        // worklet uses when no MessagePort host has attached yet.
+        if (mlRuntime != nullptr) {
+            const auto r = mlRuntime->runCrepe(snap.data(), FRAME_SIZE);
+            latestF0   = std::isfinite(r.f0)         ? r.f0         : latestF0;
+            latestConf = std::isfinite(r.confidence) ? r.confidence : latestConf;
+        }
+        ++frameSeq;
+    }
+
+    bool ingestSample(float s) {
+        bool crossedHop = false;
+        resamplePhase += resampleStep;
+        while (resamplePhase >= 1.0f) {
+            resamplePhase -= 1.0f;
+            frameBuf[frameWritePos] = s;
+            frameWritePos = (frameWritePos + 1) % FRAME_SIZE;
+            ++samplesSinceLastHop;
+            if (samplesSinceLastHop >= HOP_SIZE) {
+                samplesSinceLastHop = 0;
+                crossedHop = true;
+            }
+        }
+        return crossedHop;
+    }
+
+    void process(const float* in, float* f0Out, float* confOut, int N) {
+        if (in == nullptr) {
+            for (int n = 0; n < N; ++n) {
+                if (f0Out)   f0Out[n]   = latestF0;
+                if (confOut) confOut[n] = latestConf;
+            }
+            return;
+        }
+        for (int n = 0; n < N; ++n) {
+            if (ingestSample(in[n])) dispatchFrame();
+            const bool voiced = latestConf >= p_voicingThreshold;
+            if (f0Out)   f0Out[n]   = voiced ? latestF0 : 0.0f;
+            if (confOut) confOut[n] = latestConf;
+        }
+    }
+};
+
+}  // namespace shags::ops

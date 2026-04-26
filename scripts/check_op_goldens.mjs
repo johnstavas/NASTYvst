@@ -50,7 +50,7 @@ writeFileSync(resolve(tmpDir, 'package.json'), '{ "type": "module" }\n');
 // List of ops we currently expect sidecars for. Must match opRegistry.js MVP
 // set. The shape-check (A) catches any divergence between this list and
 // either the registry or the filesystem.
-const OP_IDS = ['gain', 'filter', 'detector', 'envelope', 'gainComputer', 'mix', 'curve', 'smooth', 'combine', 'noise', 'lfo', 'dcBlock', 'softLimit', 'saturate', 'shelf', 'delay', 'bitcrush', 'scaleBy', 'onePole', 'allpass', 'svf', 'peak', 'rms', 'kWeighting', 'lufsIntegrator', 'clamp', 'correlation', 'loudnessGate', 'truePeak', 'sign', 'abs', 'stereoWidth', 'lra', 'polarity', 'constant', 'fanOut', 'z1', 'uniBi', 'slew', 'trigger', 'karplusStrong', 'ramp', 'quantizer', 'glide', 'goertzel', 'lpc', 'warpedLPC', 'waveguide', 'kellyLochbaum', 'fdnCore', 'ladder', 'adsr', 'fft', 'ifft', 'stft', 'istft', 'convolution', 'phaseVocoder', 'mfcc', 'chromagram', 'onset', 'bpm', 'formant', 'comb', 'tilt', 'lrXover', 'msDecode', 'msEncode', 'busSum', 'select', 'crossfade', 'diffuser', 'bbdDelay', 'ER', 'pitchShift', 'gate', 'expander', 'lookahead', 'transient', 'sidechainHPF', 'oversample2x', 'meters', 'sineOsc', 'blit', 'minBLEP', 'fm', 'wavetable', 'padSynth', 'scatteringJunction', 'dither', 'noiseShaper', 'chamberlinZeroCross', 'transformerSim', 'fpDacRipple', 'tapeSim', 'tapeAirwindows', 'tubeSim', 'plate', 'spring', 'SDN', 'schroederChain', 'yin', 'pyin', 'haas', 'panner', 'autopan', 'crossfeed', 'envelopeFollower', 'hiss', 'crackle', 'sampleHold', 'randomWalk', 'stepSeq', 'chaos', 'granularBuffer', 'microDetune'];
+const OP_IDS = ['gain', 'filter', 'detector', 'envelope', 'gainComputer', 'mix', 'curve', 'smooth', 'combine', 'noise', 'lfo', 'dcBlock', 'softLimit', 'saturate', 'shelf', 'delay', 'bitcrush', 'scaleBy', 'onePole', 'allpass', 'svf', 'peak', 'rms', 'kWeighting', 'lufsIntegrator', 'clamp', 'correlation', 'loudnessGate', 'truePeak', 'sign', 'abs', 'stereoWidth', 'lra', 'polarity', 'constant', 'fanOut', 'z1', 'uniBi', 'slew', 'trigger', 'karplusStrong', 'ramp', 'quantizer', 'glide', 'goertzel', 'lpc', 'warpedLPC', 'waveguide', 'kellyLochbaum', 'fdnCore', 'ladder', 'adsr', 'fft', 'ifft', 'stft', 'istft', 'convolution', 'phaseVocoder', 'mfcc', 'chromagram', 'onset', 'bpm', 'formant', 'comb', 'tilt', 'lrXover', 'msDecode', 'msEncode', 'busSum', 'select', 'crossfade', 'diffuser', 'bbdDelay', 'ER', 'pitchShift', 'gate', 'expander', 'lookahead', 'transient', 'sidechainHPF', 'oversample2x', 'meters', 'sineOsc', 'blit', 'minBLEP', 'fm', 'wavetable', 'padSynth', 'scatteringJunction', 'dither', 'noiseShaper', 'chamberlinZeroCross', 'transformerSim', 'xformerSat', 'fpDacRipple', 'tapeSim', 'tapeAirwindows', 'tubeSim', 'plate', 'spring', 'SDN', 'schroederChain', 'yin', 'pyin', 'haas', 'panner', 'autopan', 'crossfeed', 'envelopeFollower', 'hiss', 'crackle', 'sampleHold', 'randomWalk', 'stepSeq', 'chaos', 'granularBuffer', 'microDetune', 'wavefolder', 'diodeClipper', 'hardClip', 'chebyshevWS', 'diodeLadder', 'korg35', 'polyBLEP', 'velvetNoise', 'crepe'];
 
 // -------- copy sources into tmp ESM dir ------------------------------------
 copyFileSync(registryFs, resolve(tmpDir, 'opRegistry.js'));
@@ -167,6 +167,20 @@ function runSidecar(SidecarClass) {
 
 for (const id of OP_IDS) {
   const SidecarClass = sidecarClasses[id];
+
+  // Neural / ML ops opt out of golden-hash coverage. Inference outputs are
+  // not bit-identical across hardware (SIMD instruction set, FP rounding,
+  // ORT build flags perturb output by ~1e-5 relative); a hash check would
+  // false-positive on every developer machine that wasn't the blessing
+  // box. Verification is via tolerance-based math tests instead. Required
+  // by Neural Op Exception clause in memory/sandbox_op_ship_protocol.md.
+  // Shape conformance (A) still applies — only the numerical contract (B)
+  // is skipped for these ops.
+  if (SidecarClass.kind === 'neural') {
+    ok(`golden[${id}]: skipped (kind: 'neural' — math-tested only)`);
+    continue;
+  }
+
   let hash;
   try {
     hash = runSidecar(SidecarClass);

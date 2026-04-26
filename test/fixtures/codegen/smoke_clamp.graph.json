@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-clamp-v0",
+  "label": "SmokeClamp",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_clamp", "op": "clamp", "x": 240, "y": 100, "params": { "lo": -0.5, "hi": 0.5 } }
+  ],
+  "wires": [
+    { "from": "in",      "to": "n_clamp" },
+    { "from": "n_clamp", "to": "out"     }
+  ],
+  "feedback": [],
+  "legendOps": ["clamp"]
+}

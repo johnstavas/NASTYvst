@@ -1,0 +1,121 @@
+// op_korg35.cpp — Stage-3b C++ sidecar for the `korg35` op (v2-full).
+// Contract: memory/codegen_design.md § 4. Mirrors op_korg35.worklet.js
+// bit-for-bit. v2-full (2026-04-25): Stinchcombe-derived structural
+// rewrite — a=7/3 SK loading, forward-path diode shaper, exponential
+// f_c law. Primary: docs/primary_sources/stinchcombe/MS20_study.pdf
+// §2.2 eq.(8) p.12, §3.2 p.29, §5 pp.30–31.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class Korg35Op_{{ node_id }} {
+public:
+    static constexpr const char* opId = "korg35";
+
+    explicit Korg35Op_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate) { recomputeCoeffs(); }
+
+    void reset() { s1_ = 0.0; s2_ = 0.0; y2_prev_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if      (std::strcmp(id, "normFreq") == 0) {
+            normFreq_ = clip(v, 0.0, 1.0); cacheValid_ = false;
+        } else if (std::strcmp(id, "Q") == 0) {
+            Q_ = clip(v, 0.7, 10.0); cacheValid_ = false;
+        } else if (std::strcmp(id, "trim") == 0) {
+            trim_ = clip(v, -24.0, 12.0);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in)  { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        if (!cacheValid_) recomputeCoeffs();
+
+        const double trimLin     = std::pow(10.0, trim_ / 20.0);
+        const double G           = G_;
+        const double invOnePlusG = invOnePlusG_;
+        const double K           = K_;
+        const double dGm1        = kDiodeGain - 1.0;
+        const double invVd       = 1.0 / kDiodeVd;
+
+        double s1 = s1_, s2 = s2_, y2_prev = y2_prev_;
+
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+
+            // (1) Linearise diode shaper at previous y2:
+            const double arg_p  = dGm1 * y2_prev * invVd;
+            const double th_p   = std::tanh(arg_p);
+            const double gprime = 1.0 + dGm1 * (1.0 - th_p * th_p);
+            const double K_dyn  = K * gprime;
+
+            // (2) TPT solve with Stinchcombe SK polynomial (a = 7/3):
+            const double alpha0 = (1.0 + G) / (1.0 + (kALoading - K_dyn) * G + G * G);
+            const double s2_eff = s2 * invOnePlusG;
+            const double y1     = alpha0 * (G * x + s1 + G * (kMfb - K_dyn) * s2_eff);
+            const double y2     = (G * y1 + s2) * invOnePlusG;
+
+            // (3) Forward-path diode shaper on V₃ = y2:
+            const double arg   = dGm1 * y2 * invVd;
+            const double y_out = y2 + kDiodeVd * std::tanh(arg);
+
+            // (4) Trapezoidal state updates:
+            s1 = 2.0 * y1 - s1;
+            s2 = 2.0 * y2 - s2;
+            y2_prev = y2;
+
+            out[i] = static_cast<float>(trimLin * y_out);
+        }
+        s1_ = s1; s2_ = s2; y2_prev_ = y2_prev;
+    }
+
+private:
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    void recomputeCoeffs() {
+        const double T = 1.0 / (sr_ > 0 ? sr_ : 48000.0);
+        // (C3) Stinchcombe cutoff law:
+        const double V_f = 10.0 * normFreq_ - 5.0;
+        const double f_c = kFcBase * std::exp(V_f / kFcTau);
+        const double wd  = 2.0 * M_PI * f_c;
+        const double preArg = std::min(wd * T / 2.0, M_PI / 2.0 - 1e-4);
+        const double g  = std::tan(preArg);
+        const double G  = g / (1.0 + g);
+        const double invSqrt2 = 1.0 / std::sqrt(2.0);
+        const double Kraw = kALoading * (Q_ - invSqrt2) / (10.0 - invSqrt2);
+        const double K = std::min(std::max(Kraw, 0.0), kALoading - 1e-3);
+        G_           = G;
+        invOnePlusG_ = 1.0 / (1.0 + G);
+        K_           = K;
+        cacheValid_  = true;
+    }
+
+    // Stinchcombe constants:
+    static constexpr double kALoading  = 7.0 / 3.0;   // §2.2 eq.(8): R₁=R₂/3, C₁=3·C₂
+    static constexpr double kMfb       = 1.0 / 3.0;   // R₁/R₂ feedback summing weight
+    static constexpr double kDiodeGain = 58.0;        // §5 p.31
+    static constexpr double kDiodeVd   = 0.5;         // §5 p.31
+    static constexpr double kFcBase    = 87.0;        // §3.2 p.29
+    static constexpr double kFcTau     = 1.3;         // §3.2 p.29
+
+    double sr_;
+    double normFreq_ = 0.5;
+    double Q_        = 3.5;
+    double trim_     = 0.0;
+    double s1_ = 0.0, s2_ = 0.0, y2_prev_ = 0.0;
+    bool   cacheValid_ = false;
+    double G_            = 0.0;
+    double invOnePlusG_  = 1.0;
+    double K_            = 0.0;
+};
+
+}  // namespace shags::ops

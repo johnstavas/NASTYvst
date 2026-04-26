@@ -1,0 +1,335 @@
+// op_diodeLadder.cpp — Stage-3b C++ sidecar for the `diodeLadder` op
+// (v3 Layer 2, 2026-04-25). TB-303 character ladder. Stinchcombe-direct.
+// Mirrors op_diodeLadder.worklet.js bit-for-bit. Param schema preserved
+// from v2 (normFreq, Q, drive, trim).
+//
+// Topology / derivation / discretization / coupling-cap cascade /
+// FB tap location: see the worklet header. Primary:
+//   docs/primary_sources/stinchcombe/Moog_ladder_tf.pdf
+//     §3.2 p.30  recursion eqs. (23), (24)
+//     §3.2 p.34  TB-303 form (d=1, C_1 = C/2):
+//                  G_tb(s) = -1 / (s^4 + 6.727·s^3 + 14.142·s^2
+//                                  + 9.514·s + 1)
+//                  ω_c = 1 / (2^(3/4)·a·C)
+//     §3.4 p.36  k≈10 self-osc edge
+//   docs/primary_sources/stinchcombe/diode2.html
+//     full H(s) with five fixed coupling-cap sections (1.06 numerator),
+//     +18.7·k·s^4·(s+46.5)(s+4.40) feedback addend (deferred to v3.1).
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <array>
+#include <algorithm>
+
+namespace shags::ops {
+
+class DiodeLadderOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "diodeLadder";
+
+    explicit DiodeLadderOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        designHalfband();
+        designCoupling();
+        recomputeCoefs();
+    }
+
+    void reset() {
+        x0_ = x1_ = x2_ = x3_ = 0.0;
+        for (int i = 0; i < 5; ++i) { cxp_[i] = 0.0; cyp_[i] = 0.0; }
+        yPostPrev_ = 0.0;
+        uPrev_ = 0.0;
+        upBuf_.fill(0.0);
+        dnBuf_.fill(0.0);
+        upIdx_ = 0;
+        dnIdx_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "normFreq") == 0) {
+            normFreq_ = std::min(std::max(v, 0.0), 1.0);
+            recomputeCoefs();
+        } else if (std::strcmp(id, "Q") == 0) {
+            Q_ = std::min(std::max(v, 0.7), 20.0);
+            recomputeCoefs();
+        } else if (std::strcmp(id, "drive") == 0) {
+            drive_ = std::min(std::max(v, 0.0), 1.0);
+        } else if (std::strcmp(id, "trim") == 0) {
+            trim_ = std::min(std::max(v, -24.0), 12.0);
+        }
+    }
+
+    int getLatencySamples() const { return (kTaps - 1) / 2; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in)  { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+
+        const double trimLin = std::pow(10.0, trim_ / 20.0);
+
+        for (int i = 0; i < N; ++i) {
+            // 2× upsample (zero-stuff + halfband FIR, ×2 gain comp).
+            const double x   = 2.0 * static_cast<double>(in[i]);
+            const double up0 = pushAndConvolve(upBuf_, upIdx_, x);
+            const double up1 = pushAndConvolve(upBuf_, upIdx_, 0.0);
+
+            // Ladder runs at 2·Fs.
+            const double y0 = ladderStep(up0);
+            const double y1 = ladderStep(up1);
+
+            // 2× downsample (halfband FIR + decimate).
+            (void) pushAndConvolve(dnBuf_, dnIdx_, y0);   // discarded
+            const double dn = pushAndConvolve(dnBuf_, dnIdx_, y1);
+
+            out[i] = static_cast<float>(trimLin * dn);
+        }
+    }
+
+private:
+    static constexpr int kTaps = 63;
+
+    // TB-303 row scalings (Moog_ladder_tf.pdf §3.2 p.34, C_1 = C/2):
+    //   row 0:    τ_tb / τ_1 = 2^(3/4)   ≈ 1.681792830507429
+    //   rows 1-3: τ_tb / τ_2 = 2^(-1/4)  ≈ 0.840896415253714
+    static constexpr double TB_ROW0 = 1.6817928305074290;  // 2^(3/4)
+    static constexpr double TB_ROWN = 0.8408964152537145;  // 2^(-1/4)
+    static constexpr double POST_GAIN = 1.06;              // diode2.html numerator constant
+
+    // Modified Bessel I₀, series form (matches op_drive / op_ladder bit-for-bit).
+    static double besselI0(double x) {
+        double sum = 1.0, term = 1.0;
+        const double q = x * x * 0.25;
+        for (int k = 1; k < 50; ++k) {
+            term *= q / static_cast<double>(k * k);
+            sum  += term;
+            if (term < 1.0e-20 * sum) break;
+        }
+        return sum;
+    }
+
+    // Bilinear-discretize one analog section H(s) = (s + z_a) / (s + p_a)
+    // at sample rate sr2. Returns [b0, b1, a1] for
+    //   y = b0·x + b1·x_prev - a1·y_prev.
+    static void biln1(double z_a, double p_a, double sr2,
+                      double& b0, double& b1, double& a1) {
+        const double T = 1.0 / sr2;
+        const double az = z_a * T * 0.5;
+        const double ap = p_a * T * 0.5;
+        const double inv = 1.0 / (1.0 + ap);
+        b0 =  (1.0 + az) * inv;
+        b1 = -(1.0 - az) * inv;
+        a1 = -(1.0 - ap) * inv;
+    }
+
+    void designHalfband() {
+        constexpr double beta = 10.0;
+        const double i0Beta = besselI0(beta);
+        const int N    = kTaps - 1;
+        const int half = kTaps / 2;
+        for (int n = 0; n < kTaps; ++n) {
+            const int m = n - half;
+            double sinc;
+            if (m == 0)            sinc = 0.5;
+            else if ((m & 1) == 0) sinc = 0.0;
+            else                   sinc = std::sin(0.5 * M_PI * m) / (M_PI * m);
+            const double r = (2.0 * n - N) / static_cast<double>(N);
+            const double a = beta * std::sqrt(1.0 - r * r);
+            const double w = besselI0(a) / i0Beta;
+            hb_[n] = sinc * w;
+        }
+    }
+
+    // Five fixed coupling-cap sections, in series order:
+    //   pre  : section[0] = s/(s+97.5)
+    //          section[1] = (s+109.9)/(s+578.1)
+    //   post : section[2] = s/(s+38.5)
+    //          section[3] = s/(s+4.45)
+    //          section[4] = (s+34.0)/(s+20.0)
+    void designCoupling() {
+        const double sr2 = 2.0 * (sr_ > 0.0 ? sr_ : 48000.0);
+        const double zas[5] = {   0.0, 109.9,   0.0,  0.0,  34.0 };
+        const double pas[5] = {  97.5, 578.1,  38.5,  4.45, 20.0 };
+        for (int i = 0; i < 5; ++i) {
+            biln1(zas[i], pas[i], sr2, cb0_[i], cb1_[i], ca1_[i]);
+        }
+    }
+
+    double pushAndConvolve(std::array<double, kTaps>& buf, int& idx, double x) {
+        buf[idx] = x;
+        idx = (idx + 1) % kTaps;
+        double y = 0.0;
+        int j = idx;
+        for (int t = 0; t < kTaps; ++t) {
+            y += hb_[t] * buf[j];
+            j = (j + 1) % kTaps;
+        }
+        return y;
+    }
+
+    // Build A_d = (I−αA_tb)⁻¹·(I+αA_tb) and b_d = (I−αA_tb)⁻¹·(2α·b_tb)
+    // for the TB-303 d=1 C_1=C/2 state-space (per-row scaled).
+    //   A_tb = [[-r0,    r0,   0,    0   ],
+    //           [ rN,   -2rN,  rN,   0   ],
+    //           [ 0,     rN,  -2rN,  rN  ],
+    //           [ 0,     0,    rN,  -2rN ]]
+    //   b_tb = [-r0, 0, 0, 0]
+    // Solved column-by-column via 4×4 Gauss with partial pivoting (the
+    // matrix is no longer tridiagonal-symmetric after row scaling).
+    void recomputeCoefs() {
+        const double sr2  = 2.0 * (sr_ > 0.0 ? sr_ : 48000.0);
+        const double nyq2 = 0.5 * sr2 - 100.0;
+        // Exponential cutoff map: 20 Hz → 20 kHz.
+        double fc = 2.0 * std::pow(10.0, 3.0 * normFreq_ + 1.0);
+        if (fc < 20.0)  fc = 20.0;
+        if (fc > nyq2)  fc = nyq2;
+        double a = std::tan(M_PI * fc / sr2);
+        if (a < 1.0e-9) a = 1.0e-9;
+        if (a > 1.0e9)  a = 1.0e9;
+
+        // Resonance.
+        const double Q = Q_;
+        double k = (Q - 0.7) * 10.0 / (20.0 - 0.7);
+        if (k < 0.0)  k = 0.0;
+        if (k > 10.0) k = 10.0;
+        k_ = k;
+
+        const double r0 = TB_ROW0;
+        const double rN = TB_ROWN;
+
+        // (I − α·A_tb):
+        const double L00 = 1.0 + a * r0,   L01 = -a * r0,         L02 = 0.0,             L03 = 0.0;
+        const double L10 = -a * rN,        L11 = 1.0 + 2.0*a*rN,  L12 = -a * rN,         L13 = 0.0;
+        const double L20 = 0.0,            L21 = -a * rN,         L22 = 1.0 + 2.0*a*rN,  L23 = -a * rN;
+        const double L30 = 0.0,            L31 = 0.0,             L32 = -a * rN,         L33 = 1.0 + 2.0*a*rN;
+
+        // (I + α·A_tb):
+        const double R00 = 1.0 - a * r0,   R01 =  a * r0,         R02 = 0.0,             R03 = 0.0;
+        const double R10 =  a * rN,        R11 = 1.0 - 2.0*a*rN,  R12 =  a * rN,         R13 = 0.0;
+        const double R20 = 0.0,            R21 =  a * rN,         R22 = 1.0 - 2.0*a*rN,  R23 =  a * rN;
+        const double R30 = 0.0,            R31 = 0.0,             R32 =  a * rN,         R33 = 1.0 - 2.0*a*rN;
+
+        // Solve L·X = rhs via 4×4 Gauss elimination with partial pivoting.
+        auto solve = [&](double r0v, double r1v, double r2v, double r3v,
+                         double& xo0, double& xo1, double& xo2, double& xo3) {
+            double A[4][5] = {
+                { L00, L01, L02, L03, r0v },
+                { L10, L11, L12, L13, r1v },
+                { L20, L21, L22, L23, r2v },
+                { L30, L31, L32, L33, r3v },
+            };
+            // Forward elimination with partial pivoting.
+            for (int p = 0; p < 4; ++p) {
+                int piv = p;
+                double pivAbs = std::fabs(A[p][p]);
+                for (int r = p + 1; r < 4; ++r) {
+                    const double v = std::fabs(A[r][p]);
+                    if (v > pivAbs) { piv = r; pivAbs = v; }
+                }
+                if (piv != p) {
+                    for (int c = 0; c < 5; ++c) {
+                        const double t = A[p][c];
+                        A[p][c] = A[piv][c];
+                        A[piv][c] = t;
+                    }
+                }
+                const double inv = 1.0 / A[p][p];
+                for (int r = p + 1; r < 4; ++r) {
+                    const double f = A[r][p] * inv;
+                    for (int c = p; c < 5; ++c) A[r][c] -= f * A[p][c];
+                }
+            }
+            // Back-substitute.
+            double x[4] = { 0.0, 0.0, 0.0, 0.0 };
+            for (int r = 3; r >= 0; --r) {
+                double s = A[r][4];
+                for (int c = r + 1; c < 4; ++c) s -= A[r][c] * x[c];
+                x[r] = s / A[r][r];
+            }
+            xo0 = x[0]; xo1 = x[1]; xo2 = x[2]; xo3 = x[3];
+        };
+
+        // 4 columns of R.
+        double c00, c01, c02, c03;  solve(R00, R10, R20, R30, c00, c01, c02, c03);
+        double c10, c11, c12, c13;  solve(R01, R11, R21, R31, c10, c11, c12, c13);
+        double c20, c21, c22, c23;  solve(R02, R12, R22, R32, c20, c21, c22, c23);
+        double c30, c31, c32, c33;  solve(R03, R13, R23, R33, c30, c31, c32, c33);
+
+        // Pack row-major (matches worklet layout).
+        Ad_[0]  = c00; Ad_[1]  = c10; Ad_[2]  = c20; Ad_[3]  = c30;
+        Ad_[4]  = c01; Ad_[5]  = c11; Ad_[6]  = c21; Ad_[7]  = c31;
+        Ad_[8]  = c02; Ad_[9]  = c12; Ad_[10] = c22; Ad_[11] = c32;
+        Ad_[12] = c03; Ad_[13] = c13; Ad_[14] = c23; Ad_[15] = c33;
+
+        // b_d = L⁻¹ · (2α · b_tb),  b_tb = [-2^(3/4), 0, 0, 0]^T.
+        double b0, b1, b2, b3;
+        solve(-2.0 * a * r0, 0.0, 0.0, 0.0, b0, b1, b2, b3);
+        bd_[0] = b0; bd_[1] = b1; bd_[2] = b2; bd_[3] = b3;
+    }
+
+    // Run a single coupling-cap section i: y = b0·x + b1·x_prev - a1·y_prev.
+    double section(int i, double x) {
+        const double y = cb0_[i] * x + cb1_[i] * cxp_[i] - ca1_[i] * cyp_[i];
+        cxp_[i] = x;
+        cyp_[i] = y;
+        return y;
+    }
+
+    // Single ladder sample at 2·Fs. Returns post-network output y_post.
+    double ladderStep(double x_in) {
+        // ---- Pre-network: section 0 (HP@97.5), section 1 (shelf 109.9/578.1).
+        const double p0 = section(0, x_in);
+        const double p1 = section(1, p0);
+
+        // ---- Driver pair tanh on (drive·p1 − k·y_post_prev). One-sample lag on FB.
+        const double u = std::tanh(drive_ * p1 - k_ * yPostPrev_);
+        const double u_avg = 0.5 * (u + uPrev_);
+
+        // ---- Ladder core (TB-303 state-space).
+        const double n0 = Ad_[0]*x0_ + Ad_[1]*x1_ + Ad_[2]*x2_ + Ad_[3]*x3_ + bd_[0]*u_avg;
+        const double n1 = Ad_[4]*x0_ + Ad_[5]*x1_ + Ad_[6]*x2_ + Ad_[7]*x3_ + bd_[1]*u_avg;
+        const double n2 = Ad_[8]*x0_ + Ad_[9]*x1_ + Ad_[10]*x2_ + Ad_[11]*x3_ + bd_[2]*u_avg;
+        const double n3 = Ad_[12]*x0_ + Ad_[13]*x1_ + Ad_[14]*x2_ + Ad_[15]*x3_ + bd_[3]*u_avg;
+        x0_ = n0; x1_ = n1; x2_ = n2; x3_ = n3;
+        uPrev_ = u;
+
+        // ---- Post-network: sections 2, 3 (HPs at 38.5, 4.45),
+        //                    section 4 (shelf 34/20), then ×1.06 gain.
+        const double q0 = section(2, n3);
+        const double q1 = section(3, q0);
+        const double q2 = section(4, q1);
+        const double y_post = POST_GAIN * q2;
+
+        yPostPrev_ = y_post;
+        return y_post;
+    }
+
+    double sr_;
+    double normFreq_ = 0.4;
+    double Q_        = 4.0;
+    double drive_    = 1.0;
+    double trim_     = 0.0;
+
+    double k_ = 0.0;
+    std::array<double, 16> Ad_{};
+    std::array<double, 4>  bd_{};
+
+    // Ladder cap states (TB-303 differential voltages V₁..V₄).
+    double x0_ = 0.0, x1_ = 0.0, x2_ = 0.0, x3_ = 0.0;
+    // Coupling-cap section coefficients and states.
+    std::array<double, 5> cb0_{};
+    std::array<double, 5> cb1_{};
+    std::array<double, 5> ca1_{};
+    std::array<double, 5> cxp_{};
+    std::array<double, 5> cyp_{};
+    // FB lag (post-network output) and core-input lag.
+    double yPostPrev_ = 0.0;
+    double uPrev_ = 0.0;
+
+    std::array<double, kTaps> hb_{};
+    std::array<double, kTaps> upBuf_{};
+    std::array<double, kTaps> dnBuf_{};
+    int upIdx_ = 0, dnIdx_ = 0;
+};
+
+}  // namespace shags::ops

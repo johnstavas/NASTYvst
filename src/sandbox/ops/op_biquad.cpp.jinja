@@ -1,0 +1,171 @@
+// op_biquad.cpp — Stage-3b C++ sidecar for the `biquad` op.
+// Contract: memory/codegen_design.md § 4. Catalog: RBJ Audio EQ Cookbook
+// (Robert Bristow-Johnson, 2005) — primary source for all coefficient sets.
+// Topology: Direct Form II Transposed. JOS PASP recommends TDF2 for time-
+// varying coefficients (modulated cutoff/Q): better numerical behavior at
+// low Q + cleaner denormal flush than DF1, same op count.
+//
+// Modes: 0=lp 1=hp 2=bp 3=notch 4=peak 5=lowShelf 6=highShelf
+// gainDb is meaningful for peak/lowShelf/highShelf only; ignored for the
+// rest (matches RBJ cookbook — A only enters the peaking/shelf forms).
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+
+namespace shags::ops {
+
+class BiquadOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "biquad";
+
+    explicit BiquadOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        recomputeCoefs();
+    }
+
+    void reset() { z1_ = 0.0; z2_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "cutoff") == 0) { cutoff_ = v; recomputeCoefs(); }
+        else if (std::strcmp(id, "q")      == 0) { q_      = v; recomputeCoefs(); }
+        else if (std::strcmp(id, "gainDb") == 0) { gainDb_ = v; recomputeCoefs(); }
+        else if (std::strcmp(id, "mode")   == 0) {
+            const int m = static_cast<int>(v);
+            if (m >= 0 && m <= 6) { mode_ = m; recomputeCoefs(); }
+        }
+    }
+
+    void setMode(const char* m) {
+        if      (std::strcmp(m, "lp")        == 0) mode_ = 0;
+        else if (std::strcmp(m, "hp")        == 0) mode_ = 1;
+        else if (std::strcmp(m, "bp")        == 0) mode_ = 2;
+        else if (std::strcmp(m, "notch")     == 0) mode_ = 3;
+        else if (std::strcmp(m, "peak")      == 0) mode_ = 4;
+        else if (std::strcmp(m, "lowShelf")  == 0) mode_ = 5;
+        else if (std::strcmp(m, "highShelf") == 0) mode_ = 6;
+        else                                       mode_ = 0;
+        recomputeCoefs();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        constexpr double DENORMAL = 1e-30;
+        const double b0 = b0_, b1 = b1_, b2 = b2_, a1 = a1_, a2 = a2_;
+        double z1 = z1_, z2 = z2_;
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            // Direct Form II Transposed:
+            //   y    = b0*x + z1
+            //   z1' = b1*x - a1*y + z2
+            //   z2' = b2*x - a2*y
+            const double y  = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            if (z1 < DENORMAL && z1 > -DENORMAL) z1 = 0.0;
+            if (z2 < DENORMAL && z2 > -DENORMAL) z2 = 0.0;
+            out[i] = static_cast<float>(y);
+        }
+        z1_ = z1;
+        z2_ = z2;
+    }
+
+private:
+    void recomputeCoefs() {
+        // Clamp inputs to safe ranges (mirrors SVF/onePole conventions).
+        const double nyq = 0.5 * sr_ - 100.0;
+        const double fc  = std::min(std::max(cutoff_, 20.0), nyq);
+        const double q   = std::min(std::max(q_,      0.05), 50.0);
+        const double w0  = 2.0 * M_PI * fc / sr_;
+        const double cw  = std::cos(w0);
+        const double sw  = std::sin(w0);
+        const double alpha = sw / (2.0 * q);
+        // A = sqrt(linear gain) — RBJ uses A^2 for peaking, A for shelves.
+        const double A   = std::pow(10.0, gainDb_ / 40.0);
+        const double sqA = std::sqrt(A);
+
+        double b0 = 0, b1 = 0, b2 = 0, a0 = 1, a1 = 0, a2 = 0;
+        switch (mode_) {
+            case 0: { // LP — RBJ cookbook L78-L83
+                b0 = (1.0 - cw) * 0.5;
+                b1 =  1.0 - cw;
+                b2 = (1.0 - cw) * 0.5;
+                a0 =  1.0 + alpha;
+                a1 = -2.0 * cw;
+                a2 =  1.0 - alpha;
+            } break;
+            case 1: { // HP — RBJ L92-L97
+                b0 =  (1.0 + cw) * 0.5;
+                b1 = -(1.0 + cw);
+                b2 =  (1.0 + cw) * 0.5;
+                a0 =   1.0 + alpha;
+                a1 =  -2.0 * cw;
+                a2 =   1.0 - alpha;
+            } break;
+            case 2: { // BP (constant skirt gain, peak gain = Q) — RBJ L106-L111
+                b0 =  alpha;
+                b1 =  0.0;
+                b2 = -alpha;
+                a0 =  1.0 + alpha;
+                a1 = -2.0 * cw;
+                a2 =  1.0 - alpha;
+            } break;
+            case 3: { // notch — RBJ L134-L139
+                b0 =  1.0;
+                b1 = -2.0 * cw;
+                b2 =  1.0;
+                a0 =  1.0 + alpha;
+                a1 = -2.0 * cw;
+                a2 =  1.0 - alpha;
+            } break;
+            case 4: { // peakingEQ — RBJ L150-L155
+                b0 =  1.0 + alpha * A;
+                b1 = -2.0 * cw;
+                b2 =  1.0 - alpha * A;
+                a0 =  1.0 + alpha / A;
+                a1 = -2.0 * cw;
+                a2 =  1.0 - alpha / A;
+            } break;
+            case 5: { // lowShelf — RBJ L164-L169
+                const double t = 2.0 * sqA * alpha;
+                b0 =      A * ((A + 1.0) - (A - 1.0) * cw + t);
+                b1 =  2.0 * A * ((A - 1.0) - (A + 1.0) * cw);
+                b2 =      A * ((A + 1.0) - (A - 1.0) * cw - t);
+                a0 =          (A + 1.0) + (A - 1.0) * cw + t;
+                a1 = -2.0 *   ((A - 1.0) + (A + 1.0) * cw);
+                a2 =          (A + 1.0) + (A - 1.0) * cw - t;
+            } break;
+            case 6: { // highShelf — RBJ L178-L183
+                const double t = 2.0 * sqA * alpha;
+                b0 =      A * ((A + 1.0) + (A - 1.0) * cw + t);
+                b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cw);
+                b2 =      A * ((A + 1.0) + (A - 1.0) * cw - t);
+                a0 =          (A + 1.0) - (A - 1.0) * cw + t;
+                a1 =  2.0 *   ((A - 1.0) - (A + 1.0) * cw);
+                a2 =          (A + 1.0) - (A - 1.0) * cw - t;
+            } break;
+        }
+
+        // Normalize by a0 (RBJ convention).
+        const double inv = 1.0 / a0;
+        b0_ = b0 * inv;
+        b1_ = b1 * inv;
+        b2_ = b2 * inv;
+        a1_ = a1 * inv;
+        a2_ = a2 * inv;
+    }
+
+    double sr_;
+    double cutoff_ = 1000.0;
+    double q_      = 0.707;
+    double gainDb_ = 0.0;
+    int    mode_   = 0;
+    double b0_ = 0, b1_ = 0, b2_ = 0, a1_ = 0, a2_ = 0;
+    double z1_ = 0, z2_ = 0;
+};
+
+}  // namespace shags::ops

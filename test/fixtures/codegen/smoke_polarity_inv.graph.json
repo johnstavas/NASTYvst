@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-polarity-inv-v0",
+  "label": "SmokePolarityInv",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_pol", "op": "polarity", "x": 240, "y": 100, "params": { "invert": true } }
+  ],
+  "wires": [
+    { "from": "in",    "to": "n_pol" },
+    { "from": "n_pol", "to": "out"   }
+  ],
+  "feedback": [],
+  "legendOps": ["polarity"]
+}

@@ -1,0 +1,144 @@
+// op_drive.cpp — Stage-3b C++ sidecar for the `drive` op.
+// Contract: memory/codegen_design.md § 4.
+//
+// Soft saturator with 2× internal oversampling. Halfband FIR up + tanh +
+// halfband FIR down + decimate. 63-tap Kaiser-windowed halfband (β=10,
+// ~100 dB stopband rejection, passband flat to ~0.40·Fs ≈ 19 kHz @ 48k).
+// Sized so neither aliasing nor top-octave roll-off is audible on hot
+// transient material (cymbals, drum hits, vocals with sibilance).
+//
+// Form (preserved): y = tanh(k·x) / tanh(k), k = drive (clamped 0.1..20).
+//
+// Halfband property: even-indexed off-center taps are exactly 0; center
+// tap = 0.5; odd-indexed taps follow sin(π·m/2)/(π·m) · w(n).
+// Coefficients computed once in the constructor — bit-identical to JS.
+//
+// Latency: (kTaps - 1) / 2 = 31 samples (~0.65 ms @ 48k). Reported via
+// getLatencySamples() so the host can compensate.
+//
+// Tolerance: -100 dB (FIR + tanh + double-precision Bessel I0).
+//
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <array>
+
+namespace shags::ops {
+
+class DriveOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "drive";
+
+    explicit DriveOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
+        designHalfband();
+        recomputeNorm();
+    }
+
+    void reset() {
+        upBuf_.fill(0.0);
+        dnBuf_.fill(0.0);
+        upIdx_ = 0;
+        dnIdx_ = 0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "drive") == 0) {
+            drive_ = v < 0.1 ? 0.1 : (v > 20.0 ? 20.0 : v);
+            recomputeNorm();
+        }
+    }
+
+    int getLatencySamples() const { return (kTaps - 1) / 2; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        const double k    = drive_;
+        const double inv  = invNorm_;
+        for (int i = 0; i < N; ++i) {
+            // ── 2× upsample (zero-stuff + halfband FIR, ×2 gain comp) ───
+            const double x   = 2.0 * static_cast<double>(in[i]);
+            const double up0 = pushAndConvolve(upBuf_, upIdx_, x);
+            const double up1 = pushAndConvolve(upBuf_, upIdx_, 0.0);
+
+            // ── waveshape at 2·Fs ───────────────────────────────────────
+            const double s0 = std::tanh(k * up0) * inv;
+            const double s1 = std::tanh(k * up1) * inv;
+
+            // ── 2× downsample (halfband FIR + decimate) ─────────────────
+            (void) pushAndConvolve(dnBuf_, dnIdx_, s0);  // discarded
+            const double dn = pushAndConvolve(dnBuf_, dnIdx_, s1);
+
+            out[i] = static_cast<float>(dn);
+        }
+    }
+
+private:
+    static constexpr int kTaps = 63;
+
+    // Modified Bessel function of the first kind, order 0. Series form
+    // converges quickly for the |β| ≤ 10 we use here.
+    static double besselI0(double x) {
+        double sum = 1.0;
+        double term = 1.0;
+        const double q = x * x * 0.25;
+        for (int k = 1; k < 50; ++k) {
+            term *= q / static_cast<double>(k * k);
+            sum  += term;
+            if (term < 1.0e-20 * sum) break;
+        }
+        return sum;
+    }
+
+    void designHalfband() {
+        // 63-tap Kaiser-windowed halfband FIR. fc = Fs/4 (normalized 0.25).
+        // β = 10 → ~100 dB stopband rejection, passband flat to ~0.40·Fs.
+        constexpr double beta = 10.0;
+        const double i0Beta = besselI0(beta);
+        const int    N      = kTaps - 1;            // 62
+        const int    half   = kTaps / 2;            // 31
+
+        for (int n = 0; n < kTaps; ++n) {
+            const int m = n - half;                 // -31..+31
+            double sinc;
+            if (m == 0)            sinc = 0.5;
+            else if ((m & 1) == 0) sinc = 0.0;      // halfband zeros
+            else                   sinc = std::sin(0.5 * M_PI * m) / (M_PI * m);
+
+            // Kaiser window value at index n
+            const double r = (2.0 * n - N) / static_cast<double>(N);   // -1..+1
+            const double a = beta * std::sqrt(1.0 - r * r);
+            const double w = besselI0(a) / i0Beta;
+
+            hb_[n] = sinc * w;
+        }
+    }
+
+    double pushAndConvolve(std::array<double, kTaps>& buf, int& idx, double x) {
+        buf[idx] = x;
+        idx = (idx + 1) % kTaps;
+        double y = 0.0;
+        int j = idx;
+        for (int t = 0; t < kTaps; ++t) {
+            y += hb_[t] * buf[j];
+            j = (j + 1) % kTaps;
+        }
+        return y;
+    }
+
+    void recomputeNorm() {
+        const double t = std::tanh(drive_);
+        invNorm_ = (t != 0.0) ? (1.0 / t) : 1.0;
+    }
+
+    double sr_;
+    double drive_   = 1.0;
+    double invNorm_ = 1.0 / std::tanh(1.0);
+    std::array<double, kTaps> hb_{};
+    std::array<double, kTaps> upBuf_{};
+    std::array<double, kTaps> dnBuf_{};
+    int upIdx_ = 0, dnIdx_ = 0;
+};
+
+}  // namespace shags::ops

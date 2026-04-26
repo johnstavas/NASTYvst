@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-hardclip-v0",
+  "label": "SmokeHardClip",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_hc", "op": "hardClip", "x": 240, "y": 100, "params": { "drive": 1.5, "threshold": 0.7, "trim": 0.0, "adaa": false } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_hc.in" },
+    { "from": "n_hc.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["hardClip"]
+}

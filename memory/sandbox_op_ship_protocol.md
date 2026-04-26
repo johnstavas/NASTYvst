@@ -69,13 +69,28 @@ Run through this list BEFORE writing any `.worklet.js` / `.cpp.jinja` /
 - Golden bless (`node scripts/check_op_goldens.mjs --bless`)
 - Full 8-gate QC rack (`npm run qc:all`)
 
-### 6. Ship summary (in the chat message where you report the ship)
+### 6. Native parity (added 2026-04-25, Phase 4 closure)
+- Add op entry to `test/fixtures/parity/per_op_specs.json` (declare
+  tolerance per § 5.4 of `codegen_pipeline_buildout.md`: -90 dB default,
+  -120 dB for nonlinear/ADAA, cents-pinned for neural).
+- Build smoke VST3 via `node src/sandbox/codegen/build_native.mjs`.
+- Run `npm run qc:parity --op <opId>` → must be PASS at declared
+  tolerance.
+- Update `per_op_specs.json` vst3 path to the just-built suffix.
+- Op cannot flip ✅ in `sandbox_ops_catalog.md` until parity is green.
+  See `ship_blockers.md` § 8 (Native Parity gate).
+
+### 7. Ship summary (in the chat message where you report the ship)
 - **Primary sources consulted** — named explicitly (file paths or
   citations with §).
 - **Diff summary vs. reference** — what matched, what you deviated on
   and why, what was new (not in reference).
 - **If no primary source was available** — declare it upfront with the
   reason, and auto-log a row in `sandbox_ops_research_debt.md`.
+- **Update `STATUS.md`** at repo root: prune the shipped op from "Next
+  ops", add it to "Just landed", refresh the date, log any new drift
+  found during the ship under "Open drifts". The ship is not complete
+  until `STATUS.md` reflects it.
 
 ---
 
@@ -141,6 +156,83 @@ The synth family is the broadest on the catalog and the easiest to
 mis-attribute across variants. Two primaries minimum per op ship for
 anything in the #79–#98 range unless explicitly a math-by-definition
 primitive (e.g., a pure DC source).
+
+### Neural / ML ops (#78 crepe, #119–#122 reserved Stage E)
+
+Neural ops break the `worklet ≡ cpp.jinja` bit-for-bit-mirror assumption
+that the rest of this protocol depends on. Two reasons:
+
+1. **The "code" of an ML op is not code.** It's a published architecture
+   (paper § with layer counts, kernel sizes, activation choices) plus a
+   pretrained weights file. Verbatim port of a Python/Keras training
+   script is meaningless and would copy framework idiosyncrasies, not
+   the published model.
+2. **Inference runtime asymmetry between worklet and native.** ORT-Web
+   does not run cleanly inside an `AudioWorkletGlobalScope` (microsoft/
+   onnxruntime#13072 — `self`/CPU-backend assumptions in the WASM bundle
+   start no inference session). Production pattern: inference runs on
+   the **main thread** (or a SharedArrayBuffer Worker), the worklet
+   ships frames out via `port.postMessage` and receives results back
+   as parameter updates. Native (C++) plugins run ORT-native inline,
+   no roundtrip needed. The two paths are functionally equivalent but
+   not topologically identical.
+
+#### Neural Op Exception clause (binding)
+
+For any op declared `kind: 'neural'` in the registry:
+
+- **Primary-source consult requires THREE artifacts**, all named in the
+  ship summary:
+  1. **Architecture primary** — the paper § (or technical report) that
+     specifies layer topology, input/output shapes, training data, and
+     decoding formula. Not optional. Math-by-definition is forbidden
+     for neural ops; the architecture must be cited from a published
+     source.
+  2. **Weights primary** — the authoritative repo / release that
+     publishes the pretrained weights, with permissive license verified
+     (MIT / Apache-2.0 / BSD). Either the originating author's repo or a
+     widely-cited mirror that documents its conversion source.
+  3. **Inference reference** — at least one shipping implementation
+     (Python / C++ / web) used as the canonical decoding reference.
+     Verifies that the published architecture + weights actually decode
+     to the documented output range.
+
+- **Worklet/native asymmetry must be documented in the worklet header.**
+  State explicitly that the JS path runs inference off-worklet (main-
+  thread or Worker) and the C++ path runs inline. This is a deliberate
+  divergence, not a port bug.
+
+- **Math tests, not golden hashes.** Neural inference is not bit-
+  identical across hardware (SIMD instruction set, FP rounding, ORT
+  build flags all perturb output by ~1e-5–1e-6 relative). The
+  golden-hash harness must skip declared neural ops; verification is
+  via tolerance-based math tests against synthesized inputs (e.g.,
+  440 Hz sine → F0 = 440 ± 5¢ with confidence > 0.9).
+
+- **Two-stage ship.** Stage 1 lands the architectural foundation
+  (registry stub with `kind: 'neural'`, MessagePort protocol design,
+  worklet shim with mocked inference, golden-harness skip-list, full
+  primary-source citations). Stage 2 lands working inference (host-side
+  runner, weights bundle, real math-tests). Catalog status: Stage 1 →
+  🚧, Stage 2 → ✅. Both stages walk through the standard 7-step
+  checklist; the exception only relaxes the bit-for-bit-mirror and
+  golden-hash rules.
+
+- **Weights file logistics.** Pretrained weights live in
+  `.shagsplug/models/<opId>.onnx` (codegen_design.md §12). Sandbox
+  loads from `/models/<opId>.onnx` relative to the sandbox bundle; the
+  C++ build wires the same `.onnx` as a binary plugin resource via
+  CMake (codegen_design.md §12).
+
+- **Runtime selection.** Stage E uses **ONNX Runtime** for both
+  paths — ORT-Web (1.16+, ~1.5 MB WASM, MIT license) for the sandbox /
+  WAM, ORT-native (C++, MIT license) for VST/AU. Single `.onnx` file
+  shared. No per-op runtime decision; that lock is made once at the
+  tier level.
+
+This clause was authored 2026-04-24 alongside the #78 crepe Stage 1
+ship as the first concrete neural op. Future neural ops (#119–#122)
+inherit it without reauthoring.
 
 ## Authorized second-primary source archives (local)
 

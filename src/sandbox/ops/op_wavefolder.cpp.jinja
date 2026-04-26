@@ -1,0 +1,66 @@
+// op_wavefolder.cpp — Stage-3b C++ sidecar for the `wavefolder` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_wavefolder.worklet.js
+// bit-for-bit. Faust ef.wavefold (MIT, David Braun 2024 / Zölzer 2022).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class WavefolderOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "wavefolder";
+
+    explicit WavefolderOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "drive") == 0) {
+            drive_ = (std::isfinite(v) && v > 0.01) ? v : (std::isfinite(v) ? 0.01 : 1.0);
+        } else if (std::strcmp(id, "width") == 0) {
+            if (!std::isfinite(v)) { width_ = 0.5; return; }
+            width_ = v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+        } else if (std::strcmp(id, "trim") == 0) {
+            trimLin_ = std::isfinite(v) ? std::pow(10.0, v / 20.0) : 1.0;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        const double drive   = drive_;
+        const double trimLin = trimLin_;
+        const double a       = width_ * 0.4;
+        const double thr     = 1.0 - 2.0 * a;
+        const double g       = 1.0 / (thr > 1e-9 ? thr : 1e-9);
+        const double twoA    = 2.0 * a;
+        const double triBase = 1.0 - 2.5 * a;
+        for (int i = 0; i < N; ++i) {
+            double x = static_cast<double>(in[i]) * drive;
+            const double sign = x < 0.0 ? -1.0 : 1.0;
+            const double ax = sign * x;
+            double y;
+            if (ax > thr && a > 0.0) {
+                const double u = (ax - thr) / twoA;
+                const double f = u - std::floor(u);
+                const double tri = triBase + a * std::fabs(f - 0.5);
+                y = tri * g;
+            } else {
+                y = ax * g;
+            }
+            out[i] = static_cast<float>(trimLin * sign * y);
+        }
+    }
+
+private:
+    double sr_;
+    double drive_   = 1.0;
+    double width_   = 0.5;
+    double trimLin_ = 1.0;
+};
+
+}  // namespace shags::ops

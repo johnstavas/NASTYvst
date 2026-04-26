@@ -1,0 +1,54 @@
+// op_diodeClipper.cpp — Stage-3b C++ sidecar for the `diodeClipper` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_diodeClipper.worklet.js
+// bit-for-bit. Closed-form arcsinh diode-pair clipper — Yeh DAFx 2008 +
+// Sedra-Smith §3.2 Shockley equation.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class DiodeClipperOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "diodeClipper";
+
+    explicit DiodeClipperOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {}
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "drive") == 0) {
+            drive_ = (std::isfinite(v) && v > 0.01) ? v : (std::isfinite(v) ? 0.01 : 1.0);
+        } else if (std::strcmp(id, "asym") == 0) {
+            if (!std::isfinite(v)) { asym_ = 0.0; return; }
+            asym_ = v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+        } else if (std::strcmp(id, "trim") == 0) {
+            trimLin_ = std::isfinite(v) ? std::pow(10.0, v / 20.0) : 1.0;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        const double driveP = drive_;
+        const double driveN = drive_ * (1.0 - asym_);
+        const double trimLin = trimLin_;
+        const double normP = 1.0 / std::asinh(driveP);
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            const double d = x >= 0.0 ? driveP : driveN;
+            out[i] = static_cast<float>(trimLin * normP * std::asinh(d * x));
+        }
+    }
+
+private:
+    double sr_;
+    double drive_   = 1.0;
+    double asym_    = 0.0;
+    double trimLin_ = 1.0;
+};
+
+}  // namespace shags::ops

@@ -1,0 +1,46 @@
+// MasterGraph — generated from {{ GRAPH_ID }}.
+// One member per node, fan-out per-block in process(). DO NOT hand-edit.
+#pragma once
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <vector>
+#include <array>
+#include <cstring>
+#include <optional>
+
+{% for n in nodes %}
+#include "ops/op_{{ n.id }}.h"
+{% endfor %}
+
+namespace shags::codegen {
+
+// Per-channel op state. Stateful ops (FIR delay lines, biquad memory, etc.)
+// MUST NOT be shared across stereo channels — that produces L/R cross-talk
+// in the delay line that sounds like aliased garbage. We instantiate one
+// op per channel up to kMaxChannels and dispatch by channel index.
+constexpr int kMaxChannels = 2;
+
+class MasterGraph {
+public:
+    MasterGraph() = default;
+    void prepare(double sampleRate, int maxBlockSize);
+    void reset();
+    void process(juce::AudioBuffer<float>& buffer);
+    int  getLatency() const { return latencySamples_; }
+    void setParam(const char* nodeId, const char* opParamId, double v);
+
+private:
+    double sampleRate_ = 44100.0;
+    int    maxBlock_   = 0;
+    int    latencySamples_ = 0;
+
+    // Scratch: one Float32 buffer per PCOF buffer slot.
+    std::vector<std::vector<float>> scratch_;
+
+    // One member per (node × channel) — name = <nodeId>_[ch]
+    // std::optional so ops with explicit ctor(sr) don't need a default ctor.
+{% for n in nodes %}
+    std::array<std::optional<shags::ops::{{ n.opStruct }}_{{ n.id }}>, kMaxChannels> {{ n.id }}_;
+{% endfor %}
+};
+
+}  // namespace shags::codegen

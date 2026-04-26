@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-saturate-v0",
+  "label": "SmokeSaturate",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_sat", "op": "saturate", "x": 240, "y": 100, "params": { "drive": 2.0, "trim": -3.0 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_sat.in" },
+    { "from": "n_sat.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["saturate"]
+}

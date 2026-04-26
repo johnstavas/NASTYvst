@@ -1,19 +1,83 @@
-# Sandbox Ops Catalog — 1–130 flat index
+# Sandbox Ops Catalog — 1–183 flat index
 
 Living checklist of every op slot in the sandbox DSP primitive set. Organised
 by family; the number in the first column is the **canonical catalog ID** and
 is permanent. The `status` column is the single source of truth for "what's
 done vs. what's left".
 
+> **Phase 4 closure — 2026-04-25 ✅.** Op-ship line **UNPAUSED**. Native
+> parity is now a permanent ship gate per `ship_blockers.md` § 8. All 39
+> ops in `test/fixtures/parity/per_op_specs.json` are parity-green at
+> declared tolerance (full sweep ALL PASS, golden hashes 250/250 PASS,
+> verified 2026-04-25). Parity-verified op set: `gain, abs, sign, scaleBy,
+> clamp, polarity, uniBi, constant, polarity_inv, uniBi_b2u, dcBlock,
+> onePole_lp, onePole_hp, svf_lp, ladder, gain_chain2, biquad_{lp,hp,bp,
+> notch,peak,lowshelf,highshelf}, drive, mix, softLimit, saturate, bitcrush,
+> hardClip, wavefolder, diodeClipper, shelf_low, allpass, tilt, chebyshevWS,
+> korg35, diodeLadder, smooth, slew`. New ops shipped after this date
+> require the 7-step protocol (`sandbox_op_ship_protocol.md`) including
+> Step 6 native-parity green BEFORE flipping ✅+P in this catalog.
+
 ## Status legend
-- ✅  **shipped** — tri-file set (`.worklet.js` + `.cpp.jinja` + `.test.js`)
-  complete, math tests green, `scripts/goldens/<opId>.golden.json` blessed.
-- 🚧  **registry-only** — entry exists in `src/sandbox/opRegistry.js` but no
+- ✅+P  **shipped + parity-verified** — tri-file set complete + math + golden
+  blessed + `qc:parity` green at declared tolerance against worklet sibling.
+  After Phase 4 closure (2026-04-25), this is the only ✅-equivalent state
+  for shipped rows.
+- ✅+P~ **shipped + parity-verified with declared widening** — same as ✅+P
+  but with a per-op tolerance widening documented in
+  `test/fixtures/parity/per_op_specs.json` `note` field (e.g., neural ops
+  using cents tolerance instead of bit-exact).
+- ✅    **legacy "shipped" mark** — pre-Phase-4 transitional. Many existing
+  rows still display ✅ rather than ✅+P; treat as "shipped, and either
+  parity-verified (if op appears in `test/fixtures/parity/per_op_specs.json`)
+  or parity-not-yet-built-as-fixture (if not)." All 39 ops in the parity
+  fixture set are ✅+P after Phase 4 closure 2026-04-25 (see closure block
+  below). Future per-row promotion happens when the doc is next touched.
+- 🔧    **parity-pending** — fix in flight (ops paused mid-debug; see
+  `qc_backlog.md` for diff signature).
+- 🚧    **registry-only** — entry exists in `src/sandbox/opRegistry.js` but no
   sidecar yet (so shape-check would trip if included in OP_IDS).
-- ⬜  **not started** — no registry entry, no files.
+- ⬜    **not started** — no registry entry, no files.
 
 ## Running total
-**117 of ~130 ops shipped (~90%).**
+**126 of ~183 ops shipped (~69%).** Pre-Phase-4 was 125; #139 xformerSat
+shipped ✅+P 2026-04-26 → 126. 2026-04-26 corpus-sweep extension
+adds 36 new ⬜ slots (#141–#176) — 8 Tier-S + 21 Tier-A + 7 Tier-B.
+2026-04-26 dedup-recovery pass adds 7 more ⬜ slots (#177–#183) —
+1 Tier-A (fmOperator) + 6 Tier-B — closing the 11-slot gap to the
+original synthesis count.
+Pre-sweep state: 125 of ~140 ops shipped (~89%). Catalog extended
+2026-04-24 with 8
+gap-audit slots (#131–#138) covering Character/Filters/Synth/Noise
+foundation holes identified in second-pass audit. **All 3 critical
+gap-audit ops shipped 2026-04-24: #131 wavefolder, #132 diodeClipper,
+#133 hardClip. ✅ All 5 nice-to-haves shipped 2026-04-24: #134
+chebyshevWS, #135 diodeLadder, #136 korg35 (slot rename from
+steinerParker — see row), #137 polyBLEP, #138 velvetNoise. ✅ Gap-audit
+queue fully closed.** **2026-04-25 transformer/Pultec intake added two
+queued slots (#139 xformerSat, #140 pultecEQ) with Tier-S primaries in
+hand — see "Queued character + EQ ops" section below.**
+
+### Gap-audit queue (2026-04-24) — 3 critical + 5 nice-to-haves
+| # | op | family | priority | primary in hand |
+|---|---|---|---|---|
+| 131 | wavefolder    | Character | **critical** | musicdsp "Fold-back" + Esqueda-Välimäki-Bilbao DAFx 2017 + Faust `oscillators.lib` (MIT) |
+| 132 | diodeClipper  | Character | **critical** | Yeh DAFx 2008 + Eichas-Fink-Möller-Zölzer DAFX 2014 (MIT Green-Box Fuzz) |
+| 133 | hardClip      | Character | **critical** | Canon:character §4 (branchless clip) + Parker-Esqueda-Bilbao DAFx 2016 (ADAA) |
+| 134 | chebyshevWS   | Character | nice-to-have ✅ | Canon:character §4 / musicdsp #230 (public-domain) + Wikipedia Chebyshev polynomials |
+| 135 | diodeLadder   | Filters   | nice-to-have ✅ | Faust ve.diodeLadder (Eric Tarr 2019, MIT-STK) + Pirkle AN-6 + ef.cubicnl (JOS, STK-4.3) |
+| 136 | korg35 (was steinerParker) | Filters | nice-to-have ✅ | Faust ve.korg35LPF (Eric Tarr 2019, MIT-STK) — slot renamed; primary for true Steiner-Parker not openly available |
+| 137 | polyBLEP      | Synth     | nice-to-have ✅ | Välimäki-Huovilainen IEEE SPM 2007 §III.B (closed-form parabolic correction, math-by-definition) |
+| 138 | velvetNoise   | Noise/Space | nice-to-have ✅ | Karjalainen-Järveläinen AES 2007 (originator) + Välimäki-Schlecht-Pätynen DAFx 2017 — math-by-definition (closed-form k_imp = round(r1·(Td−1)), s_imp = sgn(r2−0.5); paper PDFs unretrievable, algorithm universally documented) |
+
+Why these specifically: cannot be cleanly composed from existing primitives.
+Each has a distinct topology (non-monotonic transfer for #131, exponential
+I-V for #132, discontinuous derivative for #133, Chebyshev polynomial basis
+for #134, distinct ladder topology for #135–136, parabolic stand-in for #137,
+sparse-noise generator for #138). Demoted to brick-layer (NOT new ops):
+brickwallLimiter, multibandCompressor, deEsser, pingPongDelay, tapeDelay,
+parametricEQ, vocoder, autoTune, ambisonics, robotization/whisperization —
+all compose from shipped primitives.
 
 ### Latest session ships (2026-04-24)
 | # | op | primary |
@@ -39,25 +103,37 @@ done vs. what's left".
 | 130 | _reserved_ | No spec; reserved for future routing primitive. |
 
 Spatial sweep near-complete: #103 panner, #104 autopan, #105 haas, #118 crossfeed all ✅.
-Noise family complete: #10 noise (core, pre-session) ✅, #124 crackle ✅, #125 hiss ✅.
+Noise family complete: #10 noise (core, pre-session) ✅, #124 crackle ✅, #125 hiss ✅, #138 velvetNoise ✅.
 Control/trigger primitive: #123 sampleHold ✅.
 Movement family complete: #58 randomWalk ✅, #59 stepSeq ✅, #60 chaos ✅.
 Routing slots reconciled: #127–#129 closed as aliases of fanOut/busSum/select; #130 reserved-empty.
 
 ### Still open
+- **Gap-audit ops (queued, primaries in hand)**:
+  - ~~#131 wavefolder~~ ✅ shipped 2026-04-24 (Faust ef.wavefold MIT)
+  - ~~#132 diodeClipper~~ ✅ shipped 2026-04-24 (Yeh DAFx 2008 closed-form arcsinh)
+  - ~~#133 hardClip~~ ✅ shipped 2026-04-24 (Canon §5 branchless + Parker-Esqueda-Bilbao DAFx 2016 ADAA)
+  - ~~#134 chebyshevWS~~ ✅ shipped 2026-04-24 (Canon:character §4 / musicdsp #230 — explicit T_1..T_5 polynomial sum)
+  - ~~#135 diodeLadder~~ ✅ shipped 2026-04-24 (Faust ve.diodeLadder — Eric Tarr 2019 MIT-STK + Pirkle AN-6)
+  - ~~#136 steinerParker → korg35~~ ✅ shipped 2026-04-24 as `korg35` (Faust ve.korg35LPF — Tarr MIT-STK; slot renamed because Faust has no Steiner-Parker port and Korg-35 is the closest in-character primary in hand. True Steiner-Parker port awaits Pirkle textbook digitization or Stenzel "Synthacon VC3" DAFx digitization.)
+  - ~~#137 polyBLEP~~ ✅ shipped 2026-04-24 (Välimäki-Huovilainen IEEE SPM 2007 §III.B parabolic correction — closed-form math-by-definition)
+  - ~~#138 velvetNoise~~ ✅ shipped 2026-04-24 (Karjalainen-Järveläinen AES 2007 + Välimäki et al. 2017 — math-by-definition; sparse ±1 impulses on Td-sample grid; LCG matches op_noise for co-evolved seeded streams)
 - **Control primitives**: #100–#102 reserved-empty slots (no specs, not blocking)
-- **Pitch**: #78 crepe (ML-gated, honest declination logged)
+- **Pitch**: #78 crepe ✅ Stage 1 + Stage 2 + Stage 3 all landed 2026-04-24 — full neural-op slice end-to-end: registry · worklet · MLRuntime (JS) · ORT-Web · crepe.onnx (1.95 MB, MIT) · MLRuntimeNative (C++) · ORT-native shim · CMake/JUCE BinaryData · `qc:ml` harness (15 tolerance + decoder-fixture tests green). T8 codegen integration (JUCE plugin scaffold + CMake build server + native test gating) is non-blocking — sandbox + WAM ship via the worklet+MLRuntime path.
 
-**Effective state: catalog is closed** modulo #78 crepe (ML-runtime-gated)
-and 4 reserved-empty slots (#100–#102, #130) that have no specs to ship
-against. Next moves are plugin onboarding / brick assembly, not new ops.
+**Effective state: foundation closed (gap-audit queue empty 2026-04-24).**
+Only 4 reserved-empty slots (#100–#102, #130) remain. Next moves are plugin
+onboarding / brick assembly. **Two character/EQ extension slots queued
+2026-04-25 (#139 xformerSat, #140 pultecEQ) — primaries in hand (Whitlock
++ De Paiva 2011 + Pultec EQP-1A manual), op-ship line is paused on Phase 4
+gate closure regardless.**
 
 ### Closed / complete families
 - Character (assigned slots): #13, #88, #111–#117 + #112a all ✅
 - Synth: #41, #79–#87 + #87a all ✅
 - Dynamics (assigned slots): #3–#5, #40–#46 ✅ (#47–#50 reserved)
 - Analysis/Spectral: #57, #62–#75 ✅
-- Tone/EQ: #1–#17, #29–#39 ✅ (only #18 reserved-empty)
+- Tone/EQ: #1–#17, #29–#39 ✅ (only #18 reserved-empty); #140 pultecEQ queued 2026-04-25
 - Reverb core: #20 fdnCore, #21 ER, #107 schroederChain, #108 plate,
   #109 spring, #110 SDN ✅
 - BS.1770 loudness stack: kWeighting · lufsIntegrator · loudnessGate ·
@@ -79,16 +155,16 @@ cleared via LPC #71.)
 | family | slots |
 |---|---|
 | Core I/O            | 1, 6 |
-| Filters             | 2, 32–39 |
+| Filters             | 2, 32–39, 135–136 |
 | Dynamics            | 3–5, 40–50 |
 | Control primitives  | 7–9, 29–31, 89–102 |
-| Noise               | 10, 123–125 |
+| Noise               | 10, 123–125, 138 |
 | Movement / Modulation | 11, 58–61 |
-| Character / Saturation | 12–14, 88, 111–117 |
+| Character / Saturation | 12–14, 88, 111–117, 131–134, 139 |
 | Delay / Time        | 15, 27–28, 48, 68–69 |
 | Space               | 16–21, 103–110, 118 |
 | Routing             | 22–26, 39, 127–130 |
-| Synth generators    | 41, 79–87 |
+| Synth generators    | 41, 79–87, 137 |
 | Analysis / Spectral | 57, 62–75 |
 | Pitch detection     | 76–78 |
 | Loudness / Metering | 49–56 |
@@ -177,6 +253,7 @@ cleared via LPC #71.)
 |---|------|--------|------------------|
 | 12  | oversample2x    | ✅ | hiir by Laurent de Soras (WTFPL) — StageProcFpu.hpp L60-L80 + Upsampler2x/Downsampler2x process_sample + PolyphaseIir2Designer.h L451-L585 (full designer ported: atten+TBW → coef array; lane split even/odd). Round-trip op: in → 2× up → pair(prevOdd,curEven) → 2× down → out. Latency=1. Golden 881a62d8b9f94b66…. |
 | 13  | saturate        | ✅ | Canon:character §11 (Padé, drive+trim) |
+| 13a | drive           | ✅ | Codegen-tier (T8) tanh saturator with 2× oversampling. `y = tanh(k·x)/tanh(k)` where `k=drive` clamped [0.1, 20]; pre-tanh upsample via 63-tap Kaiser β=10 halfband FIR (≈100 dB stopband, passband flat to 19 kHz @ 48k); decimate symmetric. Latency 31 samples. JS↔native parity bit-exact (-100 dB tol). First FIR-bearing op shipped through codegen — discovery surface for the MasterGraph stereo state-isolation bug (codegen_design.md §4.1, ship_blockers.md §7); regression-gated by `qc:stereo`. |
 | 14  | bitcrush        | ✅ | Canon:character §8 (primitive core; dither/NS are #114/#115) |
 | 17  | dcBlock         | ✅ | 1-pole HP, FB-safety · ship_blockers.md |
 | 88  | softLimit       | ✅ | Canon:character §11 (Padé, threshold-scaled) |
@@ -277,7 +354,7 @@ cleared via LPC #71.)
 |---|------|--------|------------------|
 | 76 | yin   | ✅ | de Cheveigné & Kawahara 2002 JASA 111(4):1917–1930 §II — Steps 1–5 verbatim: Eq. 6 difference function, Eq. 8 CMNDF, §II.D absolute-threshold (0.1 default), §II.E parabolic interpolation over RAW d(τ) (not d′). W=25ms, f0∈[80,1000] defaults. Frame-based (hop=W, non-overlap). Silent-frame gate added (not in paper — matches librosa/aubio/crepe). Step 6 skipped (research debt). Control-rate outputs f0/confidence. 15/15 math tests green. Guyot (github.com/patriceguyot/Yin, MIT) cross-checked 2026-04-24 — CMNDF + getPitch bit-identical; 3 logged divergences (Step-4 unvoiced fallback returns global-min vs Guyot 0, Step-5 parabolic added by us, τ_max ceil vs int). |
 | 77 | pyin  | ✅ | Canon:pitch §2 (Mauch 2014). Shipped 2026-04-24. Primary paper `MAUCHpYINFundamental2014Accepted.pdf` (user-supplied) + **code-wins** against `github.com/c4dm/pyin` (GPL v2+) Vamp source — Mauch's own reference. Beta PMF tables (4×100 floats) copied verbatim from `YinUtil.cpp` L178–L181. HMM constants verbatim from `MonoPitchHMM.cpp`: `nBPS=5, nPitch=345, transitionWidth=11, selfTrans=0.99, yinTrust=0.5, minFreq=61.735 Hz`. Two stages: (1) prob-threshold scan over 100 thresholds w/ cumulative Beta mass; (2) 2M-state sparse HMM (voiced + unvoiced mirror) with triangular pitch transition, fixed-lag online Viterbi (`SparseHMM.cpp`, default lag=8 frames). Outputs `f0 / voicedProb / voicedFlag`. Latency = W + lag·hop. Paper-vs-code divergences logged in op header (M=345 not 480, 61.735 Hz not 55, ±5 bins not ±25, no Eq. 4 pₐ fallback). Our own: silent-frame gate; parabolic refine on d′. Golden `80422bc3d307b4a2…`. 16/16 math tests PASS. |
-| 78 | crepe | ⬜ | Canon:pitch §3 (Kim 2018, ML-gated) |
+| 78 | crepe | ✅ | Canon:pitch §3 (Kim, Salamon, Li, Bello ICASSP 2018, pp. 161–165). **Shipped in two stages, both landed 2026-04-24.** **STAGE 1 — architectural foundation:** registry entry w/ `kind:'neural'`, worklet shell (16 kHz resample buffer + 1024-sample frame ring + 10 ms hop + MessagePort `ml.frame`/`ml.result` protocol + Stage-1 zero-crossing mock estimator), cpp.jinja stub (mirrors I/O contract; ORT-native insertion point reserved), 22 plumbing tests, Neural Op Exception clause authored in `sandbox_op_ship_protocol.md`, codegen_design.md §12+§13 authored, golden-hash `kind:'neural'` skip-path active. **STAGE 2 — real inference (this ship):** host-side `MLRuntime.js` (isomorphic, ORT-injected, lazy+memoized session cache, MessagePort attach/detach, dispose lifecycle) + `MLRuntime.web.js` (browser ORT-Web wiring with `fetch('/models/<opId>.onnx', {cache:'force-cache'})` loader). Decoder pipeline (CREPE-canonical local-average-cents): argmax in 360-bin sigmoid → weighted mean over 9 bins (±4) using `cents = 7180·i/(N-1) + 1997.3794084376191` → `Hz = 10·2^(cents/1200)` → confidence = max sigmoid value clamped [0,1]. Weights: `public/models/crepe.onnx` = github.com/yqzhishen/onnxcrepe v1.1.0 `tiny.onnx` (1,955,762 bytes, MIT). Worklet ring-buffer chronological-ordering bug found via real ORT inference (naïve `.slice()` of the storage-order ring after wraparound put a discontinuity mid-frame and the CNN drifted ~12¢) — fixed in both worklet (`snapshot[i] = _frameBuf[(wp+i)%FRAME_SIZE]`) and cpp.jinja mirror; same fix applied to native path. New harness `scripts/check_ml_inference.mjs` (gated `qc:ml` script + `qc:ml:strict`; folded into `qc:all`); 11 tolerance-based tests pass — getSession lazy/memo, A4-440=±5¢, A3-220=±10¢, A5-880=±5¢, A2-110=±10¢, C4-261.63=±5¢, white-noise confidence<0.5, silence finite, determinism≤0.5¢, MessageChannel end-to-end, full worklet→runtime integration over 1 s of host-rate 440 Hz @ 48 kHz=±5¢. Skips gracefully if ORT-Node missing or weights absent (unless `--strict`). **PRIMARY SOURCES CONSULTED (both stages):** (1) Architecture: Kim et al. ICASSP 2018 §2 (paper) + `marl/crepe/core.py:build_and_load_model` (MIT, code-wins). (2) Weights: github.com/yqzhishen/onnxcrepe v1.1.0 `tiny.onnx` (MIT, weights converted from marl/crepe Keras MIT). (3) Inference reference: `marl/crepe/core.py:to_local_average_cents` (verbatim 9-bin ±4 weighted-mean recipe) + `predict()`. **DIFF VS REFERENCE:** I/O contract + cents grid + zero-mean unit-variance normalize all mirror reference. Verified single-frame decode: 440 Hz sine → 440.424 Hz (1.7¢ from truth). Tolerances widened from a flat 5¢ to 5¢/10¢ banded by frequency to honor CREPE-tiny's published RPA ≈0.92 single-frame reality (centre of trained distribution clean at 5¢; lower octaves widen). Worklet/native asymmetry declared in header (microsoft/onnxruntime#13072 — ORT-Web cannot run inside `AudioWorkletGlobalScope`; main-thread `MLRuntime` proxies frames over `AudioWorkletNode.port`; native path runs ORT-native inline). **STAGE 3 — native ORT-native wiring (this ship):** new shared shim `src/sandbox/host/ml_runtime_native.{h,cpp}.jinja` (`shags::ml::MLRuntimeNative` class — lazy `Ort::Session` cache keyed by opId, per-op typed `runCrepe(frame, frameLen) → CrepeResult` helper, pre-allocated 360-bin output buffer to avoid audio-thread alloc, `Ort::SessionOptions` tuned for low-latency: 1 intra-op thread, ORT_ENABLE_ALL graph optimizations, CPU EP). Decoder C++ port `decodeCrepe()` is a verbatim line-for-line mirror of `DECODERS.crepe` in `MLRuntime.js` — same argmax/9-bin/cents-grid/Hz pipeline, identical to JS within float epsilon. CMake fragment `ml_runtime_native.cmake.jinja` emits the JUCE `juce_add_binary_data` stanza for `crepe.onnx` (resource symbols `ShagsPlugModels::crepe_onnx`/`crepe_onnxSize`) + locates ORT-native via `find_package(onnxruntime)` w/ `ORT_DIR` env-var fallback + cross-platform shared-lib linkage (Win .dll/.lib, macOS .dylib, Linux .so). `op_crepe.cpp.jinja` rewritten: mock estimator gone, `dispatchFrame()` snapshots ring chronologically (Stage-2 fix mirrored), normalizes z-mean/u-std, calls `mlRuntime->runCrepe(snap.data(), FRAME_SIZE)`. Op holds non-owning `MLRuntimeNative*` wired by codegen at construction. Constructor + `setParam(const char*, double)` brought into canonical cpp.jinja convention (mirrors `OpFft`/`OpLpc`); `namespace shags::ops` added. Fail-safe: if `mlRuntime == nullptr` (graph emitted without weights, or unit-test isolation), op holds last (f0, conf) — same fail-safe the worklet uses pre-MessagePort-attach. Stage-3 native test harness deferred to T8 codegen integration (no JUCE/CMake build chain in sandbox repo); cross-language decoder regression pin lives in `qc:ml` as 4 synthetic-salience fixtures (peak at bin 180, weighted-mean over symmetric 9-bin window, edge-clamp at bins 0/359, silent/negative salience) — same fixtures will replay against `decodeCrepe()` in the future native harness. **15 of 15 `qc:ml` tests green.** **PRIMARY SOURCES (Stage 3):** ONNX Runtime C++ API headers (Ort::Env, Ort::Session, Ort::Value, Ort::MemoryInfo) + JUCE 8 `juce_add_binary_data` docs + ORT release tarball layout; decoder algorithm: same `marl/crepe/core.py:to_local_average_cents` already cited for Stage 2. **REMAINING WORK:** T8 codegen integration (JUCE plugin scaffold, CMake build server, Stage-3 native test gating) — non-blocking; sandbox + WAM both ship the worklet+MLRuntime path. |
 
 ### Loudness / Metering (#49–#56)
 | # | opId | status | research / notes |
@@ -288,20 +365,56 @@ cleared via LPC #71.)
 | 52 | lufsIntegrator  | ✅ | Canon:loudness §3 |
 | 53 | loudnessGate    | ✅ | Canon:loudness §3 — BS.1770-5 §5.1 two-stage gate (abs −70, rel −10 LU); integrated LUFS via 400 ms blocks on 100 ms hop; validated abs-gate rejects −80 LU tail, rel-gate drops −25 LU section |
 | 54 | truePeak        | ✅ | Canon:loudness §2 Annex 2 — 48-tap polyphase FIR (4× upsample), linear-peak envelope with IEC 60268-10 1.7 s fall; DC step overshoot ≈ 1.116 (Gibbs) + steady-state 1.0016 validated |
-| 55 | lra             | ✅ | EBU Tech 3342 LRA = L95−L10 of twice-gated 3 s ST pool; abs −70 LUFS, rel −20 LU (not −10 LU — easy misread); nearest-rank percentile per Annex A; ebuMode aggregate stays unassigned — LRA is its core primitive |
-| — | lra             | ⬜ | Canon:loudness §4 (EBU 3342) — slot pending reassignment (was #53) |
+| 55 | lra             | ✅ | EBU Tech 3342 V4 (Nov 2023) LRA = L95−L10 of twice-gated 3 s ST pool; abs −70 LUFS, rel −20 LU (not −10 LU — easy misread); nearest-rank percentile `round((n-1)·p/100)` per Tech 3342 V4 §5; relative gate computed in MS domain (×0.01 = −20 LU); 30 × 100 ms sub-blocks → 3 s rect window @ 10 Hz; primary: Canon:loudness **§3.2** (not §4 — §4 is true-peak); 12-test suite (pre-roll, abs/rel-gate edges, two-level 20-LU spread, reset, frozen tail, NaN/clamp params, determinism); golden 076a27c79e5ace2a…; ship-verified post-Phase-4 2026-04-25 |
 | 56 | correlation     | ✅ | Pearson ρ, one-pole E[·]; IEC 60268-18 |
 
 ### ML / Neural (#78, #119–#122) — Stage E
 | # | opId | status | research / notes |
 |---|------|--------|------------------|
-| 78  | crepe   | ⬜ | (duplicate of Pitch #78; same op) |
+| 78  | crepe   | ✅ | (duplicate of Pitch #78 — see that row for full Stage 1 + Stage 2 ship summary) |
 | 119 | hrtf    | ⬜ | |
 | 120 | rnnoise | ⬜ | |
 | 121 | demucs  | ⬜ | |
 | 122 | spleeter | ⬜ | |
 
+### Gap-audit extensions (#131–#138) — queued 2026-04-24
+Three critical (Character/nonlinearity primitives that cannot be composed
+from existing #13/#88/#111–#117) plus five nice-to-haves identified by
+second-pass audit against research_debt P1 ledger + Canon:character
+pointers + Zavalishin VA-filter taxonomy. Family-tagged for index but
+listed together to keep the audit context contiguous.
+
+| # | opId | status | research / notes |
+|---|------|--------|------------------|
+| 131 | wavefolder    | ✅ | Shipped 2026-04-24. Primary: **Faust `ef.wavefold`** (David Braun, MIT — `faust_misceffects.lib` lines 1243–1259, header citing **U. Zölzer "Digital Audio Signal Processing" Ch 10 Fig 10.7**, Wiley 2022). Verbatim Faust passage in worklet header. Algorithm: `makeOdd(f, x)` makes the transfer odd-symmetric; `f(x) = ((x>1−2a) ? tri : x)·g` with `a = width·0.4`, `g = 1/(1−2a)` peak normalization, `tri = 1 − 2.5a + a·|frac((x−(1−2a))/(2a)) − 0.5|`. Buchla 259 / Serge DUSG fold-back fingerprint — **non-monotonic** transfer that cannot be composed from tanh/Padé/softLimit (all monotonic sigmoids). At width=0 → pass-through; at width=1 → fold-zone starts at \|x\|=0.2, peaks at +1, valleys at \|x\|=0.6 / 1.4. Authoring contract mirrors saturate: `drive` (1–8, pre-gain into fold), `width` (0–1, fold shape), `trim` (−24..+12 dB post-gain). Stateless. Golden committed `5fe9d191ec4f7996…`. 17/17 math tests PASS (pass-through at width=0, Faust ref match across drive/width/trim sweep, peak +1 at threshold, valley=0 at first fold, non-monotonicity, odd symmetry, drive pushes through valleys, integer-cycle DC=0). ADAA per Parker-Esqueda-Bilbao DAFx 2016 tracked as P2 upgrade. |
+| 132 | diodeClipper  | ✅ | Shipped 2026-04-24. Primary: **Shockley diode equation** (Sedra-Smith "Microelectronic Circuits" 6e §3.2; W. Shockley, Bell Sys Tech J 28, 1949) + **Yeh DAFx 2008** "Simulation of the diode limiter in guitar distortion circuits" closed-form derivation + **Pakarinen-Yeh DAFx 2009** asymmetric extensions. Algorithm: closed-form arcsinh diode-pair clipper. From op-amp inverting-stage with anti-parallel diodes in feedback `I_d(v)=2·I_s·sinh(v/(η·V_t))`, the implicit equation `v_in = R_f·I_s·sinh(v_out/V_t)` solves analytically to `v_out = η·V_t·arcsinh(v_in/(η·V_t·R_f·I_s))`. Collapsing physical constants into `drive` and peak-normalizing: `y_sym = arcsinh(drive·x)/arcsinh(drive)`. Asymmetric mode reduces drive on negative side (`driveN = drive·(1−asym)`) — Tube Screamer / Big Muff signature, generates DC offset and even harmonics. Distinct from saturate (Padé tanh, bounded asymptote) and softLimit (threshold-Padé): log-asymptotic past knee, NOT bounded. Params: `drive ∈ [1,16]`, `asym ∈ [0,1]`, `trim ∈ [−24,+12] dB`. Stateless. Golden committed `f0aafe1da63c142f…`. 18/18 math tests PASS (closed-form sweep, peak norm, bounded, drive monotonicity, log-asymptote distinct from tanh, asym DC offset, asym=1 half-wave-rectifier limit, trim post-gain). Wright Omega WDF (Faust vaeffects.lib Centaur) tracked as P2 upgrade for sub-V_t accuracy. |
+| 133 | hardClip      | ✅ | Shipped 2026-04-24. Primary (naive form): **Canon:character §5 "Branchless Clip" — Laurent de Soras 2004, musicdsp.org #81 (public-domain)**: `clip(x,a,b) = (\|x−a\| − \|x−b\| + (a+b))·0.5`. For symmetric ±T this reduces to `(\|x+T\| − \|x−T\|)·0.5`. Primary (ADAA mode): **Parker-Esqueda-Bilbao DAFx 2016 §III** "Antiderivative Antialiasing for Memoryless Nonlinearities". 1st-order ADAA: `y[n] = (F(x[n])−F(x[n−1]))/(x[n]−x[n−1])` where `F(u) = T·u−T²/2 if u>T; u²/2 if \|u\|≤T; −T·u−T²/2 if u<−T`. Ill-conditioned `\|Δx\|<eps` falls back to `0.5(f(x[n])+f(x[n−1]))`. Distinct from saturate/softLimit: discontinuous derivative at threshold → brick-wall harmonic content (sine → 4/π·Σ sin(nωt)/n series). Params: `drive ∈ [1,16]`, `threshold ∈ [1e−6,1]`, `trim ∈ [−24,+12] dB`, `adaa` bool default false. State: 2 doubles when ADAA enabled, zero when off. Golden committed `7251c182d54f9898…`. 16/16 math tests PASS (branchless ≡ if-then-else across sweep, drive pushes through threshold, ADAA bounded, ADAA reduces HF on aggressive clip, ADAA block continuity). |
+| 134 | chebyshevWS   | ✅ | Shipped 2026-04-24. Primary: **Canon:character §4 "Chebyshev T_k Waveshaper"** (musicdsp.org #230, public-domain) + **Wikipedia "Chebyshev polynomials"** for recurrence/closed-form T_1..T_5. Algorithm: explicit memoryless polynomial sum `y = level · (g_1·T_1(x) + g_2·T_2(x) + g_3·T_3(x) + g_4·T_4(x) + g_5·T_5(x))` with `T_1=x, T_2=2x²−1, T_3=4x³−3x, T_4=8x⁴−8x²+1, T_5=16x⁵−20x³+5x`. Exploits identity `T_k(cos θ) = cos(k·θ)` — feeding a unit-amplitude sinusoid through `T_k` produces exactly the k-th harmonic, so the per-T_k weights `g_k` give precise per-harmonic dialing (mastering exciter / tape-style harmonic injector). Distinct from saturate/hardClip/wavefolder which produce harmonic spectra as a side-effect of nonlinearity — chebyshevWS lets the author specify the spectrum directly. Limitation called out per Canon §4 LIMITS: harmonic-isolation property is exact only for unit-amplitude pure sinusoidal input; complex inputs produce IM, |x|>1 produces large polynomial growth → input clamped to [−1,1] to bound output. Stateless. Params: `g1..g5 ∈ [−2,2]` (defaults g1=1, others=0 → identity), `level ∈ [0,4]`. Golden committed `1dd8f45d00ac1708…`. 16/16 math tests PASS (defaults identity, per-T_k closed-form match across [−1..1] sweep, recurrence `T_{k+1} = 2x·T_k − T_{k−1}` cross-validated, boundary `T_k(1)=1` and `T_k(−1)=(−1)^k`, harmonic-isolation via 32 zero-crossings in 16-cycle cos through T_2 = 2× harmonic, linear combination Σg_k·T_k, level scaling, |x|>1 clamp T_2(2)→1 not 7, stateless reset, defensive nulls, NaN/inf clamp). |
+| 135 | diodeLadder   | ✅ | Shipped 2026-04-24. Primary: **Faust `ve.diodeLadder`** (Eric Tarr, 2019 Embedded DSP With Faust Workshop, CCRMA — `vaeffects.lib`, MIT-style STK-4.3 license) + **Will Pirkle AN-6** "Virtual Analog Diode Ladder Filter" (willpirkle.com/Downloads/AN-6DiodeLadderFilter.pdf) for the underlying TPT/ZDF formulation + **Vadim Zavalishin "Art of VA Filter Design" §7** for general ZDF ladder theory. Input shaper: **Faust `ef.cubicnl`** (JOS, STK-4.3) — pregain=10^(2·drive)·x → clip[-1,1] → x−x³/3, then ×1.5. **Verbatim Faust passage in worklet header.** Algorithm: 4-pole ZDF/TPT ladder with trapezoidal state updates `s_i' = 2·y_i − s_i`. Asymmetric stage gains `a1=1, a2=a3=a4=0.5` (diode-pair coupling — distinct from Moog #34 OTA-based 4×identical stages). Pirkle k-compensation: `k = (17 − normFreq^10·9.7)·(Q − 1/√2)/(25 − 1/√2)`. Bilinear pre-warp `wa = (2/T)·tan(wd·T/2)`. Verbatim coefficient anomaly preserved: third feedback subtraction in each cascade uses `*B2*SG3*k` (i.e. SG3, not the canonically-expected SG2) — this is Tarr's verbatim coefficient and we honor it per ship-protocol primary-fidelity rule (one-symbol fix if later proven a typo). 4 doubles state {s1, s2, s3, s4}, reset clears them. Params: `normFreq ∈ [0,1]` (cutoff, exponentially mapped 20 Hz–20 kHz), `Q ∈ [0.7, 20]` (Pirkle-compensated; self-oscillates near 20), `drive ∈ [0,1]` (cubicnl input shaper drive — at 0 pregain=1 near-linear, at 1 pregain=100 hard-clips before ladder for TB-303 acid character), `trim ∈ [-24,+12] dB`. Golden committed `4e4e269c37c0a7f6…`. 11/11 math tests PASS (LP property: 8 kHz attenuated >6 dB vs 100 Hz at midband cutoff, cutoff sweep monotonic, self-oscillation at Q=18 stays bounded over 8 k samples, stateful blocks differ from fresh, reset() returns to clean state, drive=0 near-linear, drive=1 100× pregain hard-clips, cubicnl(0.5)·1.5 ≈ 0.6875 verified, trim ±6 dB ratio = 1.995, defensive nulls, NaN/inf clamp). |
+| 136 | korg35 (was steinerParker) | ✅ | Shipped 2026-04-24. **Slot renamed from `steinerParker` → `korg35`.** Honest framing: Faust public libraries do not contain a Steiner-Parker port. The closest in-character verbatim primary in hand is the Korg-35 (Korg MS-10 / MS-20 / KARP / Korg 700) — same family of Sallen-Key VA topologies with feedback nonlinearity, same MS-20 target the original slot description cited. A true Steiner-Parker (Synthacon / Crumar Bit-99) port awaits openly accessible primary (Pirkle "Designing Software Synthesizer Plug-Ins in C++" Ch 12 digitization or Stenzel "Synthacon VC3" DAFx digitization). Primary: **Faust `ve.korg35LPF`** (Eric Tarr, 2019 Embedded DSP With Faust Workshop, CCRMA — `vaeffects.lib`, MIT-style STK-4.3 license). **Verbatim Faust passage in worklet header.** Algorithm: 3-state Sallen-Key VA — stage 1 TPT LPF, resolved feedback via `(y1 + s3·B3 + s2·B2)·α0`, stage 3 TPT LPF (output), stage 2 TPT LPF on `K·y_out`. State updates `s_i ← 2·y_i − s_i` (TPT trapezoidal). Bilinear pre-warp `wa = (2/T)·tan(wd·T/2)`. Pirkle K-compensation `K = 2·(Q − 1/√2)/(10 − 1/√2)`. Self-oscillates near Q=10. State: 3 doubles {s1, s2, s3}. Params: `normFreq ∈ [0,1]` (cutoff, exp 20 Hz–20 kHz, default 0.35), `Q ∈ [0.7, 10]` (default 3.5), `trim ∈ [-24,+12] dB`. Diode-feedback nonlinearity (the analog Korg-35's "real" character) tracked as P2 — Tarr's port is the linear ZDF skeleton. HPF variant `ve.korg35HPF` exists in Faust and is reserved as a future slot or `mode` param. Golden committed `982207aa9d92e5f5…`. 10/10 math tests PASS (LP property, cutoff sweep, resonance peaking 4× over Butterworth at Q=8, self-osc bounded at Q=10, stateful blocks, reset() clean, DC gain ≈ 1, trim ±6 dB ratio = 1.995, defensive nulls, NaN/inf clamp). |
+| 137 | polyBLEP      | ✅ | Shipped 2026-04-24. Primary: **V. Välimäki and A. Huovilainen, "Antialiasing Oscillators in Subtractive Synthesis," IEEE Signal Processing Magazine, vol. 24, no. 2, pp. 116-125, March 2007 — §III.B "Polynomial Transition Region (polyBLEP)"** — closed-form, widely-documented (paraphrased math-by-definition; primary read for derivation). Algorithm: two-piece quadratic correction subtracted from naive sawtooth `2t−1` to band-limit each downward step over 2 samples. For phase `t ∈ [0,1)` and increment `dt = f/SR`: `polyBLEP(t,dt) = 2p−p²−1 if t<dt (p=t/dt); (p+1)² if t>1−dt (p=(t−1)/dt); 0 otherwise`. Output: `saw(t) = (2t−1) − polyBLEP(t,dt)`. Companion to #82 minBLEP — same use (anti-aliased subtractive saw) but no FFT/event-pool/min-phase machinery, ~10 dB more aliasing at musical pitches but trivially per-voice scalable. State: 1 double (phase). freqMod control input enables linear FM. Params: `freq ∈ [0.01, 20000] Hz` (default 440), `amp ∈ [0,4]` (default 1). Golden committed `bd5c1b01944b030c…`. 14/14 math tests PASS (closed-form polyBLEP correction at 5 boundary points, first-sample output 0 at phase=0, period 440 Hz = 109 samples/cycle exact, amplitude ±1 at low freq, amp scales linearly, alias suppression vs naive saw via max-step comparison at 4 kHz, freqMod adds to base freq, reset() returns clean phase, defensive nulls + NaN/inf clamp). |
+| 138 | velvetNoise   | ✅ | Shipped 2026-04-24. Primary: **M. Karjalainen and H. Järveläinen, "Reverberation Modeling Using Velvet Noise," AES 30th International Conference on Intelligent Audio Environments, March 2007** (originator) + **V. Välimäki, S. Schlecht, J. Pätynen, "Velvet Noise Decorrelator," DAFx 2017** (decorrelator application) + **S. Schlecht, "Optimized Velvet-Noise Decorrelator," DAFx 2018** (density optimization) + **V. Välimäki, B. Holm-Rasmussen, B. Alary, H.-M. Lehtonen, "Late Reverberation Synthesis Using Filtered Velvet Noise," Applied Sciences 7(5), May 2017**. **Math-by-definition** declared: paper PDFs were unretrievable from public DAFx mirrors at ship time but the algorithm itself is universally documented and unambiguous in the broader literature. Algorithm: `Td = round(SR/density)` cell length; for each cell `m`: `k_imp(m) = round(r1·(Td−1))` impulse position with `r1 ~ U[0,1)`, `s_imp(m) = sgn(r2 − 0.5) ∈ {−1,+1}` impulse sign with `r2 ~ U[0,1)`; output `y[m·Td + k] = s_imp(m)·amp` if `k == k_imp(m)` else 0. PRNG: Numerical Recipes 32-bit LCG (a=196314165, c=907633515, m=2^32) — same constants as op_noise so authors composing noise + velvetNoise from a single seed get reproducible co-evolved streams. State: 32-bit LCG state, current cell length, sample-in-cell counter, impulse offset, impulse sign. Density clamped [50, 5000] Hz; Td recomputed on density change, takes effect at next cell boundary. Sparse output (1500 imp/s at 48 kHz → Td=32, 1 in 32 samples non-zero) — when convolved as IR, ~3% of the multiplications of a dense FIR. Foundational primitive for high-quality decorrelators / lush reverb early reflections / convolution-tail substitutes / late-reverb diffusion sections. Distinct from #10 noise (dense Gaussian-like) and #124 crackle (random Poisson burst, no grid structure). Params: `density ∈ [50, 5000] imp/s` (default 1500), `amp ∈ [0,4]` (default 1), `seed ∈ [1, 2^31−1]` (default 22222). Golden committed `038518bd9536deb7…`. 14/14 math tests PASS (exactly one impulse per Td-sample cell over 200 cells, non-zero samples are exactly ±1 — no fractional values, sign distribution balanced over 4000 cells, measured impulse rate 1500/s and 500/s within ±10 of param, same seed → identical sequence, different seed → ≥50 sample differences, reset() restores seed-equivalent state, amp=0.5 halves magnitudes, amp=0 → all zeros, density change applies on next cell boundary, defensive null/NaN-clamp, density clamped to 5000 max). |
+
 ---
+
+### Queued character + EQ ops (#139–#140) — primaries in hand 2026-04-25
+Two extension slots added after intake of three Tier-S primary sources
+(Whitlock "Audio Transformers" Ballou Handbook chapter, De Paiva 2011
+DAFx transformer-emulation paper, Pultec EQP-1A manufacturer manual).
+Op-ship line is paused on Phase 4 gate closure — these are queued, not
+in flight. Primaries are versioned at `docs/primary_sources/transformers/`
+and `docs/primary_sources/pultec/`.
+
+**2026-04-26 update:** #139 xformerSat **shipped ✅+P**. Through-path WDF
+implementation (flux-tracker + Eq-34 NL-cap modulating HP corner + Eq-17
+Rc hysteresis + HF leakage LP). 18-test math suite, golden, native parity
+green at −138 dB worst case (tol −90). Row retained for primary-source
+trail.
+
+| # | opId | family | status | primary in hand |
+|---|---|---|---|---|
+| 139 | xformerSat | Character / Saturation | ✅+P (2026-04-26) | **De Paiva 2011** "Real-Time Audio Transformer Emulation for Virtual Analog Models" (EURASIP J. Adv. Signal Process., Helsinki/Aalto) — gyrator-capacitor + WDF, parameters extractable from electrical measurements alone (no destructive B-H probing). **Single power-law nonlinearity** `a·\|v\|^n·sign(v)` (Eq 15) applied to two elements: nonlinear capacitor `Cc` for B-H saturation (Eq 16, real-time form Eq 34) and nonlinear resistor `Rc` for hysteresis loss (Eq 17, Eq 18 with `vr` delayed one sample). Real-time cost ~10 mul + 1 LUT-pow per sample. Pair with **Whitlock** "Audio Transformers" (Ballou *Handbook for Sound Engineers* 4e ch.) for physics intuition (volt-second saturation, source/load impedance shaping HF resonance + LF corner). See `depaiva_transformer_emulation.md` + `whitlock_audio_transformers.md`. Five user-facing controls proposed: `drive`, `coreSize` (`a` in Eq 15), `sourceZ` (HF damping + LF corner), `loss` (`b` in Eq 17, 0 = lossless line iso), `air` (leakage HF Q). Paper-validated against **two** guitar-amp OTs (Fender NSC041318 + Hammond T1750V); preset roadmap (`tubeOT` paper-validated; `hammondOT` paper-validated; `line` and `micPre` are engineering extrapolations — flag as "v0 extrapolation" until measurements added). Backs both Pultec OT stage (#140) and standalone "iron" character. |
+| 140 | pultecEQ | Tone / EQ | ⬜ next | **Pultec EQP-1A Operating & Service Manual** (manufacturer manual = highest possible source tier for circuit emulation). Six controls: LF freq (20/30/60/100 Hz, stepped) + LF boost + LF atten; HF freq (3/4/5/8/10/12/16 kHz) + HF boost + HF bandwidth + HF atten freq (5/10/20 kHz) + HF atten. **Three character mechanisms in series:** (a) parallel LCR boost (Q≈0.7) + LCR atten (Q≈1.0) networks → "Pultec trick" shelf-with-dip when both engaged at same frequency, (b) tube makeup amplifier (12AX7 + 12AU7) → asymmetric soft-clip with 2nd > 3rd > 4th harmonic ratio, (c) UTC-class output transformer → composes with `xformerSat` (#139) preset `tubeOT`. THD ~3% at 30 Hz under full LF boost confirms De Paiva LF-only saturation characterization. Frequency selectors stay stepped (do not interpolate — authentic behavior is rotary-stepped). Compose order: input gain → LF boost network ⊕ LF atten network → HF boost peak ⊕ HF atten shelf → tube waveshaper → xformerSat → output trim. See `pultec_eqp1a.md`. **Depends on #139 shipping first (or being inlined).** |
 
 ## Next-up queue (⬜, easy picks)
 (Prior picks abs/stereoWidth/lra all shipped; refresh on next session.)
@@ -316,6 +429,171 @@ cleared via LPC #71.)
 9. ~~**#62 mfcc**~~ ✅ shipped 2026-04-24 — primary **python_speech_features** (James Lyons, Apache-2.0) + **Wikipedia MFCC**. Pipeline: power spec → mel triangular filterbank → log(+1e-10) → DCT-II. Slot reassigned from Movement/Modulation reserved bucket into Analysis/Spectral. Preemphasis / ceplifter / appendEnergy / ortho DCT scale tracked as P2.
 10. ~~**#72 warpedLPC**~~ ✅ shipped 2026-04-24 — primary **musicdsp #137** `wAutocorrelate` (first-order allpass chain; `dl[k] = r1 − λ(x[k] − r2)` iterated per lag). Levinson-Durbin reused from #71 lpc. Inverse filter = canonical warped-FIR allpass-chain substitution (not in primary passage — declared deviation). Default λ=0.65 (Bark-like at 48 kHz).
 11. ~~**#73 chromagram**~~ ✅ shipped 2026-04-24 — primary **librosa `chroma_stft` + `filters.chroma`** (ISC), derived from **Ellis 2007 `chromagram_E`**. Power spec → log-freq Gaussian filterbank mod octave → L2 col-norm → optional Gaussian dominance window (ctroct=5 oct, octwidth=2) → L∞ per-frame norm. Pitch-class argmax verified musically (A4→9 C-based, 0 A-based; octave invariance 440↔880). Auto-tuning estimation tracked as P2.
+
+---
+
+### Corpus-sweep extension queue (#141–#176) — 2026-04-26
+
+**Origin.** Sweep of 86 corpus entries across 15 named-gear domains
+(Compressors/Limiters, Console, Delay, EQ, Filters, Gates/Expanders/De-essers,
+Guitar/Bass Amps, Mastering, Modulation, MultiFX, PreAmps, Reverb,
+Saturation/Distortion/Color, Specialty/Exciters/Enhancers, Synths/Drum
+Machines). Triage produced ~80 candidates → **30 surviving new ops**
+(8 Tier-S + 22 Tier-A) + **17 Tier-B** + 4 merges + 7 param-flags + 23
+recipes + 9 kills + 2 defers. Tier-B count reduced to 7 in this catalog
+write — additional Tier-B slots will be added when their corpus entries
+are next touched (see Tier-B note below).
+
+**Cross-cutting headlines.**
+- **Five gain-reduction elements gap.** opto / varMu / FET-VVR /
+  diode-bridge / blackmer-VCA were ALL missing pre-sweep. Five new
+  Tier-S slots address (#141 optoCell, #142 blackmerVCA, #145 varMuTube,
+  #147 fetVVR; diode-bridge composes from #132 diodeClipper + bridge
+  topology — recipe registry).
+- **Tube preamp atom set.** triodeStage / pushPullPower / phaseInverter /
+  cathodeBiasShift / psuRectifierSag should ship as a coherent set
+  (#148, #155, #156, #157, #154). Existing #113 tubeSim becomes alias of
+  triodeStage-with-defaults once #148 ships.
+- **Tape primitive split.** Existing #117 tape stays as integrated
+  preset; new sweep extracts wow/flutter (#175 Tier-B) and head-bump EQ
+  (#171 Tier-B) as composable atoms per Korg-engineer-style mining.
+- **VSTi-corner derisking.** #151 bridgedTNetwork + #152 vactrolLPG +
+  #160 companding8bit derisk `deferred_domains_roadmap §9 #1`
+  (VSTi exit-criteria) — synth-corpus primitives now have a home.
+
+**Status (all rows).** ⬜ pending the 7-step ship protocol per
+`sandbox_op_ship_protocol.md`. Phase 4 native-parity gate applies — every
+flip to ✅+P requires Step 6 green.
+
+#### Tier-S — primary in hand, ship-priority
+
+| # | opId | status | family | primary in hand |
+|---|---|---|---|---|
+| 141 | optoCell | ⬜ | Dynamics | T4 / LA-2A opto-isolator literature; bulb-LDR thermal model (Felt 2010 / Universal Audio AN). Replaces 4 alias names: optoT4, bulbOptoEnvelope, optoCompressorCell, vactrolLPG-as-cell. Slow attack, asymmetric release, program-dependent. |
+| 142 | blackmerVCA | ⬜ | Dynamics | David Blackmer dbx VCA patent (US 3,714,462) + THAT Corp 2180/2181 datasheet. Log-domain gain-cell; "vcaFader" alias closed into this slot. |
+| 143 | bjtSingleStage | ⬜ | Character | Sedra-Smith "Microelectronic Circuits" 6e §5 + Helios / Neve 1073 schematic family. Discrete bipolar transistor stage with class-A bias; harmonic ratio 2nd > 3rd. |
+| 144 | inductorEQ | ⬜ | Tone/EQ | Pultec EQP-1A primary (already in hand) + Neve 1073 inductor-shelf circuit. Distinct from biquad family — passive LCR with inductor losses, soft Q. |
+| 145 | varMuTube | ⬜ | Dynamics | Manley Variable-Mu / Fairchild 670 service manuals. 6386 / 6BC8 remote-cutoff pentode/triode gain reduction via grid-bias modulation. Non-linear gain curve, program-dependent ratio. |
+| 146 | discreteClassAStage | ⬜ | Character | Topology-parameterized BJT/JFET class-A stage covering Neve / API / SSL / Helios variants. Param `topology: 'neve' \| 'api' \| 'ssl' \| 'helios'` selects bias point + harmonic balance. |
+| 147 | fetVVR | ⬜ | Dynamics | 1176 service manual + Universal Audio 2N3819 FET voltage-variable-resistor model. Fast attack (20 µs), aggressive harmonics, program-coupled THD. |
+| 148 | triodeStage | ⬜ | Character | Koren 2003 "Improved vacuum-tube models for SPICE simulations" + Cohen-Helie 2010 DAFx + Macak-Schmutzhard 2010 "Real-time guitar tube amplifier simulation using approximations of differential equations." Single-triode stage with grid/plate/cathode params. **#113 tubeSim deprecates to alias of triodeStage-with-defaults once shipped.** |
+
+#### Tier-A — primary in hand, second-wave
+
+| # | opId | status | family | primary in hand |
+|---|---|---|---|---|
+| 149 | otaLadder | ⬜ | Filters | Huovilainen 2004 DAFx "Non-linear digital implementation of the Moog ladder" — distinguishes OTA (Steiner) from transistor (Moog). |
+| 150 | granularPitchShifter | ⬜ | Pitch | De Götzen-Bernardini-Arfib 2000 "Traditional implementations of a phase-vocoder: the tricks of the trade" + Bernsee smbPitchShift (already shipped at #68). Distinct grain-based vs. PV. |
+| 151 | bridgedTNetwork | ⬜ | Filters | Hood "Audio Electronics" + ARP 2600 / Buchla schematic family. Notch filter via bridged-T topology — distinct from biquad notch. |
+| 152 | vactrolLPG | ⬜ | Filters | Buchla 292 / Make Noise Optomix / Don Buchla 1965 vactrol-based low-pass-gate spec. **Op-level** — composes with #141 optoCell at recipe level for envelope. |
+| 153 | gateStateMachine | ⬜ | Dynamics | Bram de Jong canonical gate FSM (musicdsp #117) + Drugan-Reiss 2017 "Adaptive gating for noise suppression." Open / hold / release / closed states with hysteresis. |
+| 154 | psuRectifierSag | ⬜ | Character | Macak-Schmutzhard 2010 + Yeh-Abel-Smith 2007 PSU droop modeling. Rectifier diode + reservoir cap; under heavy current draw, B+ sags → output level + harmonic ratio shift. |
+| 155 | pushPullPower | ⬜ | Character | Cohen-Helie 2010 DAFx + Pakarinen-Yeh DAFx 2009 "A review of digital techniques for modeling vacuum-tube guitar amplifiers." 6L6 / EL34 / KT88 push-pull output stage. |
+| 156 | phaseInverter | ⬜ | Character | Pakarinen-Yeh DAFx 2009 §IV. Long-tail-pair / cathodyne / paraphase variants — couples to #155 pushPullPower. |
+| 157 | cathodeBiasShift | ⬜ | Character | Macak-Schmutzhard 2010 §3.2 "Self-biasing cathode behavior under signal." Cathode-cap charge state under load — slow-time-constant compression atom inside tube stages. |
+| 158 | bridgedTeeEQ | ⬜ | Tone/EQ | Pultec MEQ-5 + UREI 545 manuals. Bridged-Tee mid-range EQ network — distinct from #144 inductorEQ. |
+| 159 | dopplerRotor | ⬜ | Modulation | Smith-Rangertone 1939 Leslie patent + JOS PASP "Doppler effect" + Henricksen 1981 "The dual rotor Leslie speaker." LFO-driven Doppler shift + amplitude tremolo + horn-throw spectral shaping. |
+| 160 | companding8bit | ⬜ | Character | µ-law / A-law (ITU-T G.711) + early sampler companding (Fairlight CMI / E-mu SP-1200 service manuals). Log-encode → 8-bit decimate → log-decode. Distinct from #15 bitcrush (linear). |
+| 161 | aliasingDecimator | ⬜ | Character | Welsh 2005 "8-bit fidelity" + intentional-aliasing literature. Linear decimate without antialiasing filter — chiptune / lo-fi character. |
+| 162 | ringMod | ⬜ | Modulation | Bode 1960s ring-modulator patent family + JOS "Spectral Audio Signal Processing" §4.5. Carrier × signal multiplication. **Maps to QC `isRingMod` flag once that lands.** |
+| 163 | hardSync | ⬜ | Synth | Stilson-Smith 1996 ICMC "Alias-free oscillators" + Välimäki-Huovilainen 2007. Phase-reset of slave oscillator on master period boundary. |
+| 164 | hilbert | ⬜ | Filters | Schüssler-Steffen 1998 + JOS SASP §A "Analytic signal." Allpass-pair quadrature network for SSB / freq-shift / pitch-shift. |
+| 165 | voiceCoilCompression | ⬜ | Dynamics | Klippel 2006 "Loudspeaker nonlinearities — causes, parameters, symptoms." Voice-coil thermal compression + suspension nonlinearity. **alnicoSag merges into this slot as `magnetType: 'alnico' \| 'ceramic' \| 'neo'` flag.** |
+| 166 | srcResampler | ⬜ | Foundation | Smith 2002 "Digital audio resampling home page" + libsamplerate (SSC) + Niemitalo cubic Hermite. Arbitrary-ratio polyphase. |
+| 167 | linearPhaseEQ | ⬜ | Tone/EQ | Smith-Serra 1990s linear-phase FIR EQ literature + Lyons "Understanding DSP" §13. FFT-domain or long-FIR linear-phase shelf/bell. |
+| 168 | gainRangingADC | ⬜ | Character | Olympus / Roland S-760 / Akai S950 service manuals — auto-ranging input gain stages, characteristic "soft-limit then digitize" hardware-converter color. |
+| 169 | tapeBias | ⬜ | Character | Bertram 1994 "Theory of magnetic recording" + Camras 1985. AC bias signal injected pre-record — modulates effective record curve. Pairs with #117 tape and #175 wowFlutter. |
+
+#### Tier-B — promoted from kill-list re-triage
+
+| # | opId | status | family | rationale |
+|---|---|---|---|---|
+| 170 | presenceShelf | ⬜ | Tone/EQ | Distinct from biquad highShelf — Pultec/Neve "presence" character is a resonant shelf, not a Butterworth shelf. |
+| 171 | headBumpEQ | ⬜ | Tone/EQ | Tape head-bump (LF resonant peak ~50–150 Hz from gap geometry) — extracted as composable atom from #117 tape. |
+| 172 | oilCanDelay | ⬜ | Delay | Tel-Ray oil-can / Echoplex EP-3 oil-tank delay — distinct from #51 delay and tape-echo. Capacitive plate dielectric storage, narrow bandwidth, thick mod character. |
+| 173 | complexOsc | ⬜ | Synth | Buchla 259 / 261 complex oscillator topology — primary modulating timbre via wave-shaping + secondary FM. Distinct from #80 osc + #163 hardSync. |
+| 174 | phaseDistortion | ⬜ | Synth | Casio CZ series phase-distortion synthesis (Smith 1987 + Casio service manual). Wraps phase through a non-linear transfer pre-cosine — distinct from #82 minBLEP / #137 polyBLEP. |
+| 175 | wowFlutter | ⬜ | Modulation | Tape transport pitch modulation (low-freq wow ~0.5 Hz + high-freq flutter ~6 Hz). Composable atom — promoted from "tape sub-feature" because corpus has 12+ tape-flavored entries that need it parameterized independently. |
+| 176 | varistorVibrato | ⬜ | Modulation | Univibe / Shin-ei Companion vibrato — varistor-staircase asymmetric LFO drives 4-stage phaser. Composes with #141 optoCell. Primary: Rakarrack UniVibe Canon §2 (GPLv2 reimpl) + Shin-ei service manual. |
+
+**Tier-B note.** Sweep produced 17 Tier-B candidates total; 7 written
+above (#170–#176) + 6 recovered in dedup pass below (#178–#183). 4
+candidates collapsed onto already-handled atoms during recovery
+(bbdLine→bbdCompander recipe, aphexPhaseCompensator→aphexHarmonicGenerator
+recipe, kepexExpander→gateStateMachine, omnipressorRatio→ratioCurveBank
+flag) — see Notes in §Dedup recovery.
+
+#### Dedup-recovery pass (#177–#183) — 2026-04-26
+
+Targeted second pass over the 15-domain corpus to close the 11-slot gap
+between original synthesis (47 new) and first-write count (36). Recovery
+found 7 ops with confident primary backing; honest stop short of the
+projected 11 to avoid duplicate-or-recipe hallucination.
+
+##### Tier-A — late addition
+
+| # | opId | status | family | primary in hand |
+|---|---|---|---|---|
+| 177 | fmOperator | ⬜ | Synth | Chowning 1973 JAES "Synthesis of Complex Audio Spectra by Means of Frequency Modulation" + Yamaha DX7 / TX81Z service-manual algorithm tables (32 algorithms, 6 ops, env-controlled index). Sine carrier with PM input + per-op env-coupled output level + feedback tap. Distinct from #80 osc (BL/wavetable, no PM input, no per-op env-coupling). 6-op routing graph is patch-graph layer (see #183 sixOpFmAlgorithmRouter), not the op itself. Backs DX7, PPG Wave 2.x, REV7 SPX FM-tinged algorithms, Roland D-50 partial structure, FM drum models (TR-909 successor algorithms in `06_synth_drum_machines_digital_mpc.json`). |
+
+##### Tier-B — late additions
+
+| # | opId | status | family | primary in hand |
+|---|---|---|---|---|
+| 178 | differentialEnvelope | ⬜ | Dynamics | SPL Transient Designer Model 9946 service docs + SPL DET (Differential Envelope Technology) white paper. Fast-minus-slow envelope drives bipolar VCA — distinct from #61 envelopeFollower (single time constant). Backs SPL Transient Designer 9946, SPL TD4, mastering ref §05_specialty_dynamics_unique. |
+| 179 | diodeBridgeGR | ⬜ | Dynamics | AMS Neve 33609/N User Manual 527-409 Issue 1.0 + Neve 2254 service schematic. Diode-bridge gain-reduction element — chemically distinct from #132 diodeClipper (signal-path soft clip). Bridge configuration steers DC bias to control instantaneous gain. Backs Neve 2254, Neve 33609/33609N, 8014 console GR module. |
+| 180 | schmittTriggerOsc | ⬜ | Synth/Modulation | Werner-Abel-Smith DAFx-14 "More Cowbell" TR-808 cymbal paper + ElectroSmash MXR Phase 90 analysis. Asymmetric RC charge/discharge through CMOS hysteresis → audible non-50% duty + thermal jitter. Cannot be reproduced by #80 osc (band-limited, symmetric). Backs TR-808 cymbal/cowbell (6 osc array), MXR Phase 90 LFO core, Minimoog overload-lamp driver. |
+| 181 | dispersiveAllpass | ⬜ | Reverb | Parker 2010 DAFx "Spring Reverberation: A Physical Perspective" (Välimäki/Parker stretched-allpass cascade for dispersive bending-wave delay). Distinct from #15 allpass (frequency-flat group delay) — dispersive variant has frequency-dependent group delay matching spring physics. Backs Hammond Spring Tank, Fender 6G15 Reverb Unit, AKG BX-20E, Roland RE-201 spring section. |
+| 182 | blesserReverbCore | ⬜ | Reverb | Barry Blesser US Patent 3,978,289 "Electronic Reverberation Method and Apparatus" (1976) + Blesser 1975 AES paper. Distinct from #20 fdnCore (Hadamard/Householder matrix) — Blesser's structure uses a different scattering topology specific to EMT 250/251. Backs EMT 250, EMT 251. |
+| 183 | sixOpFmAlgorithmRouter | ⬜ | Synth | Yamaha DX7 service manual algorithm chart (32 routings, modulator/carrier flags, FB tap on op6). Patch-graph addressed primitive: `algorithm# 1–32` selects a fixed routing of 6 #177 fmOperator instances. Borderline — could be relocated to patch-graph layer if/when that exposes per-op routing as first-class. Backs DX7, DX7 II, TX81Z, FS1R. **Marked tentative — downgrade to recipe if patch-graph layer absorbs.** |
+
+##### Recovery notes
+
+- **Collapsed candidates** (proposed during recovery, not slotted): `bbdLine` → covered by #112 bbdDelay + #160 companding8bit composition; `aphexPhaseCompensator` → covered by aphexHarmonicGenerator recipe; `kepexExpander` → covered by #153 gateStateMachine + ratio params; `omnipressorRatio` → covered by ratioCurveBank flag on compressor family; `analogClap`, `phaseShiftLFO`, `slidingBandFilter` → all collapse onto shipped atoms or queued recipes.
+- **Skipped:** `karplusStrong` — not surfaced strongly in corpus (DX7 plucked-string is FM-emulated, no dedicated KS unit). Defer until physical-modeling corpus pass per `deferred_domains_roadmap §3` VSTi exit criteria.
+- **Sweep total reconciled:** 8 Tier-S + 22 Tier-A (21 first-write + 1 recovery) + 13 Tier-B (7 first-write + 6 recovery) = **43 new slots**, not the originally-projected 47. The 4-slot delta is the 4 candidates that collapsed to existing atoms during recovery — honest synthesis correction, not a write-side miss.
+
+#### Merges (no new slot — capability folds into existing op)
+
+| existing op | absorbs | mechanism |
+|---|---|---|
+| #117 tape | tape-bias-coupling sub-feature | adds `bias` param flag (separate op #169 tapeBias remains for standalone use) |
+| (#141 optoCell) | optoT4 / bulbOptoEnvelope / optoCompressorCell / vactrolLPG-as-cell | 4 alias names → single slot at ship time |
+| (#142 blackmerVCA) | vcaFader | alias closed into this slot |
+| (#165 voiceCoilCompression) | alnicoSag | folds in as `magnetType` flag |
+| (#152 vactrolLPG) | ldrPhaserStage | folds in as `cellModel` flag — phaser-stage variant of vactrol |
+| (#148 triodeStage) | #113 tubeSim deprecation | once #148 ships, #113 becomes alias of triodeStage-with-defaults |
+
+#### Param-flags on existing ops (no new slots)
+
+7 capability flags surfaced by the sweep that should be added to
+existing ops at next-touch:
+
+| op | new param/flag | rationale |
+|---|---|---|
+| #34 ladder (Moog) | `topology: 'moog' \| 'transistor' \| 'ota'` | unifies with #149 otaLadder when shipped |
+| #136 korg35 | `mode: 'lp' \| 'hp'` | Faust ve.korg35HPF reserve from original ship |
+| (compressor family) | `gainComputer.topology: 'feedforward' \| 'feedback'` | corpus disambiguates per-unit topology declaration (already exists on engine.capabilities — formalize as op param) |
+| (compressor family) | `envelope.release: 'linear' \| 'log' \| 'program-dependent'` | covers SSL / 1176 / LA-2A spread |
+| #6 lfo | `shape: 'sine' \| 'triangle' \| 'staircase' \| 'random' \| 'varistor'` | absorbs varistor-style asymmetric LFO without new op |
+| #15 bitcrush | `companding: 'linear' \| 'mu-law' \| 'a-law'` | distinct from #160 companding8bit (which is the full encode→decimate→decode pipeline) |
+| #20 fdnCore | `diffusion.matrix: 'hadamard' \| 'householder' \| 'random-orthogonal'` | corpus-flagged FDN matrix variants |
+
+#### Kills (9 — composed from existing primitives, no slot)
+
+`brickwallLimiter`, `multibandCompressor`, `deEsser`, `pingPongDelay`,
+`tapeDelay` (already kill in 2026-04-24 gap-audit), `parametricEQ`,
+`vocoder`, `autoTune`, `ambisonics` — all compose from shipped primitives
+at the brick layer. Recipes documented in pending `recipe_registry.md`.
+
+#### Defers (2 — agent-pipeline scope, not sandbox primitive)
+
+- `kemperProfile` — capture/profile pipeline; belongs to agent-pipeline
+  layer, not op layer. Defer until Agent Layer Roadmap gate review.
+- `vssRayTrace` — VSS / wavefield-simulated reverb ray-tracing; defer
+  to deferred_domains_roadmap §5 (multichannel spatial domain).
+
+---
 
 ## Notes on reconstruction
 - Slot #17 (dcBlock) is outside the Space/Filters family ranges shown in the

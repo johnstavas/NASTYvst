@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-gain-chain-v0",
+  "label": "SmokeGainChain",
+  "canvas": { "width": 720, "height": 240 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 120 },
+    { "id": "out", "kind": "output", "x": 680, "y": 120 }
+  ],
+  "nodes": [
+    { "id": "n_gain_a", "op": "gain", "x": 200, "y": 120, "params": { "gainDb": -6 } },
+    { "id": "n_gain_b", "op": "gain", "x": 440, "y": 120, "params": { "gainDb": -6 } }
+  ],
+  "wires": [
+    { "from": "in",       "to": "n_gain_a" },
+    { "from": "n_gain_a", "to": "n_gain_b" },
+    { "from": "n_gain_b", "to": "out"      }
+  ],
+  "feedback": [],
+  "legendOps": ["gain"]
+}

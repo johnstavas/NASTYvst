@@ -1,0 +1,105 @@
+{
+  "$schema": "Phase 2 parity spec — see memory/codegen_pipeline_buildout.md § 5.4",
+  "ops": {
+    "gain": {
+      "signals": ["impulse", "dc_step", "pink_noise"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gain-v0/build/SmokeGainV0_artefacts/Release/VST3/SmokeGainV0.vst3",
+      "params": { "n_gain__gainDb": -6.0 },
+      "paramRanges": { "n_gain__gainDb": { "min": -60, "max": 24 } },
+      "reference": "builtin:gain",
+      "reference_args": { "gainDb": -6.0 },
+      "sr": 48000,
+      "block": 512
+    },
+    "abs": {
+      "signals": ["impulse", "dc_step", "pink_noise", "sine_440", "two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-abs-v0/build/SmokeAbsV0_artefacts/Release/VST3/SmokeAbsV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:abs",
+      "sr": 48000,
+      "block": 512
+    },
+    "sign": {
+      "signals": ["impulse", "dc_step", "pink_noise", "sine_440", "two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-sign-v0/build/SmokeSignV0_artefacts/Release/VST3/SmokeSignV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:sign",
+      "sr": 48000,
+      "block": 512
+    },
+    "scaleBy": {
+      "signals": ["impulse", "dc_step", "pink_noise", "sine_440", "two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-scaleby-v0/build/SmokeScalebyV0_artefacts/Release/VST3/SmokeScalebyV0.vst3",
+      "params": { "n_scale__k": 2.0 },
+      "paramRanges": { "n_scale__k": { "min": -4, "max": 4 } },
+      "reference": "builtin:scaleBy",
+      "reference_args": { "k": 2.0 },
+      "sr": 48000,
+      "block": 512
+    },
+    "clamp": {
+      "signals": ["impulse", "dc_step", "pink_noise", "sine_440", "two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-clamp-v0/build/SmokeClampV0_artefacts/Release/VST3/SmokeClampV0.vst3",
+      "params": { "n_clamp__lo": -0.5, "n_clamp__hi": 0.5 },
+      "paramRanges": {
+        "n_clamp__lo": { "min": -10, "max": 10 },
+        "n_clamp__hi": { "min": -10, "max": 10 }
+      },
+      "reference": "builtin:clamp",
+      "reference_args": { "lo": -0.5, "hi": 0.5 },
+      "sr": 48000,
+      "block": 512
+    },
+    "polarity": {
+      "signals": ["impulse", "dc_step", "pink_noise", "sine_440", "two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-polarity-v0/build/SmokePolarityV0_artefacts/Release/VST3/SmokePolarityV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:polarity",
+      "reference_args": { "invert": false },
+      "sr": 48000,
+      "block": 512
+    },
+    "uniBi": {
+      "signals": ["impulse", "dc_step", "pink_noise", "sine_440", "two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-unibi-v0/build/SmokeUnibiV0_artefacts/Release/VST3/SmokeUnibiV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:uniBi",
+      "reference_args": { "mode": "uniToBi" },
+      "sr": 48000,
+      "block": 512
+    },
+    "gain_chain2": {
+      "signals": ["impulse", "dc_step", "pink_noise"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gain-chain-v0/build/SmokeGainChainV0_artefacts/Release/VST3/SmokeGainChainV0.vst3",
+      "params": { "n_gain_a__gainDb": -6.0, "n_gain_b__gainDb": -6.0 },
+      "paramRanges": {
+        "n_gain_a__gainDb": { "min": -60, "max": 24 },
+        "n_gain_b__gainDb": { "min": -60, "max": 24 }
+      },
+      "reference": "builtin:gain_chain2",
+      "reference_args": { "a": -6.0, "b": -6.0 },
+      "sr": 48000,
+      "block": 512
+    }
+  }
+}

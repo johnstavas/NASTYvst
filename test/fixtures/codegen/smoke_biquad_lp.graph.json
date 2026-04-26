@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-biquad-lp-v0",
+  "label": "SmokeBiquadLP",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 100
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_bq",
+      "op": "biquad",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "mode": "lp",
+        "cutoff": 1200,
+        "q": 0.707,
+        "gainDb": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_bq"
+    },
+    {
+      "from": "n_bq",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "biquad"
+  ]
+}

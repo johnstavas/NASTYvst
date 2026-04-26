@@ -1,0 +1,76 @@
+// op_polyBLEP.cpp — Stage-3b C++ sidecar for the `polyBLEP` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_polyBLEP.worklet.js
+// bit-for-bit. Closed-form polyBLEP per Välimäki-Huovilainen IEEE SPM 2007
+// §III.B. See worklet header for primary citation + closed-form derivation.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class PolyBLEPOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "polyBLEP";
+
+    explicit PolyBLEPOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {}
+
+    void reset() { phase_ = 0.0; }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if      (std::strcmp(id, "freq") == 0) freq_ = clip(v, 0.01, 20000.0);
+        else if (std::strcmp(id, "amp")  == 0) amp_  = clip(v, 0.0,  4.0);
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // Closed-form polyBLEP correction (V-H 2007 §III.B).
+    static double polyBLEP(double t, double dt) {
+        if (t < dt) {
+            const double p = t / dt;
+            return p + p - p * p - 1.0;
+        }
+        if (t > 1.0 - dt) {
+            const double p = (t - 1.0) / dt;
+            return p * p + p + p + 1.0;
+        }
+        return 0.0;
+    }
+
+    void process(const float* freqMod, float* out, int N) {
+        if (!out) return;
+        const double amp = amp_;
+        const double base = freq_;
+        const double sr = sr_;
+        const double invSR = 1.0 / sr;
+        double phase = phase_;
+
+        for (int i = 0; i < N; ++i) {
+            const double fmod = freqMod ? static_cast<double>(freqMod[i]) : 0.0;
+            double f = base + (std::isfinite(fmod) ? fmod : 0.0);
+            if (f < 0.0)            f = 0.0;
+            else if (f > sr * 0.49) f = sr * 0.49;
+            const double dt = f * invSR;
+            const double saw_naive = 2.0 * phase - 1.0;
+            const double blep = polyBLEP(phase, dt);
+            out[i] = static_cast<float>(amp * (saw_naive - blep));
+            phase += dt;
+            if (phase >= 1.0) phase -= 1.0;
+        }
+        phase_ = phase;
+    }
+
+private:
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    double sr_;
+    double freq_  = 440.0;
+    double amp_   = 1.0;
+    double phase_ = 0.0;
+};
+
+}  // namespace shags::ops

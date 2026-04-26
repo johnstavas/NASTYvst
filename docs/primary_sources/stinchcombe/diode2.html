@@ -1,0 +1,139 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+
+
+
+<head>
+<!-- change following if encoding is changed for some reason -->
+  <meta http-equiv="content-type" content="text/html; charset=ANSI" />
+  <meta name="keywords"
+   content="Tim Stinchcombe" />
+  <title>Tim Stinchcombe - TB-303 Diode Ladder Filter model</title>
+  <link rel="stylesheet" type="text/css" href="style.css" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+  <script type="text/javascript" async
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-MML-AM_CHTML">
+  </script>
+</head>
+<body>
+<!-- header across top -->
+<table width="100%" border="0">
+<tr><td width="20%" align="center">
+   <p class="tex_i"><a href="http://www.timstinchcombe.co.uk/index.php?pge=home"><img src="home_icon.gif" border="0" alt="www.timstinchcombe.co.uk"/></a></p>
+</td>
+<td width="60%" align="center" id="banner"> <p><h2>Personal web pages of</h2></p>
+<p><h1>Tim Stinchcombe</h1></p></td>
+<td width="20%">&nbsp</td>
+</tr></table>
+
+<!-- left nav and main body -->
+<table width="100%" border="0">
+<tr><td width="20%" align="left" valign="top"><!-- for print set 10; also comment WHOLE of FB badge in menu.php*** instead, comment slash *...* slash menu php below -->
+
+<table width="100%" border="0">
+<tr><td width="10%">&nbsp</td>
+<td width="80%">
+<!-- need to add a little vertical space  -->
+<!-- home, top; site map bottom, suitably spaced;
+use cond stat if home then this bit, else the main synth menu bit etc,
+as below but expanded.
+-->
+<!-- !!! don't forget new_index.php -> index.php   !!!  -->
+<table>
+<tr><td><p><a href="index.php?pge=home">Home</a></p></td></tr>
+
+<tr><td><a href="index.php?pge=synth">Synth pages</a></td></tr>
+<tr><td>
+  <table><tr><td rowspan="14">&nbsp&nbsp</td>
+    <td><a href="index.php?pge=synsty">Synth story</a></td></tr>
+
+<tr><td><a href="index.php?pge=diy">DIY modules</a></td></tr>
+
+<tr><td><a href="index.php?pge=mods">Modifications</a></td></tr>
+
+<tr><td><a href="index.php?pge=diode">Diode Ladder Filters</a></td></tr>
+<tr><td><a href="index.php?pge=korg">Korg MS10/20 Filters</a></td></tr>
+<tr><td><a href="index.php?pge=papers">Moog paper refs</a></td></tr>
+<tr><td><a href="index.php?pge=spif">Fooled by SPICE</a></td></tr>
+<tr><td><a href="index.php?pge=poles">Filter pole animations</a></td></tr>
+<tr><td><a href="index.php?pge=vcs">Serge VCS</a></td></tr>
+<tr><td><a href="index.php?pge=gnat">EDP Gnat schematics</a></td></tr>
+<tr><td><a href="index.php?pge=broch">Old brochures</a></td></tr>
+<tr><td><a href="index.php?pge=pemini">PE Synth/Minisonic</a></td></tr>
+  </table></td></tr>
+<tr><td><a href="index.php?pge=about">About me</a></td></tr>
+<tr><td><a href="index.php?pge=photos">Photo links</a></td></tr>
+<tr><td><a href="index.php?pge=pme">Purple Mountain<br>Exophrenics</a></td></tr>
+<tr><td><a href="index.php?pge=cntct">Contact details</a></td></tr>
+<tr><td><a href="index.php?pge=new">What's new</a></td></tr>
+<tr><td><a href="index.php?pge=ccfp">Cheltenham Circular Footpath</a></td></tr>
+<tr><td><a href="index.php?pge=xmas">The Trouble with Christmas</a></td></tr>
+<tr><td><a href="index.php?pge=this">this night wounds time</a></td></tr>
+<tr><td><a href="index.php?pge=behold">Behold the Computer<br>Revolution</a></td></tr>
+<tr><td><a href="index.php?pge=solar">Solartron scans</a></td></tr>
+
+<tr><td><p><a href="index.php?pge=map">Site map</a></p></td></tr>
+
+<tr><td><p><br><br>I have a Facebook page for occasional blog-like articles:<br><br>
+<!-- Facebook Badge START --><a href="http://www.facebook.com/TimStinchcombeSynthStuff" target="_TOP" style="font-family: &quot;lucida grande&quot;,tahoma,verdana,arial,sans-serif; font-size: 11px; font-variant: normal; font-style: normal; font-weight: normal; color: #3B5998; text-decoration: none;" title="Tim Stinchcombe&#039;s Synth Stuff">Tim Stinchcombe&#039;s Synth Stuff</a><br/><a href="http://www.facebook.com/TimStinchcombeSynthStuff" target="_TOP" title="Tim Stinchcombe&#039;s Synth Stuff"><img src="http://badge.facebook.com/badge/473282712752450.1941.1448763523.png" style="border: 0px;" /></a><br/><!-- Facebook Badge END -->
+</p></td></tr>
+
+</table>
+<!--
+<table>
+<tr><td>menu0_0</td></tr>
+<tr><td>menu0_1</td></tr>
+<tr><td>
+  <table><tr><td rowspan="5">&nbsp&nbsp</td>
+  <td>menu0_1_0</td></tr>
+  <tr><td>menu0_1_1</td></tr>
+  <tr><td>
+    <table><tr><td rowspan="2">&nbsp&nbsp</td>
+    <td>menu0_1_1_0</td></tr>
+    <tr><td>menu0_1_1_1</td></tr>
+    </table></td></tr>
+  <tr><td>menu0_1_2</td></tr>
+  <tr><td>menu0_1_3</td></tr>
+  </table></td></tr>
+<tr><td>menu0_2</td></tr>
+<tr><td>menu0_3</td></tr>
+</table>-->
+</td>
+<td width="10%">&nbsp</td>
+</tr></table>
+
+</td><!-- finish 20% -->
+<td width="60%" valign="top"><!-- main body; for print set 80 -->
+
+<br>
+<h2>A Comprehensive TB-303 Diode Ladder Filter Model</h2>
+
+<p>Over at the <a href="http://www.kvraudio.com/forum/" target="_blank">KVR Forum</a> there is a <a href="http://www.kvraudio.com/forum/viewtopic.php?t=262829&postdays=0&postorder=asc&start=0" target="_blank">humungous thread</a> running about producing a TB-303 filter emulation which is faithful to the sound of the real thing. Around Oct 2009 I made a couple of posts there myself (<a href="http://www.kvraudio.com/forum/viewtopic.php?p=3800158#3800158" target="_blank">here</a> and <a href="http://www.kvraudio.com/forum/viewtopic.php?p=3800455#3800455" target="_blank">here</a>) wherein I presented a little more information about the large transfer function I had derived for the filter (presented at the top of the <a href="index.php?pge=diode">main diode ladder filter page</a>):</p>
+\begin{multline*}
+H(s)=\dfrac{1.06s^3(s+109.9)(s+34.0)(s+7.41)}{\left(\dfrac{s^4}{\omega_c^4}+2^{\frac{11}{4}}\dfrac{s^3}{\omega_c^3}+10\sqrt{2}\dfrac{s^2}{\omega_c^2}+2^{\frac{13}{4}}\dfrac{s}{\omega_c}+1\right)(s+97.5)(s+38.5)(s+4.45)}\cdots\\
+\cdots\frac{\phantom{1}}{\rule[-2mm]{0mm}{8mm}\times(s+578.1)(s+20.0)(s+7.41)+18.7ks^4(s+46.5)(s+4.40)}
+\end{multline*}
+<p>In the interests of completeness I have put this brief page together, containing the extra information.</p>
+
+<p>The whole purpose of the exercise was to take into account the various high-pass filtering effects caused by the numerous coupling capacitors around the core of the filter itself (in the main analysis on the <a href="index.php?pge=diode">other page</a>, they were ignored for the sake of both clarity and sanity). I see there as being basically five sets of these, as roughly annotated in the following diagram:</p>
+<p style="text-align: center"><img src="synth/diode_18_24/tb303_vcf_res_part2.gif"/></p>
+<p>It took a considerable amount of effort to analyse the effects of each of these sections, particularly '1' and '5'. Together they contribute a further <em>six</em> poles, and an equal number of zeroes, to the overall transfer function above, making it even more unwieldy than it originally was. I then coded this up as a SPICE-based Laplace-block model (click on it):</p>
+<p style="text-align: center"><a href="synth/diode_18_24/tb303_laplace_model.gif"><img src="synth/diode_18_24/tb303_laplace_model_500.gif" alt="Click for full version" title="Click for full version"/></a></p>
+<p>which can be seen is also rather unpretty. In that diagram the blocks are numbered as the sections in the first picture, and it should correspond to the transfer function at the top of the page (though at the time of writing this, I am not going to check it...!). The resonance is coded as a constant from 0 to 1, and is shown as the '0.99' in block 4; the cut-off frequency is hard-coded as 820Hz.</p>
+<p>Here is the more standard component-level simulation of the circuit that I used to produce plots in order to compare to the output of the Laplace-block model:</p>
+<p style="text-align: center"><a href="synth/diode_18_24/tb303_comp_level.gif"><img src="synth/diode_18_24/tb303_comp_level_400.gif" alt="Click for full version" title="Click for full version"/></a></p>
+
+<p>The following graphs show outputs for the resonance set to 0, 0.2, 0.4,...1, and I think they agree tolerably well:</p>
+<p style="text-align: center"><img src="synth/diode_18_24/tb303_lap_v_comp_580.gif"/></p>
+<p>The lower resonant peak is very real: shortly before I put this work down in favour of other projects I took some measurements from my TBX-303 clone, and the test set-up I was using was adding just enough capacitive load to enable the filter to oscillate comfortably at around 8Hz. I feel the effect of this peak, boosting the base frequencies as it does, might be a large contributing factor to the sound of the TB-303 overall.</p>
+
+<p style="text-align: right">[Page last updated: 17 Dec 2022]</p>
+
+</td>
+<td width="20%"><!-- right margin; for print set 10 - &nbsp for null contents-->&nbsp</td>
+</tr></table>
+
+</body>
+</html>

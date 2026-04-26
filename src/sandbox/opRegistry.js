@@ -47,7 +47,8 @@ export const OPS = {
       outputs: [{ id: 'out', kind: 'audio' }],
     },
     params: [
-      { id: 'gainDb', label: 'Gain', type: 'number', min: -60, max: 24, step: 0.1, default: 0, unit: 'dB', format: fmtDb },
+      // ui:'slider' per codegen_pipeline_buildout.md § 4.4 — gain/level/mix/output default to linear slider in native editor.
+      { id: 'gainDb', label: 'Gain', type: 'number', min: -60, max: 24, step: 0.1, default: 0, unit: 'dB', format: fmtDb, ui: 'slider' },
     ],
   },
 
@@ -606,6 +607,40 @@ export const OPS = {
   },
 
   // ───────────────────────────────────────────────────────────────────────
+  // crepe — Kim, Salamon, Li, Bello ICASSP 2018: "CREPE: A Convolutional
+  // Representation for Pitch Estimation". CNN F0 tracker, 1024-sample
+  // frames @ 16 kHz, 360-bin sigmoid → cents (linspace(0,7180,360)+1997.379)
+  // → Hz. ML-runtime-gated: kind:'neural' marks the op for the golden-hash
+  // harness skip-list (Neural Op Exception clause). Worklet path runs
+  // inference off-worklet via MessagePort → host MLRuntime; native path
+  // runs ORT-native synchronously inline. See op_crepe.worklet.js header
+  // and codegen_design.md §13 for the asymmetry rationale.
+  //
+  // STAGE 1 (2026-04-24): architectural foundation only — registry entry,
+  // worklet shell with mocked zero-crossing F0 estimator (math tests
+  // verify framing/resample/dispatch plumbing). STAGE 2 wires real
+  // ORT-Web inference + crepe-tiny.onnx weight bundle.
+  // ───────────────────────────────────────────────────────────────────────
+  crepe: {
+    id: 'crepe',
+    label: 'CREPE',
+    description: 'CREPE pitch detector · Kim 2018 · CNN @ 16 kHz · ML-gated · Stage 1 architectural-foundation ship',
+    kind: 'neural',
+    ports: {
+      inputs:  [{ id: 'in', kind: 'audio' }],
+      outputs: [
+        { id: 'f0',         kind: 'control' },
+        { id: 'confidence', kind: 'control' },
+      ],
+    },
+    params: [
+      { id: 'voicingThreshold', label: 'Voicing', type: 'number', min: 0, max: 1, step: 0.001, default: 0.5 },
+      { id: 'modelSize',        label: 'Model',   type: 'enum',   default: 'tiny',
+        options: ['tiny', 'small', 'medium', 'large', 'full'] },
+    ],
+  },
+
+  // ───────────────────────────────────────────────────────────────────────
   // haas — Haas stereo widener (Haas 1951, Acustica 1:49-58 / JAES 1972
   // 20(2):146-159). Psychoacoustic-defaults op: mono→stereo via a single
   // 5-30 ms reflection with up to +10 dB headroom before echo perception
@@ -911,6 +946,30 @@ export const OPS = {
   },
 
   // ───────────────────────────────────────────────────────────────────────
+  // xformerSat — audio transformer with frequency-dependent core saturation
+  // (volt-second LF compression) + hysteresis loss + HF leakage rolloff.
+  // De Paiva 2011 WDF model: variable-turns nonlinear capacitor (Eq 34) on
+  // an HP through-path, plus delayed-vr nonlinear resistor (Eq 17, §3.3).
+  // Distinct from #111 transformerSim (memoryless Langevin waveshaper).
+  // Primary: docs/primary_sources/transformers/DePaiva_2011_*.pdf
+  xformerSat: {
+    id: 'xformerSat',
+    label: 'Xformer Sat',
+    description: 'De Paiva 2011 WDF transformer (volt-second LF sat + hysteresis)',
+    ports: {
+      inputs:  [{ id: 'in',  kind: 'audio' }],
+      outputs: [{ id: 'out', kind: 'audio' }],
+    },
+    params: [
+      { id: 'drive',    label: 'Drive',     type: 'number', min: -24, max: 36,    step: 0.1,  default: 0   },
+      { id: 'coreSize', label: 'Core Size', type: 'number', min: 0.05, max: 10,   step: 0.01, default: 1   },
+      { id: 'sourceZ',  label: 'Source Z',  type: 'number', min: 1,    max: 10000, step: 1,   default: 600 },
+      { id: 'loss',     label: 'Loss',      type: 'number', min: 0,    max: 1,    step: 0.01, default: 0.3 },
+      { id: 'air',      label: 'Air',       type: 'number', min: 0.1,  max: 8,    step: 0.01, default: 1   },
+    ],
+  },
+
+  // ───────────────────────────────────────────────────────────────────────
   // transformerSim — audio transformer soft-saturation character. Anhysteretic
   // component of the Jiles-Atherton 1986 magnetic model (Langevin function),
   // with optional DC-bias for asymmetric even-harmonic content.
@@ -1051,14 +1110,64 @@ export const OPS = {
     ],
   },
 
+  mix: {
+    id: 'mix',
+    label: 'mix',
+    description: 'Equal-power dry/wet crossfade — out = cos(amount·π/2)·dry + sin(amount·π/2)·wet. Honors memory/dry_wet_mix_rule.md (NON-NEGOTIABLE): mix happens inside the same DSP unit, same-sample, no external parallel dry legs. First multi-input op in the catalog — proves N-port input dispatch end-to-end.',
+    ports: {
+      inputs: [
+        { id: 'dry', kind: 'audio' },
+        { id: 'wet', kind: 'audio' },
+      ],
+      outputs: [{ id: 'out', kind: 'audio' }],
+    },
+    params: [
+      { id: 'amount', label: 'Mix', type: 'number', min: 0, max: 1, step: 0.001, default: 0.5, unit: '' },
+    ],
+  },
+
+  biquad: {
+    id: 'biquad',
+    label: 'biquad',
+    description: 'RBJ Audio EQ Cookbook biquad — LP/HP/BP/notch/peak/lowShelf/highShelf, Direct Form II Transposed (JOS-recommended for low-Q stability under coefficient modulation)',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'mode', label: 'Mode', type: 'enum', default: 'lp',
+        options: [
+          { value: 'lp',        label: 'low-pass'   },
+          { value: 'hp',        label: 'high-pass'  },
+          { value: 'bp',        label: 'band-pass'  },
+          { value: 'notch',     label: 'notch'      },
+          { value: 'peak',      label: 'peak'       },
+          { value: 'lowShelf',  label: 'low shelf'  },
+          { value: 'highShelf', label: 'high shelf' },
+        ] },
+      { id: 'cutoff', label: 'Cutoff', type: 'number', min: 20, max: 20000, default: 1000, unit: 'Hz', format: fmtHz },
+      { id: 'q',      label: 'Q',      type: 'number', min: 0.1, max: 24, step: 0.01, default: 0.707, unit: '' },
+      { id: 'gainDb', label: 'Gain',   type: 'number', min: -24, max: 24, step: 0.01, default: 0, unit: 'dB' },
+    ],
+  },
+
+  drive: {
+    id: 'drive',
+    label: 'drive',
+    description: 'Soft saturator — y = tanh(k·x) / tanh(k) where k = drive. Memoryless, amplitude-normalized so |peak in| ≈ |peak out| across the drive range.',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'drive', label: 'Drive', type: 'number', min: 0.1, max: 20, step: 0.001, default: 1, unit: '' },
+    ],
+  },
+
   ladder: {
     id: 'ladder',
     label: 'ladder',
-    description: '4-pole Moog-style ladder LP — musicdsp #24 (mistertoast) — cubic-clip self-limiting resonance',
+    description: '4-pole Moog ladder LP (Stinchcombe-direct, v3) — TPT trap. one-pole per stage, 5 tanh saturators, 2× polyphase OS.',
     ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
     params: [
       { id: 'cutoff',    label: 'Cutoff',    type: 'number', min: 20,  max: 20000, default: 1000, unit: 'Hz', format: fmtHz },
-      { id: 'resonance', label: 'Resonance', type: 'number', min: 0,   max: 1.2,   step: 0.001, default: 0, unit: '' },
+      { id: 'resonance', label: 'Resonance', type: 'number', min: 0,   max: 1.2,   step: 0.001, default: 0,   unit: '' },
+      { id: 'drive',     label: 'Drive',     type: 'number', min: 0.1, max: 8,     step: 0.01,  default: 1,   unit: '×' },
+      { id: 'trim',      label: 'Trim',      type: 'number', min: -24, max: 12,    step: 0.1,   default: 0,   unit: 'dB', format: fmtDb },
     ],
   },
 
@@ -2520,6 +2629,166 @@ export const OPS = {
       { id: 'windowMs', label: 'Window', type: 'number', min: 10,    max: 200,  step: 1,    default: 50, unit: 'ms', format: fmtMs },
       { id: 'xfadeMs',  label: 'Xfade',  type: 'number', min: 1,     max: 50,   step: 1,    default: 10, unit: 'ms', format: fmtMs },
       { id: 'level',    label: 'Level',  type: 'number', min: 0,     max: 1,    step: 0.001, default: 1, unit: '',   format: fmtPct },
+    ],
+  },
+
+  // Chebyshev waveshaper — Canon §4 (musicdsp #230). Memoryless harmonic
+  // exciter: weighted sum of T_1..T_5 polynomials lets the author dial
+  // each harmonic order independently. T_k(cos θ) = cos(k θ) → exact
+  // harmonic isolation on unit-amplitude pure sines (intended use:
+  // exciter on already-normalized signal). |x|>1 clamped to bound output.
+  chebyshevWS: {
+    id: 'chebyshevWS',
+    label: 'cheby',
+    description: 'Chebyshev T_k harmonic exciter — dial harmonics 1..5 independently. Memoryless (stateless). Best on unit-amplitude pre-normalized signals.',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'g1', label: 'H1', type: 'number', min: -2, max: 2, step: 0.001, default: 1, unit: '', format: fmtPct },
+      { id: 'g2', label: 'H2', type: 'number', min: -2, max: 2, step: 0.001, default: 0, unit: '', format: fmtPct },
+      { id: 'g3', label: 'H3', type: 'number', min: -2, max: 2, step: 0.001, default: 0, unit: '', format: fmtPct },
+      { id: 'g4', label: 'H4', type: 'number', min: -2, max: 2, step: 0.001, default: 0, unit: '', format: fmtPct },
+      { id: 'g5', label: 'H5', type: 'number', min: -2, max: 2, step: 0.001, default: 0, unit: '', format: fmtPct },
+      { id: 'level', label: 'Level', type: 'number', min: 0, max: 4, step: 0.001, default: 1, unit: '', format: fmtPct },
+    ],
+  },
+
+  // Hard-clip — sign-preserving clamp at ±threshold. Naive form: Canon §5
+  // branchless clip (de Soras 2004, musicdsp #81). Optional ADAA per
+  // Parker-Esqueda-Bilbao DAFx 2016 §III. Distinct from saturate/softLimit:
+  // discontinuous derivative at threshold → brick-wall harmonic content
+  // (sine → 4/π · Σ sin(nωt)/n series). Use as FX-rack output stage,
+  // fuzz-pedal stage, or composition base.
+  hardClip: {
+    id: 'hardClip',
+    label: 'clip',
+    description: 'hard clip — sign-preserving clamp at ±threshold; optional 1st-order ADAA. Discontinuous derivative → brick-wall harmonics (distinct from saturate/softLimit).',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'drive',     label: 'Drive',  type: 'number', min: 1,    max: 16, step: 0.01,  default: 1, unit: '',   format: fmtX },
+      { id: 'threshold', label: 'Thresh', type: 'number', min: 1e-6, max: 1,  step: 0.001, default: 1, unit: '',   format: fmtPct },
+      { id: 'trim',      label: 'Trim',   type: 'number', min: -24,  max: 12, step: 0.1,   default: 0, unit: 'dB', format: fmtDb },
+      { id: 'adaa',      label: 'ADAA',   type: 'bool',   default: false },
+    ],
+  },
+
+  // Diode-pair clipper — Tube Screamer / Rat / Big Muff / Klon foundation.
+  // Closed-form arcsinh(drive·x)/arcsinh(drive), derived from Shockley
+  // diode equation (Sedra-Smith §3.2) + Yeh DAFx 2008 op-amp feedback
+  // analysis. Distinct primitive from saturate (Padé tanh) and softLimit
+  // (threshold-Padé): log-asymptotic past the knee, NOT bounded-asymptotic.
+  // `asym` reduces drive on negative side — Tube Screamer / Big Muff
+  // signature when asym > 0. See op_diodeClipper.worklet.js header.
+  diodeClipper: {
+    id: 'diodeClipper',
+    label: 'diode',
+    description: 'diode-pair clipper — Shockley closed-form arcsinh, Tube Screamer/Rat/Klon foundation. Asym creates Big Muff-style even harmonics.',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'drive', label: 'Drive', type: 'number', min: 1,   max: 16, step: 0.01,  default: 1, unit: '',   format: fmtX },
+      { id: 'asym',  label: 'Asym',  type: 'number', min: 0,   max: 1,  step: 0.001, default: 0, unit: '',   format: fmtPct },
+      { id: 'trim',  label: 'Trim',  type: 'number', min: -24, max: 12, step: 0.1,   default: 0, unit: 'dB', format: fmtDb },
+    ],
+  },
+
+  // Wavefolder — buchla / serge / make-noise non-monotonic shaper.
+  // Algorithm: Faust ef.wavefold (David Braun, MIT — faust_misceffects.lib
+  // line 1243+, citing U. Zölzer "Digital Audio Signal Processing" Ch 10
+  // Fig 10.7). Distinct primitive from saturate/softLimit: above threshold
+  // the transfer FOLDS BACK rather than asymptoting, generating even
+  // harmonics that no sigmoid produces. See op_wavefolder.worklet.js.
+  wavefolder: {
+    id: 'wavefolder',
+    label: 'fold',
+    description: 'wavefolder — non-monotonic transfer (Buchla/Serge fingerprint), even harmonics. Faust ef.wavefold.',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'drive', label: 'Drive', type: 'number', min: 1,   max: 8,  step: 0.01,  default: 1,   unit: '',   format: fmtX },
+      { id: 'width', label: 'Width', type: 'number', min: 0,   max: 1,  step: 0.001, default: 0.5, unit: '',   format: fmtPct },
+      { id: 'trim',  label: 'Trim',  type: 'number', min: -24, max: 12, step: 0.1,   default: 0,   unit: 'dB', format: fmtDb },
+    ],
+  },
+
+  // Diode ladder — generic 4-pole diode-coupled LP (Stinchcombe-direct, v3
+  // Layer 1). Coupled (non-buffered) cap-chain state-space from
+  // Moog_ladder_tf.pdf §3, d=1 equal-cap config. Distinct from Moog #34
+  // ladder: denominator [1,7,15,10,1] vs [1,4,6,4,1], k≈10 self-osc edge.
+  // TB-303-specific 7th-order coupling-cap network with 8-Hz lower peak is
+  // queued as Layer 2 (see qc_backlog.md). NOT a TB-303 emulation.
+  diodeLadder: {
+    id: 'diodeLadder',
+    label: 'diodLP',
+    description: 'diode-ladder LP (Stinchcombe-direct, v3 Layer 2) — TB-303 character: TB-303 core matrix (d=1, C₁=C/2) + 5 fixed coupling-cap sections, 2× polyphase OS, tanh on driver pair, 8-Hz lower-peak interaction via post-network FB tap.',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'normFreq', label: 'Cutoff', type: 'number', min: 0,   max: 1,    step: 0.001, default: 0.4, unit: '',   format: fmtPct },
+      { id: 'Q',        label: 'Q',      type: 'number', min: 0.7, max: 20,   step: 0.01,  default: 4,   unit: '',   format: fmtX },
+      { id: 'drive',    label: 'Drive',  type: 'number', min: 0,   max: 1,    step: 0.001, default: 1,   unit: '',   format: fmtPct },
+      { id: 'trim',     label: 'Trim',   type: 'number', min: -24, max: 12,   step: 0.1,   default: 0,   unit: 'dB', format: fmtDb },
+    ],
+  },
+
+  // Korg 35 lowpass — MS-10 / MS-20 / KARP character. Sallen-Key state-
+  // variable VA topology with explicit feedback path; very different edge
+  // under high resonance vs Moog ladder (#34) or diode ladder (#135).
+  // Self-oscillates near Q=10. Verbatim port of Faust ve.korg35LPF
+  // (Eric Tarr 2019, MIT-style STK-4.3). Slot originally proposed as
+  // `steinerParker` — renamed because Faust has no Steiner-Parker port
+  // and Korg-35 is the closest in-the-same-family primary in hand. See
+  // op_korg35.worklet.js header for naming-rationale + verbatim source.
+  korg35: {
+    id: 'korg35',
+    label: 'k35LP',
+    description: 'Korg 35 LPF — MS-20 character, Sallen-Key VA with feedback path. Faust ve.korg35LPF (Tarr).',
+    ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
+    params: [
+      { id: 'normFreq', label: 'Cutoff', type: 'number', min: 0,   max: 1,    step: 0.001, default: 0.35, unit: '',   format: fmtPct },
+      { id: 'Q',        label: 'Q',      type: 'number', min: 0.7, max: 10,   step: 0.01,  default: 3.5,  unit: '',   format: fmtX },
+      { id: 'trim',     label: 'Trim',   type: 'number', min: -24, max: 12,   step: 0.1,   default: 0,    unit: 'dB', format: fmtDb },
+    ],
+  },
+
+  // polyBLEP — Cheap parabolic anti-aliased sawtooth oscillator. Two-piece
+  // quadratic correction per Välimäki-Huovilainen IEEE SPM 2007 §III.B.
+  // Companion to #82 minBLEP (similar use, ~10 dB more aliasing but no
+  // FFT/event-pool/min-phase machinery — trivially per-voice scalable).
+  // freqMod control input enables linear FM. See op_polyBLEP.worklet.js.
+  polyBLEP: {
+    id: 'polyBLEP',
+    label: 'polyBLEP',
+    description: 'polyBLEP saw oscillator — Välimäki-Huovilainen IEEE SPM 2007 §III.B parabolic correction. Cheap polyphonic-friendly cousin of #82 minBLEP. Linear FM via freqMod.',
+    ports: {
+      inputs:  [{ id: 'freqMod', kind: 'control' }],
+      outputs: [{ id: 'out',     kind: 'audio'   }],
+    },
+    params: [
+      { id: 'freq', label: 'Freq', type: 'number', min: 0.01, max: 20000, step: 0.01, default: 440, unit: 'Hz',
+        format: (v) => v >= 1000 ? `${(v/1000).toFixed(2)} kHz` : `${v.toFixed(2)} Hz` },
+      { id: 'amp',  label: 'Amp',  type: 'number', min: 0,    max: 4,     step: 0.001, default: 1, unit: '',
+        format: (v) => v.toFixed(3) },
+    ],
+  },
+
+  // velvetNoise — Sparse ±1/0 impulse stream on a Td-sample grid. One
+  // impulse per cell, position uniform within cell, sign 50/50. Foundational
+  // primitive for high-quality decorrelators / lush reverb early reflections /
+  // convolution-tail substitutes (~3% of the multiplications of a dense FIR
+  // when convolved). Per Karjalainen-Järveläinen AES 2007 (originator); see
+  // op_velvetNoise.worklet.js for full citation chain.
+  velvetNoise: {
+    id: 'velvetNoise',
+    label: 'velvetNoise',
+    description: 'Velvet noise — sparse ±1 impulses on a Td-sample grid. Karjalainen-Järveläinen 2007 / Välimäki et al. 2017. Decorrelator + ER primitive. Density-only knob; deterministic from seed.',
+    ports: {
+      inputs:  [],
+      outputs: [{ id: 'out', kind: 'audio' }],
+    },
+    params: [
+      { id: 'density', label: 'Density', type: 'number', min: 50, max: 5000, step: 1, default: 1500, unit: 'imp/s',
+        format: (v) => v >= 1000 ? `${(v/1000).toFixed(2)}k imp/s` : `${Math.round(v)} imp/s` },
+      { id: 'amp',     label: 'Amp',     type: 'number', min: 0,  max: 4,    step: 0.001, default: 1, unit: '',
+        format: (v) => v.toFixed(3) },
+      { id: 'seed',    label: 'Seed',    type: 'number', min: 1,  max: 2147483647, step: 1, default: 22222, unit: '',
+        format: (v) => `${v | 0}` },
     ],
   },
 };

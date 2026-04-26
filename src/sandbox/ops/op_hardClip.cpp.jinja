@@ -1,0 +1,95 @@
+// op_hardClip.cpp — Stage-3b C++ sidecar for the `hardClip` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_hardClip.worklet.js
+// bit-for-bit. Naive: Canon §5 branchless clip (de Soras 2004,
+// musicdsp #81). ADAA: Parker-Esqueda-Bilbao DAFx 2016 §III.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class HardClipOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "hardClip";
+
+    explicit HardClipOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() {
+        x1_ = 0.0;
+        F1_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "drive") == 0) {
+            drive_ = (std::isfinite(v) && v > 0.01) ? v : (std::isfinite(v) ? 0.01 : 1.0);
+        } else if (std::strcmp(id, "threshold") == 0) {
+            if (!std::isfinite(v)) { thr_ = 1.0; return; }
+            const double clamped = v < 1e-6 ? 1e-6 : (v > 1.0 ? 1.0 : v);
+            thr_ = clamped;
+        } else if (std::strcmp(id, "trim") == 0) {
+            trimLin_ = std::isfinite(v) ? std::pow(10.0, v / 20.0) : 1.0;
+        } else if (std::strcmp(id, "adaa") == 0) {
+            adaa_ = v ? 1 : 0;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    static inline double F_anti(double u, double T) {
+        if (u >  T) return T * u - 0.5 * T * T;
+        if (u < -T) return -T * u - 0.5 * T * T;
+        return 0.5 * u * u;
+    }
+    static inline double f_clip(double u, double T) {
+        return 0.5 * (std::fabs(u + T) - std::fabs(u - T));
+    }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        const double drive   = drive_;
+        const double trimLin = trimLin_;
+        const double T       = thr_;
+
+        if (!adaa_) {
+            for (int i = 0; i < N; ++i) {
+                const double u = static_cast<double>(in[i]) * drive;
+                const double y = 0.5 * (std::fabs(u + T) - std::fabs(u - T));
+                out[i] = static_cast<float>(trimLin * y);
+            }
+            return;
+        }
+
+        constexpr double EPS_DIV = 1e-6;
+        double x1 = x1_;
+        double F1 = F1_;
+        for (int i = 0; i < N; ++i) {
+            const double u  = static_cast<double>(in[i]) * drive;
+            const double Fu = F_anti(u, T);
+            double y;
+            const double dx = u - x1;
+            if (std::fabs(dx) < EPS_DIV) {
+                y = 0.5 * (f_clip(u, T) + f_clip(x1, T));
+            } else {
+                y = (Fu - F1) / dx;
+            }
+            out[i] = static_cast<float>(trimLin * y);
+            x1 = u;
+            F1 = Fu;
+        }
+        x1_ = x1;
+        F1_ = F1;
+    }
+
+private:
+    double sr_;
+    double drive_   = 1.0;
+    double thr_     = 1.0;
+    double trimLin_ = 1.0;
+    int    adaa_    = 0;
+    double x1_      = 0.0;
+    double F1_      = 0.0;
+};
+
+}  // namespace shags::ops

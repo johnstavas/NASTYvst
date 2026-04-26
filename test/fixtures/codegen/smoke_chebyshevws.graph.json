@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-chebyshevws-v0",
+  "label": "SmokeChebyshevWS",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_cb", "op": "chebyshevWS", "x": 240, "y": 100, "params": { "g1": 1.0, "g2": 0.3, "g3": 0.2, "g4": 0.1, "g5": 0.05, "level": 0.8 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_cb.in" },
+    { "from": "n_cb.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["chebyshevWS"]
+}

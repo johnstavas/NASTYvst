@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-ladder-v0",
+  "label": "SmokeLadder",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_lad", "op": "ladder", "x": 240, "y": 100, "params": { "cutoff": 10010, "resonance": 0.6 } }
+  ],
+  "wires": [
+    { "from": "in",    "to": "n_lad" },
+    { "from": "n_lad", "to": "out"   }
+  ],
+  "feedback": [],
+  "legendOps": ["ladder"]
+}

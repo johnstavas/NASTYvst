@@ -1,0 +1,52 @@
+// op_gain.cpp — Stage-3b C++ sidecar for the `gain` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_gain.worklet.js.
+// Template language: Jinja2. smoke-gain-chain-v0 / n_gain_b injected by emitter.
+// Regenerated from this file + PCOF at build time — DO NOT hand-edit emitted .cpp.
+#pragma once
+#include <cmath>
+#include <cstring>
+
+namespace shags::ops {
+
+class GainOp_n_gain_b {
+public:
+    static constexpr const char* opId = "gain";
+
+    GainOp_n_gain_b() = default;
+    explicit GainOp_n_gain_b(double sampleRate) : sr_(sampleRate) {}
+
+    void reset() { /* gain is stateless */ }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "gainDb") == 0) gainDb_ = v;
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // in:      mono audio input  (nullptr if unwired -> output silence)
+    // gainMod: mono control input (nullptr if unwired -> static gain)
+    // out:     mono audio output
+    //
+    // Mirrors op_gain.worklet.js exactly:
+    //   base = 10^(gainDb/20)
+    //   if (modCh) out[i] = in[i] * (base + modCh[i])
+    //   else       out[i] = in[i] * base
+    void process(const float* in, const float* gainMod, float* out, int N) {
+        const float base = static_cast<float>(std::pow(10.0, gainDb_ / 20.0));
+        if (in == nullptr) {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            return;
+        }
+        if (gainMod != nullptr) {
+            for (int i = 0; i < N; ++i) out[i] = in[i] * (base + gainMod[i]);
+        } else {
+            for (int i = 0; i < N; ++i) out[i] = in[i] * base;
+        }
+    }
+
+private:
+    double sr_ = 44100.0;
+    double gainDb_ = 0.0;
+};
+
+}  // namespace shags::ops

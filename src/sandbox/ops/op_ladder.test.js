@@ -34,7 +34,12 @@ function tailRms(buf, skip) {
 }
 
 function gainDb(op, freq, n = 8192, skip = 4096) {
-  const { inBuf, out } = render(op, i => Math.sin(2 * Math.PI * freq * i / SR), n);
+  // Small-signal probe (peak 0.05) so the cascaded tanh shapers in the
+  // v3 Stinchcombe-direct ladder stay in their linear regime — at full
+  // amplitude the 5× tanh chain compresses ~5–7 dB across the band,
+  // masking the linear LP/resonance behaviour we want to measure.
+  const A = 0.05;
+  const { inBuf, out } = render(op, i => A * Math.sin(2 * Math.PI * freq * i / SR), n);
   return 20 * Math.log10(tailRms(out, skip) / tailRms(inBuf, skip));
 }
 

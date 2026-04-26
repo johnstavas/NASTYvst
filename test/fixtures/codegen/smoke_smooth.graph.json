@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-smooth-v0",
+  "label": "SmokeSmooth",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_sm", "op": "smooth", "x": 240, "y": 100, "params": { "time": 0.005 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_sm.in" },
+    { "from": "n_sm.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["smooth"]
+}

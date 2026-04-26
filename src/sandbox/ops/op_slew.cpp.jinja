@@ -1,11 +1,11 @@
-// op_slew.cpp.jinja — Stage-3 native mirror of op_slew.worklet.js.
+// op_slew.cpp — Stage-3b C++ sidecar for the `slew` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_slew.worklet.js math
+// bit-for-bit (linear-rate slew limiter, asymmetric rise/fall).
+// Template language: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+// Regenerated from this file + PCOF at build time — DO NOT hand-edit emitted .cpp.
 //
-// Linear-rate slew limiter with asymmetric rise/fall. See
-// op_slew.worklet.js header for the full design rationale and
-// contrast with `smooth` (exponential 1-pole).
-//
-//   step_up    = 1 / (riseMs · sr / 1000)
-//   step_down  = 1 / (fallMs · sr / 1000)
+//   step_up    = 1 / (riseMs * sr / 1000)
+//   step_down  = 1 / (fallMs * sr / 1000)
 //
 //   delta = x[n] - y[n-1]
 //   if   delta >  step_up  : y[n] = y[n-1] + step_up
@@ -14,75 +14,82 @@
 //
 // Float64 state, Jon Watte denormal flush (Canon:utilities §1).
 // Zero latency — causal, sample-by-sample.
-
 #pragma once
 #include <cmath>
+#include <cstring>
 
-namespace shags {
+namespace shags::ops {
 
-struct SlewOp {
+class SlewOp_{{ node_id }} {
+public:
     static constexpr const char* opId = "slew";
 
-    double sr        = 48000.0;
-    double riseMs    = 10.0;
-    double fallMs    = 50.0;
-    double stepUp    = 0.0;
-    double stepDown  = 0.0;
-    double y         = 0.0;
-
-    static constexpr double DENORMAL = 1e-30;
-
-    explicit SlewOp(double sampleRate) : sr(sampleRate) {
+    explicit SlewOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
         recomputeSteps();
     }
 
-    void reset() { y = 0.0; }
+    void reset() { y_ = 0.0; }
 
     void setParam(const char* id, double v) {
         if (!std::isfinite(v)) return;
-        double clamped = v < 0.001 ? 0.001 : (v > 10000.0 ? 10000.0 : v);
-        if (std::strcmp(id, "riseMs") == 0)       riseMs = clamped;
-        else if (std::strcmp(id, "fallMs") == 0)  fallMs = clamped;
-        else return;
-        recomputeSteps();
+        const double clamped = v < 0.001 ? 0.001 : (v > 10000.0 ? 10000.0 : v);
+        if (std::strcmp(id, "riseMs") == 0) {
+            riseMs_ = clamped;
+            recomputeSteps();
+        } else if (std::strcmp(id, "fallMs") == 0) {
+            fallMs_ = clamped;
+            recomputeSteps();
+        }
     }
 
     int getLatencySamples() const { return 0; }
 
-    void recomputeSteps() {
-        stepUp   = 1.0 / (riseMs * sr * 0.001);
-        stepDown = 1.0 / (fallMs * sr * 0.001);
-    }
-
-    // in may be nullptr → rate-limited glide toward 0.
+    // in:  mono input (nullptr → glide toward 0 at fall rate)
+    // out: mono output
     void process(const float* in, float* out, int N) {
         if (!out) return;
-        const double up   = stepUp;
-        const double down = stepDown;
-        double yl = y;
+        const double up   = stepUp_;
+        const double down = stepDown_;
+        double y = y_;
 
         if (!in) {
             for (int i = 0; i < N; ++i) {
-                double delta = -yl;
-                if (delta > up)         yl += up;
-                else if (delta < -down) yl -= down;
-                else                    yl = 0.0;
-                out[i] = static_cast<float>(yl);
+                const double delta = -y;
+                if (delta > up)         y += up;
+                else if (delta < -down) y -= down;
+                else                    y = 0.0;
+                if (y < kDenormal_ && y > -kDenormal_) y = 0.0;
+                out[i] = static_cast<float>(y);
             }
         } else {
             for (int i = 0; i < N; ++i) {
-                double target = static_cast<double>(in[i]);
-                double delta  = target - yl;
-                if (delta > up)         yl += up;
-                else if (delta < -down) yl -= down;
-                else                    yl = target;
-                out[i] = static_cast<float>(yl);
+                const double target = static_cast<double>(in[i]);
+                const double delta  = target - y;
+                if (delta > up)         y += up;
+                else if (delta < -down) y -= down;
+                else                    y = target;
+                if (y < kDenormal_ && y > -kDenormal_) y = 0.0;
+                out[i] = static_cast<float>(y);
             }
         }
 
-        if (yl < DENORMAL && yl > -DENORMAL) yl = 0.0;
-        y = yl;
+        y_ = y;
     }
+
+private:
+    void recomputeSteps() {
+        stepUp_   = 1.0 / (riseMs_ * sr_ * 0.001);
+        stepDown_ = 1.0 / (fallMs_ * sr_ * 0.001);
+    }
+
+    static constexpr double kDenormal_ = 1e-30;
+
+    double sr_;
+    double riseMs_   = 10.0;
+    double fallMs_   = 50.0;
+    double stepUp_   = 0.0;
+    double stepDown_ = 0.0;
+    double y_        = 0.0;
 };
 
-} // namespace shags
+}  // namespace shags::ops

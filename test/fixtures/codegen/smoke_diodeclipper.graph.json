@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-diodeclipper-v0",
+  "label": "SmokeDiodeClipper",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_dc", "op": "diodeClipper", "x": 240, "y": 100, "params": { "drive": 3.0, "asym": 0.3, "trim": 0.0 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_dc.in" },
+    { "from": "n_dc.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["diodeClipper"]
+}

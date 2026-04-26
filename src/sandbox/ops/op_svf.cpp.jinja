@@ -24,6 +24,12 @@ public:
     void setParam(const char* id, double v) {
         if (std::strcmp(id, "cutoff") == 0) { cutoff_ = v; recomputeCoefs(); }
         else if (std::strcmp(id, "q") == 0) { q_      = v; recomputeCoefs(); }
+        else if (std::strcmp(id, "mode") == 0) {
+            // Numeric enum dispatch from codegen canonicalization.
+            // 0=lp 1=hp 2=bp 3=notch — matches setMode() string mapping.
+            const int m = static_cast<int>(v);
+            if (m >= 0 && m <= 3) mode_ = m;
+        }
     }
 
     // String-valued enum set via a separate path. The emitter wires this up;

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-onepole-hp-v0",
+  "label": "SmokeOnePoleHP",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_op", "op": "onePole", "x": 240, "y": 100, "params": { "mode": "hp", "cutoff": 1000 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_op" },
+    { "from": "n_op", "to": "out"  }
+  ],
+  "feedback": [],
+  "legendOps": ["onePole"]
+}

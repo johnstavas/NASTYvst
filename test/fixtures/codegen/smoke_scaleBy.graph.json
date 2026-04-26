@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-scaleby-v0",
+  "label": "SmokeScaleBy",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_scale", "op": "scaleBy", "x": 240, "y": 100, "params": { "k": 2.0 } }
+  ],
+  "wires": [
+    { "from": "in",      "to": "n_scale" },
+    { "from": "n_scale", "to": "out"     }
+  ],
+  "feedback": [],
+  "legendOps": ["scaleBy"]
+}

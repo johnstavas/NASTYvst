@@ -3,3 +3,7 @@ dist/
 .DS_Store
 *.log
 .env
+
+# Native codegen workspaces (per memory/codegen_pipeline_buildout.md)
+.phase0-juce-test/
+.shagsplug/

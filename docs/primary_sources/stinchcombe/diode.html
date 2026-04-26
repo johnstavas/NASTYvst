@@ -1,0 +1,232 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+
+
+
+<head>
+<!-- change following if encoding is changed for some reason -->
+  <meta http-equiv="content-type" content="text/html; charset=ANSI" />
+  <meta name="keywords"
+   content="Tim Stinchcombe" />
+  <title>Tim Stinchcombe - Diode Ladder Filters (including the pretension to 18dB)</title>
+  <link rel="stylesheet" type="text/css" href="style.css" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+  <script type="text/javascript" async
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-MML-AM_CHTML">
+  </script>
+</head>
+<body>
+<!-- header across top -->
+<table width="100%" border="0">
+<tr><td width="20%" align="center">
+   <p class="tex_i"><a href="http://www.timstinchcombe.co.uk/index.php?pge=home"><img src="home_icon.gif" border="0" alt="www.timstinchcombe.co.uk"/></a></p>
+</td>
+<td width="60%" align="center" id="banner"> <p><h2>Personal web pages of</h2></p>
+<p><h1>Tim Stinchcombe</h1></p></td>
+<td width="20%">&nbsp</td>
+</tr></table>
+
+<!-- left nav and main body -->
+<table width="100%" border="0">
+<tr><td width="20%" align="left" valign="top"><!-- for print set 10; also comment WHOLE of FB badge in menu.php*** instead, comment slash *...* slash menu php below -->
+
+<table width="100%" border="0">
+<tr><td width="10%">&nbsp</td>
+<td width="80%">
+<!-- need to add a little vertical space  -->
+<!-- home, top; site map bottom, suitably spaced;
+use cond stat if home then this bit, else the main synth menu bit etc,
+as below but expanded.
+-->
+<!-- !!! don't forget new_index.php -> index.php   !!!  -->
+<table>
+<tr><td><p><a href="index.php?pge=home">Home</a></p></td></tr>
+
+<tr><td><a href="index.php?pge=synth">Synth pages</a></td></tr>
+<tr><td>
+  <table><tr><td rowspan="14">&nbsp&nbsp</td>
+    <td><a href="index.php?pge=synsty">Synth story</a></td></tr>
+
+<tr><td><a href="index.php?pge=diy">DIY modules</a></td></tr>
+
+<tr><td><a href="index.php?pge=mods">Modifications</a></td></tr>
+
+<tr><td><a href="index.php?pge=diode">Diode Ladder Filters</a></td></tr>
+<tr><td><a href="index.php?pge=korg">Korg MS10/20 Filters</a></td></tr>
+<tr><td><a href="index.php?pge=papers">Moog paper refs</a></td></tr>
+<tr><td><a href="index.php?pge=spif">Fooled by SPICE</a></td></tr>
+<tr><td><a href="index.php?pge=poles">Filter pole animations</a></td></tr>
+<tr><td><a href="index.php?pge=vcs">Serge VCS</a></td></tr>
+<tr><td><a href="index.php?pge=gnat">EDP Gnat schematics</a></td></tr>
+<tr><td><a href="index.php?pge=broch">Old brochures</a></td></tr>
+<tr><td><a href="index.php?pge=pemini">PE Synth/Minisonic</a></td></tr>
+  </table></td></tr>
+<tr><td><a href="index.php?pge=about">About me</a></td></tr>
+<tr><td><a href="index.php?pge=photos">Photo links</a></td></tr>
+<tr><td><a href="index.php?pge=pme">Purple Mountain<br>Exophrenics</a></td></tr>
+<tr><td><a href="index.php?pge=cntct">Contact details</a></td></tr>
+<tr><td><a href="index.php?pge=new">What's new</a></td></tr>
+<tr><td><a href="index.php?pge=ccfp">Cheltenham Circular Footpath</a></td></tr>
+<tr><td><a href="index.php?pge=xmas">The Trouble with Christmas</a></td></tr>
+<tr><td><a href="index.php?pge=this">this night wounds time</a></td></tr>
+<tr><td><a href="index.php?pge=behold">Behold the Computer<br>Revolution</a></td></tr>
+<tr><td><a href="index.php?pge=solar">Solartron scans</a></td></tr>
+
+<tr><td><p><a href="index.php?pge=map">Site map</a></p></td></tr>
+
+<tr><td><p><br><br>I have a Facebook page for occasional blog-like articles:<br><br>
+<!-- Facebook Badge START --><a href="http://www.facebook.com/TimStinchcombeSynthStuff" target="_TOP" style="font-family: &quot;lucida grande&quot;,tahoma,verdana,arial,sans-serif; font-size: 11px; font-variant: normal; font-style: normal; font-weight: normal; color: #3B5998; text-decoration: none;" title="Tim Stinchcombe&#039;s Synth Stuff">Tim Stinchcombe&#039;s Synth Stuff</a><br/><a href="http://www.facebook.com/TimStinchcombeSynthStuff" target="_TOP" title="Tim Stinchcombe&#039;s Synth Stuff"><img src="http://badge.facebook.com/badge/473282712752450.1941.1448763523.png" style="border: 0px;" /></a><br/><!-- Facebook Badge END -->
+</p></td></tr>
+
+</table>
+<!--
+<table>
+<tr><td>menu0_0</td></tr>
+<tr><td>menu0_1</td></tr>
+<tr><td>
+  <table><tr><td rowspan="5">&nbsp&nbsp</td>
+  <td>menu0_1_0</td></tr>
+  <tr><td>menu0_1_1</td></tr>
+  <tr><td>
+    <table><tr><td rowspan="2">&nbsp&nbsp</td>
+    <td>menu0_1_1_0</td></tr>
+    <tr><td>menu0_1_1_1</td></tr>
+    </table></td></tr>
+  <tr><td>menu0_1_2</td></tr>
+  <tr><td>menu0_1_3</td></tr>
+  </table></td></tr>
+<tr><td>menu0_2</td></tr>
+<tr><td>menu0_3</td></tr>
+</table>-->
+</td>
+<td width="10%">&nbsp</td>
+</tr></table>
+
+</td><!-- finish 20% -->
+<td width="60%" valign="top"><!-- main body; for print set 80 -->
+
+<h2>Diode Ladder Filters</h2>
+<p>[<b>Update 02 Aug 2010:</b> Since I receive quite a lot of hits from various forum discussions about the relative merits of Roland filters, and their different topologies, I thought I would include a link to <a href="http://www.florian-anwander.de/" target="_blank">Florian Anwander<a>'s useful summary page of <a href="http://www.florian-anwander.de/roland_filters/" target="_blank">Roland filters</a>, just for reference&mdash;there is much interesting and useful information there!]</p>
+<p>[<b>Update 14 Dec 2009:</b> I have generated a <a href="index.php?pge=diode2">new page</a> containing some extra data relating to the big transfer function below.]</p>
+<p>[<b>Update 19 Jul 2009:</b> Here is the transfer function I finally ended up with&mdash;it turned out to have <em>10</em> poles and six zeroes:
+\begin{multline*}
+H(s)=\dfrac{1.06s^3(s+109.9)(s+34.0)(s+7.41)}{\left(\dfrac{s^4}{\omega_c^4}+2^{\frac{11}{4}}\dfrac{s^3}{\omega_c^3}+10\sqrt{2}\dfrac{s^2}{\omega_c^2}+2^{\frac{13}{4}}\dfrac{s}{\omega_c}+1\right)(s+97.5)(s+38.5)(s+4.45)}\cdots\\
+\cdots\frac{\phantom{1}}{\rule[-2mm]{0mm}{8mm}\times(s+578.1)(s+20.0)(s+7.41)+18.7ks^4(s+46.5)(s+4.40)}
+\end{multline*}
+Note that it is highly non-normalized; \(\omega_c\) is as for \(H_{tb}\) below, and \(k\) is the resonance (and please excuse the clumsy 'line wrap'&mdash;I don't think LaTeX has a standard way to do that...). I must stress that this is all based on SPICE simulation, so take it for what its worth: I was hoping to check its veracity against some real hardware, an Analogue Solutions TBX-303, a TB-303 clone, but I had some niggly little problems doing so, and thus I temporarily shelved working on this some time ago (the problems have been overcome now though).]</p>
+<p>[<b>Update 19 Feb 2009:</b> I am continuing to look at the TB-303 filter in greater detail, concentrating on the high-pass effects that all the coupling caps around the feedback loop introduce. It is clear that not accounting for them, as this and the <a href="index.php?pge=poles#diode">filter pole animations</a> page currently do, is to miss out on some very significant affects, as they turn the transfer function into a <em>nine</em>-pole monstrosity, with five new zeroes to match. The five new poles are all clustered at a low frequency, around 10Hz or so, and as such do not materially affect the conclusions drawn on the main low-pass effects presented in these pages (though they do make the main resonant peak <em>frequency-dependent</em>). However, as most are inside the feedback loop, they create <em>another</em> resonant peak at this frequency, and I feel the effects of this must reach into the audible range, so to neglect them (in any digital implementation, say) is likely to miss out on some of the character of the filter. Hopefully in a few weeks I will be able to make available a small summary of what I've learned so far, with a more comprehensive treatment to follow later!]</p>
+
+<p>[<b>Update 26 Oct 2008:</b> I <em>have</em> now updated my <a href="index.php?pge=synth#moog_paper">Moog ladder paper</a>, and it does now include the derivation of the transfer functions of (some of) the diode ladder filter variants.]</p>
+
+<p>The success of the Moog <em>transistor</em> ladder filter quickly gave rise to a number of 'look-alikes', which employed <em>diodes</em> in the ladder in order to circumvent the Moog patent. Two of the better-known examples are the Roland TB-303 filter:</p>
+<p style="text-align: center"><img src="synth/diode_18_24/tb303_vcf.gif"/></p>
+<p>and the EMS filter, as used in the VCS3 (and probably other models)&mdash;this is the 4-pole '18dB' one; later filters had 5 poles, and were labelled '24dB':</p>
+<p style="text-align: center"><img src="synth/diode_18_24/vcs3_vcf.bmp"/></p>
+<p>Notice that there are small differences between the two: the EMS filter has a chain of three diodes at the top of each arm of the ladder, and all capacitor values are equal; in the TB-303 the lowest capacitor is half the value of the other three, and at the top of the ladder is a single pair of transistors, biased at a common point, which effectively act like a <em>single</em> diode in each arm of the ladder.</p>
+<p>Aside from these differences, superficially they both look similar to the transistor ladder filter structure, but the move from transistors to diodes has implications in the way the circuit operates, and in one sense this leads to the loss of a certain amount of 'elegance' too: the resistor chain used to bias the transistors in the Moog ladder means that the voltages at each filter section are separated, which effectively means that the sections are buffered from each other; this 'isolation' is simply not present in the diode ladder, giving it a quite different transfer function (it is <em>much</em> harder to derive), and which in turn means the pole placement and their subsequent movement with increasing resonance is also quite different from the transistor version.</p>
+<p class="tex_t">Deriving the transfer function requires a good deal of tedious algebraic manipulation, and is incredibly error-prone. I also increased the number of terms that needed tracking through all the manipulation by introducing quantities which helped keep it more general. With: \(C_1\) the value of the lowest capacitor in the ladder; \(C\) the other three capacitors; \(d\) the number of diodes in the chain at the top of each arm; \(a\) substituted as</p>
+\[a=\frac{2V_T}{I_f}\]
+<p class="tex_t">for convenience, where \(V_T\) is the usual thermal voltage and \(I_f\) the current drawn out the bottom of the ladder (which defines the cut-off frequency), it is possible to arrive at the following general expression for the transfer function \(H(s)\) (which I've inverted to rid the nasty long fraction):</p>
+\begin{align*}
+\frac{-d}{H(s)}
+&=16a^4s^4dC_1C^3+8a^3s^3\big(C_1C^2(1+5d)+dC^3\big)\\
+&\qquad+4a^2s^2\big(C_1C(4+6d)+C^2(1+4d)\big)\\
+&\qquad\qquad+2as\big(C_1(3+d)+C(3+3d)\big)+1.
+\end{align*}
+<p class="tex_t">(Note that this is just for the ladder 'core' itself&mdash;no feedback or resonance is involved here.) If we take the simplest case (not shown here) of one diode at the top, and all capacitors equal, i.e. \(d = 1\) and \(C_1 = C\), this will give</p>
+\begin{align*}
+H_1(s)&=\frac{-1}{16a^4s^4C^4+56a^3s^3C^3+60a^2s^2C^2+20asC+1}.
+\end{align*}
+<p class="tex_t">Equating the coefficient on the highest order term in the denominator as</p>
+\[\omega_c^4=\frac{1}{16a^4C^4},\]
+<p class="tex_t">so that we get</p>
+\[\omega_c=\frac{1}{2aC}=\frac{I_f}{4CV_T},\quad\text{or}\quad f_c=\frac{I_f}{8\pi CV_T},\]
+<p class="tex_t">then the expression becomes</p>
+\begin{align*}
+H_1(s)&=\frac{-1}{\dfrac{s^4}{\omega_c^4}+7\dfrac{s^3}{\omega_c^3}+15\dfrac{s^2}{\omega_c^2}+10\dfrac{s}{\omega_c}+1},
+\end{align*}
+<p class="tex_t">and which when normalized finally becomes</p>
+\begin{align*}
+H_1(s)&=\frac{-1}{s^4+7s^3+15s^2+10s+1}.
+\end{align*}
+<p class="tex_t">Some plots of the poles of this function are to be found on the <a href="index.php?pge=poles#diode">filter pole animations</a> page. It has been derived elsewhere (diligent searching of the web and the <a href="http://search.retrosynth.com/synth-diy/" target="_blank">Synth DIY archives</a> will probably uncover it), and it is the one most normally given as the 'transfer function of a diode ladder filter'&mdash;however it is not the full story.</p>
+<a name="halve"><p class="tex_t" style="margin-top: 15px">If we substitute for \(C_1 = C/2\), i.e. halve the bottom capacitor, but still have \(d = 1\), as the TB-303 filter, then we get</p></a>
+\[H_{tb}(s)=\frac{-1}{8a^4s^4C^4+32a^3s^3C^3+40a^2s^2C^2+16asC+1},
+\]
+<p class="tex_t">and this time put</p>
+\[\omega_c^4=\frac{1}{8a^4C^4},\qquad\text{giving}\qquad\omega_c=\frac{1}{2^\frac{3}{4}aC},\]
+<p class="tex_t">so that</p>
+\[H_{tb}(s)=\frac{-1}{\dfrac{s^4}{\omega_c^4}+2^{\frac{11}{4}}\dfrac{s^3}{\omega_c^3}+10\sqrt{2}\dfrac{s^2}{\omega_c^2}+2^{\frac{13}{4}}\dfrac{s}{\omega_c}+1},\]
+<p class="tex_t">and then normalize and evaluate the constants to finally get</p>
+\[H_{tb}(s)=\frac{-1}{s^4+6.727s^3+14.142s^2+9.514s+1}.\]
+<p class="tex_t">The denominator of this isn't a million miles away from that of \(H_1\) above, but note that <em>all</em> the poles have moved, but some by only a small amount:</p>
+<p class="tex_t" style="text-align: center">\(H_1\) poles: (-3.53,0), (-2.35,0), (-1.00,0), (-0.12,0)</p>
+<p class="tex_t" style="text-align: center">\(H_{tb}\) poles: (-3.24,0), (-2.33,0), (-1.04,0), (-0.13,0)</p>
+<p class="tex_t">Intuitively, halving the bottom capacitor should increase the cut-off frequency, as the smaller cap value has a greater impedance, and so more of the signal (at a fixed frequency) should make it up the ladder, rather than being shorted through the cap. This is borne out by the analysis: eliminate \(aC\) between the two \(\omega_c\) expressions, and it can be seen that that for \(H_{tb}\) is \(2^{0.25} = 1.189\) times that for \(H_1\). To further convince myself of the efficacy of my analysis, I did the following: I entered the core part of the TB-303 filter into SIMetrix, only I set all four capacitors to the same value, 33nF, and ran an AC analysis at one particular cut-off frequency; exported the plot data to Excel, and multiplied the frequency component by 1.189; re-imported the data into SIMetrix, and added the curve to the plot; halved the bottom capacitor, setting it to 16.5nF, and ran another analysis. The following plot shows the result: the trace predicted by the analysis 'correction', and the second simulation run are nearly identical:</p>
+<p class="tex_t"><img src="synth/diode_18_24/halving.gif"/></p>
+<p class="tex_t">Zooming in on part of the plot shows that indeed there really are <em>three</em> traces in there:</p>
+<p class="tex_t"><img src="synth/diode_18_24/halving_zoom.gif"/></p>
+<p class="tex_t">Plotting both the normalized responses of \(|H_1(\omega j)|\) and \(|H_{tb}(\omega j)|\) (via Mathematica) shows just how close they are&mdash;the red trace is \(H_1\), with the equal capacitors, the blue is \(H_{tb}\), with the bottom cap halved, as the TB-303:</p>
+<p class="tex_t" style="text-align: center"><img src="synth/diode_18_24/mma_halving_norm.gif"/></p>
+<p class="tex_t">Zooming in a little again shows just how little there is to choose between the two:</p>
+<p class="tex_t" style="text-align: center"><img src="synth/diode_18_24/mma_halving_norm_zoom.gif"/></p>
+<p class="tex_t">My point in all this? My suspicions are that halving the lowest capacitor is not based on any aural consideration of how the filter sounds. One often sees comments to the effect that 'halving the lowest capacitor moves that section's pole up an octave'. Well yes and no: 'yes', because as mentioned above, the overall frequency response <em>will</em> shift upwards; 'no' in that there is no simple relationship between each filter section and the poles. This is because there is no buffering between each section, and so it is not possible to consider them in isolation. This is also borne out by the comparison of pole values above: after re-normalization, any such 'doubled' pole would appear as \(\times 1.682\; (=2^{0.75})\), and the other three as \(\times 0.841\; (=2^{-0.25})\) their old values, and there is clearly no such relationship seen between the poles above.  Certainly, if you were to arrange a filter with capacitors that could be switched between half and full value, then you probably would feel that it sounded different at the different switch positions, but from this analysis, changing the bottom cap is closely equivalent to shifting the whole response of the filter up or down in frequency, merely doing the same as if you had adjusted the offset pot which sets the relative position of the cut-off frequency (assuming such a pot exists, which is very likely). If you took two otherwise identical filters, but one with the bottom cap halved, the other not, and calibrated them both to have the same cut-off at the same CV in, then I suspect you would have to work pretty hard to tell which is which from the sound of the filters alone.</p>
+<p>I think the reason for halving the capacitor is more likely to be some sort of stability consideration: <del>whilst running SPICE simulations in SIMetrix in preparation for this page, I noticed that at high frequencies (low MHz and above), something horrid <em>was</em> happening, which is odd since they were mostly <em>AC</em> analyses, and in my experience it is a lot harder to upset a SPICE AC analysis when compared to, say, a transient analysis. However I have not been able to spend much time on what the cause of the apparent instability in the simulation is, so I really do not know.</del> 14.12.09: I'm reasonably certain that what I was seeing was numerical instability in the simulation: in order to ignore the unwanted effects of coupling capacitors one often makes them ludicrously large&mdash;<em>tera</em>farads for example&mdash;but then this can cause numeric problems, due to trying to cope with both stupidly large and normal, picofarad-sized  values.</p>
+<p><b>The later '24dB' EMS filter:</b> this seems like good a point to mention this filter. (My analysis here is based on the Analogue Solutions RS500e 'authorized copy' of this filter&mdash;I have not seen any actual EMS schematics of this variant, but the 18dB variant <em>does</em> match the VCS3 schematics I have seen very closely, so I have no reason to believe that the 24dB version deviates in any significant way from the EMS original.) The '24dB' variant is actually a 5-pole filter, so nominally 30dB/octave attenuation in the stopband: however this is achieved by stringing a 100&Omega; resistor <em>in series</em> with a 100nF capacitor between the cathodes of the bottom pair of diodes in the ladder (D16 and D23 in the image above). The extra capacitor gives the fifth pole, but the effect of the resistor is to introduce a <em>zero</em> into the numerator of the transfer function, at approximately 16kHz. Thus the 30dB attenuation gets turned back up to 24dB before it really gets going&mdash;this is all happening <em>above</em> the useful audio range, so I again feel this must be for some sort of stability reason, and nothing to do with any kind of aural consideration of how the filter sounds (and again, I have not had the time to investigate this premise any further).</p>
+<p class="tex_t" style="margin-top: 15px">Returning now to the transfer function of the (early) EMS filter, put \(d = 3\) and \(C_1 = C\) in the general form, reflecting the equal value capacitors and the three diodes at the top:</p>
+\[H_{ems}(s)=\frac{-3}{48a^4s^4C^4+152a^3s^3C^3+140a^2s^2C^2+36asC+1},\]
+<p class="tex_t">and this time we put</p>
+\[\omega_c^4=\frac{1}{48a^4C^4},\qquad\text{giving}\qquad\omega_c=\frac{1}{2\cdot3^\frac{1}{4}aC},\]
+<p class="tex_t">so that</p>
+\[H_{ems}(s)=\frac{-3}{\dfrac{s^4}{\omega_c^4}+\dfrac{19}{3^\frac{3}{4}}\dfrac{s^3}{\omega_c^3}+\dfrac{35}{\sqrt{3}}\dfrac{s^2}{\omega_c^2}+2\cdot3^\frac{7}{4}\dfrac{s}{\omega_c}+1},\]
+<p class="tex_t">and again normalize and evaluate the constants to get</p>
+\[H_{ems}(s)=\frac{-3}{s^4+8.335s^3+20.207s^2+13.677s+1}.\]
+<p class="tex_t">The effect of \(d = 3\), i.e. the three diodes in the chain at the top of the ladder, is most apparent by the increased gain, the '3' in the numerator, and the coefficients are now markedly different from before. If we ignore the extra gain, plots of \(H_1\) (red), and \(H_{ems}\) (blue) do now show some difference:</p>
+<p class="tex_i"><img src="synth/diode_18_24/mma_ems_zoom.gif"/></p>
+<a name="disp"><h2>The 18dB versus 24dB 'dispute'</h2></a>
+<p>[I nearly entitled this section 'debate', but that is not really a good word to use here&mdash;there simply is <b>no</b> debate: these filters <b><em>are</em></b> 4<sup>th</sup>-order, 4-pole, 24dB/octave attenuation low-pass filters, plain and simple.]</p>
+<p>Start reading about the Roland TB-303 and it will not be long before you come across mention of its '18dB 3-pole lowpass filter'&mdash;apparently even Roland themselves described the filter as having these properties. A similar story could also be told of the early EMS filter. One can only guess at the motives of both Roland and EMS for doing so: high on the list would be that this reasonably well describes the behaviour of the filter, in that the transition from the passband to stopband starts earlier, and lasts longer than, the (then) more-usual 4-pole filter (such as the Moog transistor ladder), so that the 'corner' in the frequency response is altogether a less pronounced affair (<a href="index.php?pge=poles#d_q_comp">comparison plots and animations</a>); another reason might be to try and highlight the fact that these filters are <em>different</em> from the competition's filters, and hence by implication, <em>better</em> in some way; less likely is the idea that they would want the filters to be seen as different from the Moog ladder from the patent-infringement point of view (one would expect patent lawyers to be better informed than to be taken in by this). But whatever the reasons, these filters simply are not 18dB 3-pole filters: by all means they could be described as <em>behaving</em> more like 18dB/octave, rather than 24dB/octave, in the main region in which they are used (this could be said of many other filters though, yet isn't), but they simply cannot escape the fact that they <em>are</em> 4<sup>th</sup>-order, 4-pole, 24dB/octave filters, and calling them anything else is at best misleading, and at worse, just plain incorrect. If you owned a Porsche 911, but only drove it at 40mph to pick up the shopping on a Saturday afternoon, and somebody asked you what it is, you wouldn't say "it is a Saturday run-around", you'd probably say something like "it is a 150mph+ high-performance sports car", or maybe even "it is a 150mph+ high-performance sports car, but generally I only use it as a Saturday run-around"&mdash;just because you don't use it for what it was normally intended doesn't stop it being what it <em>is</em>.</p>
+<p class="tex_t"><b>Impact of the fourth pole.</b> There was a little dialogue over at <i>reddit.com</i> as to whether the impact of the largest pole is mostly <i>above</i> the frequency where the response drops below the 'noise floor' of the filter, and hence possibly why this pole could be 'discarded', with the filter being regarded as '18 dB'. It is a relatively simple matter to plot the frequency response of just the three lower poles, and to compare this against the 4-pole version: in the following plot the blue curve is of the function \(H_{tb}\) given above (i.e. with all poles present), and the red trace is that formed when the largest pole, (-3.24,0), is omitted (and having been re-normalized)&mdash;it is quite apparent that due to the closeness of the fourth pole to all the others, it <i>is</i> making a significant contribution to the overall shape of the response, at frequencies well inside the region of interest, and so it shouldn't be ignored:</p>
+<p class="tex_i"><img src="synth/diode_18_24/tb303_3_vs_4.gif"/></p><p><b>So how many ways</b> can we tell that these filters <em>are</em> 24dB/octave?:</p>
+<p style="margin-bottom: 0px"><b>1. Count the sections:</b></p>
+<p style="text-align: center" style="margin-top: 0px" style="margin-bottom: 0px"><img src="synth/diode_18_24/tb303_vcf_stage.gif"/></p>
+<p style="margin-top: 0px">So 4 sections, 6dB/octave each gives 4 x 6 = <b>24</b>dB/octave.</p>
+<p style="margin-bottom: 0px"><b>2. Do some SPICE simulations:</b> from a simplified circuit of the core of the TB-303 filter (<a href="synth/diode_18_24/tb303_core_sim.gif">schematic here</a> for the more curious), here is a (rather busy) plot from SIMetrix of the output from each stage as we go up the ladder:</p>
+<p class="tex_i" style="margin-top: 0px"><img src="synth/diode_18_24/slope_stages.gif"/></p>
+<p class="tex_t"> The vertical mauve lines are at approximately 61kHz and 122kHz, i.e. an octave apart (arbitrarily chosen so that the horizontal lines didn't clash with any grid lines). The following table gives the values of the <em>y</em>-intercepts of each curve where they cut the mauve lines, and hence the resulting gradients:</p>
+<p class="tex_t"><table cellspacing="5px" align="center"><colgroup span="5">
+<tr><td align="center">Stage</td><td align="center">Colour</td><td align="center"><em>y<sub>1</sub></em> value</td><td align="center"><em>y<sub>2</sub></em> value</td><td align="center">Gradient</td>
+<tr><td align="center">1<sup>st</sup></td><td align="center">red</td><td align="center">-35.4</td><td align="center">-29.3</td><td align="center">-6.1dB/oct</td>
+<tr><td align="center">2<sup>nd</sup></td><td align="center">green</td><td align="center">-76</td><td align="center">-64.1</td><td align="center">-11.9dB/oct</td>
+<tr><td align="center">3<sup>rd</sup></td><td align="center">blue</td><td align="center">-116.6</td><td align="center">-98.7</td><td align="center">-17.9dB/oct</td>
+<tr><td align="center">4<sup>th</sup></td><td align="center">orange</td><td align="center">-157.3</td><td align="center">-133.2</td><td align="center">-<b>24.1</b>dB/oct</td>
+</table></p>
+<p style="margin-bottom: 0px"><b>3. Do some analysis:</b> work out the transfer function, and find the highest order of \(s\) in the denominator. For example:</p>
+\[H_{tb}(s)=\frac{-1}{s^4+6.727s^3+14.142s^2+9.514s+1}.\]
+<p class="tex_t">We observe that it is 4, so fourth-order. If we want to know how much the signal is attenuated an octave above some frequency \(\omega_1\), say, we need to calculate:</p>
+\[20\log\frac{|H_{tb}(2\omega_1 j)|}{|H_{tb}(\omega_1 j)|}.\]
+<p class="tex_t">For \(\omega_1\) well into the stopband, it can be shown that it is this highest order term in the denominator that dominates, hence we can approximate as</p>
+\[\approx 20\log\frac{\displaystyle\frac{1}{(2\omega_1)^4}}{\displaystyle\frac{1}{(\omega_1)^4}},\]
+<p class="tex_t">which simply evaluates as</p>
+\[=20\log2^{-4}=-80\log2=-24\text{dB}.\]
+<p class="tex_t">Yet again, we see we get <b>24</b>dB/octave.</p>
+<p style="margin-bottom: 0px"><b>4. Plot the transfer function:</b> take the transfer function from the step above, and plot the amplitude function \(|H_{tb}(\omega j)|\):</p>
+<p class="tex_i"><img src="synth/diode_18_24/htb_amp.gif"/></p>
+<p class="tex_t">The horizontal red lines intersect the curve at -94.4 and -118.3, giving the gradient, yet again, as -118.3-(-94.4) = -<b>23.9</b>dB/octave.</p>
+<p>Yep, they look like 24dB/octave, 4-pole filters to me. QED.</p>
+
+<h2><i>Sines of Reality</i></h2>
+<p style="text-align: center"><img src="synth/diode_18_24/cover-0918.jpg"></p>
+<p>In volume 4, issue 18, of The Institution of Engineering and Technology's <i>Engineering & Technology</i> magazine, I made a small contribution to an article that reports on attempts to emulate analogue hardware digitally, the TB-303 getting a particular mention: <a href="http://kn.theiet.org/magazine/issues/0918/sines-of-reality-0918.cfm" target="_blank"><i>Sines of Reality</i></a>, <a href="http://kn.theiet.org/magazine/issues/0918/index.cfm" target="_blank">Vol 4, Issue 18, 24 Oct-6 Nov 2009</a>, pp32-35.</p>
+
+
+<p style="text-align: right">[Page last updated: 13 Jan 2025]</p>
+
+</td>
+<td width="20%"><!-- right margin; for print set 10 - &nbsp for null contents-->&nbsp</td>
+</tr></table>
+
+</body>
+</html>

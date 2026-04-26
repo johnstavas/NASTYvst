@@ -1,0 +1,105 @@
+// op_velvetNoise.cpp — Stage-3b C++ sidecar for the `velvetNoise` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_velvetNoise.worklet.js
+// bit-for-bit. See worklet header for primary-source citations and the
+// closed-form algorithm (Karjalainen-Järveläinen 2007; Välimäki et al.
+// 2017; Schlecht 2018).
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+#include <cstdint>
+
+namespace shags::ops {
+
+class VelvetNoiseOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "velvetNoise";
+
+    explicit VelvetNoiseOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {
+        Td_ = computeTd(density_);
+    }
+
+    void reset() {
+        seed_         = seed0_;
+        cellLen_      = 0;
+        cellSamp_     = 0;
+        impulseOffset_ = 0;
+        impulseSign_  = 1;
+    }
+
+    void setParam(const char* id, double v) {
+        if (std::strcmp(id, "density") == 0) {
+            if (!std::isfinite(v)) return;
+            density_ = clip(v, 50.0, 5000.0);
+            Td_ = computeTd(density_);
+            return;
+        }
+        if (std::strcmp(id, "amp") == 0) {
+            if (!std::isfinite(v)) return;
+            amp_ = clip(v, 0.0, 4.0);
+            return;
+        }
+        if (std::strcmp(id, "seed") == 0) {
+            // Match worklet's (v | 0) || 1 conversion.
+            int32_t n = static_cast<int32_t>(v);
+            if (n == 0) n = 1;
+            seed_  = static_cast<uint32_t>(n);
+            seed0_ = seed_;
+            return;
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(float* out, int N) {
+        if (!out) return;
+        const double amp = amp_;
+
+        for (int i = 0; i < N; ++i) {
+            if (cellSamp_ >= cellLen_) {
+                cellSamp_ = 0;
+                cellLen_  = Td_;
+                const double r1 = u01();
+                const double r2 = u01();
+                impulseOffset_ = (cellLen_ <= 1)
+                    ? 0
+                    : static_cast<int>(std::round(r1 * (cellLen_ - 1)));
+                impulseSign_ = r2 < 0.5 ? -1 : 1;
+            }
+            out[i] = static_cast<float>(
+                (cellSamp_ == impulseOffset_) ? (impulseSign_ * amp) : 0.0
+            );
+            ++cellSamp_;
+        }
+    }
+
+private:
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    int computeTd(double density) const {
+        const double td = std::round(sr_ / density);
+        return td < 1.0 ? 1 : static_cast<int>(td);
+    }
+
+    // LCG — Numerical Recipes pair (matches worklet, op_noise).
+    double u01() {
+        seed_ = seed_ * 196314165u + 907633515u;       // mod 2^32 by uint wrap
+        return (seed_ >> 8) / static_cast<double>(0x1000000);
+    }
+
+    double sr_;
+    double density_       = 1500.0;
+    double amp_           = 1.0;
+    uint32_t seed_        = 22222u;
+    uint32_t seed0_       = 22222u;
+    int     Td_           = 0;
+    int     cellLen_      = 0;
+    int     cellSamp_     = 0;
+    int     impulseOffset_ = 0;
+    int     impulseSign_  = 1;
+};
+
+}  // namespace shags::ops

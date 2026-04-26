@@ -1,0 +1,1188 @@
+{
+  "$schema": "Phase 2 parity spec — see memory/codegen_pipeline_buildout.md § 5.4",
+  "ops": {
+    "gain": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gain-v0/build/SmokeGainV0_artefacts/Release/VST3/SmokeGainV0.vst3",
+      "params": {
+        "n_gain__gainDb": -6
+      },
+      "paramRanges": {
+        "n_gain__gainDb": {
+          "min": -60,
+          "max": 24
+        }
+      },
+      "reference": "builtin:gain",
+      "reference_args": {
+        "gainDb": -6
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "abs": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-abs-v0/build/SmokeAbsV0_artefacts/Release/VST3/SmokeAbsV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:abs",
+      "sr": 48000,
+      "block": 512
+    },
+    "sign": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-sign-v0/build/SmokeSignV0_artefacts/Release/VST3/SmokeSignV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:sign",
+      "sr": 48000,
+      "block": 512
+    },
+    "scaleBy": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-scaleby-v0/build/SmokeScalebyV0_artefacts/Release/VST3/SmokeScalebyV0.vst3",
+      "params": {
+        "n_scale__k": 2
+      },
+      "paramRanges": {
+        "n_scale__k": {
+          "min": -4,
+          "max": 4
+        }
+      },
+      "reference": "builtin:scaleBy",
+      "reference_args": {
+        "k": 2
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "clamp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-clamp-v0/build/SmokeClampV0_artefacts/Release/VST3/SmokeClampV0.vst3",
+      "params": {
+        "n_clamp__lo": -0.5,
+        "n_clamp__hi": 0.5
+      },
+      "paramRanges": {
+        "n_clamp__lo": {
+          "min": -10,
+          "max": 10
+        },
+        "n_clamp__hi": {
+          "min": -10,
+          "max": 10
+        }
+      },
+      "reference": "builtin:clamp",
+      "reference_args": {
+        "lo": -0.5,
+        "hi": 0.5
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "polarity": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-polarity-v0/build/SmokePolarityV0_artefacts/Release/VST3/SmokePolarityV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:polarity",
+      "reference_args": {
+        "invert": false
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "uniBi": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-unibi-v0/build/SmokeUnibiV0_artefacts/Release/VST3/SmokeUnibiV0.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:uniBi",
+      "reference_args": {
+        "mode": "uniToBi"
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "constant": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-constant-v0/build/SmokeConstantV0_artefacts/Release/VST3/SmokeConstantV0.vst3",
+      "params": {
+        "n_const__value": 500000
+      },
+      "paramRanges": {
+        "n_const__value": {
+          "min": -1000000,
+          "max": 1000000
+        }
+      },
+      "reference": "builtin:constant",
+      "reference_args": {
+        "value": 500000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "polarity_inv": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-polarity-inv-v0/build/SmokePolarityInvV0_artefacts/Release/VST3/SmokePolarityInvV0.vst3",
+      "params": {
+        "n_pol__invert": 1
+      },
+      "paramRanges": {
+        "n_pol__invert": {
+          "min": 0,
+          "max": 1
+        }
+      },
+      "reference": "builtin:polarity",
+      "reference_args": {
+        "invert": true
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "uniBi_b2u": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-unibi-b2u-v0/build/SmokeUnibiB2uV0_artefacts/Release/VST3/SmokeUnibiB2uV0.vst3",
+      "params": {
+        "n_unibi__mode": 1
+      },
+      "paramRanges": {
+        "n_unibi__mode": {
+          "min": 0,
+          "max": 1
+        }
+      },
+      "reference": "builtin:uniBi",
+      "reference_args": {
+        "mode": "biToUni"
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "dcBlock": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-dcblock-v0/build/SmokeDcblockV0_artefacts/Release/VST3/SmokeDcblockV0.vst3",
+      "params": {
+        "n_dcb__cutoff": 10
+      },
+      "paramRanges": {
+        "n_dcb__cutoff": {
+          "min": 1,
+          "max": 200
+        }
+      },
+      "reference": "builtin:dcBlock",
+      "reference_args": {
+        "cutoff": 10,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "onePole_lp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-onepole-lp-v0/build/SmokeOnepoleLpV0_artefacts/Release/VST3/SmokeOnepoleLpV0.vst3",
+      "params": {
+        "n_op__mode": 0,
+        "n_op__cutoff": 1000
+      },
+      "paramRanges": {
+        "n_op__mode": {
+          "min": 0,
+          "max": 1
+        },
+        "n_op__cutoff": {
+          "min": 20,
+          "max": 20000
+        }
+      },
+      "reference": "builtin:onePole",
+      "reference_args": {
+        "mode": "lp",
+        "cutoff": 1000,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "onePole_hp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-onepole-hp-v0/build/SmokeOnepoleHpV0_artefacts/Release/VST3/SmokeOnepoleHpV0.vst3",
+      "params": {
+        "n_op__mode": 1,
+        "n_op__cutoff": 1000
+      },
+      "paramRanges": {
+        "n_op__mode": {
+          "min": 0,
+          "max": 1
+        },
+        "n_op__cutoff": {
+          "min": 20,
+          "max": 20000
+        }
+      },
+      "reference": "builtin:onePole",
+      "reference_args": {
+        "mode": "hp",
+        "cutoff": 1000,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "svf_lp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-svf-lp-v0/build/SmokeSvfLpV0_artefacts/Release/VST3/SmokeSvfLpV0.vst3",
+      "params": {
+        "n_svf__mode": 0,
+        "n_svf__cutoff": 10010,
+        "n_svf__q": 12.05
+      },
+      "paramRanges": {
+        "n_svf__mode": {
+          "min": 0,
+          "max": 3
+        },
+        "n_svf__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_svf__q": {
+          "min": 0.1,
+          "max": 24
+        }
+      },
+      "reference": "builtin:svf",
+      "reference_args": {
+        "mode": "lp",
+        "cutoff": 10010,
+        "q": 12.05,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "ladder": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-ladder-v0/build/SmokeLadderV0_2604252311_artefacts/Release/VST3/SmokeLadderV0_2604252311.vst3",
+      "params": {
+        "n_lad__cutoff": 10010,
+        "n_lad__resonance": 0.6
+      },
+      "paramRanges": {
+        "n_lad__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_lad__resonance": {
+          "min": 0,
+          "max": 1.2
+        }
+      },
+      "reference": "builtin:ladder",
+      "reference_args": {
+        "cutoff": 10010,
+        "resonance": 0.6,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "gain_chain2": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gain-chain-v0/build/SmokeGainChainV0_artefacts/Release/VST3/SmokeGainChainV0.vst3",
+      "params": {
+        "n_gain_a__gainDb": -6,
+        "n_gain_b__gainDb": -6
+      },
+      "paramRanges": {
+        "n_gain_a__gainDb": {
+          "min": -60,
+          "max": 24
+        },
+        "n_gain_b__gainDb": {
+          "min": -60,
+          "max": 24
+        }
+      },
+      "reference": "builtin:gain_chain2",
+      "reference_args": {
+        "a": -6,
+        "b": -6
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_lp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-lp-v0/build/SmokeBiquadLpV0_artefacts/Release/VST3/SmokeBiquadLpV0.vst3",
+      "params": {
+        "n_bq__mode": 0,
+        "n_bq__cutoff": 1200,
+        "n_bq__q": 0.707,
+        "n_bq__gainDb": 0
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "lp",
+        "cutoff": 1200,
+        "q": 0.707,
+        "gainDb": 0,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_hp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-hp-v0/build/SmokeBiquadHpV0_artefacts/Release/VST3/SmokeBiquadHpV0.vst3",
+      "params": {
+        "n_bq__mode": 1,
+        "n_bq__cutoff": 800,
+        "n_bq__q": 0.707,
+        "n_bq__gainDb": 0
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "hp",
+        "cutoff": 800,
+        "q": 0.707,
+        "gainDb": 0,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_bp": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-bp-v0/build/SmokeBiquadBpV0_artefacts/Release/VST3/SmokeBiquadBpV0.vst3",
+      "params": {
+        "n_bq__mode": 2,
+        "n_bq__cutoff": 1500,
+        "n_bq__q": 4,
+        "n_bq__gainDb": 0
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "bp",
+        "cutoff": 1500,
+        "q": 4,
+        "gainDb": 0,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_notch": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-notch-v0/build/SmokeBiquadNotchV0_artefacts/Release/VST3/SmokeBiquadNotchV0.vst3",
+      "params": {
+        "n_bq__mode": 3,
+        "n_bq__cutoff": 1000,
+        "n_bq__q": 6,
+        "n_bq__gainDb": 0
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "notch",
+        "cutoff": 1000,
+        "q": 6,
+        "gainDb": 0,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_peak": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-peak-v0/build/SmokeBiquadPeakV0_artefacts/Release/VST3/SmokeBiquadPeakV0.vst3",
+      "params": {
+        "n_bq__mode": 4,
+        "n_bq__cutoff": 2000,
+        "n_bq__q": 2,
+        "n_bq__gainDb": 6
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "peak",
+        "cutoff": 2000,
+        "q": 2,
+        "gainDb": 6,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_lowshelf": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-lowshelf-v0/build/SmokeBiquadLowshelfV0_artefacts/Release/VST3/SmokeBiquadLowshelfV0.vst3",
+      "params": {
+        "n_bq__mode": 5,
+        "n_bq__cutoff": 250,
+        "n_bq__q": 0.707,
+        "n_bq__gainDb": 6
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "lowShelf",
+        "cutoff": 250,
+        "q": 0.707,
+        "gainDb": 6,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "biquad_highshelf": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-biquad-highshelf-v0/build/SmokeBiquadHighshelfV0_artefacts/Release/VST3/SmokeBiquadHighshelfV0.vst3",
+      "params": {
+        "n_bq__mode": 6,
+        "n_bq__cutoff": 6000,
+        "n_bq__q": 0.707,
+        "n_bq__gainDb": -6
+      },
+      "paramRanges": {
+        "n_bq__mode": {
+          "min": 0,
+          "max": 6
+        },
+        "n_bq__cutoff": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_bq__q": {
+          "min": 0.1,
+          "max": 24
+        },
+        "n_bq__gainDb": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:biquad",
+      "reference_args": {
+        "mode": "highShelf",
+        "cutoff": 6000,
+        "q": 0.707,
+        "gainDb": -6,
+        "sr": 48000
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "drive": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -100,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-drive-v0/build/SmokeDriveV0_artefacts/Release/VST3/SmokeDriveV0.vst3",
+      "params": {
+        "n_drv__drive": 4.0
+      },
+      "paramRanges": {
+        "n_drv__drive": {
+          "min": 0.1,
+          "max": 20
+        }
+      },
+      "reference": "builtin:drive",
+      "reference_args": {
+        "drive": 4.0
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "mix": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -110,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-mix-v0/build/SmokeMixV0_artefacts/Release/VST3/SmokeMixV0.vst3",
+      "params": {
+        "n_mix__amount": 0.3
+      },
+      "paramRanges": {
+        "n_mix__amount": {
+          "min": 0,
+          "max": 1
+        }
+      },
+      "reference": "builtin:mix",
+      "reference_args": {
+        "amount": 0.3,
+        "wetValue": 0.5
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "softLimit": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-softlimit-v0/build/SmokeSoftlimitV0_2604252031_artefacts/Release/VST3/SmokeSoftlimitV0_2604252031.vst3",
+      "params": {
+        "n_sl__threshold": 0.5
+      },
+      "paramRanges": {
+        "n_sl__threshold": {
+          "min": 0.1,
+          "max": 1.8
+        }
+      },
+      "reference": "builtin:softLimit",
+      "reference_args": {
+        "threshold": 0.5
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "saturate": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-saturate-v0/build/SmokeSaturateV0_2604252047_artefacts/Release/VST3/SmokeSaturateV0_2604252047.vst3",
+      "params": {
+        "n_sat__drive": 2.0,
+        "n_sat__trim": -3.0
+      },
+      "paramRanges": {
+        "n_sat__drive": {
+          "min": 1,
+          "max": 16
+        },
+        "n_sat__trim": {
+          "min": -24,
+          "max": 24
+        }
+      },
+      "reference": "builtin:saturate",
+      "reference_args": {
+        "drive": 2.0,
+        "trim": -3.0
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "bitcrush": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-bitcrush-v0/build/SmokeBitcrushV0_2604252049_artefacts/Release/VST3/SmokeBitcrushV0_2604252049.vst3",
+      "params": {
+        "n_bc__bits": 6
+      },
+      "paramRanges": {
+        "n_bc__bits": {
+          "min": 0,
+          "max": 16
+        }
+      },
+      "reference": "builtin:bitcrush",
+      "reference_args": {
+        "bits": 6
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "hardClip": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-hardclip-v0/build/SmokeHardclipV0_2604252051_artefacts/Release/VST3/SmokeHardclipV0_2604252051.vst3",
+      "params": {
+        "n_hc__drive": 1.5,
+        "n_hc__threshold": 0.7,
+        "n_hc__trim": 0.0,
+        "n_hc__adaa": 0
+      },
+      "paramRanges": {
+        "n_hc__drive": {
+          "min": 1,
+          "max": 16
+        },
+        "n_hc__threshold": {
+          "min": 0,
+          "max": 1
+        },
+        "n_hc__trim": {
+          "min": -24,
+          "max": 24
+        },
+        "n_hc__adaa": {
+          "min": 0,
+          "max": 1
+        }
+      },
+      "reference": "builtin:hardClip",
+      "reference_args": {
+        "drive": 1.5,
+        "threshold": 0.7,
+        "trim": 0.0,
+        "adaa": false
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "wavefolder": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-wavefolder-v0/build/SmokeWavefolderV0_2604252101_artefacts/Release/VST3/SmokeWavefolderV0_2604252101.vst3",
+      "params": {
+        "n_wf__drive": 1.5,
+        "n_wf__width": 0.6,
+        "n_wf__trim": -2.0
+      },
+      "paramRanges": {
+        "n_wf__drive": { "min": 1, "max": 8 },
+        "n_wf__width": { "min": 0, "max": 1 },
+        "n_wf__trim":  { "min": -24, "max": 24 }
+      },
+      "reference": "builtin:wavefolder",
+      "reference_args": { "drive": 1.5, "width": 0.6, "trim": -2.0 },
+      "sr": 48000,
+      "block": 512
+    },
+    "diodeClipper": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-diodeclipper-v0/build/SmokeDiodeclipperV0_2604252102_artefacts/Release/VST3/SmokeDiodeclipperV0_2604252102.vst3",
+      "params": {
+        "n_dc__drive": 3.0,
+        "n_dc__asym": 0.3,
+        "n_dc__trim": 0.0
+      },
+      "paramRanges": {
+        "n_dc__drive": { "min": 0.1, "max": 20 },
+        "n_dc__asym":  { "min": 0, "max": 1 },
+        "n_dc__trim":  { "min": -24, "max": 24 }
+      },
+      "reference": "builtin:diodeClipper",
+      "reference_args": { "drive": 3.0, "asym": 0.3, "trim": 0.0 },
+      "sr": 48000,
+      "block": 512
+    },
+    "shelf_low": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-shelf-low-v0/build/SmokeShelfLowV0_2604252103_artefacts/Release/VST3/SmokeShelfLowV0_2604252103.vst3",
+      "params": {
+        "n_sh__mode": 0,
+        "n_sh__freq": 250,
+        "n_sh__gainDb": 6
+      },
+      "paramRanges": {
+        "n_sh__mode":   { "min": 0, "max": 1 },
+        "n_sh__freq":   { "min": 20, "max": 20000 },
+        "n_sh__gainDb": { "min": -24, "max": 24 }
+      },
+      "reference": "builtin:shelf",
+      "reference_args": { "mode": "low", "freq": 250, "gainDb": 6, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "allpass": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-allpass-v0/build/SmokeAllpassV0_2604252104_artefacts/Release/VST3/SmokeAllpassV0_2604252104.vst3",
+      "params": {
+        "n_ap__freq": 1000
+      },
+      "paramRanges": {
+        "n_ap__freq": { "min": 1, "max": 20000 }
+      },
+      "reference": "builtin:allpass",
+      "reference_args": { "freq": 1000, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "tilt": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-tilt-v0/build/SmokeTiltV0_2604252106_artefacts/Release/VST3/SmokeTiltV0_2604252106.vst3",
+      "params": {
+        "n_tilt__f0": 630,
+        "n_tilt__gain": 3.0,
+        "n_tilt__gfactor": 5
+      },
+      "paramRanges": {
+        "n_tilt__f0":      { "min": 1, "max": 20000 },
+        "n_tilt__gain":    { "min": -24, "max": 24 },
+        "n_tilt__gfactor": { "min": 0.01, "max": 100 }
+      },
+      "reference": "builtin:tilt",
+      "reference_args": { "f0": 630, "gain": 3.0, "gfactor": 5, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "chebyshevWS": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-chebyshevws-v0/build/SmokeChebyshevwsV0_2604252052_artefacts/Release/VST3/SmokeChebyshevwsV0_2604252052.vst3",
+      "params": {
+        "n_cb__g1": 1.0,
+        "n_cb__g2": 0.3,
+        "n_cb__g3": 0.2,
+        "n_cb__g4": 0.1,
+        "n_cb__g5": 0.05,
+        "n_cb__level": 0.8
+      },
+      "paramRanges": {
+        "n_cb__g1": { "min": -2, "max": 2 },
+        "n_cb__g2": { "min": -2, "max": 2 },
+        "n_cb__g3": { "min": -2, "max": 2 },
+        "n_cb__g4": { "min": -2, "max": 2 },
+        "n_cb__g5": { "min": -2, "max": 2 },
+        "n_cb__level": { "min": 0, "max": 4 }
+      },
+      "reference": "builtin:chebyshevWS",
+      "reference_args": {
+        "g1": 1.0,
+        "g2": 0.3,
+        "g3": 0.2,
+        "g4": 0.1,
+        "g5": 0.05,
+        "level": 0.8
+      },
+      "sr": 48000,
+      "block": 512
+    },
+    "korg35": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-korg35-v0/build/SmokeKorg35V0_2604252252_artefacts/Release/VST3/SmokeKorg35V0_2604252252.vst3",
+      "params": {
+        "n_k35__normFreq": 0.5,
+        "n_k35__Q": 4.0,
+        "n_k35__trim": 0.0
+      },
+      "paramRanges": {
+        "n_k35__normFreq": { "min": 0, "max": 1 },
+        "n_k35__Q":        { "min": 0.5, "max": 10 },
+        "n_k35__trim":     { "min": -24, "max": 24 }
+      },
+      "reference": "builtin:korg35",
+      "reference_args": { "normFreq": 0.5, "Q": 4.0, "trim": 0.0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "xformerSat": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-xformersat-v0/build/SmokeXformersatV0_2604260218_artefacts/Release/VST3/SmokeXformersatV0_2604260218.vst3",
+      "params": {
+        "n_xf__drive": 6,
+        "n_xf__coreSize": 1,
+        "n_xf__sourceZ": 600,
+        "n_xf__loss": 0.3,
+        "n_xf__air": 1
+      },
+      "paramRanges": {
+        "n_xf__drive":    { "min": -24, "max": 36 },
+        "n_xf__coreSize": { "min": 0.05, "max": 10 },
+        "n_xf__sourceZ":  { "min": 1, "max": 10000 },
+        "n_xf__loss":     { "min": 0, "max": 1 },
+        "n_xf__air":      { "min": 0.1, "max": 8 }
+      },
+      "reference": "builtin:xformerSat",
+      "reference_args": { "drive": 6, "coreSize": 1, "sourceZ": 600, "loss": 0.3, "air": 1, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "diodeLadder": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-diodeladder-v0/build/SmokeDiodeladderV0_2604252349_artefacts/Release/VST3/SmokeDiodeladderV0_2604252349.vst3",
+      "params": {
+        "n_dl__normFreq": 0.45,
+        "n_dl__Q": 5.0,
+        "n_dl__drive": 1.0,
+        "n_dl__trim": 0.0
+      },
+      "paramRanges": {
+        "n_dl__normFreq": { "min": 0, "max": 1 },
+        "n_dl__Q":        { "min": 0.7, "max": 20 },
+        "n_dl__drive":    { "min": 0, "max": 1 },
+        "n_dl__trim":     { "min": -24, "max": 12 }
+      },
+      "reference": "builtin:diodeLadder",
+      "reference_args": { "normFreq": 0.45, "Q": 5.0, "drive": 1.0, "trim": 0.0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "smooth": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-smooth-v0/build/SmokeSmoothV0_2604252112_artefacts/Release/VST3/SmokeSmoothV0_2604252112.vst3",
+      "params": {
+        "n_sm__time": 0.005
+      },
+      "paramRanges": {
+        "n_sm__time": { "min": 0, "max": 10 }
+      },
+      "reference": "builtin:smooth",
+      "reference_args": { "time": 0.005, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "slew": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-slew-v0/build/SmokeSlewV0_2604252126_artefacts/Release/VST3/SmokeSlewV0_2604252126.vst3",
+      "params": {
+        "n_sl__riseMs": 5,
+        "n_sl__fallMs": 20
+      },
+      "paramRanges": {
+        "n_sl__riseMs": { "min": 0.001, "max": 10000 },
+        "n_sl__fallMs": { "min": 0.001, "max": 10000 }
+      },
+      "reference": "builtin:slew",
+      "reference_args": { "riseMs": 5, "fallMs": 20, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    }
+  }
+}

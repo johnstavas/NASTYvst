@@ -1,0 +1,108 @@
+# ml_runtime_native.cmake — CMake fragment for plugins that include neural ops.
+#
+# Stage-3 native counterpart to fetch('/models/<opId>.onnx') in MLRuntime.web.js.
+# The JUCE codegen at T8 includes this fragment from the plugin's top-level
+# CMakeLists.txt when buildPCOF detects any kind:'neural' op in the graph.
+#
+# Two responsibilities:
+#   1. Bundle each .onnx file as JUCE BinaryData (so the plugin binary is
+#      self-contained — no on-disk weights file at runtime, per
+#      codegen_design.md §12).
+#   2. Locate + link the ORT-native shared library so MLRuntimeNative can
+#      call Ort::Session::Run.
+#
+# === REFERENCES ===
+# - codegen_design.md §12 (Bundle layout / native loader contract)
+# - codegen_design.md §13 (Async ML ops / native equivalent)
+# - JUCE 8 docs: juce_add_binary_data
+# - ONNX Runtime CMake docs: https://onnxruntime.ai/docs/build/inferencing.html
+
+# ---------------------------------------------------------------------------
+# 1. Bundle ONNX weights as JUCE BinaryData.
+# ---------------------------------------------------------------------------
+# Codegen lists every weights file the graph references in NEURAL_WEIGHTS_SOURCES.
+# Symbols accessible from C++ as ShagsPlugModels::<sanitized_filename> (data) +
+# <sanitized_filename>Size (size). Filename sanitization: dots → underscores
+# (crepe.onnx → crepe_onnx).
+
+juce_add_binary_data({{ PROJECT_NAME }}_models
+    NAMESPACE  ShagsPlugModels
+    HEADER_NAME ShagsPlugModels.h
+    SOURCES    {{ NEURAL_WEIGHTS_SOURCES }}
+    # Example expanded form (codegen substitutes this from the graph):
+    #   ${SHAGSPLUG_DIR}/models/crepe.onnx
+)
+
+target_link_libraries({{ PROJECT_NAME }} PRIVATE {{ PROJECT_NAME }}_models)
+
+# ---------------------------------------------------------------------------
+# 2. Locate and link ORT-native.
+# ---------------------------------------------------------------------------
+# Strategy: prefer find_package(onnxruntime) (works if the host SDK has the
+# package config installed); fall back to ORT_DIR env-var / cmake-cached
+# path that points to the unpacked ORT release tarball.
+#
+# We DO NOT vendor ORT-native into the repo (~30 MB shared lib + headers).
+# It's expected at build-server / dev-machine setup time — the build script
+# in codegen/build_native.sh checks ORT_DIR is set and offers to download
+# the official MIT release if not.
+
+find_package(onnxruntime QUIET CONFIG)
+
+if(NOT onnxruntime_FOUND)
+    if(NOT DEFINED ENV{ORT_DIR} AND NOT DEFINED ORT_DIR)
+        message(FATAL_ERROR
+            "ml_runtime_native.cmake: onnxruntime not found. Either:\n"
+            "  (a) install onnxruntime via your package manager, or\n"
+            "  (b) set the ORT_DIR env var to a directory containing\n"
+            "      include/onnxruntime_cxx_api.h and lib/<ort shared lib>.\n"
+            "Download the MIT release from https://github.com/microsoft/onnxruntime/releases.")
+    endif()
+    if(NOT DEFINED ORT_DIR)
+        set(ORT_DIR "$ENV{ORT_DIR}")
+    endif()
+
+    add_library(onnxruntime::onnxruntime SHARED IMPORTED)
+    target_include_directories(onnxruntime::onnxruntime INTERFACE "${ORT_DIR}/include")
+    if(WIN32)
+        set_target_properties(onnxruntime::onnxruntime PROPERTIES
+            IMPORTED_LOCATION       "${ORT_DIR}/lib/onnxruntime.dll"
+            IMPORTED_IMPLIB         "${ORT_DIR}/lib/onnxruntime.lib")
+    elseif(APPLE)
+        set_target_properties(onnxruntime::onnxruntime PROPERTIES
+            IMPORTED_LOCATION       "${ORT_DIR}/lib/libonnxruntime.dylib")
+    else()
+        set_target_properties(onnxruntime::onnxruntime PROPERTIES
+            IMPORTED_LOCATION       "${ORT_DIR}/lib/libonnxruntime.so")
+    endif()
+endif()
+
+target_link_libraries({{ PROJECT_NAME }} PRIVATE onnxruntime::onnxruntime)
+
+# ---------------------------------------------------------------------------
+# 3. Build MLRuntimeNative + every neural op's cpp into the plugin target.
+# ---------------------------------------------------------------------------
+target_sources({{ PROJECT_NAME }} PRIVATE
+    ${SHAGSPLUG_DIR}/codegen/src/host/ml_runtime_native.cpp
+    {{ NEURAL_OP_SOURCES }}
+    # Example expanded form:
+    #   ${SHAGSPLUG_DIR}/codegen/src/ops/op_crepe.cpp
+)
+
+target_include_directories({{ PROJECT_NAME }} PRIVATE
+    ${SHAGSPLUG_DIR}/codegen/src
+)
+
+# ---------------------------------------------------------------------------
+# 4. Runtime ORT shared lib copy (Windows + macOS).
+# ---------------------------------------------------------------------------
+# The plugin binary links against ORT via the imported target above, but
+# the ORT shared library must be discoverable at load time. JUCE plugins
+# typically copy DLLs into the .vst3/Contents/x86_64-win/ folder at build
+# completion. The codegen post-build step handles this — left as a TODO
+# stub here for the JUCE codegen step to populate.
+
+# add_custom_command(TARGET {{ PROJECT_NAME }} POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#         "$<TARGET_FILE:onnxruntime::onnxruntime>"
+#         "$<TARGET_FILE_DIR:{{ PROJECT_NAME }}>")

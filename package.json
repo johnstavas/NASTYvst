@@ -17,7 +17,11 @@
     "qc:master": "node scripts/check_master_worklet.mjs",
     "qc:master:bless": "node scripts/check_master_worklet.mjs --bless",
     "qc:emit": "node scripts/check_master_emit_parity.mjs",
-    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens && npm run qc:math && npm run qc:master && npm run qc:emit",
+    "qc:ml": "node scripts/check_ml_inference.mjs",
+    "qc:ml:strict": "node scripts/check_ml_inference.mjs --strict",
+    "qc:parity": "node scripts/check_native_parity.mjs --all",
+    "qc:stereo": "node scripts/check_stereo_isolation.mjs --all",
+    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens && npm run qc:math && npm run qc:master && npm run qc:emit && npm run qc:ml && npm run qc:stereo && npm run qc:parity",
     "install-hooks": "git config core.hooksPath .githooks"
   },
   "keywords": [],
@@ -25,6 +29,8 @@
   "license": "ISC",
   "dependencies": {
     "@vitejs/plugin-react": "^3.1.0",
+    "docx": "^9.6.1",
+    "onnxruntime-web": "^1.24.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "reshaped": "^3.10.2",
@@ -32,6 +38,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.27",
+    "onnxruntime-node": "^1.24.3",
     "postcss": "^8.5.9",
     "tailwindcss": "^3.4.19"
   }

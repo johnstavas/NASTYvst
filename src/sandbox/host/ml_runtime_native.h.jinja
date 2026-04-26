@@ -1,0 +1,162 @@
+// ml_runtime_native.h — host-side ORT-native session manager for neural ops.
+//
+// Stage-3 native counterpart to src/sandbox/host/MLRuntime.js (browser). One
+// instance per JUCE plugin, owned by the AudioProcessor. Loads ONNX weights
+// once in `prepareToPlay`, keeps `Ort::Session` warm for the plugin's life,
+// and exposes per-op typed `run*` helpers that the cpp.jinja-generated op
+// shims call inline on the audio thread.
+//
+// === DESIGN: per-op typed helpers (mirror of JS DECODERS) ===
+//
+// JS-side DECODERS in MLRuntime.js holds an opId → decoder map. Native side
+// inlines the same decode math directly into typed methods (`runCrepe`,
+// future `runRnnoise`, etc.). Reasoning: C++ doesn't have JS-style dynamic
+// dispatch over heterogeneous result shapes without templates that pull a
+// std::variant or std::any. A typed-helper-per-op kills the indirection and
+// keeps decoders next to their session for cache locality.
+//
+// Adding a neural op = (1) add a `Result<OpName>` POD struct, (2) add a
+// `run<OpName>(...)` typed helper that calls `Ort::Session::Run` then
+// inlines the decode, (3) add the op's weights to the JUCE BinaryData
+// stanza in CMakeLists.txt.jinja.
+//
+// === THREADING ===
+//
+// Native ORT runs ORT inference inline on the audio thread per
+// codegen_design.md §13 ("native path runs ORT-native synchronously inline
+// at process() time — no MessagePort, no host-thread roundtrip"). This is
+// safe because ORT's CPU EP is real-time-friendly when fed a fixed-shape
+// input (no allocation per Run(), session-cached input/output bindings).
+// If a future plugin needs heavier models, move inference to a `juce::Thread`
+// with a lock-free SPSC queue (the JS path's MessagePort topology).
+//
+// === LIFETIME ===
+//
+// Constructed in `AudioProcessor::AudioProcessor()` with the JUCE binary-
+// data table; sessions lazily created on first `prepare<OpName>(sr)` call.
+// Destroyed when the plugin is unloaded — `Ort::Session` destructor releases
+// the model.
+//
+// === REFERENCES ===
+// - codegen_design.md §12 (Neural assets / bundle layout)
+// - codegen_design.md §13 (Async ML ops / native equivalent section)
+// - sandbox_op_ship_protocol.md "Neural Op Exception clause"
+
+#pragma once
+
+#include <onnxruntime_cxx_api.h>
+#include <array>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace shags::ml {
+
+// ---------------------------------------------------------------------------
+// Per-op result POD structs. Mirror the JS DECODERS return shapes 1-to-1.
+// ---------------------------------------------------------------------------
+
+struct CrepeResult {
+    float f0         = 0.0f;
+    float confidence = 0.0f;
+};
+
+// (Future neural ops add their result PODs here:
+//   struct RnnoiseResult { ... };
+//   struct DemucsResult  { ... };
+// )
+
+// ---------------------------------------------------------------------------
+// Weights blob — opaque pointer + size pair handed to MLRuntimeNative at
+// construction time. Typically populated from JUCE BinaryData symbols (see
+// CMakeLists.txt.jinja).
+// ---------------------------------------------------------------------------
+
+struct WeightsBlob {
+    const void* data = nullptr;
+    std::size_t size = 0;
+};
+
+// ---------------------------------------------------------------------------
+// MLRuntimeNative — singleton-style runtime owned by the AudioProcessor.
+// ---------------------------------------------------------------------------
+
+class MLRuntimeNative {
+public:
+    /// Construct with a registry of `opId → WeightsBlob`. The registry is
+    /// typically built once at AudioProcessor construction from JUCE
+    /// BinaryData symbols. Sessions are NOT eagerly loaded — they spin up
+    /// on the first `prepare<OpName>` call.
+    explicit MLRuntimeNative(std::unordered_map<std::string, WeightsBlob> weights);
+
+    // Non-copyable, non-movable — Ort::Session is non-trivially movable.
+    MLRuntimeNative(const MLRuntimeNative&)            = delete;
+    MLRuntimeNative& operator=(const MLRuntimeNative&) = delete;
+
+    /// Lazily load (or return cached) `Ort::Session` for opId. Throws
+    /// `Ort::Exception` if weights are missing or model fails to parse.
+    Ort::Session& session(const std::string& opId);
+
+    /// Tear down all sessions. Called from AudioProcessor destructor.
+    void release();
+
+    // -----------------------------------------------------------------------
+    // Per-op typed helpers. Each helper:
+    //   1. Looks up (lazy-loads) the op's session.
+    //   2. Builds the input tensor with the op's known shape + dtype.
+    //   3. Calls Ort::Session::Run.
+    //   4. Decodes the output to the op's result POD (mirror of
+    //      DECODERS in MLRuntime.js).
+    // -----------------------------------------------------------------------
+
+    /// CREPE: 1024-sample @ 16 kHz Float32 frame in → CrepeResult out.
+    /// Input must already be zero-mean unit-variance normalized (matches
+    /// marl/crepe/core.py:get_activation preprocessing).
+    CrepeResult runCrepe(const float* frame, int frameLen);
+
+private:
+    Ort::Env                                            env_;
+    Ort::SessionOptions                                 sessionOpts_;
+    Ort::MemoryInfo                                     memInfo_;
+    std::unordered_map<std::string, WeightsBlob>        weights_;
+    std::unordered_map<std::string, std::unique_ptr<Ort::Session>> sessions_;
+
+    // Pre-allocated output buffer for CREPE decode (360-bin sigmoid).
+    // Avoids audio-thread allocation. One per neural-op fixed-shape output.
+    static constexpr int CREPE_N_BINS = 360;
+    std::array<float, CREPE_N_BINS> crepeOutBuf_{};
+};
+
+// ---------------------------------------------------------------------------
+// CREPE constants (verbatim mirror of MLRuntime.js DECODERS.crepe).
+//
+// Cents grid: linspace(0, 7180, 360) + 1997.3794084376191 — the (N-1)=359
+// denominator matches numpy's endpoint-inclusive linspace step. Misreading
+// this as N=360 introduces a ~5¢ systematic bias.
+// ---------------------------------------------------------------------------
+
+constexpr int   CREPE_N_BINS         = 360;
+constexpr float CREPE_CENTS_BASE     = 1997.3794084376191f;
+constexpr float CREPE_CENTS_RANGE    = 7180.0f;
+constexpr int   CREPE_LOCAL_AVG_HALF = 4;   // ±4 → 9-bin local average
+
+/// Decode CREPE's 360-bin sigmoid output to (f0, confidence) using the
+/// canonical local-average-cents method from marl/crepe/core.py:
+/// to_local_average_cents.
+///
+/// Steps:
+///   1. argmax over salience to find the dominant bin.
+///   2. Local-average over 9 bins (±4) centered on argmax, weighted by
+///      salience.
+///   3. cents = (7180·i / 359) + 1997.3794
+///   4. f0    = 10·2^(cents/1200)
+///   5. confidence = clamp(max salience, 0, 1)
+///
+/// Standalone free function — testable in isolation; called by
+/// MLRuntimeNative::runCrepe but reusable from a Stage-3-native test
+/// harness without an Ort::Session.
+CrepeResult decodeCrepe(const float* salience, int nBins);
+
+}  // namespace shags::ml

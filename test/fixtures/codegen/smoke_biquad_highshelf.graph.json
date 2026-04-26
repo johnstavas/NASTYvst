@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-biquad-highshelf-v0",
+  "label": "SmokeBiquadHighShelf",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 100
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_bq",
+      "op": "biquad",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "mode": "highShelf",
+        "cutoff": 6000,
+        "q": 0.707,
+        "gainDb": -6
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_bq"
+    },
+    {
+      "from": "n_bq",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "biquad"
+  ]
+}

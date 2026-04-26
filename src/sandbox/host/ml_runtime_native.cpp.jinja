@@ -1,0 +1,169 @@
+// ml_runtime_native.cpp — implementation of the host-side ORT-native runtime.
+// See ml_runtime_native.h for design rationale and threading model.
+
+#include "ml_runtime_native.h"
+
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
+#include <utility>
+
+namespace shags::ml {
+
+// ===========================================================================
+// MLRuntimeNative — lifecycle + session management
+// ===========================================================================
+
+namespace {
+// One global Ort::Env per process is the recommended pattern (ORT docs).
+// Constructed lazily on first MLRuntimeNative.
+Ort::Env& globalEnv() {
+    static Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "shags-vst");
+    return env;
+}
+
+// Build SessionOptions tuned for low-latency real-time inference:
+//   - 1 intra-op thread (we run on the audio thread; no parallelism wanted)
+//   - 0 inter-op threads (graph is sequential anyway)
+//   - All graph optimizations enabled (ORT auto-fuses static graph)
+Ort::SessionOptions buildSessionOptions() {
+    Ort::SessionOptions opts;
+    opts.SetIntraOpNumThreads(1);
+    opts.SetInterOpNumThreads(0);
+    opts.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    return opts;
+}
+}  // namespace
+
+MLRuntimeNative::MLRuntimeNative(std::unordered_map<std::string, WeightsBlob> weights)
+    : env_(ORT_LOGGING_LEVEL_WARNING, "shags-vst"),
+      sessionOpts_(buildSessionOptions()),
+      memInfo_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),
+      weights_(std::move(weights)) {}
+
+Ort::Session& MLRuntimeNative::session(const std::string& opId) {
+    auto it = sessions_.find(opId);
+    if (it != sessions_.end()) return *it->second;
+
+    auto wIt = weights_.find(opId);
+    if (wIt == weights_.end() || wIt->second.data == nullptr || wIt->second.size == 0) {
+        throw std::runtime_error("MLRuntimeNative: no weights registered for opId=\"" + opId + "\"");
+    }
+
+    auto sess = std::make_unique<Ort::Session>(
+        env_, wIt->second.data, wIt->second.size, sessionOpts_);
+    auto& ref = *sess;
+    sessions_.emplace(opId, std::move(sess));
+    return ref;
+}
+
+void MLRuntimeNative::release() {
+    sessions_.clear();
+}
+
+// ===========================================================================
+// CREPE typed helper
+// ===========================================================================
+//
+// Input contract: one 1024-sample Float32 frame, already z-mean / u-std
+// normalized (matches the worklet's `_dispatchFrame` preprocess and
+// marl/crepe/core.py:get_activation).
+//
+// Tensor shape: [1, frameLen] — mirrors INPUT_CONTRACTS.crepe in
+// MLRuntime.js (`dims: (frame) => [1, frame.length]`).
+//
+// ORT model I/O names: input='frames', output='probabilities' — verbatim
+// from yqzhishen/onnxcrepe v1.1.0 tiny.onnx (verified against the JS
+// runtime's INPUT_CONTRACTS.crepe).
+
+CrepeResult MLRuntimeNative::runCrepe(const float* frame, int frameLen) {
+    if (frame == nullptr || frameLen <= 0) {
+        return CrepeResult{0.0f, 0.0f};
+    }
+
+    Ort::Session& sess = session("crepe");
+
+    const std::array<int64_t, 2> inputDims  = { 1, static_cast<int64_t>(frameLen) };
+    const std::array<int64_t, 2> outputDims = { 1, CREPE_N_BINS };
+
+    Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
+        memInfo_, const_cast<float*>(frame), static_cast<size_t>(frameLen),
+        inputDims.data(), inputDims.size());
+
+    // Pre-allocate output tensor in our reusable buffer (no audio-thread
+    // alloc). ORT will write the 360-bin sigmoid into crepeOutBuf_.
+    Ort::Value outputTensor = Ort::Value::CreateTensor<float>(
+        memInfo_, crepeOutBuf_.data(), crepeOutBuf_.size(),
+        outputDims.data(), outputDims.size());
+
+    static const char* kInputNames[]  = { "frames"        };
+    static const char* kOutputNames[] = { "probabilities" };
+
+    sess.Run(Ort::RunOptions{nullptr},
+             kInputNames,  &inputTensor,  1,
+             kOutputNames, &outputTensor, 1);
+
+    return decodeCrepe(crepeOutBuf_.data(), CREPE_N_BINS);
+}
+
+// ===========================================================================
+// CREPE decoder — verbatim mirror of DECODERS.crepe in MLRuntime.js
+// ===========================================================================
+//
+// This is the canonical local-average-cents pipeline from
+// marl/crepe/core.py:to_local_average_cents (MIT). Reproduced step-for-step
+// in C++ so worklet and native paths produce the same f0 within float
+// epsilon for the same model + frame.
+
+CrepeResult decodeCrepe(const float* salience, int nBins) {
+    if (salience == nullptr || nBins != CREPE_N_BINS) {
+        return CrepeResult{0.0f, 0.0f};
+    }
+
+    // 1. argmax + max value → confidence.
+    int   maxIdx = 0;
+    float maxVal = -std::numeric_limits<float>::infinity();
+    for (int i = 0; i < nBins; ++i) {
+        const float v = salience[i];
+        if (v > maxVal) {
+            maxVal = v;
+            maxIdx = i;
+        }
+    }
+    if (!std::isfinite(maxVal) || maxVal <= 0.0f) {
+        return CrepeResult{0.0f, 0.0f};
+    }
+
+    // 2. Local-average over 9 bins (±4) centered on argmax.
+    //    Verbatim from marl/crepe/core.py:to_local_average_cents.
+    const int start = std::max(0,                 maxIdx - CREPE_LOCAL_AVG_HALF);
+    const int end   = std::min(CREPE_N_BINS,      maxIdx + CREPE_LOCAL_AVG_HALF + 1);
+    double sumW  = 0.0;
+    double sumWX = 0.0;
+    for (int i = start; i < end; ++i) {
+        // Cents grid: linspace(0, 7180, 360) + 1997.3794084376191
+        // → step = 7180 / (360-1) = 7180/359
+        const double cents = (static_cast<double>(CREPE_CENTS_RANGE) * i
+                              / static_cast<double>(CREPE_N_BINS - 1))
+                             + static_cast<double>(CREPE_CENTS_BASE);
+        const double w = static_cast<double>(salience[i]);
+        sumWX += w * cents;
+        sumW  += w;
+    }
+    if (sumW <= 0.0) return CrepeResult{0.0f, 0.0f};
+
+    const double centsAvg = sumWX / sumW;
+
+    // 3. cents → Hz.
+    const double f0 = 10.0 * std::pow(2.0, centsAvg / 1200.0);
+
+    // 4. Sigmoid max value as confidence (already in [0, 1]).
+    const float conf = std::clamp(maxVal, 0.0f, 1.0f);
+
+    CrepeResult r;
+    r.f0         = std::isfinite(f0)   ? static_cast<float>(f0) : 0.0f;
+    r.confidence = std::isfinite(conf) ? conf                   : 0.0f;
+    return r;
+}
+
+}  // namespace shags::ml

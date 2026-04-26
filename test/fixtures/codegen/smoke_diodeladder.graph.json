@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-diodeladder-v0",
+  "label": "SmokeDiodeLadder",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_dl", "op": "diodeLadder", "x": 240, "y": 100, "params": { "normFreq": 0.45, "Q": 5.0, "drive": 1.0, "trim": 0.0 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_dl.in" },
+    { "from": "n_dl.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["diodeLadder"]
+}
