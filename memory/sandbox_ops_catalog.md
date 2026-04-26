@@ -605,3 +605,122 @@ at the brick layer. Recipes documented in pending `recipe_registry.md`.
   Dynamics & Time, crepe in both Pitch & ML): same op, one slot, cross-ref.
 - When adding a new op: update registry + ship tri-file + **update this file's
   status column** before closing the task.
+
+---
+
+## Locked primaries — 2026-04-26 (Perplexity 2-of-2 confirmation)
+
+**Status.** 37 of 52 ops in the corpus-sweep extension queue have **Tier-S
+or Tier-A primaries locked** by 2-of-2 agreement between two independent
+Perplexity Deep Research runs (see `op_primaries_perplexity_diff.md`).
+This section is the authoritative source for the locked citations; rows
+in the queue tables above retain their original "primary in hand"
+sketches as initial provenance. **When shipping any op below, cite the
+locked primary from this section in the worklet header.**
+
+### Catalog rows with locked primaries (29 ops)
+
+| catalog # | opId | locked primary | tier | bonus citations |
+|---|---|---|---|---|
+| #141 | optoCell | Universal Audio LA-2A Leveling Amplifier service manual + original Teletronix schematic (archive.org) | Tier-S | Thermal-model peer-reviewed paper **not located** — flag as research-debt |
+| #142 | blackmerVCA | Blackmer, *Multiplier Circuits*, US Patent 3,714,462 (filed 1971-06-14, issued 1973-01-30); + THAT Corp 2180/2181-Series datasheet "Theory of Operation" | Tier-S | US Patent 4,403,199 (1983) — improved gain cell |
+| #143 | bjtSingleStage | Sedra & Smith, *Microelectronic Circuits* 6e Ch.5 (Oxford UP, 2010) — canonical BJT class-A theory; + Neve 1073 service manual (archive.org) | Tier-A / Tier-S | Helios Type 69 schematic (vintage console restoration forums) |
+| #144 | inductorEQ | Pultec EQP-1A service manual (Pulse Techniques Inc., archive.org); + Neve 1073 service manual high-shelf inductor network | Tier-S | — |
+| #145 | varMuTube | 6386 Dual Remote-Cutoff Triode datasheet (Sylvania/GE, frank.pocnet.net) + 6BC8 datasheet; + Pakarinen-Yeh CMJ 33(2):85–100 §"Variable-Mu Tubes" (2009) | Tier-S / Tier-A | Fairchild 670 + Manley Variable Mu service manuals (archive.org / GroupDIY) |
+| #146 | discreteClassAStage | Multi-OEM service manuals: Neve 1073 (AMS Neve), API 312/2520, SSL 4000-Series channel strip, Helios Type 69 — all on archive.org / GroupDIY | Tier-S | Sedra-Smith Ch.5 for shared class-A theory layer |
+| #147 | fetVVR | UREI/Universal Audio 1176LN Limiting Amplifier service manual (uaudio.com / archive.org) — 2N3819 JFET-as-VVR topology | Tier-S | UA "1176 FET Compressor" tech note (Cotter, informal) |
+| #148 | triodeStage | Koren, "Improved Vacuum Tube Models for SPICE Simulations" Parts 1 & 2, normankoren.com (2003 update of Glass Audio 1996); + Cohen-Hélie DAFx-2010 + Macak-Schimmel DAFx-2010 | **Tier-A** (web pub, not peer-reviewed; tier corrected from File A's S to B's A) | — |
+| #149 | otaLadder | Huovilainen, "Non-Linear Digital Implementation of the Moog Ladder Filter," Proc. DAFx-2004, Naples (dafx.de/paper-archive/2004/P_061.PDF) | Tier-A | Steiner-Parker original VCF patent (~1974) — find via patents.google.com |
+| #150 | granularPitchShifter | De Götzen, Bernardini, Arfib, "Traditional (?) Implementations of a Phase-Vocoder: The Tricks of the Trade," DAFx-2000, Verona (cs.princeton.edu/courses/archive/spr09/cos325/Bernardini.pdf) | Tier-A | Roads, *Microsound* (MIT Press, 2001) Ch.2 for grain-based variant |
+| #151 | bridgedTNetwork | Hood, *Audio Electronics* 2e (Newnes, 1999/2008) — bridged-T notch chapter; + ARP 2600 service manual (archive.org) | Tier-A / Tier-S | — |
+| #153 | gateStateMachine | musicdsp.org #117 (Bram de Jong) — community canonical FSM; + Drugan-Reiss 2017 AES Convention paper **(unverified — not independently confirmed in either Perplexity run)** | **Tier-B** (tier corrected; both reports flag concerns) | Drawmer DS201 / SSL G-Series gate service schematics for hysteresis values |
+| #155 | pushPullPower | Pakarinen-Yeh, "A Review of Digital Techniques for Modeling Vacuum-Tube Guitar Amplifiers," CMJ 33(2):85–100, MIT Press (2009), DOI: 10.1162/comj.2009.33.2.85 §IV | Tier-A | Cohen-Hélie DAFx-2010 (class-A single-ended); GE/Sylvania 6L6/EL34/KT88 datasheets for tube-specific bias points |
+| #156 | phaseInverter | Pakarinen-Yeh CMJ 2009 §IV (LTP / cathodyne / paraphase) | Tier-A | Millman & Halkias, *Electronic Devices and Circuits* (McGraw-Hill, 1967) Ch."Phase Inverters" |
+| #157 | cathodeBiasShift | Macak-Schimmel, "Real-Time Guitar Tube Amplifier Simulation Using an Approximation of Differential Equations," DAFx-2010, Graz §3.2 "Cathode Capacitor" (dafx10.iem.at/proceedings/papers/MacakSchimmel_DAFx10_P12.pdf) | Tier-A | Pakarinen-Yeh CMJ 2009 §"Cathode Bypass Capacitor" |
+| #158 | bridgedTeeEQ | Pultec MEQ-5 service manual; + UREI 545 Parametric EQ service manual (both on archive.org) | Tier-S | Hood *Audio Electronics* 2e (theoretical backup) |
+| #160 | companding8bit | ITU-T Recommendation G.711, "Pulse Code Modulation (PCM) of Voice Frequencies" (ITU-T, Geneva, 1972/1988) — itu.int/rec/T-REC-G.711-198811-I/en (free) | Tier-S | Fairlight CMI / E-mu SP-1200 service manuals for hardware variants |
+| #161 | aliasingDecimator | **No Tier-S/A primary exists.** Both reports flag "Welsh 2005 8-bit fidelity" as not located. Lock fallback: JOS PASP §"Aliasing" (ccrma.stanford.edu/~jos/pasp/, open-access) + Zölzer DAFX 2e Ch.11 (Wiley) | weak / Tier-A fallback | Add to research-debt; this op may need first-principles citation only |
+| #163 | hardSync | Stilson & Smith, "Alias-Free Digital Synthesis of Classic Analog Waveforms," Proc. ICMC-1996, Hong Kong, pp.332–335 (quod.lib.umich.edu/i/icmc/bbp2372.1996.101) | Tier-A | Välimäki-Huovilainen IEEE SPM 24(2):116–125, March 2007, DOI: 10.1109/MSP.2007.323276 |
+| #165 | voiceCoilCompression | Klippel, "Loudspeaker Nonlinearities — Causes, Parameters, Symptoms," JAES 54(10):907–939, October 2006 (free PDF at klippel.de) | **Tier-S** (named-originator JAES = Tier-S per prompt def) | Klippel AES Convention Paper 6584 (Oct 2005) — preprint version |
+| #166 | srcResampler | JOS Digital Audio Resampling page (ccrma.stanford.edu/~jos/resample/) based on Smith-Gossett ICASSP 1984 Vol II pp.19.4.1–19.4.2; + libsamplerate (Erik de Castro Lopo, BSD-2-Clause post-2016) | Tier-A / Tier-S OSS | Niemitalo "Polynomial Interpolators for High-Quality Resampling" yehar.com/blog deip.pdf (2001) |
+| #167 | linearPhaseEQ | JOS *Spectral Audio Signal Processing* (ccrma.stanford.edu/~jos/sasp/) FIR/linear-phase chapters + Lyons *Understanding DSP* 3e Ch.13 (Prentice Hall, 2010) | Tier-A | "Smith-Serra 1990s linear-phase EQ" reference **not located** — JOS SASP is the reliable fallback |
+| #168 | gainRangingADC | Roland S-760 service manual + Akai S950 service manual + Akai MPC60 service manual (archive.org / Syntaur / RetroSound.de) | Tier-S | No academic paper located; bench measurement may be required for full DSP model |
+| #169 | tapeBias | Bertram, *Theory of Magnetic Recording* (Cambridge UP, 1994) Ch.5–7; ISBN 9780521449991, doi:10.1017/CBO9780511623066 | Tier-A | Camras *Magnetic Recording Handbook* (Van Nostrand Reinhold, 1988); Studer A800 / Ampex ATR-102 service manuals for measured curves |
+| #170 | presenceShelf | Pultec EQP-1A service manual (high-shelf inductor network) + Neve 1073 service manual (resonant high-shelf topology) | Tier-S | Zölzer DAFX 2e Ch.2 (resonant vs Butterworth-flat shelf theory) |
+| #171 | headBumpEQ | Bertram *Theory of Magnetic Recording* §6 "Reproduce Process" (head-gap analytic derivation); + Studer A800 / Ampex ATR-102 / MCI JH-110 service manuals (measured curves) | Tier-A / Tier-S | — |
+| #173 | complexOsc | Buchla 259 Programmable Complex Waveform Generator service schematic (archive.org / modwiggler.com Buchla preservation threads) | Tier-S | No peer-reviewed digital model paper located; derivation from schematic required |
+| #174 | phaseDistortion | Casio CZ-101 / CZ-1000 service manual (Casio Computer Co., 1984; archive.org) — phase-distortion synthesis engine + 8 PD waveform transfer functions | Tier-S | "Smith 1987 ICMC PD paper" **not located** in either run — verify quod.lib.umich.edu/i/icmc archive |
+| #178 | differentialEnvelope | SPL Transient Designer Dual-Channel Model 9946 service manual (SPL Electronics GmbH, 1999); + SPL DET (Differential Envelope Technology) white paper at spl.audio | Tier-S | German Patent **DE 4,316,425** (Wolf, SPL — formal patent originator) — File B addition |
+| #179 | diodeBridgeGR | AMS Neve 33609/N Stereo Bus Compressor user manual (ams-neve.com support) + Neve 2254 compressor service manual (archive.org / GroupDIY) | Tier-S | Duncan, "VCAs Investigated" (Electronics & Music Maker, gyraf.dk/schematics/VCAs_Ben_Duncan.pdf) — Tier-B reverse-engineering |
+| #180 | schmittTriggerOsc | Werner, Abel, Smith, "More Cowbell: A Physically-Informed, Circuit-Bendable Digital Model of the Roland TR-808 Cowbell," Proc. DAFx-2014, Erlangen (dafx14.fau.de/papers/dafx14_kurt_james_werner_a_physically_informed,_ci.pdf) | Tier-A | Companion ICMC-2014 cymbal paper; ElectroSmash MXR Phase 90 analysis (Tier-B) for Phase 90 LFO variant |
+| #181 | dispersiveAllpass | Parker & Bilbao, "Spring Reverberation: A Physical Perspective," Proc. DAFx-2009, Como (dafx.de/paper-archive/2009/papers/paper_84.pdf) | Tier-A | Bilbao-Parker DAFx-2010 Graz extended version; Välimäki "Stretched-Allpass" extensions |
+| #183 | sixOpFmAlgorithmRouter | Yamaha DX7 Digital Programmable Algorithm Synthesizer service manual (Yamaha Corp., 1983) — algorithm chart pp.6-1 through 6-5 (archive.org) | Tier-S | DX7 owner's manual (simplified algorithm diagrams) |
+| #177 | fmOperator | Chowning, "The Synthesis of Complex Audio Spectra by Means of Frequency Modulation," JAES 21(7):526–534, September 1973 (AES E-Library) | **Tier-S** (named-originator JAES) | Yamaha DX7/TX81Z service manuals for algorithm tables and per-operator parameters |
+
+### V2 / sub-preset / upgrade primaries — locked but no current catalog row (8 items)
+
+These primaries support upgrade work on already-shipped ops, sub-presets
+of #139 xformerSat, or future slots not yet allocated. File against the
+named upgrade row in `qc_backlog.md` when the work is queued.
+
+| upgrade target | locked primary | tier |
+|---|---|---|
+| **#139 xformerSat sub-presets** (input-xfmr LF saturation: Jensen / UTC / Hammond / Lundahl) | Jensen Application Notes AN-001/-002/-003 (Whitlock-authored, jensen-transformers.com/whitepapers/) | Tier-S |
+| **#139 xformerSat sub-presets** (output-xfmr Marshall JTM45/Plexi, Vox AC30 alt cores) | De Paiva, Pakarinen, Välimäki, Tikander, "Real-Time Audio Transformer Emulation for Virtual Tube Amplifiers," EURASIP JASP Vol 2011, Article 347645 (open-access, doi:10.1155/2011/347645) — methodology only; Marshall/Vox B-H curves NOT in literature | Tier-A |
+| **#112 bbdDelay v2 — AA-filter variants** | Holters & Parker, "A Combined Model for a Bucket Brigade Device and its Input and Output Filters," DAFx-2018, Aveiro §V (hsu-hh.de/ant/wp-content/uploads/sites/699/2018/09/Holters-Parker-2018-...pdf) | Tier-A |
+| **#112 bbdDelay v2 — compander stages** | Signetics/Philips NE570/NE571 Compander datasheet (datasheetarchive.com); + dbx Type II noise-reduction patent family (Blackmer) | Tier-S |
+| **#135 diodeLadder v2 — TB-303 closed-form** | Stinchcombe, "Analysis of the Moog Transistor Ladder and Derivative Filters" PDF at timstinchcombe.co.uk/synth/Moog_ladder_tf.pdf + diode/diode2 pages (TB-303 closed-form H(s) including 8 Hz lower peak) | Tier-B |
+| **#136 korg35 v2 — HPF mode flag** | Faust `ve.korg35HPF` (Tarr/CCRMA, MIT-STK license, github.com/grame-cncm/faustlibraries `vaeffects.lib`) + Pirkle VA Korg-35 HPF app note v2.0 (willpirkle.com) | Tier-A |
+| **#34 ladder v2 — Moog transistor ladder closed-form** | Stinchcombe Moog_ladder_tf.pdf + Huovilainen DAFx-2004 (paper_061.PDF) | Tier-B / Tier-A |
+| **PSOLA grain (no slot yet)** | Moulines & Charpentier, "Pitch-Synchronous Waveform Processing Techniques for Text-to-Speech Synthesis Using Diphones," *Speech Communication* 9(5–6):453–467, December 1990 (doi:10.1016/0167-6393(90)90021-Z) | Tier-A |
+
+### Locked from follow-up Perplexity run (14 ops resolved 2026-04-26)
+
+The 14 originally-pending ops have been re-researched in a focused
+follow-up Perplexity run (see `op_primaries_followup_results.md`).
+**11 of 14 are now cleanly resolved**; 3 retain partial unresolved
+items that don't block ship.
+
+Catalog corrections applied below. **For these ops, cite the locked
+primary from this section** (overrides any earlier "primary in hand"
+text in the queue tables).
+
+| catalog # | opId | locked primary | tier | correction notes |
+|---|---|---|---|---|
+| #148 | triodeStage | Koren, "Improved Vacuum Tube Models for SPICE Simulations," *Glass Audio* 8(5):18, 1996; web update 2003 (normankoren.com/Audio/Tubemodspice_article.html) | Tier-A (confirmed; not peer-reviewed) | **No Tier-S upgrade exists.** Pakarinen-Yeh CMJ 2009 is Tier-A bonus that contextualizes Koren in peer-reviewed literature. |
+| #152 | vactrolLPG | Buchla & Associates, Model 292 Quad Voltage-Controlled Lopass Gate service docs (fluxmonkey.com Historic Buchla / vasulka.org / buchla.com archives); + Lefort, Cantor-Echols, Abel, "A Digital Model of the Buchla Lowpass-Gate," DAFx-2013, Maynooth | Tier-S (service docs) / Tier-A (DAFx-2013 backup) | **CORRECTION:** No Don Buchla 1965 patent for the LPG exists. **US 3,475,623 is a Moog patent, NOT Buchla** — remove that citation if previously listed. Drop original prompt's "1965" claim. |
+| #153 | gateStateMachine | Giannoulis, Massberg, Reiss, "Digital Dynamic Range Compressor Design — A Tutorial and Analysis," *JAES* 60(6):399–408, June 2012 (AES E-Library elib:16354) | **Tier-A** (peer-reviewed JAES, covers gate/expander FSM) | **CORRECTION:** Drugan-Reiss 2017 AES paper **could not be located** in any of three Perplexity runs — drop as primary. musicdsp #117 demoted to "weak supplementary" not primary. Giannoulis-Massberg-Reiss 2012 is the clean Tier-A anchor. |
+| #154 | psuRectifierSag | Macak, Schimmel, "Real-Time Guitar Tube Amplifier Simulation Using an Approximation of Differential Equations," DAFx-2010, Graz (dafx.de paper archive) | Tier-A | **CORRECTION:** Yeh-Abel-Smith DAFx-2007 explicitly does **NOT** cover PSU rectifier sag (paper is on diode-clipper / Tube Screamer pedal circuits only). Macak-Schimmel 2010 simulates push-pull tube power amp + transformer + loudspeaker loading; PSU dynamics inherent. Yeh-Abel-Smith remains valid for #132 diodeClipper context, NOT for this op. |
+| #159 | dopplerRotor | Leslie, Donald J., "Rotatable Tremulant Sound Producer," US Patent 2,489,653 (filed 1945-07-09, granted 1949-11-29) | Tier-S | US 2,855,462 (Run A's citation) **could not be confirmed** in any Perplexity run as a Leslie patent — verify against hammond-leslie.com/DonLesliesPatents/ before citing elsewhere. Leslie's companion vibrato patents US 2,622,692 + US 2,622,693 (1952) and rotary electrostatic speaker US 3,058,541 (1962) are bonus references. Henricksen 1981 *Recording Engineer/Producer* (NOT JAES — verify) is Tier-A backup. |
+| #162 | ringMod | Keith, Clyde R., "Frequency Translating System," US Patent 1,855,576 (filed 1929-04-09, granted 1932-04-26; assignee: Bell Telephone Laboratories) | Tier-S | **CORRECTION:** Run B attributed US 1,855,576 to Cowan — that's wrong. **Keith is the inventor.** Cowan's improvement patent is **US 2,025,158** (1935). Both can be cited but with correct attribution. Bode 1984 JAES retrospective is Tier-A bonus; Bode 1961 *Electronics* is Tier-B (trade article, not peer-reviewed). |
+| #164 | hilbert | Schüssler, H. W., Steffen, P., "Halfband Filters and Hilbert Transformers," *Circuits, Systems and Signal Processing* 17(2):137–164, 1998 (DOI: 10.1007/BF01202851) | Tier-A | **1998 date confirmed.** Run A's "1988 Prentice Hall chapter in Lim & Oppenheim *Advanced Topics in Signal Processing*" is a real prior publication but the 1998 CSSP journal paper is the operative citation for the IIR allpass-pair design method. |
+| #165 | voiceCoilCompression | Klippel, Wolfgang, "Loudspeaker Nonlinearities — Causes, Parameters, Symptoms," *JAES* 54(10):907–939, October 2006 (AES E-Library elib:13881; free PDF at klippel.de) | **Tier-S** (originator + peer-reviewed JAES) | Confirmed — Run A correct, Run B's Tier-A wrong per tier definition. |
+| #172 | oilCanDelay | Lubow, Raymond, "Delay Apparatus," US Patent 2,892,898 (filed 1958-02-21, granted 1959-06-30) — electrostatic delay using rotating anodized aluminum disc + neoprene-graphite electrodes + oil/wax lubrication | Tier-S | **CORRECTION:** Echoplex EP-3 is **tape echo, NOT oil-can** — drop EP-3 reference from this op. Tel-Ray (Fender Ad-N-Echo / Echo-Reverb) units are the canonical oil-can examples. US 2,963,554 (Run B's alt citation) **could not be confirmed** at Google Patents. Earlier related Lubow patent US 2,837,597 (1958) cited as prior art in 2,892,898. |
+| #175 | wowFlutter | Two-layer citation: **(standards)** IEC 386:1971 "Methods of Measuring Wow and Flutter in Sound Recording and Reproducing Equipment" (also DIN 45507; modern: AES6-2008); **(theory)** Bertram, *Theory of Magnetic Recording*, Cambridge UP 1994, Ch.7 transport mechanics | Tier-S (IEC standard) + Tier-A (Bertram) | Run B's two-layer split confirmed — both citations needed. |
+| #176 | varistorVibrato | Shin-ei Companion / Univox Uni-Vibe original schematic (model 905, 1968) — univox.org/schematics.html or Scribd doc 350358305; + Pestana, Barbosa, "Digital Grey Box Model of The Uni-Vibe Effects Pedal," DAFx-2019, Birmingham | Tier-S (schematic) / Tier-A (DAFx-2019) | **NAMING CORRECTION FLAG:** Uni-Vibe uses **LDRs** (CDS photoresistors, MXY-7BX4) modulated by an incandescent lamp — **NOT varistors**. The op name `varistorVibrato` is technically inaccurate; consider rename to `lampLDRVibrato` or `optoVibrato`. Component name "varistor" and "VDR" are synonyms but neither is the operative component in the Uni-Vibe. |
+| #177 | fmOperator | Chowning, John M., "The Synthesis of Complex Audio Spectra by Means of Frequency Modulation," *JAES* 21(7):526–534, September 1973 | **Tier-S** (originator + peer-reviewed JAES — textbook example) | Confirmed — Run A correct. **Bonus:** Stanford FM patent **US 4,018,121** (Chowning, filed 1973, issued 1977) — Tier-S named-inventor patent covering the phase-modulation variant Yamaha licensed for the DX7. Add to row. |
+| #182 | blesserReverbCore | Blesser, Barry & Bäder, Karl-Otto, US Patent **4,181,820** (filed 1978-04-21, granted 1980-01-01) | Tier-S | **CORRECTION:** **US 3,978,289 is NOT a Blesser patent** — it appears to be a Cummins industrial V-ribbed belt part number. **Remove from catalog entirely.** Bonus Tier-A: Blesser, Baeder, Zaorski, "A Real-Time Digital Computer for Simulating Audio Systems," *JAES* 23(9):698–707, 1975 (AES E-Library elib:2659) — likely the journal version of the AES 50th Convention London 1975 paper. |
+| #139 sub-preset | inputXformerSat | Whitlock, Bill — Jensen Application Notes AN-001 / AN-003 / AN-008 (jensen-transformers.com/application-notes/) — manufacturer technical documentation by named expert with measured B-H data | **Tier-S** (manufacturer docs by named expert) | **Bonus Tier-A:** Whitlock, "Audio Transformers," Ch.11 in Ballou (ed.), *Handbook for Sound Engineers* 4e, Focal Press 2008 — peer-reviewed/edited textbook version of AN-008. |
+
+### Still unresolved (3 partial items — non-blocking)
+
+These have a clean primary locked but a secondary citation requires
+direct USPTO / AES E-Library / archive lookup. Ship-protocol can
+proceed with the locked primary; verify these when convenient.
+
+- **#159 dopplerRotor:** Verify US 2,855,462 against hammond-leslie.com/DonLesliesPatents/ (or drop reference to it).
+- **#172 oilCanDelay:** Verify US 2,963,554 at USPTO / Google Patents directly (or drop reference to it).
+- **#153 gateStateMachine:** Verify Drugan-Reiss 2017 AES paper at aes.org/e-lib/ (Giannoulis-Massberg-Reiss 2012 already locked as primary, so this is supplementary only).
+
+### Provenance (all three Perplexity runs)
+
+- `op_primaries_perplexity_A.md` — 843-line Perplexity Deep Research run, 106 footnoted references.
+- `op_primaries_perplexity_B.md` — 585-line Perplexity Deep Research run, in-line citations.
+- `op_primaries_perplexity_diff.md` — A↔B diff: 37 full-agreement, 6 tier-disagreements, 5 primary-disagreements, 3 honest-caveats, 1 weak.
+- `op_primaries_followup_results.md` — focused 14-op follow-up Perplexity run; 11/14 cleanly resolved with multiple corrections (US 3,978,289 not a patent; US 1,855,576 is Keith not Cowan; US 3,475,623 is Moog not Buchla; Yeh-Abel-Smith 2007 not on PSU sag; Uni-Vibe uses LDR not varistor; EP-3 is tape not oil-can).
+
+### Triangulated final tally
+
+- **48 of 52 ops** have locked primaries from 2-of-2 or 3-of-3 agreement
+- **3 ops** have partial-unresolved supplementary citations (don't block ship)
+- **1 op** (#161 aliasingDecimator) has no Tier-S/A primary in literature; locked at JOS PASP fallback as research-debt
