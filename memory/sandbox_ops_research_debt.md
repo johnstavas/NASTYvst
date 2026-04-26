@@ -1552,3 +1552,38 @@ Design picks:
 (h) **No mix param.** Sandbox convention: dry/wet is composed via
     explicit #5 mix op, not built into character ops. (Plugin-level
     dry/wet rule from MEMORY.md applies to plugins, not ops.)
+
+---
+
+## #166 srcResampler — shipped 2026-04-26, ✅+P
+
+**Baseline.** Polyphase Kaiser-windowed-sinc varispeed reader per JOS
+*Digital Audio Resampling / Implementation* page (NZ=8 zero-crossings,
+L=32 phases, β=7 → 70 dB stopband, KBUF=4096 ring). Same N inputs / N
+outputs per `process()` call; `speed` param controls per-sample read-
+pointer advance into a circular history.
+
+**Known-better citations (deferred):**
+
+| # | Upgrade | Citation | Cost | Priority |
+|---|---|---|---|---|
+| 166-a | Elastic input/output buffering for sustained speed > 1 | libsamplerate (BSD-2-Clause post-2016) elastic buffering pattern; or Smith-Gossett ICASSP 1984 §III rate-changing pull-style API | High — breaks per-call N-in/N-out contract; needs engine-layer plumbing or a separate `kind: 'rate-changing'` op-class | P2 |
+| 166-b | Cutoff scaling for downsample anti-alias (ρ < 1) | JOS *Theory_Ideal_Bandlimited_Interpolation*: `hs(t) = ρ · sinc(ρ·t)` at speed > 1. Practical implementations: libsamplerate cutoff scaling per ratio | Medium — kernel construction parameterized by ρ at `setParam('speed')` time; or a second precomputed table for ρ-scaled kernel | P1 |
+| 166-c | Higher-quality preset (libsamplerate "best") | NZ=23 / L=1024 → ≥130 dB stopband at significantly higher CPU cost. JOS resample example explicitly cites NZ=13/L=512 as "good quality." | Low — recompile-time constants, larger table | P2 |
+| 166-d | Multichannel with shared kernel | Currently single-channel. For stereo/multichannel, share the precomputed kernel + run independent xbuf/wpos/phase per channel. | Low — straightforward extension | P2 |
+
+**Why deferred for v1.** Op contract in sandbox is N inputs → N outputs
+in lockstep. Elastic buffering (166-a) breaks that contract and needs
+either a dedicated rate-changing op-class or engine-layer plumbing.
+Cutoff scaling (166-b) is a real fidelity gap at sustained speed > 1
+but doesn't help speed=1 (the dominant use case as a fixed delay-line
+read for fractional pitch / wow / flutter).
+
+**v1 honest behavior recap:**
+- speed = 1: pure NZ-sample filter delay; native parity bit-identical.
+- speed < 1: clean varispeed read for ~ (KBUF − 2·NZ) output samples
+  before phase clamps to ceiling. At KBUF = 4096 → ~85 ms at 48 kHz.
+- speed > 1: phase clamps to NZ minimum within ~NZ output samples;
+  beyond that the op behaves as speed=1. Causality limit (no lookahead).
+- Anti-alias above unity not applied; relies on natural HF rolloff of
+  the 17-tap kernel (Kaiser β=7 sidelobes ≈ −70 dB).

@@ -1,6 +1,6 @@
 # gainCOMPUTER — Live Project Status
 
-**Updated:** 2026-04-26 (xformerSat shipped + corpus-sweep extension landed)
+**Updated:** 2026-04-26 (xformerSat + corpus-sweep extension + srcResampler shipped)
 **North star:** Portable artist chain — one app, total-state presets, same sound across every DAW/OS/room. (`portable_chain_platform.md`)
 
 > Open this file first. It's the single dashboard for "what's going on, what's locked, what's next."
@@ -14,7 +14,7 @@
 | Layer | Phase / state |
 |---|---|
 | **Codegen pipeline** | **Phase 4 closed ✅ (2026-04-25)** — native parity is now a hard ship gate. Op-line **UNPAUSED**. |
-| **Sandbox ops catalog** | 126/183 shipped (~69%); 40 parity-verified. **2026-04-26 corpus-sweep added 43 new ⬜ slots (#141–#183)** — 8 Tier-S + 22 Tier-A + 13 Tier-B from 86-entry named-gear corpus. Pre-sweep state was 126/140 (~90%) — denominator grew, numerator unchanged. |
+| **Sandbox ops catalog** | **127/183 shipped (~69%); 41 parity-verified.** 2026-04-26 corpus-sweep added 43 new ⬜ slots (#141–#183) — 8 Tier-S + 22 Tier-A + 13 Tier-B from 86-entry named-gear corpus. **#166 srcResampler shipped ✅+P 2026-04-26** as first cadence-proof ship after primary-source triangulation. |
 | **Plugin onboarding (Stage 0.5 dogfood)** | 1 of 4 done — ManChild green. Lofi Loofy partial. FJM, Panther Buss pending. |
 | **AI agent layer** | NOT READY (~25–30%). 8/8 gates mapped to workbench stages, none all-green yet. Plausibly unlocked end of Stage 3. |
 | **Runtime targets** | Provisional v1: JUCE-VST3+AU (DAW), iPlug2-WAM (in-app). Locked 2026-04-22. |
@@ -23,6 +23,7 @@
 
 ## ✅ Just landed (this session, 2026-04-26)
 
+- **#166 srcResampler shipped ✅+P** — Foundation/utility op. Polyphase Kaiser-windowed-sinc varispeed reader per JOS *Resample/Implementation* page (verbatim two-wing formula; L=32 phases, NZ=8 zero-crossings, β=7 Kaiser → ~70 dB stopband, KBUF=4096 ring). Same N inputs / N outputs per call; `speed` ∈ [0.25, 4.0] controls fractional read advance. v1 honest scope: clean varispeed at speed≤1 (~85 ms drift budget at 48 kHz before phase ceiling clamps), causality clamp at speed>1 (no lookahead). 14-test math suite PASS, golden `905784…`, native parity bit-identical at speed=1. Off-by-one bug caught + fixed during ship: JOS's `P` is fractional past `floor(read_pos)`; with phase = read-lag, `P = ceil(phase) - phase`, NOT `phase - floor(phase)`. Three deferred upgrade paths logged in research-debt: P1 cutoff scaling for downsample anti-alias, P2 elastic buffering for sustained speed>1, P2 multichannel. Cadence-proof first ship after the corpus-sweep primary-source triangulation.
 - **Corpus-sweep extension landed.** 86-entry named-gear corpus (15 domains: compressors, console, delay, EQ, filters, gates, guitar/bass amps, mastering, modulation, multi-FX, preamps, reverb, saturation, specialty, synths) swept → 43 new ⬜ catalog slots written (#141–#183): 8 Tier-S (five gain-reduction elements + tube atoms set + inductorEQ), 22 Tier-A (otaLadder, granularPitchShifter, vactrolLPG, dopplerRotor, ringMod, hardSync, hilbert, voiceCoilCompression, srcResampler, linearPhaseEQ, gainRangingADC, tapeBias, etc.), 13 Tier-B (presenceShelf, headBumpEQ, oilCanDelay, complexOsc, phaseDistortion, wowFlutter, varistorVibrato, dispersiveAllpass, blesserReverbCore, fmOperator, schmittTriggerOsc, differentialEnvelope, diodeBridgeGR, sixOpFmAlgorithmRouter). 6 merges (alnicoSag→voiceCoilCompression flag, optoT4/bulbOpto/etc.→optoCell, vcaFader→blackmerVCA, ldrPhaserStage→vactrolLPG, tubeSim→triodeStage). 7 param-flags on existing ops. Cross-cutting: **five gain-reduction elements gap closed** (opto/varMu/FET-VVR/blackmer/diode-bridge all slotted). Catalog title 1–140 → **1–183**. 52-op research prompt drafted for primary-source recovery.
 - **#139 xformerSat shipped ✅+P** — De Paiva 2011 WDF transformer (volt-second LF saturation + Rc hysteresis + HF leakage). Through-path topology: flux-tracker drives Eq 34 NL-cap modulating HP corner; Rc hysteresis branch (Eq 17, m=3, §3.3 unit-delay); HF leakage 1-pole LP. Branchless n=3 power. 18-test math suite, golden, registry, native parity all green; worst-case parity −138 dB on dc_step (tol −90). qc:all 11 gates green, 1775 math checks. Topology bug from Stage 1 caught and corrected (was tapping cap voltage → LF expansion; fix routes through HP load branch matching Whitlock §5).
 - **(prior session, 2026-04-25)** Phase 3 verified + Phase 4 closed; `qc:parity` wired into `qc:all`.
@@ -55,10 +56,10 @@
 
 | Status | Count | Meaning |
 |---|---|---|
-| ✅+P | 40 | Shipped + parity-verified post-Phase-4 |
+| ✅+P | 41 | Shipped + parity-verified post-Phase-4 |
 | ✅ (legacy) | 86 | Shipped pre-Phase-4 (rebadge to ✅+P as touched) |
 | 🚧 | ~5 | Registry-only (no sidecar yet) |
-| ⬜ | ~50 | Not started — pre-sweep: #119 hrtf · #120/121/122 ML · #140 pultecEQ · reserved slots (~6). **+43 from 2026-04-26 corpus-sweep extension** (#141–#183). |
+| ⬜ | ~49 | Not started — pre-sweep: #119 hrtf · #120/121/122 ML · #140 pultecEQ · reserved slots (~6). +43 from 2026-04-26 corpus-sweep extension (#141–#183), minus #166 srcResampler shipped. |
 
 **Per-system coverage (from `audio_engineer_mental_model.md` six-systems):**
 
@@ -95,8 +96,9 @@ Pick small math-clean ops first to prove the 7-step protocol cadence (~30–45 m
 ## 🗒 Heavy queue (after cadence is proven)
 
 - ~~**#139 xformerSat**~~ ✅+P shipped 2026-04-26.
+- ~~**#166 srcResampler**~~ ✅+P shipped 2026-04-26 (first cadence-proof ship after corpus-sweep triangulation).
 - **#140 pultecEQ** — Pultec EQP-1A manual. Parallel LCR + tube + UTC OT character. Depends on #139 (now shipped).
-- **Five gain-reduction elements (Tier-S, primaries listed in catalog rows)** — recommended ship-priority cluster: #141 optoCell · #142 blackmerVCA · #145 varMuTube · #147 fetVVR · #179 diodeBridgeGR. Closes the dynamics gap and unlocks ~60% of the compressor corpus.
+- **Five gain-reduction elements (Tier-S, primaries locked in catalog appendix)** — recommended ship-priority cluster: #141 optoCell · #142 blackmerVCA · #145 varMuTube · #147 fetVVR · #179 diodeBridgeGR. Closes the dynamics gap and unlocks ~60% of the compressor corpus.
 - **Tube preamp atom set (Tier-S/A)** — #148 triodeStage · #155 pushPullPower · #156 phaseInverter · #157 cathodeBiasShift · #154 psuRectifierSag. Ship as a coherent set; #113 tubeSim deprecates to alias of triodeStage-with-defaults once #148 lands.
 - **BBD-family** — Holters–Parker 2018 (Juno/Dimension-D/Electric Mistress/Memory Man).
 - **Airwindows Canon shortlist** — ~25 entries (`airwindows_incorporation_plan.md`).

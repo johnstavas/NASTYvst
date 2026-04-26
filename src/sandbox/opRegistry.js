@@ -2768,6 +2768,28 @@ export const OPS = {
     ],
   },
 
+  // srcResampler — #166 Foundation/Utility. Polyphase Kaiser-windowed-sinc
+  // varispeed reader per JOS Implementation page (ccrma.stanford.edu/~jos/
+  // resample/Implementation.html). NOT a true elastic-buffered SRC: same N
+  // inputs / N outputs per call; `speed` controls per-sample read advance
+  // into a 1024-sample circular history. NZ=8 zero-crossings × L=32 phases
+  // → 17-tap effective FIR with 70 dB stopband (Kaiser β=7). At speed=1
+  // op is a pure NZ-sample filter delay. Drift at speed≠1 over many blocks
+  // is documented limitation (P2 elastic buffering in research-debt).
+  srcResampler: {
+    id: 'srcResampler',
+    label: 'srcResampler',
+    description: 'Polyphase varispeed reader — JOS Implementation page, Kaiser-windowed-sinc (NZ=8, L=32, β=7). Same N in / N out per call; `speed` controls fractional read-pointer advance. P2 elastic buffering for sustained heavy varispeed.',
+    ports: {
+      inputs:  [{ id: 'in',  kind: 'audio' }],
+      outputs: [{ id: 'out', kind: 'audio' }],
+    },
+    params: [
+      { id: 'speed', label: 'Speed', type: 'number', min: 0.25, max: 4.0, step: 0.001, default: 1.0, unit: '×',
+        format: (v) => v.toFixed(3) + '×' },
+    ],
+  },
+
   // velvetNoise — Sparse ±1/0 impulse stream on a Td-sample grid. One
   // impulse per cell, position uniform within cell, sign 50/50. Foundational
   // primitive for high-quality decorrelators / lush reverb early reflections /

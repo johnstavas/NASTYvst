@@ -1,0 +1,6 @@
+{
+  "op": "srcResampler",
+  "sr": 48000,
+  "n": 128,
+  "hash": "905784a447df175559e1611a82b7f3dc246937d98fd872b7b264f0e91ec728b1"
+}

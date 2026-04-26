@@ -40,8 +40,11 @@ done vs. what's left".
 - ⬜    **not started** — no registry entry, no files.
 
 ## Running total
-**126 of ~183 ops shipped (~69%).** Pre-Phase-4 was 125; #139 xformerSat
-shipped ✅+P 2026-04-26 → 126. 2026-04-26 corpus-sweep extension
+**127 of ~183 ops shipped (~69%).** Pre-Phase-4 was 125; #139 xformerSat
+shipped ✅+P 2026-04-26 → 126; **#166 srcResampler shipped ✅+P
+2026-04-26 → 127** (first ship after corpus-sweep primary-source
+triangulation; cadence proof for the Tier-S character cluster).
+2026-04-26 corpus-sweep extension
 adds 36 new ⬜ slots (#141–#176) — 8 Tier-S + 21 Tier-A + 7 Tier-B.
 2026-04-26 dedup-recovery pass adds 7 more ⬜ slots (#177–#183) —
 1 Tier-A (fmOperator) + 6 Tier-B — closing the 11-slot gap to the
@@ -499,7 +502,7 @@ flip to ✅+P requires Step 6 green.
 | 163 | hardSync | ⬜ | Synth | Stilson-Smith 1996 ICMC "Alias-free oscillators" + Välimäki-Huovilainen 2007. Phase-reset of slave oscillator on master period boundary. |
 | 164 | hilbert | ⬜ | Filters | Schüssler-Steffen 1998 + JOS SASP §A "Analytic signal." Allpass-pair quadrature network for SSB / freq-shift / pitch-shift. |
 | 165 | voiceCoilCompression | ⬜ | Dynamics | Klippel 2006 "Loudspeaker nonlinearities — causes, parameters, symptoms." Voice-coil thermal compression + suspension nonlinearity. **alnicoSag merges into this slot as `magnetType: 'alnico' \| 'ceramic' \| 'neo'` flag.** |
-| 166 | srcResampler | ⬜ | Foundation | Smith 2002 "Digital audio resampling home page" + libsamplerate (SSC) + Niemitalo cubic Hermite. Arbitrary-ratio polyphase. |
+| 166 | srcResampler | ✅+P | Foundation | Shipped 2026-04-26. Primary: **JOS *Digital Audio Resampling / Implementation*** (ccrma.stanford.edu/~jos/resample/Implementation.html) — verbatim two-wing polyphase formula `v ← Σ x(n−i)·[h(l+iL) + η·h̄(l+iL)]; P ← 1−P; y ← v + Σ x(n+1+i)·[h(l+iL) + η·h̄(l+iL)]` with L=32 polyphase phases, NZ=8 zero-crossings, η = fractional table interp. Kernel: Kaiser-windowed sinc (β=7 → ~70 dB stopband). Theory page validates downsample cutoff scaling `hs(t) = min{1,Fs'/Fs}·sinc(min{Fs,Fs'}·t)`. **v1 implements speed=1 (filter delay) + speed<1 (varispeed read) cleanly; speed>1 has causality clamp at NZ-minimum (no lookahead).** Native parity green at −Inf dB (bit-identical at speed=1). 14/14 math tests PASS (kernel construction, identity, frequency-halving at 0.5×, clamp behavior, defensive). Golden committed `905784a447df1755…`. Deviations from JOS: float-point time register (vs JOS's fixed-point bitfield partition), no kernel cutoff scaling (P1 in `sandbox_ops_research_debt.md` #166-b), no elastic buffering (P2 #166-a). KBUF=4096 ring → ~85 ms drift budget at speed<1 before clamping. |
 | 167 | linearPhaseEQ | ⬜ | Tone/EQ | Smith-Serra 1990s linear-phase FIR EQ literature + Lyons "Understanding DSP" §13. FFT-domain or long-FIR linear-phase shelf/bell. |
 | 168 | gainRangingADC | ⬜ | Character | Olympus / Roland S-760 / Akai S950 service manuals — auto-ranging input gain stages, characteristic "soft-limit then digitize" hardware-converter color. |
 | 169 | tapeBias | ⬜ | Character | Bertram 1994 "Theory of magnetic recording" + Camras 1985. AC bias signal injected pre-record — modulates effective record curve. Pairs with #117 tape and #175 wowFlutter. |
@@ -712,15 +715,44 @@ proceed with the locked primary; verify these when convenient.
 - **#172 oilCanDelay:** Verify US 2,963,554 at USPTO / Google Patents directly (or drop reference to it).
 - **#153 gateStateMachine:** Verify Drugan-Reiss 2017 AES paper at aes.org/e-lib/ (Giannoulis-Massberg-Reiss 2012 already locked as primary, so this is supplementary only).
 
-### Provenance (all three Perplexity runs)
+### Provenance (all four research runs)
 
 - `op_primaries_perplexity_A.md` — 843-line Perplexity Deep Research run, 106 footnoted references.
 - `op_primaries_perplexity_B.md` — 585-line Perplexity Deep Research run, in-line citations.
 - `op_primaries_perplexity_diff.md` — A↔B diff: 37 full-agreement, 6 tier-disagreements, 5 primary-disagreements, 3 honest-caveats, 1 weak.
-- `op_primaries_followup_results.md` — focused 14-op follow-up Perplexity run; 11/14 cleanly resolved with multiple corrections (US 3,978,289 not a patent; US 1,855,576 is Keith not Cowan; US 3,475,623 is Moog not Buchla; Yeh-Abel-Smith 2007 not on PSU sag; Uni-Vibe uses LDR not varistor; EP-3 is tape not oil-can).
+- `op_primaries_followup_results.md` — focused 14-op follow-up Perplexity run; resolved most disagreements but missed several fact errors caught by Claude.
+- `op_primaries_followup_results_claude.md` — Claude Deep Research 14-op follow-up; **caught 9 fact errors that all Perplexity runs missed.**
+
+### 3rd-source verification overlay (Claude Deep Research, 2026-04-26)
+
+Claude follow-up surfaced corrections that **override** the Perplexity-locked
+rows above. Where Claude and Perplexity disagree, **Claude is correct** —
+each correction below was verified against primary sources (Google Patents,
+AES E-Library, DAFx archive).
+
+| catalog # | What Claude corrected vs Perplexity follow-up |
+|---|---|
+| **#152 vactrolLPG** | DAFx-13 paper authors: **Parker-D'Angelo**, NOT Lefort-Cantor-Echols-Abel. Service-doc primary is **Buchla 200 Series Schematics** (archive.org `sm_Buchla_200_Series_Schematics`). Series 100 deliberately not patented. VTL5C3 vactrol family identified as canonical component. |
+| **#153 gateStateMachine** | Drugan-Reiss 2017 confirmed **fabricated** (Reiss has no co-author named Drugan; not in 143rd AES Conv NYC Oct 2017 program). Anchor switched: Perplexity locked Giannoulis-Massberg-Reiss 2012 (generic compressor design); **Claude recommends Terrell-Reiss DAFx-09 + EURASIP 2010 extension** (directly noise-gate-focused, CC-BY 2.0, more topically appropriate). DAFx-09 wins. |
+| **#154 psuRectifierSag** | Section is **§7 "Output Power Amp Simulation"**, NOT §3.2 (Perplexity error). Sag treated via series rectifier resistor RD with reservoir cap C2: "the combination of RD and C2 also simulates power amplifier compression (sagging effect)." Collaborator name is **Schimmel** (Perplexity inconsistent). **Bonus Tier-A:** Macak-Schimmel EURASIP 2011 Article 629309 — peer-reviewed extension. |
+| **#159 dopplerRotor** | Patent title is **"Rotatable Tremulant Sound Producer"** (Claude-verified), NOT "Electrical Musical Instrument." US 2,855,462 (original prompt) **unverifiable as a Leslie patent** — drop. **Henricksen 1981 *JAES* 29(6):392–399 citation does not exist** — actual is *Recording Engineer/Producer* April 1981 (Tier-B). Both Perplexity runs accepted the bogus JAES citation unchallenged. **Bonus citations:** US RE 23,323 (1951 reissue), US 2,622,693 (1952), US 3,058,541 (1962 rotary electrostatic). |
+| **#162 ringMod** | Bode 1961 *Electronics* exact title: **"Sound Synthesizer Creates New Musical Effects"** (Dec 1, 1961), NOT "A New Tool for the Manipulation of Sound" (Perplexity quoted wrong title). Keith vs Cowan attribution confirmed. **Bonus citations:** Bode "History of Electronic Sound Modification" *JAES* 32(10):730–739 (Oct 1984) AES e-lib 4481 — Tier-S originator review; Bode-Moog "A High-Accuracy Frequency Shifter" *JAES* 20(6):453 (Jul/Aug 1972) — Tier-S; Bode 1961 *JAES* 9(4):264–266 AES e-lib 455. |
+| **#172 oilCanDelay** | Tel-Ray paired patent is **US 3,072,543** ("Dielectric Signal Storage Device," Lubow & Lubow, 1963 — Claude verified directly on Google Patents with full text), NOT US 2,963,554 (Perplexity unverified). Tel-Ray Adineko service plates stamp **both** US 2,892,898 + US 3,072,543 — canonical pair. **Decouple Echoplex EP-3 from this op** — EP-3 is tape, not oil-can. Likely Battle/Maestro tape patent: **US 3,444,330** (May 1969) — needs separate `tapeEcho` op when verified. Operative mechanism = electrostatic charge storage on anodized-aluminum disc with particle-loaded dielectric film, NOT "electrolytic capacitor charge sloshing." |
+| **#176 varistorVibrato → rename `ldrVibrato`** | DAFx-19 paper authors: **Darabundit-Wedelich-Bischoff** (Claude verification, ccrma.stanford.edu/~champ/files/DAFx2019_paper_31.pdf), NOT Pestana-Barbosa (Perplexity error). Shin-ei FY-2 is the *Companion Fuzz*, NOT the Uni-Vibe (Perplexity conflated). Uni-Vibe is canonically a 4-stage all-pass **phaser**; "vibrato" mode is wet-only routing, not pitch-mod vibrato. Service manual on archive.org could not be located directly; **GeoFex NeoVibe PDF is the canonical accessible reproduction** of the original Univox/Unicord schematic (geofex.com/Article_Folders/univibe/vibeupdate.pdf). **Op rename to `ldrVibrato` recommended** — varistor is a category error (MOV/VDR vs LDR are different device classes). |
+| **#182 blesserReverbCore** | Patent title is "**Electric** Reverberation Apparatus" (Claude-verified), NOT "Electronic" (catalog metadata error). AES 50th Convention London 1975 preprint: **L-26** (AES e-lib id 2460), same paper as JAES 23(9):698–707 (e-lib id 2659). **Bonus Tier-A:** Blesser & Lee, "An Audio Delay System Using Digital Technology," *JAES* 19(5):393–397 (May 1971), AES e-lib 2172 — foundational digital-delay predecessor. Spelling: German "Bäder" ≡ "Baeder" (JAES) ≡ "Bader" (US patent). |
+| **#139 sub-preset inputXformerSat** | **Tier corrected from S → A.** Jensen ANs are educational/tutorial materials authored by Whitlock, NOT service manuals or measurement-traceable test reports. AN-008 = verbatim Whitlock chapter from Ballou *Handbook for Sound Engineers* 3e (2001). Tier-A "textbook chapter by recognized authority" clause applies cleanly. **For genuine Tier-S manufacturer-documentation with measured B-H/saturation data** the catalog needs to cite individual transformer datasheets (JT-11P-1, JT-10KB-D, etc.), not the AN series. ANs are **AN-001 through AN-009** (not just AN-008). |
+
+### Op-rename + decoupling actions (3 catalog metadata changes pending)
+
+When the relevant ops ship, apply these renames + decouplings:
+1. **#176 `varistorVibrato` → `ldrVibrato`** (rename — `varistor` is a category error; the operative component is a CdS LDR, not a voltage-dependent resistor).
+2. **#172 oilCanDelay** — strip all Echoplex EP-3 references. EP-3 is tape; spawn a separate `tapeEcho` op anchored to the Battle/Maestro patent (likely US 3,444,330) when that patent is independently confirmed. Tel-Ray Adineko / Fender Ad-N-Echo / Echo-Reverb remain the canonical oil-can examples.
+3. **#152 vactrolLPG** — strike all "1965 Buchla LPG patent" references and any "US 3,475,623" attribution (US 3,475,623 is **Robert Moog's** transistor-ladder VCF patent). The LPG was deliberately never patented; primary is the factory schematic.
 
 ### Triangulated final tally
 
-- **48 of 52 ops** have locked primaries from 2-of-2 or 3-of-3 agreement
+- **48 of 52 ops** have locked primaries from 3-of-3 or 4-of-4 agreement (Perplexity A + Perplexity B + Perplexity follow-up + Claude)
+- **9 of 14** previously-pending ops had **fact errors** in Perplexity that Claude caught and corrected (overlay above is authoritative)
 - **3 ops** have partial-unresolved supplementary citations (don't block ship)
+- **3 op-metadata changes pending** (rename / decouple — see above)
 - **1 op** (#161 aliasingDecimator) has no Tier-S/A primary in literature; locked at JOS PASP fallback as research-debt

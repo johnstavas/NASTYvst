@@ -1104,6 +1104,23 @@
       "sr": 48000,
       "block": 512
     },
+    "srcResampler": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-srcresampler-v0/build/SmokeSrcresamplerV0_2604261805_artefacts/Release/VST3/SmokeSrcresamplerV0_2604261805.vst3",
+      "params": {
+        "n_src__speed": 1.0
+      },
+      "paramRanges": {
+        "n_src__speed": { "min": 0.25, "max": 4.0 }
+      },
+      "reference": "builtin:srcResampler",
+      "reference_args": { "speed": 1.0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512,
+      "note": "Polyphase Kaiser-windowed-sinc varispeed reader. At speed=1 (test default) the op is a pure NZ-sample filter delay; native parity verifies bit-for-bit equivalence with the worklet path. Sustained speed != 1 has known causality limits documented in worklet header (P2 elastic input buffering)."
+    },
     "xformerSat": {
       "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
       "tolerance_db": -90,

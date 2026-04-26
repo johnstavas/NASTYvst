@@ -1057,6 +1057,84 @@ const REFERENCES = {
     }
     return out;
   },
+  // srcResampler — polyphase Kaiser-windowed-sinc varispeed reader.
+  // Mirror op_srcResampler.worklet.js bit-for-bit (double-precision math,
+  // identical kernel construction). See worklet header for primary citation.
+  'builtin:srcResampler': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const speed = Math.max(0.25, Math.min(4.0, Number(args.speed ?? 1.0)));
+
+    const NZ = 8, L = 32, KAISER_BETA = 7.0, KBUF = 4096;
+    const TABLE_LEN = NZ * L + 1;
+
+    const besselI0 = (x) => {
+      const ax = Math.abs(x);
+      if (ax < 3.75) {
+        const y = (x / 3.75) ** 2;
+        return 1 + y*(3.5156229 + y*(3.0899424 + y*(1.2067492 +
+               y*(0.2659732 + y*(0.0360768 + y*0.0045813)))));
+      }
+      const y = 3.75 / ax;
+      return (Math.exp(ax) / Math.sqrt(ax)) * (
+        0.39894228 + y*(0.01328592 + y*(0.00225319 + y*(-0.00157565 +
+        y*(0.00916281 + y*(-0.02057706 + y*(0.02635537 +
+        y*(-0.01647633 + y*0.00392377))))))));
+    };
+    const h  = new Float64Array(TABLE_LEN);
+    const hd = new Float64Array(TABLE_LEN - 1);
+    const inv_I0_beta = 1 / besselI0(KAISER_BETA);
+    for (let l = 0; l < TABLE_LEN; l++) {
+      const t = l / L;
+      let sinc_t;
+      if (l === 0) sinc_t = 1.0;
+      else { const pt = Math.PI * t; sinc_t = Math.sin(pt) / pt; }
+      const r = t / NZ;
+      const winArg = (r >= 1) ? 0 : Math.sqrt(1 - r * r);
+      h[l] = sinc_t * besselI0(KAISER_BETA * winArg) * inv_I0_beta;
+    }
+    for (let l = 0; l < TABLE_LEN - 1; l++) hd[l] = h[l + 1] - h[l];
+
+    const xbuf = new Float64Array(KBUF);
+    let wpos = 0, phase = NZ;
+    const phaseInc = 1.0 - speed;
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      xbuf[wpos] = input[i];
+      wpos = (wpos + 1) % KBUF;
+      let pClamped = phase;
+      if (pClamped < NZ) pClamped = NZ;
+      else if (pClamped > KBUF - NZ - 1) pClamped = KBUF - NZ - 1;
+      const phaseFloor = Math.floor(pClamped);
+      const phaseFrac  = pClamped - phaseFloor;
+      const anchorLag  = (phaseFrac === 0) ? phaseFloor : (phaseFloor + 1);
+      const P          = anchorLag - pClamped;
+      const Pleft  = P;
+      const Pright = 1 - P;
+      const lLeftF  = Pleft  * L;
+      const lRightF = Pright * L;
+      let lLeft  = Math.floor(lLeftF);
+      let lRight = Math.floor(lRightF);
+      let etaL = lLeftF - lLeft;
+      let etaR = lRightF - lRight;
+      if (lLeft  >= L) { lLeft  = L - 1; etaL = 1 - 1e-15; }
+      if (lRight >= L) { lRight = L - 1; etaR = 1 - 1e-15; }
+      const base = wpos - 1 - anchorLag + KBUF;
+      let v = 0, vr = 0;
+      for (let k = 0; k < NZ; k++) {
+        const x_k = xbuf[(base - k) % KBUF];
+        const ti = lLeft + k * L;
+        v += x_k * (h[ti] + etaL * hd[ti]);
+      }
+      for (let k = 0; k < NZ; k++) {
+        const x_kp1 = xbuf[(base + 1 + k) % KBUF];
+        const ti = lRight + k * L;
+        vr += x_kp1 * (h[ti] + etaR * hd[ti]);
+      }
+      out[i] = Math.fround(v + vr);
+      phase += phaseInc;
+    }
+    return out;
+  },
   // gain → gain (used by smoke chain)
   'builtin:gain_chain2': (input, args) => {
     const a = args.a ?? 0;

@@ -1,0 +1,154 @@
+// op_srcResampler.cpp — Stage-3b C++ sidecar for the `srcResampler` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_srcResampler.worklet.js
+// bit-for-bit. Polyphase Kaiser-windowed-sinc varispeed reader per JOS
+// Implementation page (ccrma.stanford.edu/~jos/resample/Implementation.html).
+// See worklet.js header for full primary citation, dimensions, and deviations.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+namespace srcresampler_detail {
+    constexpr int    NZ           = 8;
+    constexpr int    L            = 32;
+    constexpr int    TABLE_LEN    = NZ * L + 1;   // 257
+    constexpr int    KBUF         = 4096;
+    constexpr double KAISER_BETA  = 7.0;
+
+    inline double besselI0(double x) {
+        const double ax = std::abs(x);
+        if (ax < 3.75) {
+            const double y = (x / 3.75) * (x / 3.75);
+            return 1.0 + y*(3.5156229 + y*(3.0899424 + y*(1.2067492 +
+                   y*(0.2659732 + y*(0.0360768 + y*0.0045813)))));
+        }
+        const double y = 3.75 / ax;
+        return (std::exp(ax) / std::sqrt(ax)) * (
+            0.39894228 + y*(0.01328592 + y*(0.00225319 + y*(-0.00157565 +
+            y*(0.00916281 + y*(-0.02057706 + y*(0.02635537 +
+            y*(-0.01647633 + y*0.00392377))))))));
+    }
+
+    // Build polyphase table once (file-scope static).
+    struct Table {
+        double h[TABLE_LEN];
+        double hd[TABLE_LEN - 1];
+        Table() {
+            const double inv_I0_beta = 1.0 / besselI0(KAISER_BETA);
+            for (int l = 0; l < TABLE_LEN; ++l) {
+                const double t = static_cast<double>(l) / L;
+                double sinc_t;
+                if (l == 0) sinc_t = 1.0;
+                else {
+                    const double pt = M_PI * t;
+                    sinc_t = std::sin(pt) / pt;
+                }
+                const double r = t / NZ;
+                const double winArg = (r >= 1.0) ? 0.0 : std::sqrt(1.0 - r * r);
+                const double win = besselI0(KAISER_BETA * winArg) * inv_I0_beta;
+                h[l] = sinc_t * win;
+            }
+            for (int l = 0; l < TABLE_LEN - 1; ++l) hd[l] = h[l + 1] - h[l];
+        }
+    };
+
+    inline const Table& table() {
+        static const Table t;
+        return t;
+    }
+}  // namespace srcresampler_detail
+
+class SrcResamplerOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "srcResampler";
+
+    explicit SrcResamplerOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {
+        reset();
+    }
+
+    void reset() {
+        for (int i = 0; i < srcresampler_detail::KBUF; ++i) xbuf_[i] = 0.0;
+        wpos_  = 0;
+        phase_ = static_cast<double>(srcresampler_detail::NZ);
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "speed") == 0) {
+            if (v < 0.25) v = 0.25;
+            else if (v > 4.0) v = 4.0;
+            speed_ = v;
+        }
+    }
+
+    int getLatencySamples() const { return srcresampler_detail::NZ; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        using namespace srcresampler_detail;
+        const auto& tbl = table();
+        const double speed = speed_;
+        // Δphase = 1 − speed per JOS Implementation. See worklet.js header.
+        const double phaseInc = 1.0 - speed;
+        int wpos = wpos_;
+        double phase = phase_;
+
+        for (int i = 0; i < N; ++i) {
+            xbuf_[wpos] = in ? static_cast<double>(in[i]) : 0.0;
+            wpos = (wpos + 1) % KBUF;
+
+            // Anchor + fractional position per JOS Implementation. See
+            // worklet.js header for the full derivation.
+            double pClamped = phase;
+            if (pClamped < NZ)               pClamped = NZ;
+            else if (pClamped > KBUF - NZ - 1) pClamped = KBUF - NZ - 1;
+            const int    phaseFloor = static_cast<int>(std::floor(pClamped));
+            const double phaseFrac  = pClamped - phaseFloor;
+            const int    anchorLag  = (phaseFrac == 0.0) ? phaseFloor : (phaseFloor + 1);
+            const double P          = anchorLag - pClamped;
+
+            const double Pleft  = P;
+            const double Pright = 1.0 - P;
+            const double lLeftF  = Pleft  * L;
+            const double lRightF = Pright * L;
+            int    lLeft  = static_cast<int>(std::floor(lLeftF));
+            int    lRight = static_cast<int>(std::floor(lRightF));
+            double etaL = lLeftF  - lLeft;
+            double etaR = lRightF - lRight;
+            if (lLeft  >= L) { lLeft  = L - 1; etaL = 1.0 - 1e-15; }
+            if (lRight >= L) { lRight = L - 1; etaR = 1.0 - 1e-15; }
+
+            const int base = wpos - 1 - anchorLag + KBUF;
+
+            double v = 0.0;
+            for (int k = 0; k < NZ; ++k) {
+                const double x_k = xbuf_[(base - k) % KBUF];
+                const int tableIdx = lLeft + k * L;
+                v += x_k * (tbl.h[tableIdx] + etaL * tbl.hd[tableIdx]);
+            }
+            double vr = 0.0;
+            for (int k = 0; k < NZ; ++k) {
+                const double x_kp1 = xbuf_[(base + 1 + k) % KBUF];
+                const int tableIdx = lRight + k * L;
+                vr += x_kp1 * (tbl.h[tableIdx] + etaR * tbl.hd[tableIdx]);
+            }
+            out[i] = static_cast<float>(v + vr);
+
+            phase += phaseInc;
+        }
+        wpos_  = wpos;
+        phase_ = phase;
+    }
+
+private:
+    double sr_;
+    double speed_ = 1.0;
+    double xbuf_[srcresampler_detail::KBUF] = {0};
+    int    wpos_  = 0;
+    double phase_ = static_cast<double>(srcresampler_detail::NZ);
+};
+
+}  // namespace shags::ops

@@ -69,6 +69,168 @@ Run through this list BEFORE writing any `.worklet.js` / `.cpp.jinja` /
 - Golden bless (`node scripts/check_op_goldens.mjs --bless`)
 - Full 8-gate QC rack (`npm run qc:all`)
 
+#### 5.1 Test-coverage rule (binding 2026-04-26)
+
+**Reason it exists.** #166 srcResampler shipped 2026-04-26 with 14 math
+tests and a clean ⬜→✅+P flip — but the 14 tests didn't cover
+block-boundary invariance, long-run stability, or fractional-phase
+kernel exercise. A 12-test stress sweep added immediately after surfaced
+one conceptual bug (the "stopband at speed=1" test was wrong because
+the kernel collapses to identity at integer phase). A foundation op
+slipping through with weak coverage would have polluted every
+downstream pitch / varispeed op. This rule makes the coverage explicit.
+
+**Test-count target by op class:**
+
+| Op class | Target | Examples |
+|---|---|---|
+| **Foundation / structural** | 20–30 tests | srcResampler, FFT/IFFT, STFT, FDN core, polyphase OS, granularBuffer, convolution, scattering junctions |
+| **Named-gear character** | 15–20 tests | xformerSat, korg35, diodeLadder, varMuTube, blackmerVCA, optoCell, pultecEQ |
+| **Composable atoms** | 10–15 tests | saturate, softLimit, hardClip, biquads, allpass, single-band EQ |
+| **Pure utility** | 5–8 tests | gain, abs, sign, clamp, polarity, scaleBy, mix |
+| **Neural / ML** | 10–15 tolerance-based tests | crepe, future RNN amp sims |
+
+**Mandatory categories — apply to ALL ops in the relevant class:**
+
+For **any op with internal state** (delay-line, filter, oscillator,
+reverb, dynamics, foundation):
+
+1. **Block-boundary invariance.** Same input through op with N=64 / 256 /
+   1024 produces bit-identical output (within float32 precision). This
+   is THE most common DSP-state bug; if absent, drift between block
+   boundaries goes undetected.
+2. **Long-run stability.** Run ≥ 1 second of audio through op at typical
+   params. Output stays finite (no NaN / inf), no DC creep > 1e-3, RMS
+   drift < 1% over the full duration.
+3. **Determinism / multi-instance isolation.** N parallel ops with
+   identical params + identical inputs produce bit-identical outputs.
+   Implies internal state is per-instance, not shared.
+4. **Reset semantics.** After a long warm-up + reset, second run from
+   the SAME inputs produces bit-identical output to a fresh op.
+5. **Param boundary / NaN-Inf clamping.** All params clamped to declared
+   range. NaN / ±Infinity setParam values do not propagate to output.
+
+For **filters / EQ / resamplers / anti-alias**:
+
+6. **Frequency response — passband flatness.** Pure tones at multiple
+   frequencies in declared passband measure unity gain ± declared
+   tolerance.
+7. **Aliasing / stopband / transition band** characterization
+   appropriate to the op (e.g., for a low-pass at fc=1 kHz: gain at
+   2 kHz must be ≥ X dB attenuated). Skip if op has no filtering claim.
+
+For **named-gear character** (xformerSat, pultec, varMuTube, etc.):
+
+8. **Named-gear claim verification.** Each fidelity claim in the op's
+   primary citation gets a dedicated test (e.g., xformerSat's 6 dB/oct
+   LF onset, Pultec's 2nd > 3rd > 4th harmonic ratio, voiceCoilCompression's
+   level-dependent gain reduction). Tests fail if the model deviates
+   from the citation.
+
+For **ops with feedback / recursion** (reverbs, delay loops, recursive
+filters, FDN, allpass cascades):
+
+9. **Stability under maximal feedback.** Op stays bounded for ≥ 10 sec
+   of audio at maximum feedback / Q / regen setting. No FB runaway.
+10. **Denormal flush.** After signal stops, internal state collapses to
+    zero within declared decay time (no denormal hang).
+
+For **ops with declared latency** (lookahead limiters, FFT-frame ops):
+
+11. **Latency reporting correctness.** `getLatencySamples()` returns
+    a value matching the actual measured input-to-output delay (within
+    1 sample).
+
+For **stereo / multichannel ops**:
+
+12. **Stereo isolation.** Per-channel state is independent. Ch0 input
+    does not leak into Ch1 output (and vice versa). See `qc:stereo`
+    harness for the full check.
+
+**Naming convention.** Stress-tests get a `STRESS:` prefix in the test
+name (e.g. `'STRESS: block-boundary invariance — N=64/256/1024'`) so
+reviewers can grep them quickly. The base op-correctness tests have no
+prefix.
+
+**Where to put new categories.** When a stress-test category is added
+to this rule, also add it to `qc_capability_flags.md` (if it's
+flag-gated) and to `qc_family_map.md` (if it's family-specific).
+
+#### 5.2 Coverage backfill policy (existing 125 ops in catalog)
+
+**Important framing.** The 125 ops in the sandbox catalog have **never
+been used in a shipped plugin.** ManChild and Lofi Loofy are
+pre-sandbox, hand-coded plugins that do not depend on the sandbox
+op infrastructure — they validate the *plugin shell* (UI, capability
+flags, ManChild lessons), not the sandbox ops. Production-grade bug
+discovery on the sandbox ops will only happen when the first
+sandbox-built plugin ships.
+
+This means: **the test harness IS the only validation** for the 125
+ops. Test-coverage gaps directly translate to undetected bug risk.
+
+**That changes the backfill calculus.** The original "production has
+already validated these" argument is invalid. Backfill is more
+important than a "things are working in the field" assumption would
+suggest.
+
+**Recommended policy — tiered backfill, no blanket sweep:**
+
+The reason it's still tiered (not blanket) is **op triviality**, not
+production validation:
+- Pure utility ops (gain, abs, sign, clamp, polarity, scaleBy, mix)
+  are mathematically trivial; their state is zero or one variable;
+  20-test sweeps don't add information beyond the existing 5–8 tests.
+- Foundation, stateful, and feedback ops have meaningful state and
+  meaningful failure modes; they DO need the stress sweep.
+
+**Tier 1 — Foundation / structural (~11 ops). HIGH priority backfill.**
+`fft`, `ifft`, `stft`, `istft`, `convolution`, `phaseVocoder`,
+`oversample2x`, `polyBLEP`, `minBLEP`, `granularBuffer`, `fdnCore`.
+Target: 20+ tests including block-invariance + long-run + determinism +
+reset. Effort: ~2–3 days focused.
+
+**Tier 2 — Stateful filters with feedback (~8 ops). HIGH priority.**
+`ladder`, `korg35`, `diodeLadder`, `svf`, `allpass`, `comb`, `delay`,
+`bbdDelay`. Target: 15+ tests with block-invariance + long-run +
+stability under feedback.
+
+**Tier 3 — Reverbs (~5 ops). HIGH priority.**
+`plate`, `spring`, `schroederChain`, `ER`, `SDN`. Target: 15+ tests
+with feedback stability + denormal flush + long-run.
+
+**Tier 4 — Character / saturation ops (~12 ops). MEDIUM priority.**
+`saturate`, `softLimit`, `hardClip`, `wavefolder`, `diodeClipper`,
+`chebyshevWS`, `tubeSim`, `tape`, `xformerSat` (already 18 tests),
+`bitcrush`, `noiseShaper`, `dither`. Target: 12+ tests with
+block-invariance (the ones with state) + named-gear claim verification
+(the ones with citations).
+
+**Tier 5 — Pure utility ops (~30 ops). DO NOT BACKFILL** unless a
+bug surfaces. `gain`, `abs`, `sign`, `clamp`, `polarity`, `scaleBy`,
+`mix`, `slew`, `smooth`, `dcBlock`, etc. Existing 5–8 tests each are
+appropriate to the trivial state.
+
+**Tier 6 — Synth oscillators (~10 ops). MEDIUM priority.**
+`sineOsc`, `blit`, `osc`, `wavetable`, `padSynth`, `dsf`, `karplusStrong`,
+etc. Block-invariance + long-run drift are real risks for oscillators.
+
+**All other ops** (analysis, dynamics, modulation, noise, spatial)
+get the new rule applied **opportunistically** — when next touched
+for v2 upgrade, bug fix, or extension.
+
+**Trigger to force-backfill an op** outside its tier priority: any
+downstream bug, unexpected behavior, or sandbox-graph integration
+issue traces back to that op having weak coverage. Then the backfill
+becomes part of the fix, not a separate project.
+
+**First sandbox-built plugin ship is the natural deadline** for
+Tier 1+2+3 backfill — once a plugin actually depends on the sandbox
+ops, undetected bugs become production blockers. Schedule the
+foundation backfill before that ship date.
+
+
+
 ### 6. Native parity (added 2026-04-25, Phase 4 closure)
 - Add op entry to `test/fixtures/parity/per_op_specs.json` (declare
   tolerance per § 5.4 of `codegen_pipeline_buildout.md`: -90 dB default,
