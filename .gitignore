@@ -7,3 +7,12 @@ dist/
 # Native codegen workspaces (per memory/codegen_pipeline_buildout.md)
 .phase0-juce-test/
 .shagsplug/
+
+# External research clones (read-only references; not part of repo)
+clap/
+clap-validator/
+tracktion_engine/
+
+# Local Claude config / runtime
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
