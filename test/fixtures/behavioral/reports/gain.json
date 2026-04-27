@@ -1,0 +1,107 @@
+{
+  "opId": "gain",
+  "category": "utility",
+  "timestamp": "2026-04-26T23:50:35.639Z",
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Closed-form math identity",
+      "pass": true,
+      "measured": {
+        "max_abs_err": 2.831263601343892e-8,
+        "max_abs_err_db": -150.9603938858903
+      },
+      "declared": {
+        "tolerance": 0.000001
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Block-size invariance",
+      "pass": true,
+      "measured": {
+        "max_abs_err": 0
+      },
+      "declared": {
+        "tolerance": 0.000001
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Closed-form math identity",
+        "pass": true,
+        "measured": {
+          "max_abs_err": 2.831263601343892e-8,
+          "max_abs_err_db": -150.9603938858903
+        },
+        "declared": {
+          "tolerance": 0.000001
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Block-size invariance",
+        "pass": true,
+        "measured": {
+          "max_abs_err": 0
+        },
+        "declared": {
+          "tolerance": 0.000001
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 6
+  },
+  "native": {
+    "summary": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Closed-form math identity",
+        "pass": true,
+        "measured": {
+          "max_abs_err": 2.831263601343892e-8,
+          "max_abs_err_db": -150.9603938858903
+        },
+        "declared": {
+          "tolerance": 0.000001
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Block-size invariance",
+        "pass": true,
+        "measured": {
+          "max_abs_err": 0
+        },
+        "declared": {
+          "tolerance": 0.000001
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 316
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {},
+  "durationMs": 322
+}

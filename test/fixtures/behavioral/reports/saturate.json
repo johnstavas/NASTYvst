@@ -1,0 +1,247 @@
+{
+  "opId": "saturate",
+  "category": "distortion",
+  "timestamp": "2026-04-26T23:50:49.354Z",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "THD vs level",
+      "pass": true,
+      "measured": {
+        "samples": [
+          {
+            "dbfs": -40,
+            "thd_pct": 0.011849486397954004,
+            "nan": 0,
+            "inf": 0
+          },
+          {
+            "dbfs": -20,
+            "thd_pct": 1.149739270947942,
+            "nan": 0,
+            "inf": 0
+          },
+          {
+            "dbfs": -6,
+            "thd_pct": 17.242960512787743,
+            "nan": 0,
+            "inf": 0
+          },
+          {
+            "dbfs": 0,
+            "thd_pct": 30.932750122269532,
+            "nan": 0,
+            "inf": 0
+          }
+        ],
+        "low_thd_pct": 0.011849486397954004,
+        "high_thd_pct": 30.932750122269532
+      },
+      "declared": {
+        "low_level_thd_pct_max": 1,
+        "high_level_thd_pct_min": 0.5
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Harmonic signature",
+      "pass": true,
+      "measured": {
+        "classification": "odd",
+        "h2_rel": 1.1601065591130877e-8,
+        "h3_rel": 0.16861016130763226,
+        "h4_rel": 1.099864633455422e-9,
+        "h5_rel": 0.035292663020031145
+      },
+      "declared": {
+        "harmonic_signature": "odd"
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "DC creep",
+      "pass": true,
+      "measured": {
+        "dc_dbfs": -339.5542713807628,
+        "dc_linear": -1.052655904829778e-17
+      },
+      "declared": {
+        "dc_creep_max_dbfs": -40
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "THD vs level",
+        "pass": true,
+        "measured": {
+          "samples": [
+            {
+              "dbfs": -40,
+              "thd_pct": 0.011849486397954004,
+              "nan": 0,
+              "inf": 0
+            },
+            {
+              "dbfs": -20,
+              "thd_pct": 1.149739270947942,
+              "nan": 0,
+              "inf": 0
+            },
+            {
+              "dbfs": -6,
+              "thd_pct": 17.242960512787743,
+              "nan": 0,
+              "inf": 0
+            },
+            {
+              "dbfs": 0,
+              "thd_pct": 30.932750122269532,
+              "nan": 0,
+              "inf": 0
+            }
+          ],
+          "low_thd_pct": 0.011849486397954004,
+          "high_thd_pct": 30.932750122269532
+        },
+        "declared": {
+          "low_level_thd_pct_max": 1,
+          "high_level_thd_pct_min": 0.5
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Harmonic signature",
+        "pass": true,
+        "measured": {
+          "classification": "odd",
+          "h2_rel": 1.1601065591130877e-8,
+          "h3_rel": 0.16861016130763226,
+          "h4_rel": 1.099864633455422e-9,
+          "h5_rel": 0.035292663020031145
+        },
+        "declared": {
+          "harmonic_signature": "odd"
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "DC creep",
+        "pass": true,
+        "measured": {
+          "dc_dbfs": -339.5542713807628,
+          "dc_linear": -1.052655904829778e-17
+        },
+        "declared": {
+          "dc_creep_max_dbfs": -40
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 12
+  },
+  "native": {
+    "summary": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "THD vs level",
+        "pass": true,
+        "measured": {
+          "samples": [
+            {
+              "dbfs": -40,
+              "thd_pct": 0.011849439976878578,
+              "nan": 0,
+              "inf": 0
+            },
+            {
+              "dbfs": -20,
+              "thd_pct": 1.1497392830645845,
+              "nan": 0,
+              "inf": 0
+            },
+            {
+              "dbfs": -6,
+              "thd_pct": 17.24296046539876,
+              "nan": 0,
+              "inf": 0
+            },
+            {
+              "dbfs": 0,
+              "thd_pct": 30.93275256303881,
+              "nan": 0,
+              "inf": 0
+            }
+          ],
+          "low_thd_pct": 0.011849439976878578,
+          "high_thd_pct": 30.93275256303881
+        },
+        "declared": {
+          "low_level_thd_pct_max": 1,
+          "high_level_thd_pct_min": 0.5
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Harmonic signature",
+        "pass": true,
+        "measured": {
+          "classification": "odd",
+          "h2_rel": 1.4342584065197949e-8,
+          "h3_rel": 0.16861016080522012,
+          "h4_rel": 4.787652879923642e-9,
+          "h5_rel": 0.03529266325449234
+        },
+        "declared": {
+          "harmonic_signature": "odd"
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "DC creep",
+        "pass": true,
+        "measured": {
+          "dc_dbfs": -345.57487129404245,
+          "dc_linear": -5.26327952414889e-18
+        },
+        "declared": {
+          "dc_creep_max_dbfs": -40
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 359
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {
+    "input_levels_dbfs": [
+      -40,
+      -20,
+      -6,
+      0
+    ],
+    "low_level_thd_pct_max": 1,
+    "high_level_thd_pct_min": 0.5,
+    "harmonic_signature": "odd",
+    "dc_creep_max_dbfs": -40
+  },
+  "durationMs": 371
+}

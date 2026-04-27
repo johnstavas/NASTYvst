@@ -21,7 +21,9 @@
     "qc:ml:strict": "node scripts/check_ml_inference.mjs --strict",
     "qc:parity": "node scripts/check_native_parity.mjs --all",
     "qc:stereo": "node scripts/check_stereo_isolation.mjs --all",
-    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens && npm run qc:math && npm run qc:master && npm run qc:emit && npm run qc:ml && npm run qc:stereo && npm run qc:parity",
+    "qc:behavioral": "node scripts/check_behavioral.mjs",
+    "qc:behavioral:native": "node scripts/check_behavioral.mjs --native",
+    "qc:all": "npm run qc:schema && npm run qc:t6 && npm run qc:graphs && npm run qc:pcof && npm run qc:goldens && npm run qc:math && npm run qc:master && npm run qc:emit && npm run qc:ml && npm run qc:stereo && npm run qc:parity && npm run qc:behavioral:native",
     "install-hooks": "git config core.hooksPath .githooks"
   },
   "keywords": [],

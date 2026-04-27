@@ -19,10 +19,17 @@ done vs. what's left".
 > Step 6 native-parity green BEFORE flipping ✅+P in this catalog.
 
 ## Status legend
-- ✅+P  **shipped + parity-verified** — tri-file set complete + math + golden
-  blessed + `qc:parity` green at declared tolerance against worklet sibling.
-  After Phase 4 closure (2026-04-25), this is the only ✅-equivalent state
-  for shipped rows.
+- ✅+P+✓ **shipped + parity-verified + behaviorally-verified** (NEW 2026-04-26 ·
+  T8-B closure). Tri-file set complete + math + golden blessed + `qc:parity`
+  green + `qc:behavioral` worklet PASS + (native PASS or documented SKIP).
+  This is the new gold standard for shipped rows. Backfill to existing ✅+P
+  ops happens as behavioral specs land (Day 6+ schedule per
+  `behavioral_validation_harness.md`).
+- ✅+P  **shipped + parity-verified, behavioral pending** — tri-file set
+  complete + math + golden blessed + `qc:parity` green at declared tolerance.
+  Pre-T8-B state. All currently ✅+P ops migrate to ✅+P+✓ as behavioral
+  specs are added; ops with `codegen-or-wiring-bug` attribution (e.g., tilt
+  as of 2026-04-26) stay at ✅+P pending C++ patch + golden re-bless.
 - ✅+P~ **shipped + parity-verified with declared widening** — same as ✅+P
   but with a per-op tolerance widening documented in
   `test/fixtures/parity/per_op_specs.json` `note` field (e.g., neural ops
@@ -39,11 +46,29 @@ done vs. what's left".
   sidecar yet (so shape-check would trip if included in OP_IDS).
 - ⬜    **not started** — no registry entry, no files.
 
+### T8-B closure summary (2026-04-26)
+
+26 of 46 parity ops have committed two-arm behavioral reports across 5
+categories (compressor, utility, filter, distortion, analyzer):
+- **21 ops** verified end-to-end (worklet PASS + native PASS) → eligible
+  for ✅+P+✓ promotion when catalog rows are next touched.
+- **4 ops** native-skipped (Cluster A compressors, audio + cv input shape
+  not driveable through current parity_host) — worklet PASS only;
+  promotion deferred until multi-input parity_host lands.
+- **1 op** with confirmed codegen-or-wiring bug (tilt — worklet shows
+  ~17 dB tilt, native shows ~6 dB; real C++ ↔ JS divergence). Stays at
+  ✅+P; logged in `sandbox_ops_research_debt.md`.
+
+Reports live in `test/fixtures/behavioral/reports/<opId>.{md,json}`.
+Run `node scripts/check_behavioral.mjs --native` to regenerate.
+
 ## Running total
-**127 of ~183 ops shipped (~69%).** Pre-Phase-4 was 125; #139 xformerSat
-shipped ✅+P 2026-04-26 → 126; **#166 srcResampler shipped ✅+P
-2026-04-26 → 127** (first ship after corpus-sweep primary-source
-triangulation; cadence proof for the Tier-S character cluster).
+**132 of ~183 ops shipped (~72%).** **Tier-S Character Cluster A COMPLETE
+2026-04-26** — all 5 gain-reduction elements shipped: #141 optoCell
+(LA-2A T4) · #142 blackmerVCA (dbx/THAT 2180) · #145 varMuTube (Manley
+Vari-Mu/Fairchild 670) · #147 fetVVR (UREI 1176) · **#179 diodeBridgeGR
+(Neve 33609/2254) ✅+P → 132**. **Dynamics gap CLOSED.** Pre-cluster-A
+run: 125 + #139 xformerSat + #166 srcResampler (cadence proof) = 127.
 2026-04-26 corpus-sweep extension
 adds 36 new ⬜ slots (#141–#176) — 8 Tier-S + 21 Tier-A + 7 Tier-B.
 2026-04-26 dedup-recovery pass adds 7 more ⬜ slots (#177–#183) —
@@ -472,13 +497,13 @@ flip to ✅+P requires Step 6 green.
 
 | # | opId | status | family | primary in hand |
 |---|---|---|---|---|
-| 141 | optoCell | ⬜ | Dynamics | T4 / LA-2A opto-isolator literature; bulb-LDR thermal model (Felt 2010 / Universal Audio AN). Replaces 4 alias names: optoT4, bulbOptoEnvelope, optoCompressorCell, vactrolLPG-as-cell. Slow attack, asymmetric release, program-dependent. |
-| 142 | blackmerVCA | ⬜ | Dynamics | David Blackmer dbx VCA patent (US 3,714,462) + THAT Corp 2180/2181 datasheet. Log-domain gain-cell; "vcaFader" alias closed into this slot. |
+| 141 | optoCell | ✅+P | Dynamics | Shipped 2026-04-26. **Phenomenological LA-2A T4-style optical-isolator GR cell.** Two-state envelope: envFast (asymmetric attack/release per UA spec — 10 ms attack, 60 ms initial release) + envSlow (symmetric one-pole following envFast at 1–15 s program-dep tau). Effective env = max(envFast, envSlow); gain = 1/(1 + responsivity·env²) (LDR ~ 1/intensity² mapping). **Math-by-definition declared** — no peer-reviewed T4 thermal-DSP model exists in literature; topology anchored to Giannoulis-Massberg-Reiss JAES 2012 §feedforward DRC, parameter values anchored to UA blog T4 spec. 21/21 math+stress tests PASS (UA T4 spec verification, program-dependent recovery, block-invariance, SR-invariance, denormal flush, state isolation). Golden `21207891abd4a863…`. Native parity GREEN at −144.5 dB worst case (tol −90). 4 deferred upgrade paths in `sandbox_ops_research_debt.md`: P1 validated thermal-coupling model (when peer-reviewed paper surfaces), P2 tunable LDR exponent, P2 asymmetric slow-env warm-up vs cool-down, P3 Felt 2010 LDR thermal-model paper. Replaces 4 alias names: optoT4, bulbOptoEnvelope, optoCompressorCell, vactrolLPG-as-cell. **First Tier-S character cluster A member shipped — closes 1/5 of dynamics gap.** |
+| 142 | blackmerVCA | ✅+P | Dynamics | Shipped 2026-04-26. **Log-add-antilog VCA per Blackmer US Patent 3,714,462** (Tier-S named-inventor patent, expired). Memoryless: `out = (audio · 10^(cv/20)) · (1 + bias · sign(audio · 10^(cv/20))_via_|y|) · trim`. cv interpreted as gain in dB (sandbox-ergonomic; THAT 2180 chip-level −6 mV/dB calibration is upstream of this op). `bias` param adds class-AB even-order distortion (DC + 2H + 4H from `|y_clean|` Fourier series — true 2nd-harmonic content matching dbx character, NOT 3rd-harmonic from sign-preserving distortion). Patent matching spec (Q3/Q4 Vbe within 1 mV at 40 µA) ≈ bias=0.025 → −40 dB 2H ≈ "very low distortion." 24/24 math+stress tests PASS (gain accuracy across ±50 dB, 2H/3H spectral analysis, DC offset verification, block-invariance, SR-invariance, memoryless verification, named-gear claim). Golden `1dd8f45d00ac1708…` (= chebyshevWS prefix because both ops are identity at default params; full hash differs). Native parity bit-identical (0.000e+0 across all 5 canon signals — pure linear multiplier at cv=0). 5 deferred upgrade paths in research-debt: P2 measured 2H curve shape, P3 control feedthrough, P3 control bandwidth, P3 self-noise, recipe-rule for DC blocking. Replaces "vcaFader" alias. **2nd Tier-S character cluster A member shipped — closes 2/5 of dynamics gap.** |
 | 143 | bjtSingleStage | ⬜ | Character | Sedra-Smith "Microelectronic Circuits" 6e §5 + Helios / Neve 1073 schematic family. Discrete bipolar transistor stage with class-A bias; harmonic ratio 2nd > 3rd. |
 | 144 | inductorEQ | ⬜ | Tone/EQ | Pultec EQP-1A primary (already in hand) + Neve 1073 inductor-shelf circuit. Distinct from biquad family — passive LCR with inductor losses, soft Q. |
-| 145 | varMuTube | ⬜ | Dynamics | Manley Variable-Mu / Fairchild 670 service manuals. 6386 / 6BC8 remote-cutoff pentode/triode gain reduction via grid-bias modulation. Non-linear gain curve, program-dependent ratio. |
+| 145 | varMuTube | ✅+P | Dynamics | Shipped 2026-04-26. **Phenomenological variable-mu tube GR cell** modeling Manley Variable Mu / Fairchild 670 / Altec 436 family. Memoryless. Soft-knee Hill function `gain = 1 / (1 + (cv/cutoffScale)^β)` + even-symmetric distortion (DC + 2H + 4H) that scales with `(1 - gain)` — the canonical vari-mu signature: more compression → more 2H content. **Math-by-definition declared with honest gaps:** 6386/6BC8 datasheets, Pakarinen-Yeh CMJ 2009 PDF, Manley/670 service docs, and Koren site ALL inaccessible during ship session (404/403/paywall). Topology anchor = Giannoulis-Massberg-Reiss JAES 2012 §Soft Knee (Tier-A, accessed this session). Distortion-couples-with-GR principle = general tube-physics folklore (Langford-Smith Ch.13, RCA Tube Manual RC-30 — secondary sources only). 21/21 math+stress tests PASS (gain curve monotonicity, knee tunability, even-only spectrum 2H+4H/no 3H, vari-mu signature ratio test, block-invariance, SR-invariance, memoryless verification). Golden `1dd8f45d00ac1708…` (matches at default identity-pass-through). Native parity bit-identical (0.000e+0 across all 5 canon signals). 7 deferred upgrade paths in research-debt: P1 verbatim datasheet curves (×2 — datasheets + Pakarinen-Yeh), P2 Macak thesis, P2 Manley/670 service docs, P2 tube-stage saturation, P3 asymmetric distortion, P3 thermal dynamics. **3rd Tier-S character cluster A member shipped — closes 3/5 of dynamics gap.** |
 | 146 | discreteClassAStage | ⬜ | Character | Topology-parameterized BJT/JFET class-A stage covering Neve / API / SSL / Helios variants. Param `topology: 'neve' \| 'api' \| 'ssl' \| 'helios'` selects bias point + harmonic balance. |
-| 147 | fetVVR | ⬜ | Dynamics | 1176 service manual + Universal Audio 2N3819 FET voltage-variable-resistor model. Fast attack (20 µs), aggressive harmonics, program-coupled THD. |
+| 147 | fetVVR | ✅+P | Dynamics | Shipped 2026-04-26. **Phenomenological JFET-VVR GR cell** modeling UREI/UA 1176 family (2N3819 JFET, fast attack, aggressive harmonics signature). Memoryless. Hill-function gain curve with sharper β=2 default (vs varMuTube's 1.5 — matches FET pinch-off curve steeper than vari-mu). **Distinguishing distortion model:** independent `distortion2H` (even, FET asymmetric channel) + `distortion3H` (odd, FET pinch-off non-linearity) → mixed 2H+3H character. "All buttons in" reputation available via crank-both-distortion params. **Math-by-definition declared:** 1176 service manual + 2N3819 datasheet inaccessible at ship time. Topology anchor = GMR JAES 2012 §Soft Knee. FET ohmic-region Rds(V_GS) equation captured verbatim from Wikipedia JFET article (Tier-A textbook). 21/21 math+stress tests PASS (gain monotonicity, sharper-knee-than-varMuTube verification, 2H-only with d3=0, 3H-only with d2=0, mixed 2H+3H, "all buttons in" character, comprDepth coupling). Golden `1dd8f45d00ac1708…`. Native parity bit-identical (0.000e+0 across all 5 canon signals — pass-through at cv=0). 7 deferred upgrade paths in research-debt: P1 verbatim 1176 service manual + 2N3819 datasheet, P2 measured distortion-vs-GR curves, P2 "all buttons in" piecewise plateau onset, P2 attack/release dynamics absorption, P3 tube-stage saturation, P3 asymmetric polarity. **4th Tier-S character cluster A member shipped — closes 4/5 of dynamics gap.** |
 | 148 | triodeStage | ⬜ | Character | Koren 2003 "Improved vacuum-tube models for SPICE simulations" + Cohen-Helie 2010 DAFx + Macak-Schmutzhard 2010 "Real-time guitar tube amplifier simulation using approximations of differential equations." Single-triode stage with grid/plate/cathode params. **#113 tubeSim deprecates to alias of triodeStage-with-defaults once shipped.** |
 
 #### Tier-A — primary in hand, second-wave
@@ -544,7 +569,7 @@ projected 11 to avoid duplicate-or-recipe hallucination.
 | # | opId | status | family | primary in hand |
 |---|---|---|---|---|
 | 178 | differentialEnvelope | ⬜ | Dynamics | SPL Transient Designer Model 9946 service docs + SPL DET (Differential Envelope Technology) white paper. Fast-minus-slow envelope drives bipolar VCA — distinct from #61 envelopeFollower (single time constant). Backs SPL Transient Designer 9946, SPL TD4, mastering ref §05_specialty_dynamics_unique. |
-| 179 | diodeBridgeGR | ⬜ | Dynamics | AMS Neve 33609/N User Manual 527-409 Issue 1.0 + Neve 2254 service schematic. Diode-bridge gain-reduction element — chemically distinct from #132 diodeClipper (signal-path soft clip). Bridge configuration steers DC bias to control instantaneous gain. Backs Neve 2254, Neve 33609/33609N, 8014 console GR module. |
+| 179 | diodeBridgeGR | ✅+P | Dynamics | Shipped 2026-04-26. **Phenomenological diode-bridge GR cell** modeling Neve 33609 / 2254 / 8014 family. Memoryless. Hill function (β=1.8 between varMuTube's 1.5 and fetVVR's 2.0) + **PURE-ODD 3H distortion from cubic** (`distortion · comprDepth · x³ · gain`) — diode-bridge topology symmetry cancels even harmonics. Optional `asymmetry` adds small 2H+4H for component-mismatch realism. **Critical model adjustment caught + fixed during ship:** initial `y³ = (x·gain)³` produced 3H/1H ratio that DROPPED with compression (wrong direction); fixed by `x³·gain` form so ratio depends purely on comprDepth (matches real Neve behavior — distortion rises with GR). **Math-by-definition declared:** Neve 2254 schematic, 33609 user manual, Ben Duncan "VCAs Investigated", SoS reviews, Gearspace forum, Wikipedia 33609/2254 articles ALL inaccessible at ship time. Topology anchor = GMR JAES 2012 §Soft Knee. Diode small-signal `rd=V_t/I_DC` + bridge-symmetry → odd-only is general analog electronics. 21/21 math+stress tests PASS (gain monotonicity, knee-position-between-varMuTube-and-fetVVR, **PURE-ODD-3H-NO-2H-NO-4H verification**, asymmetry adds 2H+4H, comprDepth coupling, 2H/3H ratio < 0.05 at heavy comp by topology). Golden `1dd8f45d00ac1708…`. Native parity bit-identical (0.000e+0 across all 5 canon signals). 6 deferred upgrade paths in research-debt: P1 verbatim Neve 2254 schematic + Duncan paper, P2 tanh saturation alternative, P2 attack/release dynamics absorption, P3 asymmetric Vbe modeling. **5th and FINAL Tier-S character cluster A member shipped — closes 5/5 of dynamics gap. CLUSTER A COMPLETE.** |
 | 180 | schmittTriggerOsc | ⬜ | Synth/Modulation | Werner-Abel-Smith DAFx-14 "More Cowbell" TR-808 cymbal paper + ElectroSmash MXR Phase 90 analysis. Asymmetric RC charge/discharge through CMOS hysteresis → audible non-50% duty + thermal jitter. Cannot be reproduced by #80 osc (band-limited, symmetric). Backs TR-808 cymbal/cowbell (6 osc array), MXR Phase 90 LFO core, Minimoog overload-lamp driver. |
 | 181 | dispersiveAllpass | ⬜ | Reverb | Parker 2010 DAFx "Spring Reverberation: A Physical Perspective" (Välimäki/Parker stretched-allpass cascade for dispersive bending-wave delay). Distinct from #15 allpass (frequency-flat group delay) — dispersive variant has frequency-dependent group delay matching spring physics. Backs Hammond Spring Tank, Fender 6G15 Reverb Unit, AKG BX-20E, Roland RE-201 spring section. |
 | 182 | blesserReverbCore | ⬜ | Reverb | Barry Blesser US Patent 3,978,289 "Electronic Reverberation Method and Apparatus" (1976) + Blesser 1975 AES paper. Distinct from #20 fdnCore (Hadamard/Householder matrix) — Blesser's structure uses a different scattering topology specific to EMT 250/251. Backs EMT 250, EMT 251. |

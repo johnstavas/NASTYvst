@@ -1,0 +1,77 @@
+{
+  "opId": "onePole",
+  "category": "filter",
+  "timestamp": "2026-04-26T23:50:38.598Z",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Magnitude response (lp)",
+      "pass": true,
+      "measured": {
+        "cutoff_hz": 998.2862072631768
+      },
+      "declared": {
+        "kind": "lp",
+        "cutoff_hz": 1000
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (lp)",
+        "pass": true,
+        "measured": {
+          "cutoff_hz": 998.2862072631768
+        },
+        "declared": {
+          "kind": "lp",
+          "cutoff_hz": 1000
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 11
+  },
+  "native": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (lp)",
+        "pass": true,
+        "measured": {
+          "cutoff_hz": 998.2862072631768
+        },
+        "declared": {
+          "kind": "lp",
+          "cutoff_hz": 1000
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 1268
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {
+    "kind": "lp",
+    "cutoff_hz": 1000
+  },
+  "durationMs": 1279
+}

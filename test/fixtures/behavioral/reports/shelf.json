@@ -1,0 +1,73 @@
+{
+  "opId": "shelf",
+  "category": "filter",
+  "timestamp": "2026-04-26T23:50:47.667Z",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Magnitude response (shelf)",
+      "pass": true,
+      "measured": {
+        "cutoff_hz": 199.5509876051858
+      },
+      "declared": {
+        "kind": "shelf"
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (shelf)",
+        "pass": true,
+        "measured": {
+          "cutoff_hz": 199.5509876051858
+        },
+        "declared": {
+          "kind": "shelf"
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 14
+  },
+  "native": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (shelf)",
+        "pass": true,
+        "measured": {
+          "cutoff_hz": 199.5509876051858
+        },
+        "declared": {
+          "kind": "shelf"
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 1392
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {
+    "kind": "shelf"
+  },
+  "durationMs": 1406
+}

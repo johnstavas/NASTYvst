@@ -8,6 +8,44 @@ shipped op code. This is the **inverse of an audit doc**: it records what's
 QC. The "debt" is upgrade-path research that would produce a v2 with tighter
 fidelity, better stability at extremes, or richer parameter surface.
 
+---
+
+## T8-B BEHAVIORAL DEBT — added 2026-04-26
+
+The behavioral validation harness shipped Days 1–5
+(`memory/behavioral_validation_harness.md`). The build surfaced
+specific findings that need op-side or harness-side patches but were
+not fixed during the harness build itself.
+
+### Confirmed codegen-or-wiring bugs (worklet PASS, native FAIL)
+
+| Op | Symptom | Diagnosis | Priority |
+|---|---|---|---|
+| **tilt** | Worklet shows ~17 dB tilt across band; native VST3 shows ~6 dB at identical params (`f0=630, gain=3, gfactor=5`). Real C++ ↔ JS divergence. L1 native parity tests with impulse/dc_step/sine_440 signals never exercised the bug; sine sweep at 24 frequencies caught it. | Inspect `op_tilt.cpp.jinja` against `op_tilt.worklet.js` — gain coefficient or pre-warp differs. Re-bless golden after fix. Op stays at ✅+P (not ✅+P+✓) until fixed. | P1 |
+
+### Doc / implementation divergences (both arms agree, doc is wrong)
+
+| Op | Symptom | Diagnosis | Priority |
+|---|---|---|---|
+| **korg35** | At default `normFreq=0.5, Q=0.7` measured cutoff = 240 Hz. Worklet header documents Stinchcombe MS-20 mapping `f_c = 87·exp(V_f/1.3)` → 87 Hz at V_f=0. Measured value is 2.8× the documented one. | Verify whether the implementation actually applies the documented MS-20 mapping or a different scale. Either fix the implementation, fix the doc, or add explicit `declared.cutoff_hz = 240` annotation. | P2 |
+| **ladder** | Param `cutoff` does not equal cascade −3 dB. At `cutoff=2000` Hz the −3 dB point lands at ~1700 Hz (~85%). | Per Stinchcombe §2.1.2 eq.(13), `cutoff` is the per-pole f_c, not the 4-pole cascade −3 dB. Document this convention in the worklet header explicitly. Behavior matches Stinchcombe; this is a UX/doc gap, not a bug. | P3 |
+
+### Architectural debt
+
+| Item | Description | Priority |
+|---|---|---|
+| **Multi-input parity_host** | Cluster A compressor cells (audio + cv inputs) cannot run T8-B native arm because parity_host accepts a single WAV input. 4 ops permanently SKIP the native arm until a stereo-WAV variant of parity_host lands (channel 0 → audio, channel 1 → cv). varMuTube / fetVVR / blackmerVCA / diodeBridgeGR stay at ✅+P. | P2 |
+| **blackmerVCA cv polarity inversion** | blackmerVCA uses positive cv = boost, negative cv = cut. Sibling Cluster A cells use positive cv = compression depth. Composing graphs across cells is a footgun. Either flip blackmerVCA to match siblings (breaks existing graphs) or add a `cvSignAdapter` op for explicit conversion. | P2 |
+| **optoCell port shape** | optoCell is `[cv] → [gain]` (curve generator), not `[audio, cv] → [out]` like sibling Cluster A cells. Currently routed through the analyzer category. Confusing as catalog row #141 alongside other "compressors." Either rename / re-categorize, or document explicitly. | P3 |
+
+### T8-B harness backlog (Day 6+)
+
+- **20 of 46 parity ops still need behavioral specs.** biquad LP/HP/BP/notch/peak/low-shelf/high-shelf, polarity_inv, uniBi_b2u, constant, dcBlock, gain_chain2, srcResampler, smooth, slew, drive, mix, xformerSat, polarity, scaleBy.
+- **Categories not yet implemented.** modulation, reverb, pitch, envelope (split from analyzer), eq (currently routed through filter), limiter, widener, pitchshift, gate, convolver, synth, stereo. Each needs a metric module per `behavioral_validation_harness.md` § 6.
+- **Cross-cutting metrics not yet implemented.** Tracktion-style transient-arrival latency test (any op with non-zero `getLatencySamples()`); clap-validator-style state-reproducibility test (every op).
+- **L0 pluginval gate.** Invoke `pluginval.exe --strictness-level 10` per built smoke graph as subprocess; parse stdout for FAIL. License-clean (subprocess only). Adds NaN/Inf/subnormal/audio-thread-alloc/state/thread coverage that L1 + L2 cannot detect.
+- **Visibility layer.** Per `behavioral_validation_harness.md` § 14: Nasty Orbs canvas extension (NodeMeterStrip / NodeInspector / PassFailBadge / NativeArmBridge). Days 9–13 of the original 13-day plan; designed but not yet built.
+
 ## Usage protocol
 
 - **Populate opportunistically.** When the user drops a PDF / canon entry /
@@ -1552,6 +1590,237 @@ Design picks:
 (h) **No mix param.** Sandbox convention: dry/wet is composed via
     explicit #5 mix op, not built into character ops. (Plugin-level
     dry/wet rule from MEMORY.md applies to plugins, not ops.)
+
+---
+
+## #179 diodeBridgeGR — shipped 2026-04-26, ✅+P
+
+**Baseline.** Phenomenological diode-bridge gain-reduction cell modeling
+Neve 33609 / 2254 / 8014 family. Memoryless. Hill-function gain curve
+(β=1.8 default, between varMuTube's 1.5 and fetVVR's 2.0) + PURE-ODD
+3H distortion from cubic shape (`x³ · gain · distortion · comprDepth`)
++ optional `asymmetry` knob for component-mismatch even-harmonic content.
+**Distinguishing trait vs other Tier-S Cluster A members:** topology
+symmetry of 4-diode bridge cancels even harmonics by design — the
+classic Neve "warm" 3H character.
+
+**Math-by-definition declared at ship time.** Multiple PRIMARY sources
+inaccessible during this ship session 2026-04-26:
+- **Neve 2254 service schematic** (archive.org / GroupDIY 404)
+- **AMS Neve 33609/N user manual** (ams-neve.com support links 404)
+- **Ben Duncan "VCAs Investigated"** — PDF binary-extract failed
+- **Sound on Sound 33609JD review** (410 gone)
+- **Gearspace 2254-clones thread** (403 forbidden)
+- **Wikipedia "Neve 33609"** + **"Neve 2254"** (404 — articles don't exist)
+Topology anchored to **Giannoulis-Massberg-Reiss JAES 2012 §Soft Knee**
+(Tier-A peer-reviewed, accessed in this session). Diode small-signal
+theory `rd = V_t / I_DC` is universal textbook content (Sedra-Smith
+Ch.4 — known but not opened verbatim this session). Diode-bridge
+symmetry → odd-only harmonics is general analog-electronics knowledge
+(matched-pair cancellation, e.g. Sedra-Smith Ch.6 differential
+amplifiers). The cubic `y³` shape is one canonical odd-distortion form.
+
+**Critical model adjustment caught + fixed during ship:** initial
+implementation used `y³ = (x · gain)³` which produces 3H/1H ratio that
+DROPS with compression (cubic scales as A·gain to the third power).
+Real diode-bridge behavior: distortion RISES with compression depth.
+Fixed by computing cubic on raw INPUT signal then scaling by gain:
+`yChar ∝ x³ · gain`. Now 3H/1H ratio depends only on `comprDepth`
+(matches real diode-bridge: distortion grows with GR).
+
+**Known-better citations (deferred, P1):**
+
+| # | Upgrade | Citation | Cost | Priority |
+|---|---|---|---|---|
+| 179-a | Verbatim Neve 2254 service schematic + 33609 user manual | Tier-S OEM. Need verified-authentic PDF copy. | Low — re-tune curve coefficients | **P1** |
+| 179-b | Ben Duncan "VCAs Investigated" (Electronics & Music Maker) | Tier-B reverse-engineering survey covering Neve diode-bridge topology. PDF binary-extract failed this session. | Low — verify our model against measured | P1 |
+| 179-c | tanh / sinh-based saturation shape (alternative to cubic) | Real diodes saturate via exponential I-V curve, not pure cubic. tanh model produces 3H + 5H + 7H rolloff, more authentic. | Medium — replace `x³` with `tanh(x · k)` | P2 |
+| 179-d | Asymmetric diode forward voltages (in addition to current asymmetry) | Real diode bridges have small Vbe spread between matched pairs → contributes to 2H beyond current mismatch. Currently `asymmetry` only models current asymmetry. | Low | P3 |
+| 179-e | Attack/release dynamics (~10 ms attack, 100-1500 ms program-dep release) | Memoryless at op level; user wires #smooth + envelope upstream of cv. Could absorb for full Neve-cell composition. | Medium — adds state | P2 (recipe-layer) |
+| 179-f | Output transformer coloration (Neve units have UTC-class output xfmrs) | Composes via #139 xformerSat downstream. Not an issue at this op. | None | n/a (composition concern) |
+
+**v1 honest behavior recap:**
+- cv ≤ 0 → unity gain
+- cv > 0 → soft-knee compression (β=1.8)
+- distortion=0, asymmetry=0 → clean (no harmonics)
+- distortion>0 → pure 3H content (no 2H, no 4H — diode-bridge symmetry)
+- asymmetry>0 → small 2H + 4H added (component-mismatch realism)
+- Distortion grows with compression depth (real Neve behavior)
+- Memoryless: getLatencySamples()=0; reset is no-op
+- Smoke parity bit-identical at default (cv=0 → pure pass-through)
+
+---
+
+## #147 fetVVR — shipped 2026-04-26, ✅+P
+
+**Baseline.** Phenomenological JFET-VVR gain-reduction cell modeling
+UREI/UA 1176 family (2N3819 JFET in feedback or shunt-attenuator
+topology). Memoryless. Distinguishing trait vs varMuTube: sharper knee
+(β=2 default) AND mixed even+odd distortion (independent `distortion2H`
++ `distortion3H` params). "All buttons in" character available by
+cranking both distortion params.
+
+**Math-by-definition declared at ship time.** 1176 service manual +
+2N3819 datasheet inaccessible during ship session 2026-04-26 (multiple
+mirror sites 404). Topology anchored to GMR JAES 2012 §Soft Knee
+(Tier-A, accessed this session). FET ohmic-region equation captured
+from Wikipedia JFET article (Tier-A textbook): `I_D ≈ (2 I_DSS / V_P²) ·
+(V_GS - V_P) · V_DS` for small V_DS, → Rds(V_GS) curve diverging at
+pinch-off. Distortion model — split into `distortion2H · |y|` (even
+2H+4H from FET asymmetric channel conduction) + `distortion3H · y · |y|`
+(odd 3H+5H from pinch-off non-linearity) — is phenomenological and
+calibrated to 1176 reputation for "trademark overdriven tone." No
+peer-reviewed paper specifies precise coefficient values that I could
+verify in this session.
+
+**Known-better citations (deferred, P1):**
+
+| # | Upgrade | Citation | Cost | Priority |
+|---|---|---|---|---|
+| 147-a | UREI/UA 1176LN service manual — exact FET topology, gain curve, "all buttons in" mode component values | Tier-S OEM document. archive.org PDF mirrors 404 in this session; would need verified-authentic copy. | Low — re-tune curve params + distortion coefficients | **P1** |
+| 147-b | 2N3819 datasheet Vp / I_DSS values for accurate Rds(V_GS) curve | Tier-S manufacturer doc. Frank Pocnet 404'd. | Low | **P1** |
+| 147-c | Measured 1176 distortion-vs-GR curve from real units | Bench measurements published in: Cliff Maag's Mercury MK7-1176 measurement reports, Mike Senior's Sound on Sound 1176 reviews, etc. | Low — curve-shape correction | P2 |
+| 147-d | "All buttons in" mode authentic curve | At extreme settings the 1176's compression curve becomes "severe plateau" per Wikipedia. Currently modeled as continuous Hill function — doesn't capture the plateau onset. | Medium — piecewise gain curve | P2 |
+| 147-e | Attack/release dynamics (20 µs–800 µs / 50 ms–1100 ms program-dep) | Op is memoryless; user wires #smooth or envelope follower upstream of cv input for dynamics. Could absorb into op for full 1176-cell composition. | Medium — adds state | P2 (recipe-layer concern) |
+| 147-f | Tube-stage saturation at large signals (separate from FET compression) | At very large signal swings, the op-amp + transformer output saturates. | Low | P3 |
+| 147-g | Asymmetric distortion (positive vs negative half-cycle differs slightly) | Real FET conduction is somewhat polarity-dependent. Currently `bias·|y|` term is symmetric. | Low | P3 |
+
+**v1 honest behavior recap:**
+- cv ≤ 0 → unity gain (no compression)
+- cv > 0 → soft-knee compression via `1/(1 + (cv/cutoffScale)^β)`
+- Sharper knee than varMuTube (β=2 default vs 1.5)
+- Independent 2H/3H distortion control via `distortion2H` (even) + `distortion3H` (odd)
+- "All buttons in" character: distortion2H=0.3-0.4, distortion3H=0.2-0.4 (cranked)
+- Note: y·|y| odd-harmonic term scales as A² of signal amplitude, so 3H is
+  intrinsically smaller than 2H at small signals or heavy compression
+- Memoryless: getLatencySamples()=0; reset is no-op
+- Smoke parity bit-identical at default (cv=0 → pure pass-through)
+
+---
+
+## #145 varMuTube — shipped 2026-04-26, ✅+P
+
+**Baseline.** Phenomenological variable-mu tube gain-reduction cell
+modeling Manley Variable Mu / Fairchild 670 / Altec 436 family.
+Memoryless. Soft-knee Hill-function gain curve `1/(1 + (cv/V0)^β)`
++ even-symmetric distortion (DC + 2H + 4H) that scales with
+compression depth — the canonical vari-mu "more GR = more 2H"
+character signature.
+
+**Math-by-definition declared at ship time.** Multiple PRIMARY sources
+were inaccessible during this ship session 2026-04-26:
+- **6386 / 6BC8 dual-triode datasheets** (Frank Pocnet PDFs all 404)
+- **Pakarinen-Yeh CMJ 2009 §III variable-mu treatment** (Aalto +
+  Semantic Scholar + MIT Press paywalled / 404)
+- **Manley Vari-Mu / Fairchild 670 service docs** (proprietary,
+  not in public access)
+- **Norman Koren site** (403 forbidden via WebFetch — bot detection)
+Topology anchored to **Giannoulis-Massberg-Reiss JAES 2012 §Soft Knee**
+(Tier-A peer-reviewed, accessed in this session). Distortion-couples-
+with-compression-depth principle is general tube-physics folklore
+(Langford-Smith *Radiotron Designer's Handbook* 4e Ch.13; RCA Tube
+Manual RC-30) but no peer-reviewed paper specifies coefficient values
+for the Manley/670 specifically that I could verify in this session.
+
+**Known-better citations (deferred, P1):**
+
+| # | Upgrade | Citation | Cost | Priority |
+|---|---|---|---|---|
+| 145-a | Verbatim-citable 6386/6BC8 datasheet Gm vs Vgk curve data | GE/Sylvania 6386 datasheet original — currently scattered across hobbyist sites with broken links. Need locally-archived PDF to extract specific Gm values. | Low — re-tune curve params once data in hand | **P1** |
+| 145-b | Pakarinen-Yeh CMJ 2009 §III variable-mu DSP treatment | doi:10.1162/comj.2009.33.2.85 — paywalled; need institutional access OR author preprint at Aalto | Low — verify our model matches their treatment, tune as needed | **P1** |
+| 145-c | Macak's Brno PhD thesis variable-mu section (referenced 2026-04-26 but full PDF not located) | Brno UT digital library; needs library check | Low | P2 |
+| 145-d | Manley Variable Mu / Fairchild 670 service-manual gain curves | Vintage proprietary docs, sometimes available via vintage-audio forums or US Patent search | Medium — service-manual reverse-engineering | P2 |
+| 145-e | Asymmetric distortion (positive vs negative half-cycle differs) | Real tube class-A asymmetry. Currently model is symmetric `bias·\|y\|`. Add small `bias_half · y · sign(y)` term for class-A character. | Low | P3 |
+| 145-f | Smooth attack/release dynamics inherent to tube thermal effects | Real vari-mu cells have small thermal time constants (~50ms) on top of fast electrical response. Currently fully memoryless. | Medium — adds state | P3 |
+| 145-g | Tube-stage saturation at large signals (separate from compression) | At very large signal swings, tube output stage saturates regardless of bias. Currently no saturation modeled — peak bound only by `(1 + dist · comprDepth) · gain`. | Low — add tanh wrapper | P2 |
+
+**v1 honest behavior recap:**
+- cv ≤ 0 → gain = 1 (no compression, vari-mu only triggers on positive cv)
+- cv > 0 → soft-knee compression via `1 / (1 + (cv/cutoffScale)^β)`
+- cv = cutoffScale → −6 dB GR
+- cv → ∞ → gain → 0 (tube cutoff)
+- Distortion couples with comprDepth: `2H/1H ratio = distortion·comprDepth·(4/3π)` (verified by test)
+- Even-symmetric distortion (DC + 2H + 4H) — same Fourier signature as blackmerVCA's bias term
+- Memoryless: getLatencySamples() = 0; reset is no-op
+- Smoke parity bit-identical at default (cv=0 → pure pass-through)
+
+---
+
+## #142 blackmerVCA — shipped 2026-04-26, ✅+P
+
+**Baseline.** Log-add-antilog VCA gain cell modeling Blackmer (dbx /
+THAT 2180) topology per US Patent 3,714,462. Memoryless. cv input
+interpreted as gain in dB (cv=0 → unity); `bias` param adds class-AB
+even-order distortion (DC + 2H + 4H) modeling Vbe-mismatch between
+Q3/Q4 antilog pair. Default bias=0 → ideal linear multiplier; ±0.025
+≈ patent matching tolerance (1 mV / 40 µA → ~−40 dB 2H character).
+
+**Math-by-definition declared at ship time.** Patent specifies topology
+(log-add-antilog, 4-transistor PNP/NPN class-AB) and ±50 dB range with
+"very low distortion" — but does NOT specify the precise harmonic
+distortion vs signal level curve shape. The `bias · |y|` even-order
+generator is a phenomenological model anchored to the patent's matching
+tolerance. Logged as research-debt P2 below.
+
+**Known-better citations (deferred):**
+
+| # | Upgrade | Citation | Cost | Priority |
+|---|---|---|---|---|
+| 142-a | Measured 2H-vs-signal-level curve from real Blackmer cells | Bench measurements on dbx 162SL / THAT 2180 ICs across input level + control voltage. None located in public literature 2026-04-26. | Low — shape correction in `bias·|y|` only | P2 |
+| 142-b | Control feedthrough modeling (cv leaks ~−80 dB into audio path via parasitic capacitance) | THAT 2180/2181 datasheet specifies typical CV feedthrough of −80 dBV at 1 kHz; not currently modeled. Op produces clean cv-to-output decoupling. | Low — additive cv·tiny_factor term | P3 |
+| 142-c | Control bandwidth limit (real VCAs ~10 kHz cv bandwidth via parasitic R/C) | Real chips can't track audio-rate cv perfectly; produces low-pass-filtered control. User can wire `#smooth` upstream of cv if needed. | None at op level — sandbox composition | P3 (recipe-layer) |
+| 142-d | Self-noise floor (~−95 dBu typical for THAT 2180) | Manufacturer-published noise spec. Not modeled. User wires `#noise` for that if needed. | None at op level — sandbox composition | P3 (recipe-layer) |
+| 142-e | DC offset blocking | `bias > 0` produces audible DC offset (control-feedthrough proxy). Recipes that need clean output should wire `#17 dcBlock` after this op. | None at op level — documented composition pattern | n/a (recipe rule) |
+
+**v1 honest behavior recap:**
+- cv = 0 (or missing) → output = audio · trim_linear (pure pass-through)
+- cv > 0 → audio scaled up by 10^(cv/20) (dB convention)
+- cv < 0 → audio scaled down by 10^(cv/20)
+- bias = 0 → ideal linear multiplier (no distortion)
+- bias > 0 → DC offset (bias · A · 2/π) + 2H (bias · A · 4/(3π)) + 4H + ...
+- Memoryless: getLatencySamples() = 0; reset is no-op
+- Half-wave rectification of `|y_clean|` is ALL the distortion source
+
+---
+
+## #141 optoCell — shipped 2026-04-26, ✅+P
+
+**Baseline.** Phenomenological LA-2A T4-style optical-isolator gain-
+reduction cell. Two-state envelope (envFast asymmetric attack/release
++ envSlow symmetric one-pole following envFast); effective env =
+max(envFast, envSlow); gain mapping `1 / (1 + responsivity · env²)`
+(LDR resistance ~ 1/intensity² approximation). Parameter values
+calibrated to Universal Audio's published T4 numbers (10 ms attack,
+60 ms initial release, 1–15 s program-dependent slow release).
+
+**Math-by-definition declared at ship time.** No peer-reviewed paper
+specifically models the LA-2A T4 thermal coupling in DSP terms.
+Searched DAFx archive, Faust libs, Eichas-Möller-Zölzer family, JAES
+E-Library 2026-04-26 — no match. Topology anchored to Giannoulis-
+Massberg-Reiss JAES 2012 (Tier-A); parameter values anchored to UA's
+published T4 numbers (Tier-B vendor blog). The two-state envelope
+phenomenology is canonical opto-cell folklore (textbook lineage:
+Zölzer DAFX 2e Ch.4, Reiss-McPherson "Audio Effects") but no single
+peer-reviewed origin.
+
+**Known-better citations (deferred):**
+
+| # | Upgrade | Citation | Cost | Priority |
+|---|---|---|---|---|
+| 141-a | Validated T4 thermal-coupling DSP model | Future DAFx contribution OR a peer-reviewed paper specifically measuring + modeling T4 thermal accumulation/release as a function of signal history. None located 2026-04-26. | High — full re-implementation if model differs structurally | **P1** |
+| 141-b | Tunable LDR exponent (currently fixed at p=2) | CdS photoresistor datasheets typically show p ∈ [1.5, 2.5] depending on cell type. Could become a per-preset constant or user param. | Low — single param + recompute | P2 |
+| 141-c | Asymmetric slow-envelope (warm-up vs cool-down rates) | Real EL panels have slightly different thermal time constants on warm-up vs cool-down (cool-down is typically longer). Currently slow envelope is symmetric. | Low — split α_slow into α_slowAttack / α_slowRelease | P2 |
+| 141-d | Felt 2010 (LDR thermal model) if obtainable | Referenced in some opto-compressor literature; not located in public access 2026-04-26. | Unknown — check AES E-Library | P3 |
+
+**v1 honest behavior recap:**
+- cv = 0 → gain = 1 (identity, no compression)
+- cv > 0 → cell engages with 10 ms attack, 60 ms initial release
+- Sustained pinning (≥ 5 sec at default releaseSecSlow) → recovery
+  slows to ~5 sec scale per UA T4 spec
+- Brief peaks (< 100 ms) → fast recovery via envFast path
+- Half-wave rectification on input (cell only triggers on positive cv)
+- Output is a multiplier ∈ (0, 1] — compose with audio path via
+  external multiplication or #5 mix
 
 ---
 

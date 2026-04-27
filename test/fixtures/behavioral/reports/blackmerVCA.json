@@ -1,0 +1,296 @@
+{
+  "opId": "blackmerVCA",
+  "category": "compressor",
+  "timestamp": "2026-04-26T23:50:34.950Z",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Static GR curve",
+      "pass": true,
+      "measured": {
+        "knee_cv": -3,
+        "max_gr_db": 24.000000001873232,
+        "curve": [
+          {
+            "cv": 0,
+            "gr_db": 0
+          },
+          {
+            "cv": -1,
+            "gr_db": -0.9999999981244801
+          },
+          {
+            "cv": -3,
+            "gr_db": -3.0000000022173365
+          },
+          {
+            "cv": -6,
+            "gr_db": -6.000000000339925
+          },
+          {
+            "cv": -9,
+            "gr_db": -9.000000000200206
+          },
+          {
+            "cv": -12,
+            "gr_db": -12.000000000450079
+          },
+          {
+            "cv": -18,
+            "gr_db": -17.9999999982168
+          },
+          {
+            "cv": -24,
+            "gr_db": -24.000000001873232
+          }
+        ]
+      },
+      "declared": {
+        "gr_at_max_cv_db": 18,
+        "cv_sweep_linear": [
+          0,
+          -1,
+          -3,
+          -6,
+          -9,
+          -12,
+          -18,
+          -24
+        ]
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "THD-vs-GR slope",
+      "pass": true,
+      "measured": {
+        "slope_thd_per_db": -1.738363665308134e-11,
+        "samples": [
+          {
+            "cv": 0,
+            "gr_db": 0,
+            "thd": 3.980338770971405e-9
+          },
+          {
+            "cv": -1,
+            "gr_db": 0.9999999981244801,
+            "thd": 3.861373871117018e-9
+          },
+          {
+            "cv": -3,
+            "gr_db": 3.0000000022173365,
+            "thd": 3.920473601478516e-9
+          },
+          {
+            "cv": -6,
+            "gr_db": 6.000000000339925,
+            "thd": 3.756612025574518e-9
+          },
+          {
+            "cv": -9,
+            "gr_db": 9.000000000200206,
+            "thd": 4.094999799979758e-9
+          },
+          {
+            "cv": -12,
+            "gr_db": 12.000000000450079,
+            "thd": 3.808052847091848e-9
+          },
+          {
+            "cv": -18,
+            "gr_db": 17.9999999982168,
+            "thd": 4.077418647757235e-9
+          },
+          {
+            "cv": -24,
+            "gr_db": 24.000000001873232,
+            "thd": 3.2300259740095606e-9
+          }
+        ]
+      },
+      "declared": {
+        "thd_grows_with_gr": false
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Sub-threshold null",
+      "pass": true,
+      "measured": {
+        "peak_err_db": null
+      },
+      "declared": {
+        "threshold_db": -60
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Static GR curve",
+        "pass": true,
+        "measured": {
+          "knee_cv": -3,
+          "max_gr_db": 24.000000001873232,
+          "curve": [
+            {
+              "cv": 0,
+              "gr_db": 0
+            },
+            {
+              "cv": -1,
+              "gr_db": -0.9999999981244801
+            },
+            {
+              "cv": -3,
+              "gr_db": -3.0000000022173365
+            },
+            {
+              "cv": -6,
+              "gr_db": -6.000000000339925
+            },
+            {
+              "cv": -9,
+              "gr_db": -9.000000000200206
+            },
+            {
+              "cv": -12,
+              "gr_db": -12.000000000450079
+            },
+            {
+              "cv": -18,
+              "gr_db": -17.9999999982168
+            },
+            {
+              "cv": -24,
+              "gr_db": -24.000000001873232
+            }
+          ]
+        },
+        "declared": {
+          "gr_at_max_cv_db": 18,
+          "cv_sweep_linear": [
+            0,
+            -1,
+            -3,
+            -6,
+            -9,
+            -12,
+            -18,
+            -24
+          ]
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "THD-vs-GR slope",
+        "pass": true,
+        "measured": {
+          "slope_thd_per_db": -1.738363665308134e-11,
+          "samples": [
+            {
+              "cv": 0,
+              "gr_db": 0,
+              "thd": 3.980338770971405e-9
+            },
+            {
+              "cv": -1,
+              "gr_db": 0.9999999981244801,
+              "thd": 3.861373871117018e-9
+            },
+            {
+              "cv": -3,
+              "gr_db": 3.0000000022173365,
+              "thd": 3.920473601478516e-9
+            },
+            {
+              "cv": -6,
+              "gr_db": 6.000000000339925,
+              "thd": 3.756612025574518e-9
+            },
+            {
+              "cv": -9,
+              "gr_db": 9.000000000200206,
+              "thd": 4.094999799979758e-9
+            },
+            {
+              "cv": -12,
+              "gr_db": 12.000000000450079,
+              "thd": 3.808052847091848e-9
+            },
+            {
+              "cv": -18,
+              "gr_db": 17.9999999982168,
+              "thd": 4.077418647757235e-9
+            },
+            {
+              "cv": -24,
+              "gr_db": 24.000000001873232,
+              "thd": 3.2300259740095606e-9
+            }
+          ]
+        },
+        "declared": {
+          "thd_grows_with_gr": false
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Sub-threshold null",
+        "pass": true,
+        "measured": {
+          "peak_err_db": null
+        },
+        "declared": {
+          "threshold_db": -60
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 81
+  },
+  "native": {
+    "summary": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "verdict": "SKIP"
+    },
+    "tests": [],
+    "durationMs": 48,
+    "reason": "arm threw: Cannot read properties of undefined (reading '24000')"
+  },
+  "attribution": "native-skipped",
+  "declared": {
+    "cv_sweep_linear": [
+      0,
+      -1,
+      -3,
+      -6,
+      -9,
+      -12,
+      -18,
+      -24
+    ],
+    "cv_for_6db_gr": -6,
+    "gr_at_max_cv_db": 18,
+    "audio_test_dbfs": -12,
+    "attack_ms": null,
+    "release_ms": null,
+    "thd_grows_with_gr": false,
+    "unity_gain_at_zero_cv": 1
+  },
+  "durationMs": 130
+}

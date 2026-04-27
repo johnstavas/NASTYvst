@@ -242,7 +242,62 @@ foundation backfill before that ship date.
 - Op cannot flip ✅ in `sandbox_ops_catalog.md` until parity is green.
   See `ship_blockers.md` § 8 (Native Parity gate).
 
-### 7. Ship summary (in the chat message where you report the ship)
+### 7. Behavioral PASS gate (added 2026-04-26, T8-B closure)
+
+Native parity proves the C++ matches the JS reference bit-identically.
+It does NOT prove the JS reference itself behaves like the op's name
+claims. T8-B closes that gap with a third orthogonal validation axis.
+
+Discovered by the Vari-Mu silent-bug post-mortem (2026-04-26): an op
+can pass schema/golden/math/master/parity gates AND still fail to
+compress real audio because its `cutoffScale` floor was set above the
+realistic input range. Three layers green, behavior wrong.
+
+**Required actions before flipping ✅+P → ✅+P+✓ in catalog:**
+
+1. **Declare behavioral metadata.** Add a `behavioral` block to the op's
+   spec (or to a sidecar in `src/sandbox/behavioral/specs/`):
+   ```js
+   {
+     category: 'compressor' | 'filter' | 'distortion' | 'utility' | ...,
+     parityKey: '<smoke-fixture-key-if-different-from-opId>',
+     defaultParams: { ...same values as smoke build },
+     declared: { /* category-specific contract */ },
+     tolerances: { /* optional per-metric overrides */ },
+   }
+   ```
+
+2. **Run worklet arm.** `node scripts/check_behavioral.mjs --op <opId>`
+   must produce a PASS report. This proves the JS reference math
+   matches declared semantics.
+
+3. **Run native arm if possible.**
+   `node scripts/check_behavioral.mjs --op <opId> --native` must produce
+   a PASS report (or a clean SKIP with documented reason). Skip is
+   acceptable for ops where parity_host can't drive the input shape
+   (e.g., compressor cells that take audio + cv as separate ports —
+   parity_host accepts a single WAV).
+
+4. **Commit the report.** `test/fixtures/behavioral/reports/<opId>.{md,json}`
+   gets committed. PR review surfaces regressions as committed-file
+   diffs.
+
+5. **Catalog promotion.** Op flips to ✅+P+✓ only when:
+   - L0 pluginval (when integrated, Day 6+) PASS
+   - L1 native parity PASS
+   - L2 worklet arm PASS
+   - L2 native arm PASS or documented SKIP
+
+If two-arm shows a `codegen-or-wiring-bug` attribution (worklet PASS,
+native FAIL), op stays at ✅+P; the C++ side requires a fix and re-bless
+of goldens before promotion. See `ship_blockers.md` § 9.
+
+**Why this gate exists.** Bit-identity ≠ behavioral correctness. T8-B
+catches op-spec calibration drift, codegen divergence, and JS-reference
+math errors that L1 cannot detect by construction. See
+`memory/behavioral_validation_harness.md` for the full design.
+
+### 8. Ship summary (in the chat message where you report the ship)
 - **Primary sources consulted** — named explicitly (file paths or
   citations with §).
 - **Diff summary vs. reference** — what matched, what you deviated on

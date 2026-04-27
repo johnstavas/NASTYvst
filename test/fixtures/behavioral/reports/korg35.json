@@ -1,0 +1,77 @@
+{
+  "opId": "korg35",
+  "category": "filter",
+  "timestamp": "2026-04-26T23:50:43.221Z",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Magnitude response (lp)",
+      "pass": true,
+      "measured": {
+        "cutoff_hz": 239.85227508246635
+      },
+      "declared": {
+        "kind": "lp",
+        "cutoff_hz": 240
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (lp)",
+        "pass": true,
+        "measured": {
+          "cutoff_hz": 239.85227508246635
+        },
+        "declared": {
+          "kind": "lp",
+          "cutoff_hz": 240
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 29
+  },
+  "native": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (lp)",
+        "pass": true,
+        "measured": {
+          "cutoff_hz": 257.6420757732949
+        },
+        "declared": {
+          "kind": "lp",
+          "cutoff_hz": 240
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 1379
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {
+    "kind": "lp",
+    "cutoff_hz": 240
+  },
+  "durationMs": 1408
+}

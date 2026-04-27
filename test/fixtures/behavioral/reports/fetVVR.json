@@ -1,0 +1,275 @@
+{
+  "opId": "fetVVR",
+  "category": "compressor",
+  "timestamp": "2026-04-26T23:50:35.172Z",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Static GR curve",
+      "pass": true,
+      "measured": {
+        "knee_cv": 0.5,
+        "max_gr_db": 24.60897842931306,
+        "curve": [
+          {
+            "cv": 0,
+            "gr_db": 0
+          },
+          {
+            "cv": 0.1,
+            "gr_db": -0.08642747722371444
+          },
+          {
+            "cv": 0.3,
+            "gr_db": -0.7485300142526347
+          },
+          {
+            "cv": 0.5,
+            "gr_db": -1.9382002604703623
+          },
+          {
+            "cv": 1,
+            "gr_db": -6.020599913279624
+          },
+          {
+            "cv": 2,
+            "gr_db": -13.97940008702961
+          },
+          {
+            "cv": 4,
+            "gr_db": -24.60897842931306
+          }
+        ]
+      },
+      "declared": {
+        "gr_at_max_cv_db": 20,
+        "cv_sweep_linear": [
+          0,
+          0.1,
+          0.3,
+          0.5,
+          1,
+          2,
+          4
+        ]
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "THD-vs-GR slope",
+      "pass": true,
+      "measured": {
+        "slope_thd_per_db": -5.300217932714975e-12,
+        "samples": [
+          {
+            "cv": 0,
+            "gr_db": 0,
+            "thd": 3.980338770971405e-9
+          },
+          {
+            "cv": 0.1,
+            "gr_db": 0.08642747722371444,
+            "thd": 3.5230230914196835e-9
+          },
+          {
+            "cv": 0.3,
+            "gr_db": 0.7485300142526347,
+            "thd": 4.121139294579064e-9
+          },
+          {
+            "cv": 0.5,
+            "gr_db": 1.9382002604703623,
+            "thd": 4.168597450912244e-9
+          },
+          {
+            "cv": 1,
+            "gr_db": 6.020599913279624,
+            "thd": 3.980338770971405e-9
+          },
+          {
+            "cv": 2,
+            "gr_db": 13.97940008702961,
+            "thd": 4.168597450912244e-9
+          },
+          {
+            "cv": 4,
+            "gr_db": 24.60897842931306,
+            "thd": 3.6766918823195573e-9
+          }
+        ]
+      },
+      "declared": {
+        "thd_grows_with_gr": false
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Sub-threshold null",
+      "pass": true,
+      "measured": {
+        "peak_err_db": null
+      },
+      "declared": {
+        "threshold_db": -60
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Static GR curve",
+        "pass": true,
+        "measured": {
+          "knee_cv": 0.5,
+          "max_gr_db": 24.60897842931306,
+          "curve": [
+            {
+              "cv": 0,
+              "gr_db": 0
+            },
+            {
+              "cv": 0.1,
+              "gr_db": -0.08642747722371444
+            },
+            {
+              "cv": 0.3,
+              "gr_db": -0.7485300142526347
+            },
+            {
+              "cv": 0.5,
+              "gr_db": -1.9382002604703623
+            },
+            {
+              "cv": 1,
+              "gr_db": -6.020599913279624
+            },
+            {
+              "cv": 2,
+              "gr_db": -13.97940008702961
+            },
+            {
+              "cv": 4,
+              "gr_db": -24.60897842931306
+            }
+          ]
+        },
+        "declared": {
+          "gr_at_max_cv_db": 20,
+          "cv_sweep_linear": [
+            0,
+            0.1,
+            0.3,
+            0.5,
+            1,
+            2,
+            4
+          ]
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "THD-vs-GR slope",
+        "pass": true,
+        "measured": {
+          "slope_thd_per_db": -5.300217932714975e-12,
+          "samples": [
+            {
+              "cv": 0,
+              "gr_db": 0,
+              "thd": 3.980338770971405e-9
+            },
+            {
+              "cv": 0.1,
+              "gr_db": 0.08642747722371444,
+              "thd": 3.5230230914196835e-9
+            },
+            {
+              "cv": 0.3,
+              "gr_db": 0.7485300142526347,
+              "thd": 4.121139294579064e-9
+            },
+            {
+              "cv": 0.5,
+              "gr_db": 1.9382002604703623,
+              "thd": 4.168597450912244e-9
+            },
+            {
+              "cv": 1,
+              "gr_db": 6.020599913279624,
+              "thd": 3.980338770971405e-9
+            },
+            {
+              "cv": 2,
+              "gr_db": 13.97940008702961,
+              "thd": 4.168597450912244e-9
+            },
+            {
+              "cv": 4,
+              "gr_db": 24.60897842931306,
+              "thd": 3.6766918823195573e-9
+            }
+          ]
+        },
+        "declared": {
+          "thd_grows_with_gr": false
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Sub-threshold null",
+        "pass": true,
+        "measured": {
+          "peak_err_db": null
+        },
+        "declared": {
+          "threshold_db": -60
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 41
+  },
+  "native": {
+    "summary": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "verdict": "SKIP"
+    },
+    "tests": [],
+    "durationMs": 48,
+    "reason": "arm threw: Cannot read properties of undefined (reading '24000')"
+  },
+  "attribution": "native-skipped",
+  "declared": {
+    "cv_sweep_linear": [
+      0,
+      0.1,
+      0.3,
+      0.5,
+      1,
+      2,
+      4
+    ],
+    "cv_for_6db_gr": 0.5,
+    "gr_at_max_cv_db": 20,
+    "audio_test_dbfs": -12,
+    "attack_ms": null,
+    "release_ms": null,
+    "thd_grows_with_gr": false,
+    "unity_gain_at_zero_cv": 1
+  },
+  "durationMs": 89
+}

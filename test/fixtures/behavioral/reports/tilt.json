@@ -1,0 +1,100 @@
+{
+  "opId": "tilt",
+  "category": "filter",
+  "timestamp": "2026-04-26T23:50:48.983Z",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Magnitude response (tilt)",
+      "pass": true,
+      "measured": {
+        "magnitudes_db_at_freqs": [
+          -17.297639846801758,
+          -16.982711791992188,
+          -16.285940170288086,
+          -15.218849182128906,
+          -13.959223747253418,
+          -12.258469581604004,
+          -10.353463172912598,
+          -8.35862922668457
+        ]
+      },
+      "declared": {
+        "kind": "tilt"
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (tilt)",
+        "pass": true,
+        "measured": {
+          "magnitudes_db_at_freqs": [
+            -17.297639846801758,
+            -16.982711791992188,
+            -16.285940170288086,
+            -15.218849182128906,
+            -13.959223747253418,
+            -12.258469581604004,
+            -10.353463172912598,
+            -8.35862922668457
+          ]
+        },
+        "declared": {
+          "kind": "tilt"
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 14
+  },
+  "native": {
+    "summary": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "verdict": "FAIL"
+    },
+    "tests": [
+      {
+        "name": "Magnitude response (tilt)",
+        "pass": false,
+        "measured": {
+          "magnitudes_db_at_freqs": [
+            -6.164248943328857,
+            -6.242379665374756,
+            -6.110105991363525,
+            -6.014229774475098,
+            -5.898972988128662,
+            -5.648908615112305,
+            -5.270096778869629,
+            -4.746723175048828
+          ]
+        },
+        "declared": {
+          "kind": "tilt"
+        },
+        "diagnostic": "Tilt response is not monotonic."
+      }
+    ],
+    "durationMs": 1302
+  },
+  "attribution": "codegen-or-wiring-bug",
+  "declared": {
+    "kind": "tilt"
+  },
+  "durationMs": 1316
+}
