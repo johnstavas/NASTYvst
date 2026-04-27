@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-1176-v0",
+  "label": "Smoke1176",
+  "canvas": { "width": 600, "height": 240 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 120 },
+    { "id": "out", "kind": "output", "x": 560, "y": 120 }
+  ],
+  "nodes": [
+    { "id": "n_env", "op": "envelopeFollower", "x": 200, "y":  60,
+      "params": { "attack": 0.5, "release": 80, "mode": 0 } },
+    { "id": "n_fet", "op": "fetVVR", "x": 380, "y": 120,
+      "params": { "cutoffScale": 0.5, "curveExponent": 2.0, "distortion2H": 0.10, "distortion3H": 0.05, "trim": 0 } }
+  ],
+  "wires": [
+    { "from": "in",          "to": "n_env.in"    },
+    { "from": "in",          "to": "n_fet.audio" },
+    { "from": "n_env.out",   "to": "n_fet.cv"    },
+    { "from": "n_fet.out",   "to": "out"          }
+  ],
+  "feedback": [],
+  "legendOps": ["envelopeFollower", "fetVVR"]
+}

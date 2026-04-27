@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-varmutube-v0",
+  "label": "SmokeVarMuTube",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_vmt", "op": "varMuTube", "x": 240, "y": 100, "params": { "cutoffScale": 10, "curveExponent": 1.5, "distortion": 0.1, "trim": 0 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_vmt.audio" },
+    { "from": "n_vmt.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["varMuTube"]
+}

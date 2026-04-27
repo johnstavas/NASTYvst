@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-diodebridgegr-v0",
+  "label": "SmokeDiodeBridgeGR",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_dbgr", "op": "diodeBridgeGR", "x": 240, "y": 100, "params": { "cutoffScale": 8, "curveExponent": 1.8, "distortion": 0.10, "asymmetry": 0.0, "trim": 0 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_dbgr.audio" },
+    { "from": "n_dbgr.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["diodeBridgeGR"]
+}

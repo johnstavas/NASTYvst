@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-blackmervca-v0",
+  "label": "SmokeBlackmerVCA",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_vca", "op": "blackmerVCA", "x": 240, "y": 100, "params": { "bias": 0.0, "trim": 0.0 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_vca.audio" },
+    { "from": "n_vca.out", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["blackmerVCA"]
+}

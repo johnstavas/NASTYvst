@@ -1,51 +1,99 @@
-// op_envelopeFollower.cpp.jinja — C++ mirror of op_envelopeFollower.worklet.js.
-// Bram de Jong asymmetric AR envelope follower (musicdsp #136, 2003).
-
+// op_envelopeFollower.cpp.jinja — Stage-3b C++ sidecar for #61 envelopeFollower.
+// Mirrors op_envelopeFollower.worklet.js bit-for-bit. Bram de Jong asymmetric
+// AR envelope follower (musicdsp #136, 2003) + RMS mode (Zölzer DAFX §4.2).
+// Modernized 2026-04-26 to match Cluster A namespace + node_id convention
+// (was using older OpEnvelopeFollower_{{ instance }} style). See worklet.js
+// header for full primary citation + math.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
 #pragma once
+#include <cstring>
 #include <cmath>
-#include <algorithm>
 
-struct OpEnvelopeFollower_{{ instance }} {
-    float sr = 48000.0f;
-    float p_attack = 5.0f, p_release = 120.0f;
-    int   p_mode = 0;
+namespace shags::ops {
 
-    float atkCoef = 0.0f, relCoef = 0.0f;
-    float env = 0.0f, meanSq = 0.0f;
+class EnvelopeFollowerOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "envelopeFollower";
 
-    void recompute() {
-        const float atkMs = std::max(0.1f, p_attack);
-        const float relMs = std::max(0.1f, p_release);
-        atkCoef = std::exp(std::log(0.01f) / (atkMs * sr * 0.001f));
-        relCoef = std::exp(std::log(0.01f) / (relMs * sr * 0.001f));
+    explicit EnvelopeFollowerOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {
+        recompute_();
     }
 
-    void setSampleRate(float s) { sr = s; recompute(); }
-    void reset() { env = 0.0f; meanSq = 0.0f; }
+    void reset() {
+        env_    = 0.0;
+        meanSq_ = 0.0;
+    }
 
-    void setParam_attack (float v) { if (std::isfinite(v)) { p_attack  = std::clamp(v, 0.1f, 1000.0f); recompute(); } }
-    void setParam_release(float v) { if (std::isfinite(v)) { p_release = std::clamp(v, 1.0f, 5000.0f); recompute(); } }
-    void setParam_mode   (float v) { if (std::isfinite(v)) { p_mode    = std::clamp((int)v, 0, 1); } }
-
-    void process(const float* in, float* out, int N) {
-        if (!out) return;
-        if (!in) { for (int n = 0; n < N; ++n) out[n] = 0.0f; env = 0.0f; meanSq = 0.0f; return; }
-        const bool isRms = (p_mode == 1);
-        for (int n = 0; n < N; ++n) {
-            const float x = in[n];
-            float tmp;
-            if (isRms) {
-                meanSq = relCoef * (meanSq - x * x) + x * x;
-                if (meanSq < 0.0f) meanSq = 0.0f;
-                tmp = std::sqrt(meanSq);
-            } else {
-                tmp = std::fabs(x);
-            }
-            if (tmp > env) env = atkCoef * (env - tmp) + tmp;
-            else           env = relCoef * (env - tmp) + tmp;
-            out[n] = env;
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if      (std::strcmp(id, "attack")  == 0) { attackMs_  = clip(v, 0.1, 1000.0); recompute_(); }
+        else if (std::strcmp(id, "release") == 0) { releaseMs_ = clip(v, 1.0, 5000.0); recompute_(); }
+        else if (std::strcmp(id, "mode")    == 0) {
+            int m = static_cast<int>(v);
+            if (m < 0) m = 0; else if (m > 1) m = 1;
+            mode_ = m;
         }
     }
 
     int getLatencySamples() const { return 0; }
+
+    void process(const float* in, float* out, int N) {
+        if (!out) return;
+        if (!in) {
+            for (int n = 0; n < N; ++n) out[n] = 0.0f;
+            env_ = 0.0; meanSq_ = 0.0;
+            return;
+        }
+        const double atkCoef = atkCoef_;
+        const double relCoef = relCoef_;
+        const bool isRms = (mode_ == 1);
+        double env = env_;
+        double meanSq = meanSq_;
+
+        for (int n = 0; n < N; ++n) {
+            const double x = static_cast<double>(in[n]);
+            double tmp;
+            if (isRms) {
+                // 1-pole smoothing of x² at relCoef rate.
+                meanSq = relCoef * (meanSq - x * x) + x * x;
+                if (meanSq < 0.0) meanSq = 0.0;
+                tmp = std::sqrt(meanSq);
+            } else {
+                tmp = x < 0.0 ? -x : x;
+            }
+            // Asymmetric AR follower (Bram de Jong musicdsp #136).
+            if (tmp > env) env = atkCoef * (env - tmp) + tmp;
+            else           env = relCoef * (env - tmp) + tmp;
+            out[n] = static_cast<float>(env);
+        }
+        env_    = env;
+        meanSq_ = meanSq;
+    }
+
+private:
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    void recompute_() {
+        // Bram's −40 dB time-to-reach convention:
+        //   coef = exp(log(0.01) / (ms · sr · 0.001))
+        const double atkSec = attackMs_  * 1e-3;
+        const double relSec = releaseMs_ * 1e-3;
+        atkCoef_ = std::exp(std::log(0.01) / (atkSec * sr_));
+        relCoef_ = std::exp(std::log(0.01) / (relSec * sr_));
+    }
+
+    double sr_;
+    double attackMs_  = 5.0;
+    double releaseMs_ = 120.0;
+    int    mode_      = 0;
+
+    double atkCoef_   = 0.0;
+    double relCoef_   = 0.0;
+    double env_       = 0.0;
+    double meanSq_    = 0.0;
 };
+
+}  // namespace shags::ops
