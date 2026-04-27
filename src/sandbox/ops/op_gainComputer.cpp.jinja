@@ -26,7 +26,7 @@ public:
 
     explicit GainComputerOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
 
-    void reset() { /* stateless */ }
+    void reset() { thrSmoothed_ = -1e30; ratioSmoothed_ = -1.0; kneeSmoothed_ = -1.0; }
 
     void setParam(const char* id, double v) {
         if (!std::isfinite(v)) return;
@@ -39,24 +39,41 @@ public:
 
     // env: linear magnitude (envelope op output)
     // gr:  delta-from-unity gain in [-1, 0] (0 = no GR, negative = duck)
+    //
+    // PER-SAMPLE PARAM SMOOTHING (added 2026-04-27 to kill knob-twiddle
+    // clicks on Threshold / Ratio / Knee). Each ramps from its smoothed
+    // current value to the new target across N samples; the Hill-curve
+    // math runs with per-sample-current values so the gain coefficient
+    // never steps. Slightly more CPU than block-static math but
+    // click-free.
     void process(const float* env, float* gr, int N) {
         if (env == nullptr) {
             for (int i = 0; i < N; ++i) gr[i] = 0.0f;
             return;
         }
-        const double thr    = thr_;
-        const double ratio  = ratio_;
-        const double knee   = knee_;
-        const double halfK  = knee * 0.5;
-        const double invRm1 = (1.0 / ratio) - 1.0;
+        // Prime smoothed values on first block from reset.
+        if (thrSmoothed_   < -1e29) thrSmoothed_   = thr_;
+        if (ratioSmoothed_ <  0.0)  ratioSmoothed_ = ratio_;
+        if (kneeSmoothed_  <  0.0)  kneeSmoothed_  = knee_;
+        const double thrInc   = (thr_   - thrSmoothed_)   / static_cast<double>(N > 0 ? N : 1);
+        const double ratioInc = (ratio_ - ratioSmoothed_) / static_cast<double>(N > 0 ? N : 1);
+        const double kneeInc  = (knee_  - kneeSmoothed_)  / static_cast<double>(N > 0 ? N : 1);
+        double thr   = thrSmoothed_;
+        double ratio = ratioSmoothed_;
+        double knee  = kneeSmoothed_;
         constexpr double LOG10     = 2.302585092994046;
         constexpr double LOG10_INV = 1.0 / 2.302585092994046;
         constexpr double FLOOR     = 1e-12;
 
         for (int i = 0; i < N; ++i) {
-            const double lin = env[i];
-            const double mag = lin >= 0.0 ? lin : -lin;
-            const double xDb = 20.0 * std::log(mag + FLOOR) * LOG10_INV;
+            thr   += thrInc;
+            ratio += ratioInc;
+            knee  += kneeInc;
+            const double halfK  = knee * 0.5;
+            const double invRm1 = (1.0 / ratio) - 1.0;
+            const double lin    = env[i];
+            const double mag    = lin >= 0.0 ? lin : -lin;
+            const double xDb    = 20.0 * std::log(mag + FLOOR) * LOG10_INV;
             double yDb;
             if (knee > 0.0 && xDb > thr - halfK && xDb < thr + halfK) {
                 const double t = (xDb - thr + halfK) / knee;
@@ -69,6 +86,9 @@ public:
             const double grDb = yDb - xDb;
             gr[i] = static_cast<float>(std::exp(grDb * LOG10 / 20.0) - 1.0);
         }
+        thrSmoothed_   = thr_;
+        ratioSmoothed_ = ratio_;
+        kneeSmoothed_  = knee_;
     }
 
 private:
@@ -76,6 +96,10 @@ private:
     double thr_   = -18.0;
     double ratio_ = 4.0;
     double knee_  = 6.0;
+    // Per-sample smoothing state (prime sentinels: thr<-1e29, ratio<0, knee<0).
+    double thrSmoothed_   = -1e30;
+    double ratioSmoothed_ = -1.0;
+    double kneeSmoothed_  = -1.0;
 };
 
 }  // namespace shags::ops

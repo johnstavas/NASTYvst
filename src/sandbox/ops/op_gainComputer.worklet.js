@@ -26,9 +26,17 @@ export class GainComputerOp {
     this._thr   = -18;
     this._ratio = 4;
     this._knee  = 6;
+    // Per-sample smoothing state — primed on first block from reset.
+    this._thrSmoothed   = -1e30;
+    this._ratioSmoothed = -1;
+    this._kneeSmoothed  = -1;
   }
 
-  reset() { /* stateless */ }
+  reset() {
+    this._thrSmoothed   = -1e30;
+    this._ratioSmoothed = -1;
+    this._kneeSmoothed  = -1;
+  }
 
   setParam(id, v) {
     if (id === 'thresholdDb') this._thr   = v;
@@ -61,17 +69,27 @@ export class GainComputerOp {
     const envCh = inputs.env;
     const outCh = outputs.gr;
     if (!envCh) {
-      for (let i = 0; i < N; i++) outCh[i] = 0; // unwired = no GR (delta=0)
+      for (let i = 0; i < N; i++) outCh[i] = 0;
       return;
     }
-    const thr    = this._thr;
-    const ratio  = this._ratio;
-    const knee   = this._knee;
-    const halfK  = knee * 0.5;
-    const invRm1 = (1 / ratio) - 1;          // ≤ 0 for ratio ≥ 1
-    const LOG10  = 2.302585092994046;
-    const FLOOR  = 1e-12;                    // -240 dB floor
+    // Prime smoothed values on first block from reset.
+    if (this._thrSmoothed   < -1e29) this._thrSmoothed   = this._thr;
+    if (this._ratioSmoothed < 0)     this._ratioSmoothed = this._ratio;
+    if (this._kneeSmoothed  < 0)     this._kneeSmoothed  = this._knee;
+    const thrInc   = (this._thr   - this._thrSmoothed)   / (N > 0 ? N : 1);
+    const ratioInc = (this._ratio - this._ratioSmoothed) / (N > 0 ? N : 1);
+    const kneeInc  = (this._knee  - this._kneeSmoothed)  / (N > 0 ? N : 1);
+    let thr   = this._thrSmoothed;
+    let ratio = this._ratioSmoothed;
+    let knee  = this._kneeSmoothed;
+    const LOG10 = 2.302585092994046;
+    const FLOOR = 1e-12;
     for (let i = 0; i < N; i++) {
+      thr   += thrInc;
+      ratio += ratioInc;
+      knee  += kneeInc;
+      const halfK  = knee * 0.5;
+      const invRm1 = (1 / ratio) - 1;
       const lin = envCh[i];
       const mag = lin >= 0 ? lin : -lin;
       const xDb = 20 * Math.log(mag + FLOOR) / LOG10;
@@ -84,8 +102,11 @@ export class GainComputerOp {
       } else {
         yDb = xDb;
       }
-      const grDb = yDb - xDb;                                  // ≤ 0
-      outCh[i] = Math.exp(grDb * LOG10 / 20) - 1;              // (grLin − 1) ∈ [-1, 0]
+      const grDb = yDb - xDb;
+      outCh[i] = Math.exp(grDb * LOG10 / 20) - 1;
     }
+    this._thrSmoothed   = this._thr;
+    this._ratioSmoothed = this._ratio;
+    this._kneeSmoothed  = this._knee;
   }
 }
