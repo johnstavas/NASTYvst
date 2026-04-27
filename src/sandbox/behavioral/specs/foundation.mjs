@@ -310,6 +310,17 @@ export const DISTORTION_BEHAVIORAL = {
       // not classifiable as even/odd dominant — relax signature check.
       // (Removing harmonic_signature so the harmonic test doesn't run.)
       dc_creep_max_dbfs: -30,
+      // Parameter sweep: rerun the high-level THD test at each bit depth
+      // to verify monotonic behaviour (more bits = less distortion). The
+      // bitcrush UI in Lofi Loofy exposes 12 / 10 / 8 / 6 — covering the
+      // useful musical range.
+      param_sweep: {
+        param: 'bits',
+        values: [12, 10, 8, 6, 4],
+        test_level_dbfs: 0,
+        // Loose monotonicity check: THD@4bit should exceed THD@12bit.
+        monotonic_increasing_thd: true,
+      },
     },
   },
   chebyshevWS: {
@@ -356,6 +367,20 @@ export const DISTORTION_BEHAVIORAL = {
 // measurement noise.
 
 export const ENVELOPE_BEHAVIORAL = {
+  // Linear slew limiter — step 0→1 takes exactly `rise` ms; T90 = 0.9·rise.
+  // Step 1→0 takes `fall` ms; release T90 = 0.9·fall.
+  // (envelope category metric reads attack_ms / release_ms as T90 declarations.)
+  slew: {
+    category: 'envelope',
+    defaultParams: { rise: 10, fall: 50 },
+    declared: {
+      attack_ms:  9,    // T90 = 0.9 × rise (10 ms)
+      release_ms: 45,   // T90 = 0.9 × fall (50 ms)
+      step_lo: 0.0,
+      step_hi: 1.0,
+      steady_input: 1.0,   // expected = 1·input + 0 = 1.0 (no amount/offset on slew)
+    },
+  },
   envelope: {
     category: 'envelope',
     defaultParams: { attack: 20, release: 200, amount: -1, offset: 0 },

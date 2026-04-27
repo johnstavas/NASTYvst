@@ -1,0 +1,1855 @@
+{
+  "generatedAt": "2026-04-27T07:04:19.558Z",
+  "totalOps": 132,
+  "goldCount": 0,
+  "ops": [
+    {
+      "id": "ER",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "SDN",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "abs",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "adsr",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "allpass",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "autopan",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "bbdDelay",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "bitcrush",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "blackmerVCA",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "blit",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "bpm",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "busSum",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "chamberlinZeroCross",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "chaos",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "chebyshevWS",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "chromagram",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "clamp",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "comb",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "combine",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "constant",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 5,
+      "notes": ""
+    },
+    {
+      "id": "convolution",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "correlation",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "crackle",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "crepe",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "crossfade",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "crossfeed",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "curve",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "dcBlock",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "delay",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "detector",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "diffuser",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "diodeBridgeGR",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "diodeClipper",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "diodeLadder",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "dither",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "envelope",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "envelopeFollower",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "expander",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "fanOut",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "fdnCore",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "fetVVR",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "fft",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "filter",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "fm",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "formant",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "fpDacRipple",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "gain",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "gainComputer",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "gate",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "glide",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "goertzel",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "granularBuffer",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "haas",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "hardClip",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "hiss",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "ifft",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "istft",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "kWeighting",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "karplusStrong",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "kellyLochbaum",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "korg35",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "ladder",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "lfo",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "lookahead",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "loudnessGate",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "lpc",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "lrXover",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "lra",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "lufsIntegrator",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "meters",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "mfcc",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "microDetune",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "minBLEP",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "mix",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "msDecode",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "msEncode",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "noise",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "noiseShaper",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "onePole",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 4,
+      "notes": ""
+    },
+    {
+      "id": "onset",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "optoCell",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "oversample2x",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "padSynth",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "panner",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "peak",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "phaseVocoder",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "pitchShift",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "plate",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "polarity",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "polyBLEP",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "pyin",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "quantizer",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "ramp",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "randomWalk",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "rms",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "sampleHold",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "saturate",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "scaleBy",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "scatteringJunction",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "schroederChain",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "select",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "shelf",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 4,
+      "notes": ""
+    },
+    {
+      "id": "sidechainHPF",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "sign",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "sineOsc",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "slew",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 5,
+      "notes": ""
+    },
+    {
+      "id": "smooth",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 5,
+      "notes": ""
+    },
+    {
+      "id": "softLimit",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "spring",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "srcResampler",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 5,
+      "notes": ""
+    },
+    {
+      "id": "stepSeq",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "stereoWidth",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "stft",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "svf",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 4,
+      "notes": ""
+    },
+    {
+      "id": "tapeAirwindows",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "tapeSim",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "tilt",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "transformerSim",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "transient",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "trigger",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "truePeak",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "tubeSim",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "uniBi",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "varMuTube",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "velvetNoise",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "warpedLPC",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "wavefolder",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "waveguide",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "wavetable",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "xformerSat",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": true,
+        "t1_t7": true,
+        "parity": true,
+        "behavioral": true,
+        "listen": null
+      },
+      "autoPassed": 6,
+      "notes": ""
+    },
+    {
+      "id": "yin",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    },
+    {
+      "id": "z1",
+      "gates": {
+        "worklet": true,
+        "cpp": true,
+        "smoke": false,
+        "t1_t7": false,
+        "parity": false,
+        "behavioral": false,
+        "listen": null
+      },
+      "autoPassed": 2,
+      "notes": ""
+    }
+  ]
+}

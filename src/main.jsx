@@ -69,6 +69,7 @@ import { useQcMode, useWorkbenchMode, useProductStatus, getStatus, defaultVersio
 import { InfoIcon } from './migration/QcOverlay.jsx';
 import { QcWizard } from './migration/QcWizard.jsx';
 import QcDrawer from './qc-harness/QcDrawer.jsx';
+import OpVerificationLedgerView from './sandbox/OpVerificationLedgerView.jsx';
 
 // ─── Categorized Add Menu ───────────────────────────────────────────────────
 const PLUGIN_CATEGORIES = [
@@ -464,6 +465,9 @@ function App() {
   // When on, the chain grid is hidden and <WorkbenchView> takes its place.
   // Sandbox bricks are ONLY reachable from here (not in the plus menu).
   const [workbenchMode, setWorkbenchMode] = useWorkbenchMode();
+  // Op Verification Ledger — full-takeover view showing all 132 ops
+  // and their 7-gate verification status. Phase A2 of op-qc-rig.
+  const [ledgerMode, setLedgerMode] = useState(false);
 
   // ── Global audio loader state (was inside OrbPluginDemo) ──────────────────
   const [audioSource, setAudioSource] = useState('none'); // 'none' | 'file' | 'mic'
@@ -1064,9 +1068,13 @@ function App() {
           onClose={() => setWorkbenchMode(false)}
         />
       )}
+      {/* Verification Ledger takeover — read-only view of all op gate states. */}
+      {ledgerMode && (
+        <OpVerificationLedgerView onClose={() => setLedgerMode(false)} />
+      )}
       {/* Module grid */}
       <div className="flex flex-wrap items-start justify-center gap-6"
-           style={{ position: 'relative', display: (workbenchMode || zoomedInstanceId != null) ? 'none' : undefined }}>
+           style={{ position: 'relative', display: (workbenchMode || ledgerMode || zoomedInstanceId != null) ? 'none' : undefined }}>
         {instances.map(inst => {
           // Registry truth for the ⓘ tooltip + QC panel. Only populated for
           // products that have been modelled in migration/registry.js — for
@@ -1838,6 +1846,21 @@ function App() {
               backdropFilter: 'blur(8px)',
             }}>
             LAB {workbenchMode ? 'ON' : 'OFF'}
+          </button>
+          {/* LEDGER toggle — full-takeover op verification status view. */}
+          <button
+            onClick={() => setLedgerMode(v => !v)}
+            title={ledgerMode ? 'Ledger ON — click to return to chain' : 'Open Op Verification Ledger'}
+            style={{
+              height: 28, padding: '0 12px', borderRadius: 14,
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
+              fontFamily: 'system-ui, Arial, sans-serif', cursor: 'pointer',
+              border: `1px solid ${ledgerMode ? 'rgba(217,159,207,0.6)' : 'rgba(255,255,255,0.15)'}`,
+              background: ledgerMode ? 'rgba(80,40,75,0.5)' : 'rgba(0,0,0,0.5)',
+              color:      ledgerMode ? '#d99fcf' : 'rgba(255,255,255,0.5)',
+              backdropFilter: 'blur(8px)',
+            }}>
+            LEDGER {ledgerMode ? 'ON' : 'OFF'}
           </button>
           {/* QC Mode toggle — persists in localStorage */}
           <button

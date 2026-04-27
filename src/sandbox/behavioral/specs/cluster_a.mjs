@@ -41,7 +41,11 @@ export const CLUSTER_A_BEHAVIORAL = {
       // upstream of the cell.
       cv_sweep_linear: [0, -1, -3, -6, -9, -12, -18, -24],
       cv_for_6db_gr:   -6,
-      gr_at_max_cv_db: 18,
+      // blackmerVCA is mathematically linear: cv (dB) maps directly to gain (dB).
+      // So cv=-24 → 24 dB GR. (Original spec said 18 dB — that was an arbitrary
+      // pre-measurement guess that didn't account for the linear-in-dB law.
+      // Calibrated to actual measurement 2026-04-27.)
+      gr_at_max_cv_db: 24,
       audio_test_dbfs: -12,
       // NOTE: Cluster A cells are memoryless (getLatencySamples=0, no state).
       // Attack/release time-constants belong to the envelopeFollower upstream,
