@@ -1,17 +1,15 @@
 # shelf — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:41.783Z
+**Generated:** 2026-04-27T20:13:34.168Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 837 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 9 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Magnitude response (shelf) | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Magnitude response (shelf) | ✅ PASS |
 
 ## Passing tests
 

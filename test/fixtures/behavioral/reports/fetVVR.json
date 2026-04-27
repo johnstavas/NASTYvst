@@ -1,7 +1,7 @@
 {
   "opId": "fetVVR",
   "category": "compressor",
-  "timestamp": "2026-04-27T05:08:31.219Z",
+  "timestamp": "2026-04-27T20:13:33.357Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -47,7 +47,7 @@
         ]
       },
       "declared": {
-        "gr_at_max_cv_db": 20,
+        "gr_at_max_cv_db": 24,
         "cv_sweep_linear": [
           0,
           0.1,
@@ -166,7 +166,7 @@
           ]
         },
         "declared": {
-          "gr_at_max_cv_db": 20,
+          "gr_at_max_cv_db": 24,
           "cv_sweep_linear": [
             0,
             0.1,
@@ -239,20 +239,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 40
+    "durationMs": 36
   },
-  "native": {
-    "summary": {
-      "total": 0,
-      "passed": 0,
-      "failed": 0,
-      "verdict": "SKIP"
-    },
-    "tests": [],
-    "durationMs": 64,
-    "reason": "arm threw: Cannot read properties of undefined (reading '24000')"
-  },
-  "attribution": "native-skipped",
+  "native": null,
+  "attribution": null,
   "declared": {
     "cv_sweep_linear": [
       0,
@@ -263,13 +253,13 @@
       2,
       4
     ],
-    "cv_for_6db_gr": 0.5,
-    "gr_at_max_cv_db": 20,
+    "cv_for_6db_gr": 1,
+    "gr_at_max_cv_db": 24,
     "audio_test_dbfs": -12,
     "attack_ms": null,
     "release_ms": null,
     "thd_grows_with_gr": false,
     "unity_gain_at_zero_cv": 1
   },
-  "durationMs": 104
+  "durationMs": 36
 }

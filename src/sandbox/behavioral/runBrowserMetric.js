@@ -377,9 +377,16 @@ async function runFilterMetric(opId, spec) {
     freqs.push(f);
   }
 
-  const HOLD_S = 0.1;
-  const N = Math.round(HOLD_S * SR);
-  const settledStart = Math.floor(N * 0.5);   // skip transient
+  // Match the headless metric exactly (filter.mjs):
+  //   - stim amplitude 0.25 (-12 dBFS, stays linear under resonance for biquads,
+  //     and avoids over-driving nonlinear filters like diodeLadder/ladder)
+  //   - 0.3 s tones, settle 50 ms
+  // This is essential for nonlinear filters where cutoff varies with input level.
+  const STIM_AMP = 0.25;
+  const TONE_LEN_SEC = 0.3;
+  const SETTLE_SEC = 0.05;
+  const N = Math.round(TONE_LEN_SEC * SR);
+  const settledStart = Math.round(SETTLE_SEC * SR);
 
   const inputPort = declared.inputPort || 'in';
   const magsDb = [];
@@ -387,7 +394,7 @@ async function runFilterMetric(opId, spec) {
   for (const f of freqs) {
     const w = 2 * Math.PI * f / SR;
     const stim = new Float32Array(N);
-    for (let i = 0; i < N; i++) stim[i] = 0.5 * Math.sin(w * i);
+    for (let i = 0; i < N; i++) stim[i] = STIM_AMP * Math.sin(w * i);
     const r = await runWorkletBrowser(opId, params, { [inputPort]: stim }, { sampleRate: SR });
     const out = r.outputs[Object.keys(r.outputs)[0]];
     const inRms = rms(stim, settledStart, N);
@@ -402,35 +409,62 @@ async function runFilterMetric(opId, spec) {
   let pass, measured = {}, explanation, diagnostic = null;
   let markers = [];
 
-  if (kind === 'lp' || kind === 'hp') {
-    // Find -3 dB point. Reference = passband mean.
-    const passbandIdx = kind === 'lp'
-      ? freqs.map((f, i) => f < (declaredCutoff || 1000) * 0.3 ? i : -1).filter(i => i >= 0)
-      : freqs.map((f, i) => f > (declaredCutoff || 1000) * 3 ? i : -1).filter(i => i >= 0);
-    let passbandRef = 0;
-    if (passbandIdx.length > 0) {
-      let s = 0;
-      for (const i of passbandIdx) s += magsDb[i];
-      passbandRef = s / passbandIdx.length;
+  if (kind === 'lp' || kind === 'hp' || kind === 'shelf') {
+    // Headless-aligned approach (matches metrics/filter.mjs): reference =
+    // PEAK of the sweep, walk from peak to first bin below −3 dB, with
+    // log-frequency interpolation between adjacent bins for accuracy.
+    // This is independent of the declared cutoff (no chicken-and-egg loop)
+    // and handles resonant filters correctly.
+    let peakBin = 0;
+    for (let i = 1; i < magsDb.length; i++) if (magsDb[i] > magsDb[peakBin]) peakBin = i;
+    const peakDb = magsDb[peakBin];
+    // Re-zero magsDb relative to peak so target is exactly -3 dB.
+    const magsDbRel = magsDb.map(m => m - peakDb);
+
+    let measuredCutoff = null;
+    if (kind === 'lp' || kind === 'shelf') {
+      for (let i = peakBin; i < magsDbRel.length; i++) {
+        if (magsDbRel[i] < -3) {
+          if (i > 0 && magsDbRel[i - 1] >= -3) {
+            const f1 = freqs[i - 1], f2 = freqs[i];
+            const m1 = magsDbRel[i - 1], m2 = magsDbRel[i];
+            const frac = (-3 - m1) / (m2 - m1);
+            measuredCutoff = Math.exp(Math.log(f1) + frac * (Math.log(f2) - Math.log(f1)));
+          } else {
+            measuredCutoff = freqs[i];
+          }
+          break;
+        }
+      }
+    } else {     // hp
+      for (let i = peakBin; i >= 0; i--) {
+        if (magsDbRel[i] < -3) {
+          if (i < magsDbRel.length - 1 && magsDbRel[i + 1] >= -3) {
+            const f1 = freqs[i], f2 = freqs[i + 1];
+            const m1 = magsDbRel[i], m2 = magsDbRel[i + 1];
+            const frac = (-3 - m1) / (m2 - m1);
+            measuredCutoff = Math.exp(Math.log(f1) + frac * (Math.log(f2) - Math.log(f1)));
+          } else {
+            measuredCutoff = freqs[i];
+          }
+          break;
+        }
+      }
     }
-    const target = passbandRef - 3;
-    let cutoffIdx = -1;
-    if (kind === 'lp') {
-      for (let i = 0; i < magsDb.length; i++) if (magsDb[i] <= target) { cutoffIdx = i; break; }
-    } else {
-      for (let i = magsDb.length - 1; i >= 0; i--) if (magsDb[i] <= target) { cutoffIdx = i; break; }
-    }
-    const measuredCutoff = cutoffIdx >= 0 ? freqs[cutoffIdx] : null;
     const tolPct = declared.cutoff_tol_pct ?? 25;
     pass = measuredCutoff != null && declaredCutoff != null
       && Math.abs(measuredCutoff - declaredCutoff) / declaredCutoff <= tolPct / 100;
-    measured = { cutoff_hz: measuredCutoff?.toFixed(0), passband_db: passbandRef.toFixed(2) };
+    measured = {
+      cutoff_hz: measuredCutoff?.toFixed(0),
+      peak_db: peakDb.toFixed(2),
+      peak_freq_hz: freqs[peakBin].toFixed(0),
+    };
     explanation =
-      `Sweep 40 logarithmically-spaced sine tones from 20 Hz to 20 kHz. Measure ` +
-      `output RMS / input RMS at each frequency to build the magnitude response. ` +
-      `Find the frequency where the response drops 3 dB below passband — that's ` +
-      `the cutoff. Pass if measured cutoff is within ±${tolPct}% of declared ` +
-      `${declaredCutoff} Hz.`;
+      `Sweep 40 logarithmically-spaced sine tones from 20 Hz to 20 kHz. ` +
+      `Measure output RMS / input RMS at each frequency. Find the SWEEP PEAK ` +
+      `as 0 dB reference (handles resonant Q peaking correctly), then walk ` +
+      `from peak to find the first frequency 3 dB below — that's the cutoff. ` +
+      `Pass if within ±${tolPct}% of declared ${declaredCutoff} Hz.`;
     if (declaredCutoff) markers.push({ x: declaredCutoff, label: `declared ${declaredCutoff} Hz`, color: '#5ed184' });
     if (measuredCutoff) markers.push({ x: measuredCutoff, label: `measured ${measuredCutoff.toFixed(0)} Hz`, color: '#d99fcf' });
     if (!pass) diagnostic = `Measured cutoff ${measuredCutoff?.toFixed(0)} Hz vs declared ${declaredCutoff} Hz (tol ±${tolPct}%).`;
@@ -908,6 +942,85 @@ async function runCompressorMetric(opId, spec) {
   };
 }
 
+// ── ANALYZER (CV-curve generators like optoCell) ────────────────────────
+// Sweeps CV input, captures gain output coefficient, verifies declared
+// curve direction + output range. Pure control-rate — no audio path.
+async function runAnalyzerMetric(opId, spec) {
+  const params = spec.defaultParams || {};
+  const declared = spec.declared || {};
+  const cvSweep = declared.cv_sweep_linear || [0, 0.5, 1, 2, 4, 8];
+  const expectedDir = declared.curve_direction || 'decreasing';
+  const outRange = declared.output_range || [0, 1.05];
+  const HOLD_S = 0.1;
+  const N = Math.round(HOLD_S * SR);
+  const settledStart = Math.floor(N * 0.7);
+
+  const inputPort = declared.cvPort || 'cv';
+  const samples = [];
+
+  for (const cv of cvSweep) {
+    const stim = new Float32Array(N).fill(cv);
+    const r = await runWorkletBrowser(opId, params, { [inputPort]: stim }, { sampleRate: SR });
+    const out = r.outputs[Object.keys(r.outputs)[0]];
+    let sum = 0;
+    for (let i = settledStart; i < N; i++) sum += out[i];
+    const meanGain = sum / Math.max(1, N - settledStart);
+    samples.push({ cv, gain: meanGain });
+  }
+
+  // Direction check.
+  let monotonic = true;
+  for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1].gain, cur = samples[i].gain;
+    if (expectedDir === 'decreasing' && cur > prev + 0.001) { monotonic = false; break; }
+    if (expectedDir === 'increasing' && cur < prev - 0.001) { monotonic = false; break; }
+  }
+  // Range check.
+  const minG = Math.min(...samples.map(s => s.gain));
+  const maxG = Math.max(...samples.map(s => s.gain));
+  const inRange = minG >= outRange[0] - 0.001 && maxG <= outRange[1] + 0.001;
+  const pass = monotonic && inRange;
+
+  return {
+    summary: { total: 1, passed: pass ? 1 : 0, failed: pass ? 0 : 1, verdict: pass ? 'PASS' : 'FAIL' },
+    tests: [{
+      name: 'CV → gain curve',
+      pass,
+      explanation:
+        `Sweep ${cvSweep.length} CV values from ${cvSweep[0]} to ${cvSweep[cvSweep.length-1]}, ` +
+        `capture the output gain coefficient at each step. Pass if curve is ` +
+        `${expectedDir} (CV up = gain ${expectedDir === 'decreasing' ? 'down' : 'up'}) ` +
+        `and gain stays in declared range [${outRange[0]}, ${outRange[1]}].`,
+      declared: {
+        cv_sweep: cvSweep,
+        curve_direction: expectedDir,
+        output_range: outRange,
+      },
+      measured: {
+        gain_curve: samples.map(s => `cv=${s.cv}: gain=${s.gain.toFixed(3)}`).join(' · '),
+        monotonic: monotonic ? 'yes' : 'NO — direction violation',
+        in_range: inRange ? 'yes' : `NO — measured min=${minG.toFixed(3)} max=${maxG.toFixed(3)}`,
+      },
+      plot: {
+        kind: 'cvGainCurve',
+        title: 'CV → Gain coefficient',
+        xLabel: 'CV (linear)', yLabel: 'Gain (linear)',
+        series: [{
+          name: 'measured',
+          color: '#d99fcf',
+          points: samples.map(s => [s.cv, s.gain]),
+        }, {
+          name: 'unity',
+          color: 'rgba(255,255,255,0.18)',
+          points: [[cvSweep[0], 1], [cvSweep[cvSweep.length - 1], 1]],
+        }],
+      },
+      diagnostic: pass ? null
+        : `Direction: ${monotonic ? 'OK' : 'FAIL'}, range: ${inRange ? 'OK' : 'FAIL'} (min ${minG.toFixed(3)}, max ${maxG.toFixed(3)}).`,
+    }],
+  };
+}
+
 // Registry: spec.category → runner.
 const BROWSER_METRIC_REGISTRY = {
   utility:    runUtilityMetric,
@@ -917,7 +1030,7 @@ const BROWSER_METRIC_REGISTRY = {
   eq:         runFilterMetric,
   distortion: runDistortionMetric,
   compressor: runCompressorMetric,
-  // Future: analyzer
+  analyzer:   runAnalyzerMetric,
 };
 
 /**

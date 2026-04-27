@@ -1,19 +1,17 @@
 # chebyshevWS — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:45.162Z
+**Generated:** 2026-04-27T20:13:34.276Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 247 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 10 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| THD vs level | ✅ PASS | ✅ PASS |
-| Harmonic signature | ✅ PASS | ✅ PASS |
-| DC creep | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| THD vs level | ✅ PASS |
+| Harmonic signature | ✅ PASS |
+| DC creep | ✅ PASS |
 
 ## Passing tests
 

@@ -1,7 +1,7 @@
 {
   "opId": "gain",
   "category": "utility",
-  "timestamp": "2026-04-27T05:08:31.576Z",
+  "timestamp": "2026-04-27T20:13:33.429Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,43 +65,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 20
+    "durationMs": 5
   },
-  "native": {
-    "summary": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Closed-form math identity",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 2.831263601343892e-8,
-          "max_abs_err_db": -150.9603938858903
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Block-size invariance",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 0
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 207
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {},
-  "durationMs": 227
+  "durationMs": 5
 }

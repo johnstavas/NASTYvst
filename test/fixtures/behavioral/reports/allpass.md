@@ -1,17 +1,15 @@
 # allpass — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:40.945Z
+**Generated:** 2026-04-27T20:13:34.159Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 800 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 9 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Magnitude response (allpass flatness) | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Magnitude response (allpass flatness) | ✅ PASS |
 
 ## Passing tests
 

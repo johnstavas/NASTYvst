@@ -1,7 +1,7 @@
 {
   "opId": "optoCell",
   "category": "analyzer",
-  "timestamp": "2026-04-27T05:08:46.210Z",
+  "timestamp": "2026-04-27T20:13:34.304Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -161,88 +161,8 @@
     ],
     "durationMs": 8
   },
-  "native": {
-    "summary": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Curve monotonicity",
-        "pass": true,
-        "measured": {
-          "samples": [
-            {
-              "cv": 0,
-              "settled": 1,
-              "outputKey": "out",
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "cv": 0.5,
-              "settled": 0.8000014528135458,
-              "outputKey": "out",
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "cv": 1,
-              "settled": 0.5000022655849655,
-              "outputKey": "out",
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "cv": 2,
-              "settled": 0.2000014512768636,
-              "outputKey": "out",
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "cv": 4,
-              "settled": 0.0588240314888147,
-              "outputKey": "out",
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "cv": 8,
-              "settled": 0.015384752761262159,
-              "outputKey": "out",
-              "nan": 0,
-              "inf": 0
-            }
-          ],
-          "direction": "decreasing"
-        },
-        "declared": {
-          "curve_direction": "decreasing"
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Output range compliance",
-        "pass": true,
-        "measured": {
-          "samples_min": 0.009927337740858395,
-          "samples_max": 1
-        },
-        "declared": {
-          "output_range": [
-            0,
-            1.05
-          ]
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 784
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "cv_sweep_linear": [
       0,
@@ -262,5 +182,5 @@
       1.05
     ]
   },
-  "durationMs": 792
+  "durationMs": 8
 }

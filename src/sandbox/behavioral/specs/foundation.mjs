@@ -13,13 +13,18 @@ const dbToLinear = (db) => Math.pow(10, db / 20);
 export const UTILITY_BEHAVIORAL = {
   gain: {
     category: 'utility',
-    defaultParams: { gainDb: -6 },
+    tldr: 'Volume — boost or cut by dB. The simplest building block. 0 dB does nothing.',
+    // Default to unity so the listen test shows IN === OUT and the meter
+    // strip reads matching levels. The math is still verified across non-
+    // trivial values via param_sweep below.
+    defaultParams: { gainDb: 0 },
     declared: {
       expectedFn: (x, p) => x * dbToLinear(p.gainDb),
     },
   },
   abs: {
     category: 'utility',
+    tldr: 'Octave-up rectifier. Flips negatives positive — pure tones double in pitch, drums get harshly distorted with DC clicks.',
     defaultParams: {},
     declared: {
       expectedFn: (x) => Math.abs(x),
@@ -27,6 +32,7 @@ export const UTILITY_BEHAVIORAL = {
   },
   sign: {
     category: 'utility',
+    tldr: '1-bit hard square. Reduces input to ±1 — drums become click pulses, tones become buzzy squares. Extreme crush.',
     defaultParams: {},
     declared: {
       expectedFn: (x) => x > 0 ? 1 : x < 0 ? -1 : 0,
@@ -34,6 +40,7 @@ export const UTILITY_BEHAVIORAL = {
   },
   clamp: {
     category: 'utility',
+    tldr: 'Brutal hard limit at fixed rails. Drive hot for buzzy, squared-off odd-harmonic distortion.',
     // Param names are `lo`/`hi` (not `min`/`max`). Spec must match the smoke
     // build's baked params (lo=-0.5, hi=0.5) for two-arm equivalence —
     // otherwise the worklet uses its own defaults and the arms test
@@ -45,6 +52,7 @@ export const UTILITY_BEHAVIORAL = {
   },
   polarity: {
     category: 'utility',
+    tldr: 'Phase invert switch. Inaudible alone — does anything only when summed with another signal. Null-test utility.',
     defaultParams: { invert: 0 },
     declared: {
       expectedFn: (x, p) => p.invert ? -x : x,
@@ -53,6 +61,7 @@ export const UTILITY_BEHAVIORAL = {
   uniBi: {
     // uniBi default mode = 'uniToBi' (y = 2x - 1).
     category: 'utility',
+    tldr: 'Range remapper. Bridges control-rate (0..1) and audio-rate (-1..+1). Plumbing utility.',
     defaultParams: { mode: 'uniToBi' },
     declared: {
       expectedFn: (x) => 2 * x - 1,
@@ -63,6 +72,7 @@ export const UTILITY_BEHAVIORAL = {
   //    entire codegen pipeline's life) ─────────────────────────────────
   detector: {
     category: 'utility',
+    tldr: 'Loudness tracker (control signal, not audio). First stage of any compressor: detector → envelope → gainComputer → VCA.',
     defaultParams: { mode: 'peak' },
     declared: {
       // Peak mode: closed-form |x|. Stateless, no buffering.
@@ -101,6 +111,7 @@ export const UTILITY_BEHAVIORAL = {
   },
   mix: {
     category: 'utility',
+    tldr: 'Equal-power dry/wet crossfade. Two inputs in (dry, wet), one out — combines them with the cos/sin law so both legs sum to unity. The plumbing piece for any "mix" knob in a recipe.',
     // mix uses equal-power crossfade per dry_wet_mix_rule.md (NON-NEGOTIABLE):
     //   dryGain = cos(amount · π/2)     wetGain = sin(amount · π/2)
     // Worklet arm tested with dry-only stimulus → expectedFn = dryGain · x.
@@ -160,6 +171,7 @@ export const FILTER_BEHAVIORAL = {
   },
   ladder: {
     category: 'filter',
+    tldr: 'Phat Moog lopass. Smoother and creamier than korg35 — the classic Minimoog character. Steep 24 dB/oct rolloff with a singing resonance peak that sings into self-oscillation at high Q.',
     defaultParams: { cutoff: 2000, resonance: 0.3, drive: 1.0, trim: 0.0 },
     declared: {
       kind: 'lp',
@@ -186,6 +198,7 @@ export const FILTER_BEHAVIORAL = {
   // declare flat (or characterize by measured cutoff at default normFreq later).
   korg35: {
     category: 'filter',
+    tldr: 'Sticky resonance lopass. MS-20 / Korg-35 character — buzzy but smooth, with a Q peak that lingers on transients. Analog growl on drums.',
     // FINDING (2026-04-26): worklet header documents normFreq=0.5 → V_f=0
     // → f_c=87 Hz per Stinchcombe MS-20 mapping. MEASURED at Q=0.7 (Butterworth)
     // is 240 Hz — a 2.8× divergence from documented mapping. Logged in
@@ -200,13 +213,23 @@ export const FILTER_BEHAVIORAL = {
   },
   diodeLadder: {
     category: 'filter',
+    tldr: 'Saturating ladder lopass with body. Gets darker as you drive it — diode feedback adds character at hot input.',
     defaultParams: { normFreq: 0.4, Q: 4.0, drive: 1.0, trim: 0.0 },
     declared: {
       kind: 'lp',
+      // diodeLadder is a resonant ladder filter with Q=4 default → strong
+      // resonance peak at ~normFreq·nyquist. The "cutoff_hz" measurement via
+      // −3 dB below the sweep peak finds the upper-rolloff −3 dB point
+      // (above resonance), not the analog cutoff. At normFreq=0.4 / Q=4 / drive=1
+      // / STIM_AMP=0.25, both arms measure ~17 kHz. (Future: re-measure at Q=0.707
+      // Butterworth to get the analog-cutoff.) Locked 2026-04-27.
+      cutoff_hz: 17200,
+      cutoff_tol_pct: 25,
     },
   },
   allpass: {
     category: 'filter',
+    tldr: 'Phase shifter that\'s silent alone. Building block of phasers, reverbs, and stereo width — only audible when mixed with dry or fed back.',
     defaultParams: { freq: 1000 },
     declared: {
       kind: 'allpass',
@@ -224,6 +247,7 @@ export const FILTER_BEHAVIORAL = {
   // T8-B-tested at default LP 1 kHz to catch regression-to-stub or coefficient drift.
   filter: {
     category: 'filter',
+    tldr: 'Workhorse tone shaper. LP/HP/BP/notch biquad — at 1 kHz LP drums get darker, cymbals lose top.',
     defaultParams: { mode: 'lp', cutoff: 1000, q: 0.707 },
     declared: {
       kind: 'lp',
@@ -257,6 +281,7 @@ export const DISTORTION_BEHAVIORAL = {
   },
   hardClip: {
     category: 'distortion',
+    tldr: 'Crushed and distorted. The most aggressive limiter — instant slice at threshold, no knee. Buzzy, broken character.',
     defaultParams: { drive: 1, threshold: 0.3, trim: 0, adaa: 0 },
     declared: {
       input_levels_dbfs: [-40, -20, -6, 0],
@@ -290,6 +315,7 @@ export const DISTORTION_BEHAVIORAL = {
   },
   diodeClipper: {
     category: 'distortion',
+    tldr: 'Edgy, grainy fuzz character. Sharp knee with asymmetric harmonics — sounds "broken" in a musical way. Guitar-pedal DNA.',
     defaultParams: { drive: 4.0, asym: 0.0, trim: 0 },
     declared: {
       input_levels_dbfs: [-40, -20, -6, 0],
@@ -301,6 +327,7 @@ export const DISTORTION_BEHAVIORAL = {
   },
   bitcrush: {
     category: 'distortion',
+    tldr: 'Lo-fi grit. 12 bits = subtle vintage, 6 bits = chunky 8-bit, 4 bits = dramatic crush.',
     defaultParams: { bits: 6 },
     declared: {
       input_levels_dbfs: [-40, -20, -6, 0],
@@ -325,6 +352,7 @@ export const DISTORTION_BEHAVIORAL = {
   },
   chebyshevWS: {
     category: 'distortion',
+    tldr: 'Surgical harmonic crunch. Adds a specific harmonic (default 3rd) — prog-crunchy on drums, makes chords drop an octave via intermod.',
     // Drive 3rd-harmonic generator (g3) on top of fundamental (g1).
     defaultParams: { g1: 1, g2: 0, g3: 0.5, g4: 0, g5: 0, level: 1 },
     declared: {
@@ -336,6 +364,7 @@ export const DISTORTION_BEHAVIORAL = {
     },
   },
   xformerSat: {
+    tldr: 'Iron. Guitar-amp / mic-pre transformer warmth — gentle 2nd/3rd harmonics with subtle LF compression as the core saturates.',
     // De Paiva 2011 — gyrator-capacitor + WDF transformer model. Drive
     // exposed in dB; default 0 dB = nominally linear, but core curvature
     // means even at low input there's some hysteresis-driven 2H.
@@ -372,6 +401,7 @@ export const ENVELOPE_BEHAVIORAL = {
   // (envelope category metric reads attack_ms / release_ms as T90 declarations.)
   slew: {
     category: 'envelope',
+    tldr: 'Linear rate-limiter. Forces sample-to-sample motion to stay under a max speed — gives knobs that "mechanical/capacitive" feel as they ramp.',
     defaultParams: { rise: 10, fall: 50 },
     declared: {
       attack_ms:  9,    // T90 = 0.9 × rise (10 ms)
@@ -383,6 +413,7 @@ export const ENVELOPE_BEHAVIORAL = {
   },
   envelope: {
     category: 'envelope',
+    tldr: 'Audio loudness follower (control signal, not audio). Outputs slow rising/falling shape tracking volume — that swooping motion at drum hits. Powers compressors and auto-wahs.',
     defaultParams: { attack: 20, release: 200, amount: -1, offset: 0 },
     declared: {
       // T90 ≈ 2.303 × τ for a one-pole exponential.
@@ -408,6 +439,7 @@ export const ENVELOPE_BEHAVIORAL = {
 export const GAINCURVE_BEHAVIORAL = {
   gainComputer: {
     category: 'gainCurve',
+    tldr: 'Compressor threshold/ratio/knee curve (control signal, not audio). Defines how a compressor reacts to level. Used inside comp recipes after the envelope follower.',
     defaultParams: { thresholdDb: -18, ratio: 4, kneeDb: 6 },
     declared: {
       thresholdDb: -18,   // tolerance ±2 dB
@@ -424,6 +456,7 @@ export const GAINCURVE_BEHAVIORAL = {
 export const ANALYZER_BEHAVIORAL = {
   optoCell: {
     category: 'analyzer',
+    tldr: 'LA-2A opto compression curve (control signal, not audio). Slow-attack glow character — that classic "leveling amp" feel.',
     defaultParams: {
       cutoffScale: 3.0,
       curveExponent: 1.2,

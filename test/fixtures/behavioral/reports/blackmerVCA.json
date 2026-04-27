@@ -1,7 +1,7 @@
 {
   "opId": "blackmerVCA",
   "category": "compressor",
-  "timestamp": "2026-04-27T05:08:30.966Z",
+  "timestamp": "2026-04-27T20:13:33.240Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -51,7 +51,7 @@
         ]
       },
       "declared": {
-        "gr_at_max_cv_db": 18,
+        "gr_at_max_cv_db": 24,
         "cv_sweep_linear": [
           0,
           -1,
@@ -180,7 +180,7 @@
           ]
         },
         "declared": {
-          "gr_at_max_cv_db": 18,
+          "gr_at_max_cv_db": 24,
           "cv_sweep_linear": [
             0,
             -1,
@@ -259,20 +259,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 75
+    "durationMs": 80
   },
-  "native": {
-    "summary": {
-      "total": 0,
-      "passed": 0,
-      "failed": 0,
-      "verdict": "SKIP"
-    },
-    "tests": [],
-    "durationMs": 106,
-    "reason": "arm threw: Cannot read properties of undefined (reading '24000')"
-  },
-  "attribution": "native-skipped",
+  "native": null,
+  "attribution": null,
   "declared": {
     "cv_sweep_linear": [
       0,
@@ -285,12 +275,12 @@
       -24
     ],
     "cv_for_6db_gr": -6,
-    "gr_at_max_cv_db": 18,
+    "gr_at_max_cv_db": 24,
     "audio_test_dbfs": -12,
     "attack_ms": null,
     "release_ms": null,
     "thd_grows_with_gr": false,
     "unity_gain_at_zero_cv": 1
   },
-  "durationMs": 181
+  "durationMs": 80
 }

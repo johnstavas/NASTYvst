@@ -147,6 +147,26 @@ export default function OpQcView({ opId, onClose, onSignOff }) {
         })}
       </div>
 
+      {/* TLDR — what this op sounds like, one human-readable sentence.
+          Shown prominently above the technical spec block so anyone scanning
+          knows what to listen for before reading the math. */}
+      {spec?.tldr && (
+        <div style={{
+          width: '100%', maxWidth: 1100,
+          padding: '12px 16px', marginBottom: 14, borderRadius: 6,
+          background: 'rgba(217,159,207,0.08)',
+          border: '1px solid rgba(217,159,207,0.35)',
+          color: 'rgba(255,255,255,0.85)',
+          fontSize: 13, lineHeight: 1.5,
+        }}>
+          <span style={{
+            fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: '#d99fcf', fontWeight: 700, marginRight: 10,
+          }}>What it does</span>
+          {spec.tldr}
+        </div>
+      )}
+
       {/* Spec block */}
       {spec && (
         <div style={{
@@ -293,7 +313,10 @@ export default function OpQcView({ opId, onClose, onSignOff }) {
 
           {/* Listen panel — actually drives audio through the op so user can hear it.
               For compressor / GR-cell ops, pass a cvPort so the panel also drives a
-              4 Hz CV pump (else the cell is silent at cv=0 = unity). */}
+              4 Hz CV pump (else the cell is silent at cv=0 = unity).
+              For analyzer / envelope / gainCurve ops, the output is a control
+              signal not audio — pass controlSignalOp=true so the panel shows the
+              "listen is informational only" banner. */}
           <OpListenPanel
             opId={opId}
             params={spec?.defaultParams || {}}
@@ -303,6 +326,21 @@ export default function OpQcView({ opId, onClose, onSignOff }) {
             }
             cvPort={
               spec?.category === 'compressor' ? (spec?.declared?.cvPort || 'cv') : null
+            }
+            cvPumpPeak={(() => {
+              const sweep = spec?.declared?.cv_sweep_linear;
+              if (!Array.isArray(sweep)) return -12;     // default: VCA convention
+              const max = Math.max(...sweep);
+              const min = Math.min(...sweep);
+              // If the sweep ranges into negatives, this cell uses negative cv (VCA-style).
+              if (min < 0) return Math.max(min, -12);
+              // Otherwise positive cv = compression depth. Use a peak that gives
+              // ~6 dB GR (cv_for_6db_gr if declared, else 1.0).
+              return spec?.declared?.cv_for_6db_gr ?? 1.0;
+            })()}
+            controlSignalOp={
+              spec?.controlSignalOp === true ||
+              ['analyzer', 'envelope', 'gainCurve'].includes(spec?.category)
             }
           />
 

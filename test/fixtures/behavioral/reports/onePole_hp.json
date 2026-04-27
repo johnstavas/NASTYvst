@@ -1,7 +1,7 @@
 {
   "opId": "onePole_hp",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:34.967Z",
+  "timestamp": "2026-04-27T20:13:33.486Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -45,33 +45,11 @@
     ],
     "durationMs": 8
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (hp)",
-        "pass": true,
-        "measured": {
-          "cutoff_hz": 999.9850537766656
-        },
-        "declared": {
-          "kind": "hp",
-          "cutoff_hz": 1000
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 733
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "kind": "hp",
     "cutoff_hz": 1000
   },
-  "durationMs": 741
+  "durationMs": 8
 }

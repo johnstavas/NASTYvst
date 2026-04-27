@@ -1,7 +1,7 @@
 {
   "opId": "clamp",
   "category": "utility",
-  "timestamp": "2026-04-27T05:08:32.207Z",
+  "timestamp": "2026-04-27T20:13:33.445Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,43 +65,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 3
+    "durationMs": 5
   },
-  "native": {
-    "summary": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Closed-form math identity",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 9.5367431640625e-7,
-          "max_abs_err_db": -120.41199826559249
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Block-size invariance",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 0
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 214
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {},
-  "durationMs": 217
+  "durationMs": 5
 }

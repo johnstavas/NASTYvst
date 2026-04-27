@@ -1,7 +1,7 @@
 {
-  "opId": "envelope",
+  "opId": "slew",
   "category": "envelope",
-  "timestamp": "2026-04-27T20:13:34.341Z",
+  "timestamp": "2026-04-27T20:13:34.322Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -13,11 +13,11 @@
       "name": "Attack T90",
       "pass": true,
       "measured": {
-        "attack_t90_ms": 46.500003337860086,
+        "attack_t90_ms": 9.500002861022928,
         "direction": "rise"
       },
       "declared": {
-        "attack_ms": 46,
+        "attack_ms": 9,
         "tolerance_pct": 30
       },
       "diagnostic": null
@@ -26,11 +26,11 @@
       "name": "Release T90",
       "pass": true,
       "measured": {
-        "release_t90_ms": 466.9999837875366,
+        "release_t90_ms": 45.49998641014097,
         "direction": "fall"
       },
       "declared": {
-        "release_ms": 460,
+        "release_ms": 45,
         "tolerance_pct": 30
       },
       "diagnostic": null
@@ -39,12 +39,12 @@
       "name": "Steady-state level",
       "pass": true,
       "measured": {
-        "settled_value": -0.5,
+        "settled_value": 1,
         "abs_error": 0
       },
       "declared": {
-        "expected": -0.5,
-        "tolerance": 0.025,
+        "expected": 1,
+        "tolerance": 0.05,
         "formula": "amount·input + offset"
       },
       "diagnostic": null
@@ -62,11 +62,11 @@
         "name": "Attack T90",
         "pass": true,
         "measured": {
-          "attack_t90_ms": 46.500003337860086,
+          "attack_t90_ms": 9.500002861022928,
           "direction": "rise"
         },
         "declared": {
-          "attack_ms": 46,
+          "attack_ms": 9,
           "tolerance_pct": 30
         },
         "diagnostic": null
@@ -75,11 +75,11 @@
         "name": "Release T90",
         "pass": true,
         "measured": {
-          "release_t90_ms": 466.9999837875366,
+          "release_t90_ms": 45.49998641014097,
           "direction": "fall"
         },
         "declared": {
-          "release_ms": 460,
+          "release_ms": 45,
           "tolerance_pct": 30
         },
         "diagnostic": null
@@ -88,27 +88,27 @@
         "name": "Steady-state level",
         "pass": true,
         "measured": {
-          "settled_value": -0.5,
+          "settled_value": 1,
           "abs_error": 0
         },
         "declared": {
-          "expected": -0.5,
-          "tolerance": 0.025,
+          "expected": 1,
+          "tolerance": 0.05,
           "formula": "amount·input + offset"
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 18
+    "durationMs": 17
   },
   "native": null,
   "attribution": null,
   "declared": {
-    "attack_ms": 46,
-    "release_ms": 460,
+    "attack_ms": 9,
+    "release_ms": 45,
     "step_lo": 0,
-    "step_hi": 0.5,
-    "steady_input": 0.5
+    "step_hi": 1,
+    "steady_input": 1
   },
-  "durationMs": 18
+  "durationMs": 17
 }

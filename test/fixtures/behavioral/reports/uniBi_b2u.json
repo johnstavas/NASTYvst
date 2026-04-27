@@ -1,7 +1,7 @@
 {
   "opId": "uniBi_b2u",
   "category": "utility",
-  "timestamp": "2026-04-27T05:08:33.260Z",
+  "timestamp": "2026-04-27T20:13:33.459Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,43 +65,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 2
+    "durationMs": 1
   },
-  "native": {
-    "summary": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Closed-form math identity",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 2.9802322387695312e-8,
-          "max_abs_err_db": -150.5149978319906
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Block-size invariance",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 0
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 193
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {},
-  "durationMs": 195
+  "durationMs": 1
 }

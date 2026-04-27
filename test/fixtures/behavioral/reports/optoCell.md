@@ -1,18 +1,16 @@
 # optoCell — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:46.210Z
+**Generated:** 2026-04-27T20:13:34.304Z
 **Category:** analyzer
 **Verdict:** ✅ PASS
-**Duration:** 792 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 8 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Curve monotonicity | ✅ PASS | ✅ PASS |
-| Output range compliance | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Curve monotonicity | ✅ PASS |
+| Output range compliance | ✅ PASS |
 
 ## Passing tests
 

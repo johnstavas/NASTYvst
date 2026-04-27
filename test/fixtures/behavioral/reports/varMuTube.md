@@ -1,21 +1,17 @@
 # varMuTube — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:31.115Z
+**Generated:** 2026-04-27T20:13:33.320Z
 **Category:** compressor
 **Verdict:** ✅ PASS
-**Duration:** 148 ms
-
-**Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
+**Duration:** 77 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Static GR curve | ✅ PASS | ⏸ SKIP |
-| THD-vs-GR slope | ✅ PASS | ⏸ SKIP |
-| Sub-threshold null | ✅ PASS | ⏸ SKIP |
-
-*Native arm skipped: arm threw: Cannot read properties of undefined (reading '24000')*
+| Test | Worklet |
+|---|---|
+| Static GR curve | ✅ PASS |
+| THD-vs-GR slope | ✅ PASS |
+| Sub-threshold null | ✅ PASS |
 
 ## Passing tests
 

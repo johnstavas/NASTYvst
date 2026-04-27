@@ -1,18 +1,16 @@
 # gain — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:31.576Z
+**Generated:** 2026-04-27T20:13:33.429Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 227 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 5 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Closed-form math identity | ✅ PASS | ✅ PASS |
-| Block-size invariance | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Closed-form math identity | ✅ PASS |
+| Block-size invariance | ✅ PASS |
 
 ## Passing tests
 

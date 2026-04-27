@@ -1,9 +1,9 @@
-# envelope — Behavioral Validation Report
+# slew — Behavioral Validation Report
 
-**Generated:** 2026-04-27T20:13:34.341Z
+**Generated:** 2026-04-27T20:13:34.322Z
 **Category:** envelope
 **Verdict:** ✅ PASS
-**Duration:** 18 ms
+**Duration:** 17 ms
 
 ## Summary
 
@@ -15,9 +15,9 @@
 
 ## Passing tests
 
-- **Attack T90** → attack_t90_ms = 46.500, direction = rise
-- **Release T90** → release_t90_ms = 467.000, direction = fall
-- **Steady-state level** → settled_value = -0.500, abs_error = 0.000
+- **Attack T90** → attack_t90_ms = 9.500, direction = rise
+- **Release T90** → release_t90_ms = 45.500, direction = fall
+- **Steady-state level** → settled_value = 1.000, abs_error = 0.000
 
 ---
 

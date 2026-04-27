@@ -1,17 +1,15 @@
 # onePole — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:34.226Z
+**Generated:** 2026-04-27T20:13:33.477Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 758 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 11 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Magnitude response (lp) | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Magnitude response (lp) | ✅ PASS |
 
 ## Passing tests
 

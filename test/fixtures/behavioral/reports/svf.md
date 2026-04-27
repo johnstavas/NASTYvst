@@ -1,17 +1,15 @@
 # svf — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:37.978Z
+**Generated:** 2026-04-27T20:13:33.843Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 780 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 9 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Magnitude response (lp) | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Magnitude response (lp) | ✅ PASS |
 
 ## Passing tests
 

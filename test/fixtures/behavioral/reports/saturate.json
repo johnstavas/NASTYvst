@@ -1,7 +1,7 @@
 {
   "opId": "saturate",
   "category": "distortion",
-  "timestamp": "2026-04-27T05:08:43.615Z",
+  "timestamp": "2026-04-27T20:13:34.202Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -153,84 +153,8 @@
     ],
     "durationMs": 12
   },
-  "native": {
-    "summary": {
-      "total": 3,
-      "passed": 3,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "THD vs level",
-        "pass": true,
-        "measured": {
-          "samples": [
-            {
-              "dbfs": -40,
-              "thd_pct": 0.011849486397954004,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": -20,
-              "thd_pct": 1.149739270947942,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": -6,
-              "thd_pct": 17.242960512787743,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": 0,
-              "thd_pct": 30.932750122269532,
-              "nan": 0,
-              "inf": 0
-            }
-          ],
-          "low_thd_pct": 0.011849486397954004,
-          "high_thd_pct": 30.932750122269532
-        },
-        "declared": {
-          "low_level_thd_pct_max": 1,
-          "high_level_thd_pct_min": 0.5
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Harmonic signature",
-        "pass": true,
-        "measured": {
-          "classification": "odd",
-          "h2_rel": 1.1601065591130877e-8,
-          "h3_rel": 0.16861016130763226,
-          "h4_rel": 1.099864633455422e-9,
-          "h5_rel": 0.035292663020031145
-        },
-        "declared": {
-          "harmonic_signature": "odd"
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "DC creep",
-        "pass": true,
-        "measured": {
-          "dc_dbfs": -339.5542713807628,
-          "dc_linear": -1.052655904829778e-17
-        },
-        "declared": {
-          "dc_creep_max_dbfs": -40
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 266
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "input_levels_dbfs": [
       -40,
@@ -243,5 +167,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 278
+  "durationMs": 12
 }

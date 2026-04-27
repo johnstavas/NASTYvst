@@ -1,7 +1,7 @@
 {
   "opId": "dcBlock",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:35.802Z",
+  "timestamp": "2026-04-27T20:13:33.495Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,35 +43,13 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 9
+    "durationMs": 8
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (hp)",
-        "pass": true,
-        "measured": {
-          "cutoff_hz": 101.15603490842743
-        },
-        "declared": {
-          "kind": "hp",
-          "cutoff_hz": 100
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 825
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "kind": "hp",
     "cutoff_hz": 100
   },
-  "durationMs": 834
+  "durationMs": 8
 }

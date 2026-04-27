@@ -96,15 +96,27 @@ export default function OpQcChart({ plot, height = 200 }) {
           <text key={`xt${i}`} x={sx(x)} y={H - padB + 14} textAnchor="middle"
                 fontSize="9" fill="rgba(255,255,255,0.45)" fontFamily="monospace">{fmt(x)}</text>
         ))}
-        {/* Markers */}
-        {plot.markers?.map((m, i) => (
-          <g key={`m${i}`}>
-            <line x1={sx(m.x)} x2={sx(m.x)} y1={padT} y2={H - padB}
-                  stroke={m.color} strokeWidth="1" strokeDasharray="3,3" opacity="0.6" />
-            <text x={sx(m.x) + 4} y={padT + 10} fontSize="9"
-                  fill={m.color} fontFamily="monospace">{m.label}</text>
-          </g>
-        ))}
+        {/* Markers — stagger labels vertically to avoid overlap when markers
+            land close together in x (declared vs measured cutoff, etc). */}
+        {plot.markers?.map((m, i) => {
+          const x = sx(m.x);
+          // Detect close neighbors to decide stagger depth.
+          const closeNeighbors = (plot.markers || []).filter((other, j) =>
+            j < i && Math.abs(sx(other.x) - x) < 90
+          ).length;
+          const yOffset = padT + 10 + closeNeighbors * 13;
+          // Anchor right of line if the line's near right edge so the label doesn't overflow.
+          const anchorRight = x > W - 100;
+          return (
+            <g key={`m${i}`}>
+              <line x1={x} x2={x} y1={padT} y2={H - padB}
+                    stroke={m.color} strokeWidth="1" strokeDasharray="3,3" opacity="0.6" />
+              <text x={anchorRight ? x - 4 : x + 4} y={yOffset} fontSize="9"
+                    textAnchor={anchorRight ? 'end' : 'start'}
+                    fill={m.color} fontFamily="monospace">{m.label}</text>
+            </g>
+          );
+        })}
         {/* Series */}
         {plot.series.map((s, si) => {
           if (s.points.length === 0) return null;

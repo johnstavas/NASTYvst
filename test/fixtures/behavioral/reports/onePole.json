@@ -1,7 +1,7 @@
 {
   "opId": "onePole",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:34.226Z",
+  "timestamp": "2026-04-27T20:13:33.477Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,35 +43,13 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 11
+    "durationMs": 10
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (lp)",
-        "pass": true,
-        "measured": {
-          "cutoff_hz": 998.2862072631768
-        },
-        "declared": {
-          "kind": "lp",
-          "cutoff_hz": 1000
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 747
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1000
   },
-  "durationMs": 758
+  "durationMs": 11
 }

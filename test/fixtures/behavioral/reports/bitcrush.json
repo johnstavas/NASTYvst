@@ -1,7 +1,7 @@
 {
   "opId": "bitcrush",
   "category": "distortion",
-  "timestamp": "2026-04-27T05:08:44.914Z",
+  "timestamp": "2026-04-27T20:13:34.265Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -121,71 +121,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 9
+    "durationMs": 8
   },
-  "native": {
-    "summary": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "THD vs level",
-        "pass": true,
-        "measured": {
-          "samples": [
-            {
-              "dbfs": -40,
-              "thd_pct": 0,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": -20,
-              "thd_pct": 4.187922882162169,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": -6,
-              "thd_pct": 0.19216987814873052,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": 0,
-              "thd_pct": 0.10947835666072761,
-              "nan": 0,
-              "inf": 0
-            }
-          ],
-          "low_thd_pct": 0,
-          "high_thd_pct": 0.10947835666072761
-        },
-        "declared": {
-          "low_level_thd_pct_max": 1,
-          "high_level_thd_pct_min": 1
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "DC creep",
-        "pass": true,
-        "measured": {
-          "dc_dbfs": null,
-          "dc_linear": 0
-        },
-        "declared": {
-          "dc_creep_max_dbfs": -30
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 216
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "input_levels_dbfs": [
       -40,
@@ -195,7 +134,19 @@
     ],
     "quantization_op": true,
     "high_level_thd_pct_min": 1,
-    "dc_creep_max_dbfs": -30
+    "dc_creep_max_dbfs": -30,
+    "param_sweep": {
+      "param": "bits",
+      "values": [
+        12,
+        10,
+        8,
+        6,
+        4
+      ],
+      "test_level_dbfs": 0,
+      "monotonic_increasing_thd": true
+    }
   },
-  "durationMs": 225
+  "durationMs": 8
 }

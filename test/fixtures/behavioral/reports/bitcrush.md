@@ -1,18 +1,16 @@
 # bitcrush — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:44.914Z
+**Generated:** 2026-04-27T20:13:34.265Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 225 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 8 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| THD vs level | ✅ PASS | ✅ PASS |
-| DC creep | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| THD vs level | ✅ PASS |
+| DC creep | ✅ PASS |
 
 ## Passing tests
 

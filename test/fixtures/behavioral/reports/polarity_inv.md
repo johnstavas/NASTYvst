@@ -1,18 +1,16 @@
 # polarity_inv — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:33.065Z
+**Generated:** 2026-04-27T20:13:33.457Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 207 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 1 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Closed-form math identity | ✅ PASS | ✅ PASS |
-| Block-size invariance | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Closed-form math identity | ✅ PASS |
+| Block-size invariance | ✅ PASS |
 
 ## Passing tests
 

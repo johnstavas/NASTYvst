@@ -1,7 +1,7 @@
 {
   "opId": "diodeLadder",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:40.144Z",
+  "timestamp": "2026-04-27T20:13:34.149Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -16,7 +16,8 @@
         "cutoff_hz": 17212.8348233131
       },
       "declared": {
-        "kind": "lp"
+        "kind": "lp",
+        "cutoff_hz": 17200
       },
       "diagnostic": null
     }
@@ -36,38 +37,20 @@
           "cutoff_hz": 17212.8348233131
         },
         "declared": {
-          "kind": "lp"
+          "kind": "lp",
+          "cutoff_hz": 17200
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 269
+    "durationMs": 280
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (lp)",
-        "pass": true,
-        "measured": {
-          "cutoff_hz": 17212.845945182748
-        },
-        "declared": {
-          "kind": "lp"
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 1014
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
-    "kind": "lp"
+    "kind": "lp",
+    "cutoff_hz": 17200,
+    "cutoff_tol_pct": 25
   },
-  "durationMs": 1283
+  "durationMs": 280
 }

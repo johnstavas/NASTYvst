@@ -1,17 +1,15 @@
 # tilt — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:43.337Z
+**Generated:** 2026-04-27T20:13:34.189Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 775 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 10 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Magnitude response (tilt) | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Magnitude response (tilt) | ✅ PASS |
 
 ## Passing tests
 

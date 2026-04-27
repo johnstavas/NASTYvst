@@ -1,7 +1,7 @@
 {
   "opId": "mix",
   "category": "utility",
-  "timestamp": "2026-04-27T05:08:33.468Z",
+  "timestamp": "2026-04-27T20:13:33.467Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -67,18 +67,8 @@
     ],
     "durationMs": 4
   },
-  "native": {
-    "summary": {
-      "total": 0,
-      "passed": 0,
-      "failed": 0,
-      "verdict": "SKIP"
-    },
-    "tests": [],
-    "durationMs": 0,
-    "reason": "spec.nativeSkip — multi-input op or other architectural skip"
-  },
-  "attribution": "native-skipped",
+  "native": null,
+  "attribution": null,
   "declared": {
     "inputPort": "dry"
   },

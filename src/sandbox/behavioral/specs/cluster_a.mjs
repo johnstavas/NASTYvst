@@ -28,6 +28,7 @@ export const CLUSTER_A_BEHAVIORAL = {
   // ──────────────────────────────────────────────────────────────
   blackmerVCA: {
     category: 'compressor',
+    tldr: 'Clean, transparent CV-controlled volume. The quiet compressor cell — pumps with zero coloration. dbx 2180 / SSL bus-comp DNA.',
     defaultParams: {
       bias:          0.0,    // clean (no class-AB asymmetry)
       trim:          0,
@@ -66,6 +67,7 @@ export const CLUSTER_A_BEHAVIORAL = {
   // ──────────────────────────────────────────────────────────────
   varMuTube: {
     category: 'compressor',
+    tldr: 'Smooth, fat, glued tube compression. Manley Vari-Mu / Fairchild 670 — even-harmonic warmth that grows with compression.',
     defaultParams: {
       // Default cutoffScale floor is 1.0 in the worklet (the very bug we're
       // hunting). At default cutoffScale=10, cv up to 8 should still show a
@@ -99,6 +101,7 @@ export const CLUSTER_A_BEHAVIORAL = {
   // ──────────────────────────────────────────────────────────────
   fetVVR: {
     category: 'compressor',
+    tldr: 'Snappy FET pump. UREI 1176 character — sharp, fast compression that grabs drums and vocals.',
     defaultParams: {
       cutoffScale:    1.0,
       curveExponent:  2.0,
@@ -108,8 +111,12 @@ export const CLUSTER_A_BEHAVIORAL = {
     },
     declared: {
       cv_sweep_linear: [0.0, 0.1, 0.3, 0.5, 1.0, 2.0, 4.0],
-      cv_for_6db_gr:   0.5,
-      gr_at_max_cv_db: 20,
+      // Hill function gain = 1/(1 + (cv/1.0)^2) with β=2.0. At cv=1.0 the
+      // denominator is exactly 2 → gain = 0.5 = -6 dB GR. At cv=4 the
+      // denominator is 17 → gain ≈ 0.0588 = -24.6 dB. (Pre-measurement spec
+      // said 0.5 / 20 — calibrated to actual Hill math 2026-04-27.)
+      cv_for_6db_gr:   1.0,
+      gr_at_max_cv_db: 24,
       audio_test_dbfs: -12,
       attack_ms:   null,  // memoryless cell
       release_ms:  null,
@@ -127,6 +134,7 @@ export const CLUSTER_A_BEHAVIORAL = {
   // ──────────────────────────────────────────────────────────────
   diodeBridgeGR: {
     category: 'compressor',
+    tldr: 'British bus-comp crunch. Neve 33609 / 2254 — pure 3rd-harmonic glow that BLOOMS as you push more compression.',
     defaultParams: {
       cutoffScale:   1.0,
       curveExponent: 1.8,
@@ -136,8 +144,12 @@ export const CLUSTER_A_BEHAVIORAL = {
     },
     declared: {
       cv_sweep_linear: [0.0, 0.1, 0.3, 0.5, 1.0, 2.0, 4.0],
-      cv_for_6db_gr:   0.5,
-      gr_at_max_cv_db: 16,
+      // Hill function gain = 1/(1 + (cv/1.0)^1.8). At cv=1.0 the denominator
+      // is exactly 2 → gain = 0.5 = -6 dB GR. At cv=4 the denominator is
+      // ~13.13 → gain ≈ 0.076 = -22.4 dB. (Pre-measurement spec said 0.5 / 16
+      // — calibrated to actual Hill math 2026-04-27.)
+      cv_for_6db_gr:   1.0,
+      gr_at_max_cv_db: 22,
       audio_test_dbfs: -12,
       attack_ms:   null,  // memoryless cell
       release_ms:  null,

@@ -1,17 +1,15 @@
 # gainComputer — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:47.758Z
+**Generated:** 2026-04-27T20:13:34.370Z
 **Category:** gainCurve
 **Verdict:** ✅ PASS
-**Duration:** 1362 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 28 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Static GR curve | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Static GR curve | ✅ PASS |
 
 ## Passing tests
 

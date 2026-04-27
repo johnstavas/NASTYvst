@@ -1,20 +1,16 @@
 # mix — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:33.468Z
+**Generated:** 2026-04-27T20:13:33.467Z
 **Category:** utility
 **Verdict:** ✅ PASS
 **Duration:** 4 ms
 
-**Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
-
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Closed-form math identity | ✅ PASS | ⏸ SKIP |
-| Block-size invariance | ✅ PASS | ⏸ SKIP |
-
-*Native arm skipped: spec.nativeSkip — multi-input op or other architectural skip*
+| Test | Worklet |
+|---|---|
+| Closed-form math identity | ✅ PASS |
+| Block-size invariance | ✅ PASS |
 
 ## Passing tests
 

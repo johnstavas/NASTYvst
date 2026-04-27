@@ -1,7 +1,7 @@
 {
   "opId": "chebyshevWS",
   "category": "distortion",
-  "timestamp": "2026-04-27T05:08:45.162Z",
+  "timestamp": "2026-04-27T20:13:34.276Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -151,86 +151,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 13
+    "durationMs": 10
   },
-  "native": {
-    "summary": {
-      "total": 3,
-      "passed": 3,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "THD vs level",
-        "pass": true,
-        "measured": {
-          "samples": [
-            {
-              "dbfs": -40,
-              "thd_pct": 0.010004174306208341,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": -20,
-              "thd_pct": 1.031047742702435,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": -6,
-              "thd_pct": 101.9413504373942,
-              "nan": 0,
-              "inf": 0
-            },
-            {
-              "dbfs": 0,
-              "thd_pct": 50.00577709301093,
-              "nan": 0,
-              "inf": 0
-            }
-          ],
-          "low_thd_pct": 0.010004174306208341,
-          "high_thd_pct": 50.00577709301093
-        },
-        "declared": {
-          "low_level_thd_pct_max": 60,
-          "high_level_thd_pct_min": 1
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Harmonic signature",
-        "pass": true,
-        "measured": {
-          "classification": "odd",
-          "h2_rel": 1.5740086259876463e-8,
-          "h3_rel": 1.0194135043739416,
-          "h4_rel": 5.82519725184528e-9,
-          "h5_rel": 4.097360683855276e-9
-        },
-        "declared": {
-          "harmonic_signature": "odd"
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "DC creep",
-        "pass": true,
-        "measured": {
-          "dc_dbfs": -361.6984707737202,
-          "dc_linear": 8.223874256482641e-19
-        },
-        "declared": {
-          "dc_creep_max_dbfs": -40
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 234
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "input_levels_dbfs": [
       -40,
@@ -243,5 +167,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 247
+  "durationMs": 10
 }

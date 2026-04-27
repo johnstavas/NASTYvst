@@ -1,7 +1,7 @@
 {
   "opId": "filter",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:42.561Z",
+  "timestamp": "2026-04-27T20:13:34.178Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -45,33 +45,11 @@
     ],
     "durationMs": 9
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (lp)",
-        "pass": true,
-        "measured": {
-          "cutoff_hz": 999.1473293586585
-        },
-        "declared": {
-          "kind": "lp",
-          "cutoff_hz": 1000
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 769
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1000
   },
-  "durationMs": 778
+  "durationMs": 9
 }

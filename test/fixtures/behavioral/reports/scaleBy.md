@@ -1,18 +1,16 @@
 # scaleBy — Behavioral Validation Report
 
-**Generated:** 2026-04-27T05:08:33.464Z
+**Generated:** 2026-04-27T20:13:33.462Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 204 ms
-
-**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
+**Duration:** 3 ms
 
 ## Summary
 
-| Test | Worklet | Native |
-|---|---|---|
-| Closed-form math identity | ✅ PASS | ✅ PASS |
-| Block-size invariance | ✅ PASS | ✅ PASS |
+| Test | Worklet |
+|---|---|
+| Closed-form math identity | ✅ PASS |
+| Block-size invariance | ✅ PASS |
 
 ## Passing tests
 

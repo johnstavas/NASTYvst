@@ -1,7 +1,7 @@
 {
   "opId": "tilt",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:43.337Z",
+  "timestamp": "2026-04-27T20:13:34.189Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -59,42 +59,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 8
+    "durationMs": 10
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (tilt)",
-        "pass": true,
-        "measured": {
-          "magnitudes_db_at_freqs": [
-            -17.297639846801758,
-            -16.982711791992188,
-            -16.285940170288086,
-            -15.218849182128906,
-            -13.959223747253418,
-            -12.258469581604004,
-            -10.353463172912598,
-            -8.35862922668457
-          ]
-        },
-        "declared": {
-          "kind": "tilt"
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 767
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "kind": "tilt"
   },
-  "durationMs": 775
+  "durationMs": 10
 }

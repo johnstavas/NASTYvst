@@ -1,7 +1,7 @@
 {
   "opId": "polarity",
   "category": "utility",
-  "timestamp": "2026-04-27T05:08:32.432Z",
+  "timestamp": "2026-04-27T20:13:33.447Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,43 +65,10 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 2
+    "durationMs": 1
   },
-  "native": {
-    "summary": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Closed-form math identity",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 0,
-          "max_abs_err_db": null
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Block-size invariance",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 0
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 222
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {},
-  "durationMs": 224
+  "durationMs": 1
 }

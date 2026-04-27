@@ -1,7 +1,7 @@
 {
   "opId": "svf",
   "category": "filter",
-  "timestamp": "2026-04-27T05:08:37.978Z",
+  "timestamp": "2026-04-27T20:13:33.843Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,35 +43,13 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 10
+    "durationMs": 9
   },
-  "native": {
-    "summary": {
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "verdict": "PASS"
-    },
-    "tests": [
-      {
-        "name": "Magnitude response (lp)",
-        "pass": true,
-        "measured": {
-          "cutoff_hz": 1471.9373283332693
-        },
-        "declared": {
-          "kind": "lp",
-          "cutoff_hz": 1500
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 770
-  },
-  "attribution": "verified-end-to-end",
+  "native": null,
+  "attribution": null,
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1500
   },
-  "durationMs": 780
+  "durationMs": 9
 }
