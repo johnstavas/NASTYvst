@@ -1,0 +1,107 @@
+// op_optoCell.cpp — Stage-3b C++ sidecar for the `optoCell` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_optoCell.worklet.js
+// bit-for-bit. Phenomenological optical-isolator GR cell (LA-2A T4-style).
+// See worklet header for primary citations + math-by-definition declaration.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class OptoCellOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "optoCell";
+
+    explicit OptoCellOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {
+        recompute_();
+    }
+
+    void reset() {
+        envFast_ = 0.0;
+        envSlow_ = 0.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if      (std::strcmp(id, "attackMs")       == 0) attackMs_       = clip(v, 0.1,  100.0);
+        else if (std::strcmp(id, "releaseMsFast")  == 0) releaseMsFast_  = clip(v, 5.0,  500.0);
+        else if (std::strcmp(id, "releaseSecSlow") == 0) releaseSecSlow_ = clip(v, 0.5,  15.0);
+        else if (std::strcmp(id, "responsivity")   == 0) responsivity_   = clip(v, 0.05, 4.0);
+        else return;
+        recompute_();
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* cv, float* gain, int N) {
+        if (!gain) return;
+        const double aAtk  = aAttack_;
+        const double aRelF = aReleaseFast_;
+        const double aSlow = aSlow_;
+        const double k     = responsivity_;
+        double envFast = envFast_;
+        double envSlow = envSlow_;
+
+        for (int i = 0; i < N; ++i) {
+            const double v = cv ? static_cast<double>(cv[i]) : 0.0;
+            const double cvPos = v > 0.0 ? v : 0.0;
+
+            // Asymmetric peak follower (fast attack, intermediate release).
+            const double aFast = (cvPos > envFast) ? aAtk : aRelF;
+            envFast = envFast + aFast * (cvPos - envFast);
+            if (envFast < kDenormal) envFast = 0.0;
+
+            // Slow follower of envFast — thermal accumulation memory.
+            envSlow = envSlow + aSlow * (envFast - envSlow);
+            if (envSlow < kDenormal) envSlow = 0.0;
+
+            // Effective envelope: fast attack, slow program-dep release.
+            const double env = envFast > envSlow ? envFast : envSlow;
+
+            // Gain mapping: 1 / (1 + k · env²) ~ LDR divider.
+            const double env2 = env * env;
+            gain[i] = static_cast<float>(1.0 / (1.0 + k * env2));
+        }
+        envFast_ = envFast;
+        envSlow_ = envSlow;
+    }
+
+private:
+    static constexpr double kDenormal = 1e-30;
+
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    static double tauToAlpha(double tauSec, double sr) {
+        if (tauSec <= 0.0) return 1.0;
+        return 1.0 - std::exp(-1.0 / (tauSec * sr));
+    }
+
+    void recompute_() {
+        aAttack_      = tauToAlpha(attackMs_      * 1e-3, sr_);
+        aReleaseFast_ = tauToAlpha(releaseMsFast_ * 1e-3, sr_);
+        aSlow_        = tauToAlpha(releaseSecSlow_,        sr_);
+    }
+
+    double sr_;
+
+    // User params (clamped in setParam).
+    double attackMs_       = 10.0;
+    double releaseMsFast_  = 60.0;
+    double releaseSecSlow_ = 5.0;
+    double responsivity_   = 1.0;
+
+    // Derived coefficients.
+    double aAttack_      = 0.0;
+    double aReleaseFast_ = 0.0;
+    double aSlow_        = 0.0;
+
+    // State.
+    double envFast_ = 0.0;
+    double envSlow_ = 0.0;
+};
+
+}  // namespace shags::ops

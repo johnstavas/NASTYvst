@@ -2768,6 +2768,123 @@ export const OPS = {
     ],
   },
 
+  // diodeBridgeGR — #179 Dynamics. Phenomenological diode-bridge GR cell
+  // modeling Neve 33609 / 2254 / 8014 family. PURE-ODD distortion (3H + 5H
+  // from y³ cubic shape) — diode-bridge symmetry cancels even harmonics.
+  // Optional `asymmetry` adds small even content for component-mismatch
+  // realism. Memoryless. Math-by-definition: 2254/33609 service manuals
+  // inaccessible at ship time. P1 research-debt.
+  diodeBridgeGR: {
+    id: 'diodeBridgeGR',
+    label: 'diodeBridgeGR',
+    description: 'Diode-bridge GR cell — Neve 33609/2254 phenomenology. Pure-odd 3H+5H from cubic; optional asymmetry knob for component-mismatch 2H. cv > 0 = more compression.',
+    ports: {
+      inputs:  [{ id: 'audio', kind: 'audio' }, { id: 'cv', kind: 'audio' }],
+      outputs: [{ id: 'out',   kind: 'audio' }],
+    },
+    params: [
+      { id: 'cutoffScale',   label: 'Cutoff',    type: 'number', min: 0.5, max: 30,  step: 0.1,   default: 8,    unit: '',   format: (v) => v.toFixed(1) },
+      { id: 'curveExponent', label: 'Knee',      type: 'number', min: 1.0, max: 3.0, step: 0.01,  default: 1.8,  unit: '',   format: (v) => v.toFixed(2) },
+      { id: 'distortion',    label: 'Odd',       type: 'number', min: 0,   max: 0.5, step: 0.001, default: 0.10, unit: '',   format: (v) => v.toFixed(3) },
+      { id: 'asymmetry',     label: 'Asymmetry', type: 'number', min: -0.3, max: 0.3, step: 0.001, default: 0.0,  unit: '',  format: (v) => v.toFixed(3) },
+      { id: 'trim',          label: 'Trim',      type: 'number', min: -24, max: 24,  step: 0.1,   default: 0,    unit: 'dB', format: (v) => `${v.toFixed(1)} dB` },
+    ],
+  },
+
+  // fetVVR — #147 Dynamics. Phenomenological JFET voltage-variable-resistor
+  // gain cell modeling UREI/UA 1176 family (2N3819 JFET, fast attack /
+  // aggressive harmonics signature). Memoryless. Distinct from varMuTube
+  // (vari-mu) by sharper knee (β=2 default vs 1.5) AND mixed 2H+3H
+  // distortion (FET asymmetric + pinch-off non-linearity) vs varMuTube's
+  // pure-even 2H+4H. "All buttons in" mode = crank both distortion2H and
+  // distortion3H. Math-by-definition: 1176 service manual + 2N3819
+  // datasheet inaccessible at ship time. P1 research-debt.
+  fetVVR: {
+    id: 'fetVVR',
+    label: 'fetVVR',
+    description: 'JFET-VVR GR cell — UREI 1176 phenomenology. Sharp knee + mixed 2H/3H distortion. cv > 0 = more compression. distortion2H + distortion3H independently tunable for "all buttons in" character.',
+    ports: {
+      inputs:  [{ id: 'audio', kind: 'audio' }, { id: 'cv', kind: 'audio' }],
+      outputs: [{ id: 'out',   kind: 'audio' }],
+    },
+    params: [
+      { id: 'cutoffScale',   label: 'Cutoff',   type: 'number', min: 0.5, max: 30,  step: 0.1,   default: 5,    unit: '',   format: (v) => v.toFixed(1) },
+      { id: 'curveExponent', label: 'Knee',     type: 'number', min: 1.0, max: 4.0, step: 0.01,  default: 2.0,  unit: '',   format: (v) => v.toFixed(2) },
+      { id: 'distortion2H',  label: 'Even',     type: 'number', min: 0,   max: 0.5, step: 0.001, default: 0.10, unit: '',   format: (v) => v.toFixed(3) },
+      { id: 'distortion3H',  label: 'Odd',      type: 'number', min: 0,   max: 0.5, step: 0.001, default: 0.05, unit: '',   format: (v) => v.toFixed(3) },
+      { id: 'trim',          label: 'Trim',     type: 'number', min: -24, max: 24,  step: 0.1,   default: 0,    unit: 'dB', format: (v) => `${v.toFixed(1)} dB` },
+    ],
+  },
+
+  // varMuTube — #145 Dynamics. Phenomenological variable-mu tube gain
+  // cell modeling Manley Variable Mu / Fairchild 670 / Altec 436 family.
+  // Soft-knee Hill-function gain curve + 2H distortion that scales with
+  // compression depth (the tube character — heavier GR = more 2H content).
+  // Memoryless. cv positive = compression amount; cv=0 → unity gain.
+  // Math-by-definition: primary tube datasheets (6386, 6BC8) and
+  // Pakarinen-Yeh CMJ 2009 inaccessible at ship time; topology anchored
+  // to Giannoulis-Massberg-Reiss JAES 2012 §Soft Knee. P1 research-debt.
+  varMuTube: {
+    id: 'varMuTube',
+    label: 'varMuTube',
+    description: 'Variable-mu tube GR cell — Manley Vari-Mu / Fairchild 670 phenomenology. Soft-knee Hill curve + compression-depth-coupled 2H. cv > 0 = more compression.',
+    ports: {
+      inputs:  [{ id: 'audio', kind: 'audio' }, { id: 'cv', kind: 'audio' }],
+      outputs: [{ id: 'out',   kind: 'audio' }],
+    },
+    params: [
+      { id: 'cutoffScale',   label: 'Cutoff',    type: 'number', min: 1,    max: 50,  step: 0.1,  default: 10,  unit: '',   format: (v) => v.toFixed(1) },
+      { id: 'curveExponent', label: 'Knee',      type: 'number', min: 0.5,  max: 3.0, step: 0.01, default: 1.5, unit: '',   format: (v) => v.toFixed(2) },
+      { id: 'distortion',    label: 'Character', type: 'number', min: 0,    max: 0.5, step: 0.001, default: 0.1, unit: '',   format: (v) => v.toFixed(3) },
+      { id: 'trim',          label: 'Trim',      type: 'number', min: -24,  max: 24,  step: 0.1,  default: 0,   unit: 'dB', format: (v) => `${v.toFixed(1)} dB` },
+    ],
+  },
+
+  // blackmerVCA — #142 Dynamics. Log-add-antilog VCA gain cell modeling
+  // the Blackmer (dbx / THAT 2180) topology per US Patent 3,714,462.
+  // Memoryless. cv input interpreted as gain in dB (cv=0 → unity gain).
+  // bias param adds class-AB Vbe-mismatch character (signed 2H distortion).
+  // Default bias=0 → ideal linear multiplier; ±0.025 ≈ patent matching
+  // tolerance (1 mV / 40 µA) → audible "warm" character. Composes with
+  // any envelope follower to build full compressors.
+  blackmerVCA: {
+    id: 'blackmerVCA',
+    label: 'blackmerVCA',
+    description: 'Log-add-antilog VCA — Blackmer US Patent 3,714,462 (dbx/THAT 2180). cv in dB; bias adds Vbe-mismatch 2H character. ±50 dB range per patent.',
+    ports: {
+      inputs:  [{ id: 'audio', kind: 'audio' }, { id: 'cv', kind: 'audio' }],
+      outputs: [{ id: 'out',   kind: 'audio' }],
+    },
+    params: [
+      { id: 'bias', label: 'Bias',  type: 'number', min: -0.5, max: 0.5, step: 0.001, default: 0.0,  unit: '',  format: (v) => v.toFixed(3) },
+      { id: 'trim', label: 'Trim',  type: 'number', min: -24,  max: 24,  step: 0.1,   default: 0.0,  unit: 'dB', format: (v) => `${v.toFixed(1)} dB` },
+    ],
+  },
+
+  // optoCell — #141 Dynamics. Phenomenological optical-isolator gain-reduction
+  // cell modeling LA-2A T4-style behavior (EL panel + CdS LDR with thermal
+  // memory). Two-state envelope: fast (10ms attack / 60ms initial release per
+  // UA spec) + slow (1-15s program-dep). max(envFast, envSlow) gives quick
+  // recovery on brief peaks but slow recovery on sustained pinning. Gain
+  // mapping 1/(1 + k·env²) approximates LDR resistance ~ 1/intensity². NOT a
+  // physically-accurate T4 model — phenomenology only; exact thermal-coupling
+  // DSP model logged as research-debt P1.
+  optoCell: {
+    id: 'optoCell',
+    label: 'optoCell',
+    description: 'Optical-isolator GR cell (LA-2A T4 phenomenology — UA T4 numbers, two-state thermal memory). Outputs gain-reduction multiplier (0..1); compose with #5 mix or external multiplication for full compressor.',
+    ports: {
+      inputs:  [{ id: 'cv',   kind: 'audio' }],
+      outputs: [{ id: 'gain', kind: 'audio' }],
+    },
+    params: [
+      { id: 'attackMs',       label: 'Attack',     type: 'number', min: 0.1, max: 100, step: 0.1, default: 10,  unit: 'ms', format: (v) => `${v.toFixed(1)} ms` },
+      { id: 'releaseMsFast',  label: 'Release Fast', type: 'number', min: 5,   max: 500, step: 1,   default: 60,  unit: 'ms', format: (v) => `${v.toFixed(0)} ms` },
+      { id: 'releaseSecSlow', label: 'Release Slow', type: 'number', min: 0.5, max: 15,  step: 0.1, default: 5,   unit: 's',  format: (v) => `${v.toFixed(1)} s` },
+      { id: 'responsivity',   label: 'Depth',      type: 'number', min: 0.05, max: 4.0, step: 0.01, default: 1.0, unit: '', format: (v) => v.toFixed(2) },
+    ],
+  },
+
   // srcResampler — #166 Foundation/Utility. Polyphase Kaiser-windowed-sinc
   // varispeed reader per JOS Implementation page (ccrma.stanford.edu/~jos/
   // resample/Implementation.html). NOT a true elastic-buffered SRC: same N

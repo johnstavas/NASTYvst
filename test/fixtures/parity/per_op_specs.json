@@ -1104,6 +1104,121 @@
       "sr": 48000,
       "block": 512
     },
+    "diodeBridgeGR": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-diodebridgegr-v0/build/SmokeDiodebridgegrV0_2604262035_artefacts/Release/VST3/SmokeDiodebridgegrV0_2604262035.vst3",
+      "params": {
+        "n_dbgr__cutoffScale":   8,
+        "n_dbgr__curveExponent": 1.8,
+        "n_dbgr__distortion":    0.10,
+        "n_dbgr__asymmetry":     0.0,
+        "n_dbgr__trim":          0
+      },
+      "paramRanges": {
+        "n_dbgr__cutoffScale":   { "min": 0.5,  "max": 30  },
+        "n_dbgr__curveExponent": { "min": 1.0,  "max": 3.0 },
+        "n_dbgr__distortion":    { "min": 0,    "max": 0.5 },
+        "n_dbgr__asymmetry":     { "min": -0.3, "max": 0.3 },
+        "n_dbgr__trim":          { "min": -24,  "max": 24  }
+      },
+      "reference": "builtin:diodeBridgeGR",
+      "reference_args": { "cutoffScale": 8, "curveExponent": 1.8, "distortion": 0.10, "asymmetry": 0.0, "trim": 0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512,
+      "note": "Diode-bridge GR cell phenomenology (Neve 33609/2254 family). Pure-odd 3H from cubic + asymmetry knob. Memoryless. Smoke at default + cv=0 → unity pass-through."
+    },
+    "fetVVR": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-fetvvr-v0/build/SmokeFetvvrV0_2604262011_artefacts/Release/VST3/SmokeFetvvrV0_2604262011.vst3",
+      "params": {
+        "n_fet__cutoffScale":   5,
+        "n_fet__curveExponent": 2.0,
+        "n_fet__distortion2H":  0.10,
+        "n_fet__distortion3H":  0.05,
+        "n_fet__trim":          0
+      },
+      "paramRanges": {
+        "n_fet__cutoffScale":   { "min": 0.5, "max": 30  },
+        "n_fet__curveExponent": { "min": 1.0, "max": 4.0 },
+        "n_fet__distortion2H":  { "min": 0,   "max": 0.5 },
+        "n_fet__distortion3H":  { "min": 0,   "max": 0.5 },
+        "n_fet__trim":          { "min": -24, "max": 24  }
+      },
+      "reference": "builtin:fetVVR",
+      "reference_args": { "cutoffScale": 5, "curveExponent": 2.0, "distortion2H": 0.10, "distortion3H": 0.05, "trim": 0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512,
+      "note": "JFET-VVR GR cell phenomenology (UREI 1176 family). Memoryless. Smoke at default + cv=0 → unity pass-through (gain=1, no distortion since comprDepth=0)."
+    },
+    "varMuTube": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-varmutube-v0/build/SmokeVarmutubeV0_2604261952_artefacts/Release/VST3/SmokeVarmutubeV0_2604261952.vst3",
+      "params": {
+        "n_vmt__cutoffScale":   10,
+        "n_vmt__curveExponent": 1.5,
+        "n_vmt__distortion":    0.1,
+        "n_vmt__trim":          0
+      },
+      "paramRanges": {
+        "n_vmt__cutoffScale":   { "min": 1,    "max": 50  },
+        "n_vmt__curveExponent": { "min": 0.5,  "max": 3.0 },
+        "n_vmt__distortion":    { "min": 0,    "max": 0.5 },
+        "n_vmt__trim":          { "min": -24,  "max": 24  }
+      },
+      "reference": "builtin:varMuTube",
+      "reference_args": { "cutoffScale": 10, "curveExponent": 1.5, "distortion": 0.1, "trim": 0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512,
+      "note": "Variable-mu tube GR cell phenomenology (Manley/Fairchild 670 family). Memoryless. Smoke at default params + cv=0 → unity pass-through (gain=1, no distortion since comprDepth=0)."
+    },
+    "blackmerVCA": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-blackmervca-v0/build/SmokeBlackmervcaV0_2604261910_artefacts/Release/VST3/SmokeBlackmervcaV0_2604261910.vst3",
+      "params": {
+        "n_vca__bias": 0.0,
+        "n_vca__trim": 0.0
+      },
+      "paramRanges": {
+        "n_vca__bias": { "min": -0.5, "max": 0.5 },
+        "n_vca__trim": { "min": -24,  "max": 24  }
+      },
+      "reference": "builtin:blackmerVCA",
+      "reference_args": { "bias": 0.0, "trim": 0.0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512,
+      "note": "Blackmer log-add-antilog VCA (US 3,714,462). Memoryless. Smoke at default params (cv=0, bias=0, trim=0) = identity / pass-through; native parity verifies bit-for-bit equivalence."
+    },
+    "optoCell": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-optocell-v0/build/SmokeOptocellV0_2604261848_artefacts/Release/VST3/SmokeOptocellV0_2604261848.vst3",
+      "params": {
+        "n_oc__attackMs":       10,
+        "n_oc__releaseMsFast":  60,
+        "n_oc__releaseSecSlow": 5,
+        "n_oc__responsivity":   1.0
+      },
+      "paramRanges": {
+        "n_oc__attackMs":       { "min": 0.1,  "max": 100 },
+        "n_oc__releaseMsFast":  { "min": 5,    "max": 500 },
+        "n_oc__releaseSecSlow": { "min": 0.5,  "max": 15  },
+        "n_oc__responsivity":   { "min": 0.05, "max": 4.0 }
+      },
+      "reference": "builtin:optoCell",
+      "reference_args": { "attackMs": 10, "releaseMsFast": 60, "releaseSecSlow": 5, "responsivity": 1.0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512,
+      "note": "LA-2A T4-style phenomenological optical-isolator GR cell. Two-state envelope (fast/slow) + LDR-divider gain mapping. UA T4 spec defaults."
+    },
     "srcResampler": {
       "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
       "tolerance_db": -90,

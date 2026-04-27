@@ -1,0 +1,86 @@
+// op_fetVVR.cpp — Stage-3b C++ sidecar for the `fetVVR` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_fetVVR.worklet.js
+// bit-for-bit. Phenomenological JFET-VVR GR cell (UREI/UA 1176 family).
+// See worklet.js header for full primary citations + math-by-definition.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class FetVVROp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "fetVVR";
+
+    explicit FetVVROp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {}
+
+    void reset() { /* memoryless */ }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "cutoffScale") == 0) {
+            cutoffScale_ = clip(v, 0.5, 30.0);
+            invCutoff_   = 1.0 / cutoffScale_;
+        } else if (std::strcmp(id, "curveExponent") == 0) {
+            curveExponent_ = clip(v, 1.0, 4.0);
+        } else if (std::strcmp(id, "distortion2H") == 0) {
+            distortion2H_ = clip(v, 0.0, 0.5);
+        } else if (std::strcmp(id, "distortion3H") == 0) {
+            distortion3H_ = clip(v, 0.0, 0.5);
+        } else if (std::strcmp(id, "trim") == 0) {
+            trim_    = clip(v, -24.0, 24.0);
+            trimLin_ = std::exp(trim_ * kLn10Over20);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* audio, const float* cv, float* out, int N) {
+        if (!out) return;
+        const double invCut  = invCutoff_;
+        const double beta    = curveExponent_;
+        const double d2      = distortion2H_;
+        const double d3      = distortion3H_;
+        const double trimLin = trimLin_;
+
+        if (!audio) {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            const double x  = static_cast<double>(audio[i]);
+            const double v  = cv ? static_cast<double>(cv[i]) : 0.0;
+            const double cvPos = (v > 0.0 && std::isfinite(v)) ? v : 0.0;
+            const double norm  = cvPos * invCut;
+            const double normPowBeta = norm > 0.0 ? std::pow(norm, beta) : 0.0;
+            const double gain = 1.0 / (1.0 + normPowBeta);
+            const double yClean = x * gain;
+            const double comprDepth = 1.0 - gain;
+            const double absY = yClean < 0.0 ? -yClean : yClean;
+            const double yEven = d2 * comprDepth * absY;
+            const double yOdd  = d3 * comprDepth * yClean * absY;
+            out[i] = static_cast<float>((yClean + yEven + yOdd) * trimLin);
+        }
+    }
+
+private:
+    static constexpr double kLn10Over20 = 0.11512925464970228;
+
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    double sr_;
+    double cutoffScale_   = 5.0;
+    double curveExponent_ = 2.0;
+    double distortion2H_  = 0.10;
+    double distortion3H_  = 0.05;
+    double trim_          = 0.0;
+    double trimLin_       = 1.0;
+    double invCutoff_     = 0.2;
+};
+
+}  // namespace shags::ops

@@ -1,0 +1,83 @@
+// op_varMuTube.cpp — Stage-3b C++ sidecar for the `varMuTube` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_varMuTube.worklet.js
+// bit-for-bit. Phenomenological variable-mu tube GR cell (Manley Vari-Mu /
+// Fairchild 670 family). See worklet.js header for full primary citations
+// + math-by-definition declaration.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class VarMuTubeOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "varMuTube";
+
+    explicit VarMuTubeOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {}
+
+    void reset() { /* memoryless */ }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "cutoffScale") == 0) {
+            cutoffScale_ = clip(v, 1.0, 50.0);
+            invCutoff_   = 1.0 / cutoffScale_;
+        } else if (std::strcmp(id, "curveExponent") == 0) {
+            curveExponent_ = clip(v, 0.5, 3.0);
+        } else if (std::strcmp(id, "distortion") == 0) {
+            distortion_ = clip(v, 0.0, 0.5);
+        } else if (std::strcmp(id, "trim") == 0) {
+            trim_    = clip(v, -24.0, 24.0);
+            trimLin_ = std::exp(trim_ * kLn10Over20);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* audio, const float* cv, float* out, int N) {
+        if (!out) return;
+        const double invCut  = invCutoff_;
+        const double beta    = curveExponent_;
+        const double dist    = distortion_;
+        const double trimLin = trimLin_;
+
+        if (!audio) {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            const double x  = static_cast<double>(audio[i]);
+            const double v  = cv ? static_cast<double>(cv[i]) : 0.0;
+            const double cvPos = (v > 0.0 && std::isfinite(v)) ? v : 0.0;
+            const double norm  = cvPos * invCut;
+            const double normPowBeta = norm > 0.0 ? std::pow(norm, beta) : 0.0;
+            const double gain = 1.0 / (1.0 + normPowBeta);
+            const double yClean = x * gain;
+            const double comprDepth = 1.0 - gain;
+            const double distScale  = dist * comprDepth;
+            const double absY  = yClean < 0.0 ? -yClean : yClean;
+            const double yChar = distScale * absY;
+            out[i] = static_cast<float>((yClean + yChar) * trimLin);
+        }
+    }
+
+private:
+    static constexpr double kLn10Over20 = 0.11512925464970228;
+
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    double sr_;
+    double cutoffScale_   = 10.0;
+    double curveExponent_ = 1.5;
+    double distortion_    = 0.1;
+    double trim_          = 0.0;
+    double trimLin_       = 1.0;
+    double invCutoff_     = 0.1;
+};
+
+}  // namespace shags::ops

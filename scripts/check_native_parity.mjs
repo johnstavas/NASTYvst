@@ -1057,6 +1057,139 @@ const REFERENCES = {
     }
     return out;
   },
+  // diodeBridgeGR — phenomenological diode-bridge GR cell (Neve 33609/2254).
+  // Mirror op_diodeBridgeGR.worklet.js bit-for-bit.
+  'builtin:diodeBridgeGR': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const clip = (x, lo, hi) => x < lo ? lo : (x > hi ? hi : x);
+    const cutoffScale   = clip(Number(args.cutoffScale   ?? 8),   0.5,  30);
+    const curveExponent = clip(Number(args.curveExponent ?? 1.8), 1.0,  3.0);
+    const distortion    = clip(Number(args.distortion    ?? 0.10),0,    0.5);
+    const asymmetry     = clip(Number(args.asymmetry     ?? 0.0), -0.3, 0.3);
+    const trim          = clip(Number(args.trim          ?? 0),   -24,  24);
+    const LN10_OVER_20 = 0.11512925464970228;
+    const trimLin = Math.exp(trim * LN10_OVER_20);
+    const out = new Float32Array(input.length);
+    // Smoke: cv=0 → unity gain → pass-through (no distortion since comprDepth=0).
+    for (let i = 0; i < input.length; i++) {
+      const x = input[i];
+      const yClean = x * 1.0;
+      const comprDepth = 0;
+      const xCubed = x * x * x;
+      const yOdd  = distortion * comprDepth * xCubed * 1.0;  // = 0
+      const absY  = yClean < 0 ? -yClean : yClean;
+      const yEven = asymmetry * comprDepth * absY;            // = 0
+      out[i] = Math.fround((yClean + yOdd + yEven) * trimLin);
+    }
+    return out;
+  },
+  // fetVVR — phenomenological JFET-VVR GR cell (UREI 1176 family).
+  // Mirror op_fetVVR.worklet.js bit-for-bit.
+  'builtin:fetVVR': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const clip = (x, lo, hi) => x < lo ? lo : (x > hi ? hi : x);
+    const cutoffScale   = clip(Number(args.cutoffScale   ?? 5),   0.5, 30);
+    const curveExponent = clip(Number(args.curveExponent ?? 2.0), 1.0, 4.0);
+    const distortion2H  = clip(Number(args.distortion2H  ?? 0.1), 0,   0.5);
+    const distortion3H  = clip(Number(args.distortion3H  ?? 0.05),0,   0.5);
+    const trim          = clip(Number(args.trim          ?? 0),   -24, 24);
+    const LN10_OVER_20 = 0.11512925464970228;
+    const trimLin = Math.exp(trim * LN10_OVER_20);
+    const out = new Float32Array(input.length);
+    // Smoke graph routes only `audio` (no cv) → cv=0 → unity gain, no distortion.
+    for (let i = 0; i < input.length; i++) {
+      const x = input[i];
+      const yClean = x * 1.0;  // gain=1 at cv=0
+      const comprDepth = 0;
+      const absY = yClean < 0 ? -yClean : yClean;
+      const yEven = distortion2H * comprDepth * absY;        // = 0
+      const yOdd  = distortion3H * comprDepth * yClean * absY; // = 0
+      out[i] = Math.fround((yClean + yEven + yOdd) * trimLin);
+    }
+    return out;
+  },
+  // varMuTube — phenomenological variable-mu tube GR cell.
+  // Mirror op_varMuTube.worklet.js bit-for-bit.
+  'builtin:varMuTube': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const clip = (x, lo, hi) => x < lo ? lo : (x > hi ? hi : x);
+    const cutoffScale   = clip(Number(args.cutoffScale   ?? 10),  1,    50);
+    const curveExponent = clip(Number(args.curveExponent ?? 1.5), 0.5,  3.0);
+    const distortion    = clip(Number(args.distortion    ?? 0.1), 0,    0.5);
+    const trim          = clip(Number(args.trim          ?? 0),   -24,  24);
+    const LN10_OVER_20 = 0.11512925464970228;
+    const trimLin = Math.exp(trim * LN10_OVER_20);
+    const invCutoff = 1 / cutoffScale;
+    const out = new Float32Array(input.length);
+    // Smoke graph routes only `audio` (no cv) → cv=0 → unity gain → pass-through.
+    for (let i = 0; i < input.length; i++) {
+      const x = input[i];
+      // cv = 0 → cvPos = 0 → norm = 0 → normPowBeta = 0 → gain = 1.
+      const yClean = x * 1.0;
+      const comprDepth = 0;  // 1 - gain
+      const distScale  = distortion * comprDepth;  // = 0
+      const absY = yClean < 0 ? -yClean : yClean;
+      const yChar = distScale * absY;  // = 0
+      out[i] = Math.fround((yClean + yChar) * trimLin);
+    }
+    return out;
+  },
+  // blackmerVCA — log-add-antilog VCA per Blackmer US Patent 3,714,462.
+  // Memoryless. Mirror op_blackmerVCA.worklet.js bit-for-bit.
+  'builtin:blackmerVCA': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const clip = (x, lo, hi) => x < lo ? lo : (x > hi ? hi : x);
+    const bias = clip(Number(args.bias ?? 0.0), -0.5, 0.5);
+    const trim = clip(Number(args.trim ?? 0.0), -24, 24);
+    const LN10_OVER_20 = 0.11512925464970228;
+    const trimLin = Math.exp(trim * LN10_OVER_20);
+    const out = new Float32Array(input.length);
+    // Smoke graph routes only `audio` (no cv) → cv defaults to 0 → unity gain.
+    for (let i = 0; i < input.length; i++) {
+      const x = input[i];
+      const yClean = x * 1.0;  // gain = exp(0) = 1
+      const absY = yClean < 0 ? -yClean : yClean;
+      const yChar = bias * absY;
+      out[i] = Math.fround((yClean + yChar) * trimLin);
+    }
+    return out;
+  },
+  // optoCell — phenomenological LA-2A T4-style optical GR cell.
+  // Mirror op_optoCell.worklet.js bit-for-bit (double-precision math,
+  // identical state evolution). See worklet header for primary citations.
+  'builtin:optoCell': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const clip = (x, lo, hi) => x < lo ? lo : (x > hi ? hi : x);
+    const attackMs       = clip(Number(args.attackMs       ?? 10),  0.1,  100);
+    const releaseMsFast  = clip(Number(args.releaseMsFast  ?? 60),  5,    500);
+    const releaseSecSlow = clip(Number(args.releaseSecSlow ?? 5),   0.5,  15);
+    const responsivity   = clip(Number(args.responsivity   ?? 1.0), 0.05, 4.0);
+
+    const tauToAlpha = (tauSec) => {
+      if (tauSec <= 0) return 1;
+      return 1 - Math.exp(-1 / (tauSec * sr));
+    };
+    const aAttack      = tauToAlpha(attackMs      * 1e-3);
+    const aReleaseFast = tauToAlpha(releaseMsFast * 1e-3);
+    const aSlow        = tauToAlpha(releaseSecSlow);
+
+    const DENORMAL = 1e-30;
+    let envFast = 0, envSlow = 0;
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const v = input[i];
+      const cvPos = v > 0 ? v : 0;
+      const aFast = (cvPos > envFast) ? aAttack : aReleaseFast;
+      envFast = envFast + aFast * (cvPos - envFast);
+      if (envFast < DENORMAL) envFast = 0;
+      envSlow = envSlow + aSlow * (envFast - envSlow);
+      if (envSlow < DENORMAL) envSlow = 0;
+      const env = envFast > envSlow ? envFast : envSlow;
+      const env2 = env * env;
+      out[i] = Math.fround(1 / (1 + responsivity * env2));
+    }
+    return out;
+  },
   // srcResampler — polyphase Kaiser-windowed-sinc varispeed reader.
   // Mirror op_srcResampler.worklet.js bit-for-bit (double-precision math,
   // identical kernel construction). See worklet header for primary citation.

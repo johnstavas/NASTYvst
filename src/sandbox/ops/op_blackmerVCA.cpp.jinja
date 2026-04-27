@@ -1,0 +1,70 @@
+// op_blackmerVCA.cpp — Stage-3b C++ sidecar for the `blackmerVCA` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_blackmerVCA.worklet.js
+// bit-for-bit. Log-add-antilog VCA per Blackmer US Patent 3,714,462.
+// See worklet.js header for full primary citations + math-by-definition.
+// Template: Jinja2. {{ graph_id }} / {{ node_id }} injected by emitter.
+#pragma once
+#include <cstring>
+#include <cmath>
+
+namespace shags::ops {
+
+class BlackmerVCAOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "blackmerVCA";
+
+    explicit BlackmerVCAOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate > 0 ? sampleRate : 48000.0) {}
+
+    void reset() { /* memoryless */ }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "bias") == 0) {
+            bias_ = clip(v, -0.5, 0.5);
+        } else if (std::strcmp(id, "trim") == 0) {
+            trim_    = clip(v, -24.0, 24.0);
+            trimLin_ = std::exp(trim_ * kLn10Over20);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    void process(const float* audio, const float* cv, float* out, int N) {
+        if (!out) return;
+        const double bias    = bias_;
+        const double trimLin = trimLin_;
+
+        if (!audio) {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            return;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            const double x  = static_cast<double>(audio[i]);
+            const double cv_i = cv ? static_cast<double>(cv[i]) : 0.0;
+            const double gain = std::isfinite(cv_i)
+                              ? std::exp(cv_i * kLn10Over20)
+                              : 1.0;
+            const double yClean = x * gain;
+            // Class-AB even-order distortion: bias · |y|.
+            const double absY   = yClean < 0.0 ? -yClean : yClean;
+            const double yChar  = bias * absY;
+            out[i] = static_cast<float>((yClean + yChar) * trimLin);
+        }
+    }
+
+private:
+    static constexpr double kLn10Over20 = 0.11512925464970228;
+
+    static double clip(double x, double lo, double hi) {
+        return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    double sr_;
+    double bias_    = 0.0;
+    double trim_    = 0.0;
+    double trimLin_ = 1.0;
+};
+
+}  // namespace shags::ops
