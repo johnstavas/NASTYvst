@@ -341,6 +341,58 @@ export const DISTORTION_BEHAVIORAL = {
 };
 
 // ─────────────────────────────────────────────────────────────────────
+// ENVELOPE — AR follower step-response (T90 attack/release + steady state)
+// ─────────────────────────────────────────────────────────────────────
+//
+// The envelope op param `attack` is the EXPONENTIAL TIME CONSTANT τ (ms),
+// not the IEC T90 time. For a one-pole follower:
+//   T90 = τ · ln(10) ≈ 2.303 · τ
+// We declare T90 directly to match IEC 60268-3 and SSL/FabFilter/iZotope
+// GUI labelling convention used by metrics/envelopeStep.mjs.
+//
+// We override the worklet's default attack=5 / release=120 to longer
+// values so T90 is comfortably above the 5 ms RMS-window resolution of
+// the step-response primitive; tolerance ±30 % covers the residual
+// measurement noise.
+
+export const ENVELOPE_BEHAVIORAL = {
+  envelope: {
+    category: 'envelope',
+    defaultParams: { attack: 20, release: 200, amount: -1, offset: 0 },
+    declared: {
+      // T90 ≈ 2.303 × τ for a one-pole exponential.
+      attack_ms:  46,    // 20 ms τ → ~46 ms T90
+      release_ms: 460,   // 200 ms τ → ~460 ms T90
+      step_lo:    0.0,
+      step_hi:    0.5,
+      steady_input: 0.5, // expected settled = amount·input + offset = −0.5
+                         // metric uses Math.abs() pre-RMS, so direction-agnostic
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// GAINCURVE — gainComputer static threshold/ratio/knee verification
+// ─────────────────────────────────────────────────────────────────────
+//
+// Drives gainComputer's `env` input with a DC sweep of positive magnitudes,
+// reconstructs the (in_dB, out_dB) static curve via gr → 1 + gr → effective
+// gain, fits threshold/ratio/knee per fitCompressorCurve.
+// Citation: Giannoulis-Massberg-Reiss JAES 2012; Zölzer DAFX § 4.2.2.
+
+export const GAINCURVE_BEHAVIORAL = {
+  gainComputer: {
+    category: 'gainCurve',
+    defaultParams: { thresholdDb: -18, ratio: 4, kneeDb: 6 },
+    declared: {
+      thresholdDb: -18,   // tolerance ±2 dB
+      ratio:        4,    // tolerance ±15 %
+      kneeDb:       6,    // informational; metric tolerance ±3 dB
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────
 // ANALYZER — curve generators
 // ─────────────────────────────────────────────────────────────────────
 

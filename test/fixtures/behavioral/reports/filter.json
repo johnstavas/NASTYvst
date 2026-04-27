@@ -1,7 +1,7 @@
 {
   "opId": "filter",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:47.060Z",
+  "timestamp": "2026-04-27T05:08:42.561Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 13
+    "durationMs": 9
   },
   "native": {
     "summary": {
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1190
+    "durationMs": 769
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1000
   },
-  "durationMs": 1203
+  "durationMs": 778
 }

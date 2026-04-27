@@ -1,0 +1,160 @@
+{
+  "id": "nasty_neve_v2",
+  "spec": {
+    "category": "compressorRecipe",
+    "graphPath": "test/fixtures/codegen/nasty_neve_v2.graph.json",
+    "declared": {
+      "threshold_recipe_db": -18,
+      "ratio": 4,
+      "threshold_tol_db": 4,
+      "ratio_tol_pct": 35,
+      "attack_t90_ms": 24,
+      "release_t90_ms": 340,
+      "attack_tol_pct": 40,
+      "release_tol_pct": 30,
+      "unity_test_dbfs": -50,
+      "unity_makeup_gain_db": 0,
+      "unity_tol_db": 1
+    }
+  },
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Static curve (recipe)",
+      "pass": true,
+      "measured": {
+        "threshold_recipe_db": -20.578370509047392,
+        "ratio": 4.00000000419215,
+        "slope_below": 1,
+        "slope_above": 0.24999999973799064,
+        "curve": [
+          {
+            "inDb": -51.010299920845625,
+            "outDb": -51.010299920845625
+          },
+          {
+            "inDb": -48.010299968969655,
+            "outDb": -48.010299968969655
+          },
+          {
+            "inDb": -45.010299954663324,
+            "outDb": -45.010299954663324
+          },
+          {
+            "inDb": -42.01029986353808,
+            "outDb": -42.01029986353808
+          },
+          {
+            "inDb": -39.0102999779035,
+            "outDb": -39.0102999779035
+          },
+          {
+            "inDb": -36.010299927349834,
+            "outDb": -36.010299927349834
+          },
+          {
+            "inDb": -33.01029992974755,
+            "outDb": -33.01029992974755
+          },
+          {
+            "inDb": -30.010299957340294,
+            "outDb": -30.010299957340294
+          },
+          {
+            "inDb": -27.010299997911194,
+            "outDb": -27.010299997911194
+          },
+          {
+            "inDb": -24.010299913498883,
+            "outDb": -24.010299913498883
+          },
+          {
+            "inDb": -21.010299954641187,
+            "outDb": -21.42253379516891
+          },
+          {
+            "inDb": -18.010299942636486,
+            "outDb": -19.94805330948752
+          },
+          {
+            "inDb": -15.010299966073946,
+            "outDb": -19.186352874762918
+          },
+          {
+            "inDb": -12.010299948595296,
+            "outDb": -18.436352951350436
+          },
+          {
+            "inDb": -9.010299972177467,
+            "outDb": -17.686352920645568
+          },
+          {
+            "inDb": -6.010299939277102,
+            "outDb": -16.936352811982687
+          },
+          {
+            "inDb": -3.0102999778435366,
+            "outDb": -16.186352880849427
+          }
+        ]
+      },
+      "declared": {
+        "threshold_recipe_db": -18,
+        "ratio": 4,
+        "tol": {
+          "threshold_db": 4,
+          "ratio_pct": 35
+        }
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Attack T90 (recipe)",
+      "pass": true,
+      "measured": {
+        "attack_t90_ms": 24.500012397766113,
+        "gr_pre_db": -0.00007355972119691212,
+        "gr_post_db": -8.67605209350586,
+        "gr_span_db": -8.675978533784663
+      },
+      "declared": {
+        "attack_t90_ms": 24,
+        "tolerance_pct": 40
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Release T90 (recipe)",
+      "pass": true,
+      "measured": {
+        "release_t90_ms": 341.0000085830689,
+        "gr_pre_db": -8.676074690126446,
+        "gr_post_db": 0,
+        "gr_span_db": 8.676074690126446
+      },
+      "declared": {
+        "release_t90_ms": 340,
+        "tolerance_pct": 30
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Sub-threshold unity (1:1 + makeup)",
+      "pass": true,
+      "measured": {
+        "gain_db": 0,
+        "in_dbfs": -50
+      },
+      "declared": {
+        "expected_gain_db": 0,
+        "tolerance_db": 1
+      },
+      "diagnostic": null
+    }
+  ]
+}

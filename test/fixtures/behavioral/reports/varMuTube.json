@@ -1,7 +1,7 @@
 {
   "opId": "varMuTube",
   "category": "compressor",
-  "timestamp": "2026-04-27T02:50:30.269Z",
+  "timestamp": "2026-04-27T05:08:31.115Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -259,7 +259,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 84
+    "durationMs": 80
   },
   "native": {
     "summary": {
@@ -269,7 +269,7 @@
       "verdict": "SKIP"
     },
     "tests": [],
-    "durationMs": 43,
+    "durationMs": 68,
     "reason": "arm threw: Cannot read properties of undefined (reading '24000')"
   },
   "attribution": "native-skipped",
@@ -292,5 +292,5 @@
     "thd_grows_with_gr": false,
     "unity_gain_at_zero_cv": 1
   },
-  "durationMs": 127
+  "durationMs": 148
 }

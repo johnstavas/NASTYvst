@@ -1,7 +1,7 @@
 {
   "opId": "allpass",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:44.540Z",
+  "timestamp": "2026-04-27T05:08:40.945Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 13
+    "durationMs": 8
   },
   "native": {
     "summary": {
@@ -66,11 +66,11 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1151
+    "durationMs": 792
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "allpass"
   },
-  "durationMs": 1164
+  "durationMs": 800
 }

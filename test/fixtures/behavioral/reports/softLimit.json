@@ -1,7 +1,7 @@
 {
   "opId": "softLimit",
   "category": "distortion",
-  "timestamp": "2026-04-27T02:50:49.383Z",
+  "timestamp": "2026-04-27T05:08:44.137Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 362
+    "durationMs": 241
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 371
+  "durationMs": 250
 }

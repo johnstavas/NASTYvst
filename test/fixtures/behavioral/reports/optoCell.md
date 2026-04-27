@@ -1,9 +1,9 @@
 # optoCell — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:52.453Z
+**Generated:** 2026-04-27T05:08:46.210Z
 **Category:** analyzer
 **Verdict:** ✅ PASS
-**Duration:** 1345 ms
+**Duration:** 792 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

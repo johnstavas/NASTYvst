@@ -1,9 +1,9 @@
 # clamp — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:31.756Z
+**Generated:** 2026-04-27T05:08:32.207Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 442 ms
+**Duration:** 217 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

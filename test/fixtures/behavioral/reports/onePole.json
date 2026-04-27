@@ -1,7 +1,7 @@
 {
   "opId": "onePole",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:34.807Z",
+  "timestamp": "2026-04-27T05:08:34.226Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 17
+    "durationMs": 11
   },
   "native": {
     "summary": {
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1297
+    "durationMs": 747
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1000
   },
-  "durationMs": 1314
+  "durationMs": 758
 }

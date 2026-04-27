@@ -1,7 +1,7 @@
 {
   "opId": "onePole_hp",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:36.056Z",
+  "timestamp": "2026-04-27T05:08:34.967Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 11
+    "durationMs": 8
   },
   "native": {
     "summary": {
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1237
+    "durationMs": 733
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "hp",
     "cutoff_hz": 1000
   },
-  "durationMs": 1248
+  "durationMs": 741
 }

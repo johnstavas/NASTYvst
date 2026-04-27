@@ -1,9 +1,9 @@
 # polarity_inv — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:32.936Z
+**Generated:** 2026-04-27T05:08:33.065Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 293 ms
+**Duration:** 207 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

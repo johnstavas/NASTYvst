@@ -14,6 +14,7 @@ import { CLUSTER_A_BEHAVIORAL } from '../src/sandbox/behavioral/specs/cluster_a.
 import {
   UTILITY_BEHAVIORAL, FILTER_BEHAVIORAL,
   DISTORTION_BEHAVIORAL, ANALYZER_BEHAVIORAL,
+  ENVELOPE_BEHAVIORAL, GAINCURVE_BEHAVIORAL,
 } from '../src/sandbox/behavioral/specs/foundation.mjs';
 
 // Aggregate all known specs.
@@ -23,6 +24,8 @@ const ALL_SPECS = {
   ...FILTER_BEHAVIORAL,
   ...DISTORTION_BEHAVIORAL,
   ...ANALYZER_BEHAVIORAL,
+  ...ENVELOPE_BEHAVIORAL,
+  ...GAINCURVE_BEHAVIORAL,
 };
 
 function parseArgs(argv) {

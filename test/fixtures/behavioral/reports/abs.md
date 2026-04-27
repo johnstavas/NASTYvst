@@ -1,9 +1,9 @@
 # abs — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:31.027Z
+**Generated:** 2026-04-27T05:08:31.777Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 272 ms
+**Duration:** 201 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

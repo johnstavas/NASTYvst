@@ -5,22 +5,26 @@
 // and dispatches the same metric battery against both, then composes a
 // two-arm report with failure attribution per design doc § 7.2.
 
-import * as compressorMetrics from './metrics/compressor.mjs';
-import * as filterMetrics     from './metrics/filter.mjs';
-import * as distortionMetrics from './metrics/distortion.mjs';
-import * as utilityMetrics    from './metrics/utility.mjs';
-import * as analyzerMetrics   from './metrics/analyzer.mjs';
+import * as compressorMetrics    from './metrics/compressor.mjs';
+import * as filterMetrics        from './metrics/filter.mjs';
+import * as distortionMetrics    from './metrics/distortion.mjs';
+import * as utilityMetrics       from './metrics/utility.mjs';
+import * as analyzerMetrics      from './metrics/analyzer.mjs';
+import * as envelopeStepMetrics  from './metrics/envelopeStep.mjs';
+import * as gainCurveMetrics     from './metrics/gainCurve.mjs';
 
 import { runWorklet } from './runners/run_worklet.mjs';
 import { runNative }  from './runners/run_native.mjs';
 
 const CATEGORY_DISPATCH = {
-  compressor: compressorMetrics,
-  filter:     filterMetrics,
-  distortion: distortionMetrics,
-  utility:    utilityMetrics,
-  analyzer:   analyzerMetrics,
-  eq:         filterMetrics,
+  compressor:   compressorMetrics,
+  filter:       filterMetrics,
+  distortion:   distortionMetrics,
+  utility:      utilityMetrics,
+  analyzer:     analyzerMetrics,
+  eq:           filterMetrics,
+  envelope:     envelopeStepMetrics,
+  gainCurve:    gainCurveMetrics,
 };
 
 function setAllRunners(runner) {

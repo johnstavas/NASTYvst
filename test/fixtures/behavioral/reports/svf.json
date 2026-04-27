@@ -1,7 +1,7 @@
 {
   "opId": "svf",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:40.324Z",
+  "timestamp": "2026-04-27T05:08:37.978Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 15
+    "durationMs": 10
   },
   "native": {
     "summary": {
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1168
+    "durationMs": 770
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1500
   },
-  "durationMs": 1183
+  "durationMs": 780
 }

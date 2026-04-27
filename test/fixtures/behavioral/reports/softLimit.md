@@ -1,9 +1,9 @@
 # softLimit — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:49.383Z
+**Generated:** 2026-04-27T05:08:44.137Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 371 ms
+**Duration:** 250 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

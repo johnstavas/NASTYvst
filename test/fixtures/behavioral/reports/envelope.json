@@ -1,0 +1,164 @@
+{
+  "opId": "envelope",
+  "category": "envelope",
+  "timestamp": "2026-04-27T05:08:46.395Z",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Attack T90",
+      "pass": true,
+      "measured": {
+        "attack_t90_ms": 46.500003337860086,
+        "direction": "rise"
+      },
+      "declared": {
+        "attack_ms": 46,
+        "tolerance_pct": 30
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Release T90",
+      "pass": true,
+      "measured": {
+        "release_t90_ms": 466.9999837875366,
+        "direction": "fall"
+      },
+      "declared": {
+        "release_ms": 460,
+        "tolerance_pct": 30
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Steady-state level",
+      "pass": true,
+      "measured": {
+        "settled_value": -0.5,
+        "abs_error": 0
+      },
+      "declared": {
+        "expected": -0.5,
+        "tolerance": 0.025,
+        "formula": "amount·input + offset"
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Attack T90",
+        "pass": true,
+        "measured": {
+          "attack_t90_ms": 46.500003337860086,
+          "direction": "rise"
+        },
+        "declared": {
+          "attack_ms": 46,
+          "tolerance_pct": 30
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Release T90",
+        "pass": true,
+        "measured": {
+          "release_t90_ms": 466.9999837875366,
+          "direction": "fall"
+        },
+        "declared": {
+          "release_ms": 460,
+          "tolerance_pct": 30
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Steady-state level",
+        "pass": true,
+        "measured": {
+          "settled_value": -0.5,
+          "abs_error": 0
+        },
+        "declared": {
+          "expected": -0.5,
+          "tolerance": 0.025,
+          "formula": "amount·input + offset"
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 16
+  },
+  "native": {
+    "summary": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Attack T90",
+        "pass": true,
+        "measured": {
+          "attack_t90_ms": 46.500003337860086,
+          "direction": "rise"
+        },
+        "declared": {
+          "attack_ms": 46,
+          "tolerance_pct": 30
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Release T90",
+        "pass": true,
+        "measured": {
+          "release_t90_ms": 466.9999837875366,
+          "direction": "fall"
+        },
+        "declared": {
+          "release_ms": 460,
+          "tolerance_pct": 30
+        },
+        "diagnostic": null
+      },
+      {
+        "name": "Steady-state level",
+        "pass": true,
+        "measured": {
+          "settled_value": -0.49999988079071045,
+          "abs_error": 1.1920928955078125e-7
+        },
+        "declared": {
+          "expected": -0.5,
+          "tolerance": 0.025,
+          "formula": "amount·input + offset"
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 168
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {
+    "attack_ms": 46,
+    "release_ms": 460,
+    "step_lo": 0,
+    "step_hi": 0.5,
+    "steady_input": 0.5
+  },
+  "durationMs": 184
+}

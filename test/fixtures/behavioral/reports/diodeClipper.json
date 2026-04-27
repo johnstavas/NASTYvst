@@ -1,7 +1,7 @@
 {
   "opId": "diodeClipper",
   "category": "distortion",
-  "timestamp": "2026-04-27T02:50:50.132Z",
+  "timestamp": "2026-04-27T05:08:44.688Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -151,7 +151,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 14
+    "durationMs": 11
   },
   "native": {
     "summary": {
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 360
+    "durationMs": 272
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -30
   },
-  "durationMs": 374
+  "durationMs": 283
 }

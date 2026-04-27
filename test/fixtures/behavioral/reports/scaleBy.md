@@ -1,9 +1,9 @@
 # scaleBy — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:33.487Z
+**Generated:** 2026-04-27T05:08:33.464Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 271 ms
+**Duration:** 204 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

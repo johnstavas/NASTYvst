@@ -1,9 +1,9 @@
 # xformerSat — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:51.107Z
+**Generated:** 2026-04-27T05:08:45.417Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 336 ms
+**Duration:** 254 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

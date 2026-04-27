@@ -1,0 +1,160 @@
+{
+  "id": "nasty_3btn",
+  "spec": {
+    "category": "compressorRecipe",
+    "graphPath": "test/fixtures/codegen/nasty_3btn.graph.json",
+    "declared": {
+      "threshold_recipe_db": -13,
+      "ratio": 4,
+      "threshold_tol_db": 4,
+      "ratio_tol_pct": 35,
+      "attack_t90_ms": 24,
+      "release_t90_ms": 280,
+      "attack_tol_pct": 40,
+      "release_tol_pct": 35,
+      "unity_test_dbfs": -50,
+      "unity_makeup_gain_db": 5,
+      "unity_tol_db": 1
+    }
+  },
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Static curve (recipe)",
+      "pass": true,
+      "measured": {
+        "threshold_recipe_db": -13.84663723169022,
+        "ratio": 4.000000021060504,
+        "slope_below": 0.9999999972771039,
+        "slope_above": 0.24999999868371853,
+        "curve": [
+          {
+            "inDb": -51.010299920845625,
+            "outDb": -46.01029987900162
+          },
+          {
+            "inDb": -48.010299968969655,
+            "outDb": -43.010299967129995
+          },
+          {
+            "inDb": -45.010299954663324,
+            "outDb": -40.01029993673346
+          },
+          {
+            "inDb": -42.01029986353808,
+            "outDb": -37.010299894202994
+          },
+          {
+            "inDb": -39.0102999779035,
+            "outDb": -34.01029996873425
+          },
+          {
+            "inDb": -36.010299927349834,
+            "outDb": -31.010299937162596
+          },
+          {
+            "inDb": -33.01029992974755,
+            "outDb": -28.01029994486022
+          },
+          {
+            "inDb": -30.010299957340294,
+            "outDb": -25.01029993743041
+          },
+          {
+            "inDb": -27.010299997911194,
+            "outDb": -22.0102999532382
+          },
+          {
+            "inDb": -24.010299913498883,
+            "outDb": -19.010299900356003
+          },
+          {
+            "inDb": -21.010299954641187,
+            "outDb": -16.401935326927564
+          },
+          {
+            "inDb": -18.010299942636486,
+            "outDb": -14.90305203365521
+          },
+          {
+            "inDb": -15.010299966073946,
+            "outDb": -14.137552913754444
+          },
+          {
+            "inDb": -12.010299948595296,
+            "outDb": -13.387552959316666
+          },
+          {
+            "inDb": -9.010299972177467,
+            "outDb": -12.637552916439784
+          },
+          {
+            "inDb": -6.010299939277102,
+            "outDb": -11.887552911201178
+          },
+          {
+            "inDb": -3.0102999778435366,
+            "outDb": -11.13755293249222
+          }
+        ]
+      },
+      "declared": {
+        "threshold_recipe_db": -13,
+        "ratio": 4,
+        "tol": {
+          "threshold_db": 4,
+          "ratio_pct": 35
+        }
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Attack T90 (recipe)",
+      "pass": true,
+      "measured": {
+        "attack_t90_ms": 24.500012397766113,
+        "gr_pre_db": 4.999927132167296,
+        "gr_post_db": -3.6272530555725098,
+        "gr_span_db": -8.627180187739807
+      },
+      "declared": {
+        "attack_t90_ms": 24,
+        "tolerance_pct": 40
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Release T90 (recipe)",
+      "pass": true,
+      "measured": {
+        "release_t90_ms": 271.0000157356263,
+        "gr_pre_db": -3.627286607989992,
+        "gr_post_db": 4.999999523162842,
+        "gr_span_db": 8.627286131152834
+      },
+      "declared": {
+        "release_t90_ms": 280,
+        "tolerance_pct": 35
+      },
+      "diagnostic": null
+    },
+    {
+      "name": "Sub-threshold unity (1:1 + makeup)",
+      "pass": true,
+      "measured": {
+        "gain_db": 5.000000027176911,
+        "in_dbfs": -50
+      },
+      "declared": {
+        "expected_gain_db": 5,
+        "tolerance_db": 1
+      },
+      "diagnostic": null
+    }
+  ]
+}

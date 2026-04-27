@@ -1,9 +1,9 @@
 # fetVVR — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:30.356Z
+**Generated:** 2026-04-27T05:08:31.219Z
 **Category:** compressor
 **Verdict:** ✅ PASS
-**Duration:** 86 ms
+**Duration:** 104 ms
 
 **Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
 

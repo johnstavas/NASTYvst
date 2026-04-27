@@ -1,9 +1,9 @@
 # onePole_hp — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:36.056Z
+**Generated:** 2026-04-27T05:08:34.967Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1248 ms
+**Duration:** 741 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

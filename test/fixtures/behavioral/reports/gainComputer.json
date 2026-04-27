@@ -1,0 +1,366 @@
+{
+  "opId": "gainComputer",
+  "category": "gainCurve",
+  "timestamp": "2026-04-27T05:08:47.758Z",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "verdict": "PASS"
+  },
+  "tests": [
+    {
+      "name": "Static GR curve",
+      "pass": true,
+      "measured": {
+        "threshold_db": -17.999999821832493,
+        "ratio": 4.000000583651182,
+        "knee_db": 15,
+        "slope_below": 1,
+        "slope_above": 0.24999996352180648,
+        "curve": [
+          {
+            "inDb": -60,
+            "outDb": -60
+          },
+          {
+            "inDb": -57,
+            "outDb": -57
+          },
+          {
+            "inDb": -54,
+            "outDb": -54
+          },
+          {
+            "inDb": -51,
+            "outDb": -51
+          },
+          {
+            "inDb": -48,
+            "outDb": -48
+          },
+          {
+            "inDb": -45,
+            "outDb": -45
+          },
+          {
+            "inDb": -42,
+            "outDb": -42
+          },
+          {
+            "inDb": -39,
+            "outDb": -39
+          },
+          {
+            "inDb": -36,
+            "outDb": -36
+          },
+          {
+            "inDb": -33,
+            "outDb": -33
+          },
+          {
+            "inDb": -30,
+            "outDb": -30
+          },
+          {
+            "inDb": -27,
+            "outDb": -27
+          },
+          {
+            "inDb": -24,
+            "outDb": -24
+          },
+          {
+            "inDb": -21,
+            "outDb": -21.000000000000004
+          },
+          {
+            "inDb": -18,
+            "outDb": -18.56249984210546
+          },
+          {
+            "inDb": -15,
+            "outDb": -17.249999975808944
+          },
+          {
+            "inDb": -12,
+            "outDb": -16.499999952204792
+          },
+          {
+            "inDb": -9,
+            "outDb": -15.749999986049273
+          },
+          {
+            "inDb": -6,
+            "outDb": -14.999999811573272
+          },
+          {
+            "inDb": -3,
+            "outDb": -14.249999565676617
+          },
+          {
+            "inDb": 0,
+            "outDb": -13.500000522981846
+          }
+        ]
+      },
+      "declared": {
+        "thresholdDb": -18,
+        "ratio": 4,
+        "kneeDb": 6,
+        "tolerances": {
+          "threshold_db": 2,
+          "ratio_pct": 15,
+          "slope_below_unity": 0.15
+        }
+      },
+      "diagnostic": null
+    }
+  ],
+  "worklet": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Static GR curve",
+        "pass": true,
+        "measured": {
+          "threshold_db": -17.999999821832493,
+          "ratio": 4.000000583651182,
+          "knee_db": 15,
+          "slope_below": 1,
+          "slope_above": 0.24999996352180648,
+          "curve": [
+            {
+              "inDb": -60,
+              "outDb": -60
+            },
+            {
+              "inDb": -57,
+              "outDb": -57
+            },
+            {
+              "inDb": -54,
+              "outDb": -54
+            },
+            {
+              "inDb": -51,
+              "outDb": -51
+            },
+            {
+              "inDb": -48,
+              "outDb": -48
+            },
+            {
+              "inDb": -45,
+              "outDb": -45
+            },
+            {
+              "inDb": -42,
+              "outDb": -42
+            },
+            {
+              "inDb": -39,
+              "outDb": -39
+            },
+            {
+              "inDb": -36,
+              "outDb": -36
+            },
+            {
+              "inDb": -33,
+              "outDb": -33
+            },
+            {
+              "inDb": -30,
+              "outDb": -30
+            },
+            {
+              "inDb": -27,
+              "outDb": -27
+            },
+            {
+              "inDb": -24,
+              "outDb": -24
+            },
+            {
+              "inDb": -21,
+              "outDb": -21.000000000000004
+            },
+            {
+              "inDb": -18,
+              "outDb": -18.56249984210546
+            },
+            {
+              "inDb": -15,
+              "outDb": -17.249999975808944
+            },
+            {
+              "inDb": -12,
+              "outDb": -16.499999952204792
+            },
+            {
+              "inDb": -9,
+              "outDb": -15.749999986049273
+            },
+            {
+              "inDb": -6,
+              "outDb": -14.999999811573272
+            },
+            {
+              "inDb": -3,
+              "outDb": -14.249999565676617
+            },
+            {
+              "inDb": 0,
+              "outDb": -13.500000522981846
+            }
+          ]
+        },
+        "declared": {
+          "thresholdDb": -18,
+          "ratio": 4,
+          "kneeDb": 6,
+          "tolerances": {
+            "threshold_db": 2,
+            "ratio_pct": 15,
+            "slope_below_unity": 0.15
+          }
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 29
+  },
+  "native": {
+    "summary": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "tests": [
+      {
+        "name": "Static GR curve",
+        "pass": true,
+        "measured": {
+          "threshold_db": -17.999999821832493,
+          "ratio": 4.000000583651182,
+          "knee_db": 15,
+          "slope_below": 1,
+          "slope_above": 0.24999996352180648,
+          "curve": [
+            {
+              "inDb": -60,
+              "outDb": -60
+            },
+            {
+              "inDb": -57,
+              "outDb": -57
+            },
+            {
+              "inDb": -54,
+              "outDb": -54
+            },
+            {
+              "inDb": -51,
+              "outDb": -51
+            },
+            {
+              "inDb": -48,
+              "outDb": -48
+            },
+            {
+              "inDb": -45,
+              "outDb": -45
+            },
+            {
+              "inDb": -42,
+              "outDb": -42
+            },
+            {
+              "inDb": -39,
+              "outDb": -39
+            },
+            {
+              "inDb": -36,
+              "outDb": -36
+            },
+            {
+              "inDb": -33,
+              "outDb": -33
+            },
+            {
+              "inDb": -30,
+              "outDb": -30
+            },
+            {
+              "inDb": -27,
+              "outDb": -27
+            },
+            {
+              "inDb": -24,
+              "outDb": -24
+            },
+            {
+              "inDb": -21,
+              "outDb": -21.000000000000004
+            },
+            {
+              "inDb": -18,
+              "outDb": -18.56249984210546
+            },
+            {
+              "inDb": -15,
+              "outDb": -17.249999975808944
+            },
+            {
+              "inDb": -12,
+              "outDb": -16.499999952204792
+            },
+            {
+              "inDb": -9,
+              "outDb": -15.749999986049273
+            },
+            {
+              "inDb": -6,
+              "outDb": -14.999999811573272
+            },
+            {
+              "inDb": -3,
+              "outDb": -14.249999565676617
+            },
+            {
+              "inDb": 0,
+              "outDb": -13.500000522981846
+            }
+          ]
+        },
+        "declared": {
+          "thresholdDb": -18,
+          "ratio": 4,
+          "kneeDb": 6,
+          "tolerances": {
+            "threshold_db": 2,
+            "ratio_pct": 15,
+            "slope_below_unity": 0.15
+          }
+        },
+        "diagnostic": null
+      }
+    ],
+    "durationMs": 1333
+  },
+  "attribution": "verified-end-to-end",
+  "declared": {
+    "thresholdDb": -18,
+    "ratio": 4,
+    "kneeDb": 6
+  },
+  "durationMs": 1362
+}

@@ -1,9 +1,9 @@
 # detector — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:32.642Z
+**Generated:** 2026-04-27T05:08:32.858Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 291 ms
+**Duration:** 209 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

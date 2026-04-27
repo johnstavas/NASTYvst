@@ -1,9 +1,9 @@
 # sign — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:31.313Z
+**Generated:** 2026-04-27T05:08:31.990Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 284 ms
+**Duration:** 212 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

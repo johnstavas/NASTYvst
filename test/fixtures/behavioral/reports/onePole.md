@@ -1,9 +1,9 @@
 # onePole — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:34.807Z
+**Generated:** 2026-04-27T05:08:34.226Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1314 ms
+**Duration:** 758 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

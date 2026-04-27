@@ -1,7 +1,7 @@
 {
   "opId": "diodeLadder",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:43.375Z",
+  "timestamp": "2026-04-27T05:08:40.144Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -41,7 +41,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 290
+    "durationMs": 269
   },
   "native": {
     "summary": {
@@ -63,11 +63,11 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1484
+    "durationMs": 1014
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp"
   },
-  "durationMs": 1774
+  "durationMs": 1283
 }

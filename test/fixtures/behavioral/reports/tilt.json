@@ -1,7 +1,7 @@
 {
   "opId": "tilt",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:48.230Z",
+  "timestamp": "2026-04-27T05:08:43.337Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -59,7 +59,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 12
+    "durationMs": 8
   },
   "native": {
     "summary": {
@@ -90,11 +90,11 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1157
+    "durationMs": 767
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "tilt"
   },
-  "durationMs": 1169
+  "durationMs": 775
 }

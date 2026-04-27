@@ -1,9 +1,9 @@
 # hardClip — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:49.010Z
+**Generated:** 2026-04-27T05:08:43.886Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 443 ms
+**Duration:** 271 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

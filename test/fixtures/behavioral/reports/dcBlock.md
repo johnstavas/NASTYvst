@@ -1,9 +1,9 @@
 # dcBlock — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:37.217Z
+**Generated:** 2026-04-27T05:08:35.802Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1160 ms
+**Duration:** 834 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
