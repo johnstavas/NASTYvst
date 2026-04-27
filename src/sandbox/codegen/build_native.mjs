@@ -146,9 +146,28 @@ function canonParam(p, raw) {
   return Number(raw);
 }
 function paramRange(p) {
-  if (p.type === 'bool') return { min: 0, max: 1, step: 1 };
-  if (p.type === 'enum') return { min: 0, max: Math.max(0, (p.options || []).length - 1), step: 1 };
-  return { min: Number(p.min), max: Number(p.max), step: Number(p.step ?? 0.0001) };
+  if (p.type === 'bool') return { min: 0, max: 1, step: 1, skew: 1 };
+  if (p.type === 'enum') return { min: 0, max: Math.max(0, (p.options || []).length - 1), step: 1, skew: 1 };
+  // Skew (JUCE NormalisableRange): 1 = linear, <1 = log/concentrate-on-low,
+  // >1 = expand-low/concentrate-on-high. Auto-pick log skew (0.3) for
+  // time-domain (ms) and frequency-domain (Hz) params, since both are
+  // perceptually logarithmic. Otherwise linear. Recipe author can override
+  // explicitly via p.skew. Fixes the "Reaper mouse-wheel jumps 19ms per
+  // scroll click on a 500ms attack range" UX problem (2026-04-27).
+  const explicit = p.skew != null ? Number(p.skew) : null;
+  let skew = explicit;
+  if (skew == null) {
+    const isTimeMs   = /attack|release|time|ms$/i.test(p.id);
+    const isFreqHz   = /freq|cutoff|hz$/i.test(p.id);
+    const wideRange  = (Number(p.max) / Math.max(1e-6, Number(p.min))) > 50;
+    skew = (isTimeMs || isFreqHz) && wideRange ? 0.3 : 1;
+  }
+  return {
+    min:  Number(p.min),
+    max:  Number(p.max),
+    step: Number(p.step ?? 0.0001),
+    skew,
+  };
 }
 
 // ── compute apvtsParams (UI-bound knobs/sliders/buttons/choices) ─────────
@@ -181,6 +200,7 @@ for (const n of pcof.nodes) {
       min       : r.min.toFixed(4),
       max       : r.max.toFixed(4),
       step      : r.step.toFixed(4),
+      skew      : r.skew.toFixed(4),
       default   : Number(valueDefault).toFixed(4),
       ui,
     });

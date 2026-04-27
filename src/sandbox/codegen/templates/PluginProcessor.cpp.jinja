@@ -25,7 +25,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { "{{ p.paramId }}", 1 },
         "{{ p.label }}",
-        juce::NormalisableRange<float>({{ p.min }}f, {{ p.max }}f, {{ p.step }}f),
+        juce::NormalisableRange<float>({{ p.min }}f, {{ p.max }}f, {{ p.step }}f, {{ p.skew }}f),
         {{ p.default }}f));
 {% endfor %}
 
