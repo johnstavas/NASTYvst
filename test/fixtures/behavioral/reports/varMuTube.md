@@ -1,9 +1,9 @@
 # varMuTube — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:35.082Z
+**Generated:** 2026-04-27T00:06:54.339Z
 **Category:** compressor
 **Verdict:** ✅ PASS
-**Duration:** 131 ms
+**Duration:** 123 ms
 
 **Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
 

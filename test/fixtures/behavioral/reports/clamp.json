@@ -1,7 +1,7 @@
 {
   "opId": "clamp",
   "category": "utility",
-  "timestamp": "2026-04-26T23:50:36.662Z",
+  "timestamp": "2026-04-27T00:06:55.735Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,7 +65,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 4
+    "durationMs": 3
   },
   "native": {
     "summary": {
@@ -99,9 +99,9 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 362
+    "durationMs": 382
   },
   "attribution": "verified-end-to-end",
   "declared": {},
-  "durationMs": 366
+  "durationMs": 385
 }

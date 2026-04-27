@@ -1,9 +1,9 @@
 # shelf — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:47.667Z
+**Generated:** 2026-04-27T00:07:05.633Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1406 ms
+**Duration:** 1211 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

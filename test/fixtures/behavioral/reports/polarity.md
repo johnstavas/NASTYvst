@@ -1,9 +1,9 @@
 # polarity — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:36.984Z
+**Generated:** 2026-04-27T00:06:56.029Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 321 ms
+**Duration:** 294 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

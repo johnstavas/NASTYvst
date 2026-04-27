@@ -1,9 +1,9 @@
 # korg35 — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:43.221Z
+**Generated:** 2026-04-27T00:07:01.662Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1408 ms
+**Duration:** 1146 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

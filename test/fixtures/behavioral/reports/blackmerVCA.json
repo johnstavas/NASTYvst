@@ -1,7 +1,7 @@
 {
   "opId": "blackmerVCA",
   "category": "compressor",
-  "timestamp": "2026-04-26T23:50:34.950Z",
+  "timestamp": "2026-04-27T00:06:54.215Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -259,7 +259,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 81
+    "durationMs": 79
   },
   "native": {
     "summary": {
@@ -269,7 +269,7 @@
       "verdict": "SKIP"
     },
     "tests": [],
-    "durationMs": 48,
+    "durationMs": 44,
     "reason": "arm threw: Cannot read properties of undefined (reading '24000')"
   },
   "attribution": "native-skipped",
@@ -292,5 +292,5 @@
     "thd_grows_with_gr": false,
     "unity_gain_at_zero_cv": 1
   },
-  "durationMs": 130
+  "durationMs": 123
 }

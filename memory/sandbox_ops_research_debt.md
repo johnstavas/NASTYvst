@@ -19,9 +19,13 @@ not fixed during the harness build itself.
 
 ### Confirmed codegen-or-wiring bugs (worklet PASS, native FAIL)
 
-| Op | Symptom | Diagnosis | Priority |
+*(empty as of 2026-04-26 — see resolution log below)*
+
+#### Resolved
+
+| Op | Symptom | Resolution | Closed |
 |---|---|---|---|
-| **tilt** | Worklet shows ~17 dB tilt across band; native VST3 shows ~6 dB at identical params (`f0=630, gain=3, gfactor=5`). Real C++ ↔ JS divergence. L1 native parity tests with impulse/dc_step/sine_440 signals never exercised the bug; sine sweep at 24 frequencies caught it. | Inspect `op_tilt.cpp.jinja` against `op_tilt.worklet.js` — gain coefficient or pre-warp differs. Re-bless golden after fix. Op stays at ✅+P (not ✅+P+✓) until fixed. | P1 |
+| **tilt** | Worklet shows ~17 dB tilt across band; native VST3 shows ~6 dB at identical params (`f0=630, gain=3, gfactor=5`). | **Was NOT an op bug** — investigated by reading `op_tilt.cpp.jinja` vs `op_tilt.worklet.js`, found math identical bit-for-bit. Real cause: `run_native.mjs` was using `per_op_specs.json` `paramRanges` (which had stale gfactor range `[0.01, 100]`) instead of the authoritative `param_ranges.json` sidecar that codegen emits at build time (actual VST3 range `[0.1, 20]`). Param normalization mismatch → `gfactor=5` linear sent as `0.0499` normalized → VST3 de-normalized to `~1.09` → much less asymmetry → ~6 dB tilt instead of ~17. Fix: one-line merge-order swap in `run_native.mjs` so sidecar wins over `per_op_specs.json`. **Implication:** any op whose per_op_specs ranges had drifted from the actual VST3 ranges was being mis-tested by the native arm. tilt was the only op where the drift was large enough to produce a visibly-failing behavioral measurement; many others may have been silently mis-normalized but landed close enough to PASS. The harness now uses the authoritative sidecar. | 2026-04-26 |
 
 ### Doc / implementation divergences (both arms agree, doc is wrong)
 

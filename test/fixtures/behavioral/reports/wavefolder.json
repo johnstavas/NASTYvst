@@ -1,7 +1,7 @@
 {
   "opId": "wavefolder",
   "category": "distortion",
-  "timestamp": "2026-04-26T23:50:50.427Z",
+  "timestamp": "2026-04-27T00:07:08.426Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -151,7 +151,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 16
+    "durationMs": 12
   },
   "native": {
     "summary": {
@@ -168,31 +168,31 @@
           "samples": [
             {
               "dbfs": -40,
-              "thd_pct": 0.0000014742295098584503,
+              "thd_pct": 0.000001493804791900671,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": -20,
-              "thd_pct": 0.0000015094566465722072,
+              "thd_pct": 0.0000014665801785984203,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": -6,
-              "thd_pct": 28.87771748359572,
+              "thd_pct": 28.877716728510176,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": 0,
-              "thd_pct": 37.700399603640264,
+              "thd_pct": 37.7003978578128,
               "nan": 0,
               "inf": 0
             }
           ],
-          "low_thd_pct": 0.0000014742295098584503,
-          "high_thd_pct": 37.700399603640264
+          "low_thd_pct": 0.000001493804791900671,
+          "high_thd_pct": 37.7003978578128
         },
         "declared": {
           "low_level_thd_pct_max": 1,
@@ -205,10 +205,10 @@
         "pass": true,
         "measured": {
           "classification": "odd",
-          "h2_rel": 0.000010200113081997246,
-          "h3_rel": 0.2634467373422,
-          "h4_rel": 0.000001960748260260738,
-          "h5_rel": 0.11010799854976
+          "h2_rel": 0.00001020335256212634,
+          "h3_rel": 0.2634467316396171,
+          "h4_rel": 0.000001960227200390488,
+          "h5_rel": 0.1101079925799911
         },
         "declared": {
           "harmonic_signature": "odd"
@@ -219,8 +219,8 @@
         "name": "DC creep",
         "pass": true,
         "measured": {
-          "dc_dbfs": -350.57242075837445,
-          "dc_linear": -2.960594732333751e-18
+          "dc_dbfs": -344.5518208450948,
+          "dc_linear": -5.921189464667502e-18
         },
         "declared": {
           "dc_creep_max_dbfs": -40
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 343
+    "durationMs": 340
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 359
+  "durationMs": 352
 }

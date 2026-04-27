@@ -1,9 +1,9 @@
 # allpass — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:46.260Z
+**Generated:** 2026-04-27T00:07:04.421Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1254 ms
+**Duration:** 1090 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

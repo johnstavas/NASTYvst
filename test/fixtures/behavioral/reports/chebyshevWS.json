@@ -1,7 +1,7 @@
 {
   "opId": "chebyshevWS",
   "category": "distortion",
-  "timestamp": "2026-04-26T23:50:51.498Z",
+  "timestamp": "2026-04-27T00:07:09.528Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -151,7 +151,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 19
+    "durationMs": 26
   },
   "native": {
     "summary": {
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 339
+    "durationMs": 416
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 358
+  "durationMs": 442
 }

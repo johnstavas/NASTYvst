@@ -1,7 +1,7 @@
 {
   "opId": "korg35",
   "category": "filter",
-  "timestamp": "2026-04-26T23:50:43.221Z",
+  "timestamp": "2026-04-27T00:07:01.662Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 29
+    "durationMs": 25
   },
   "native": {
     "summary": {
@@ -57,7 +57,7 @@
         "name": "Magnitude response (lp)",
         "pass": true,
         "measured": {
-          "cutoff_hz": 257.6420757732949
+          "cutoff_hz": 239.85227508246635
         },
         "declared": {
           "kind": "lp",
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1379
+    "durationMs": 1121
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp",
     "cutoff_hz": 240
   },
-  "durationMs": 1408
+  "durationMs": 1146
 }

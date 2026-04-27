@@ -1,7 +1,7 @@
 {
   "opId": "gain",
   "category": "utility",
-  "timestamp": "2026-04-26T23:50:35.639Z",
+  "timestamp": "2026-04-27T00:06:54.803Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,7 +65,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 6
+    "durationMs": 4
   },
   "native": {
     "summary": {
@@ -99,9 +99,9 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 316
+    "durationMs": 269
   },
   "attribution": "verified-end-to-end",
   "declared": {},
-  "durationMs": 322
+  "durationMs": 273
 }

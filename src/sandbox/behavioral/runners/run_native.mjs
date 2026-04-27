@@ -111,7 +111,11 @@ export async function runNative(opId, params, stim, options = {}) {
   if (existsSync(sidecarPath)) {
     try { sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8')); } catch {}
   }
-  const allRanges = { ...(sidecar?.params || {}), ...paramRanges };
+  // Sidecar wins over per_op_specs.json paramRanges — it is generated
+  // from the actual codegen at build time, so matches the compiled VST3.
+  // per_op_specs entries can drift from VST3 reality (caught by tilt
+  // 2026-04-26: spec said gfactor [0.01, 100], VST3 had [0.1, 20]).
+  const allRanges = { ...paramRanges, ...(sidecar?.params || {}) };
 
   const paramKeys = Object.keys(allRanges);
   const hashedParams = {};

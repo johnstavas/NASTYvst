@@ -1,9 +1,9 @@
 # saturate — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:49.354Z
+**Generated:** 2026-04-27T00:07:07.372Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 371 ms
+**Duration:** 403 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

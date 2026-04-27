@@ -1,7 +1,7 @@
 {
   "opId": "optoCell",
   "category": "analyzer",
-  "timestamp": "2026-04-26T23:50:52.750Z",
+  "timestamp": "2026-04-27T00:07:11.013Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -159,7 +159,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 9
+    "durationMs": 10
   },
   "native": {
     "summary": {
@@ -240,7 +240,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1241
+    "durationMs": 1474
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -262,5 +262,5 @@
       1.05
     ]
   },
-  "durationMs": 1251
+  "durationMs": 1484
 }

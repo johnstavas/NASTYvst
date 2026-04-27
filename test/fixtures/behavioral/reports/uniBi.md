@@ -1,9 +1,9 @@
 # uniBi — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:37.318Z
+**Generated:** 2026-04-27T00:06:56.343Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 333 ms
+**Duration:** 313 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

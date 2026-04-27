@@ -1,7 +1,7 @@
 {
   "opId": "allpass",
   "category": "filter",
-  "timestamp": "2026-04-26T23:50:46.260Z",
+  "timestamp": "2026-04-27T00:07:04.421Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 9
+    "durationMs": 8
   },
   "native": {
     "summary": {
@@ -57,7 +57,7 @@
         "name": "Magnitude response (allpass flatness)",
         "pass": true,
         "measured": {
-          "mean_deviation_db": 0.01639395181943352
+          "mean_deviation_db": 0.016262157606737066
         },
         "declared": {
           "kind": "allpass",
@@ -66,11 +66,11 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1245
+    "durationMs": 1082
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "allpass"
   },
-  "durationMs": 1254
+  "durationMs": 1090
 }

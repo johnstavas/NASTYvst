@@ -1,17 +1,17 @@
 # tilt — Behavioral Validation Report
 
-**Generated:** 2026-04-26T23:50:48.983Z
+**Generated:** 2026-04-27T00:07:06.968Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1316 ms
+**Duration:** 1334 ms
 
-**Attribution:** ✅❌ Codegen/wiring bug — worklet PASSES but native FAILS (codegen deviates)
+**Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
 ## Summary
 
 | Test | Worklet | Native |
 |---|---|---|
-| Magnitude response (tilt) | ✅ PASS | ❌ FAIL |
+| Magnitude response (tilt) | ✅ PASS | ✅ PASS |
 
 ## Passing tests
 
