@@ -1,7 +1,7 @@
 {
-  "opId": "dcBlock",
+  "opId": "filter",
   "category": "filter",
-  "timestamp": "2026-04-27T02:50:37.217Z",
+  "timestamp": "2026-04-27T02:50:47.060Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -10,14 +10,14 @@
   },
   "tests": [
     {
-      "name": "Magnitude response (hp)",
+      "name": "Magnitude response (lp)",
       "pass": true,
       "measured": {
-        "cutoff_hz": 101.15603490842743
+        "cutoff_hz": 995.9463130954229
       },
       "declared": {
-        "kind": "hp",
-        "cutoff_hz": 100
+        "kind": "lp",
+        "cutoff_hz": 1000
       },
       "diagnostic": null
     }
@@ -31,19 +31,19 @@
     },
     "tests": [
       {
-        "name": "Magnitude response (hp)",
+        "name": "Magnitude response (lp)",
         "pass": true,
         "measured": {
-          "cutoff_hz": 101.15603490842743
+          "cutoff_hz": 995.9463130954229
         },
         "declared": {
-          "kind": "hp",
-          "cutoff_hz": 100
+          "kind": "lp",
+          "cutoff_hz": 1000
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 11
+    "durationMs": 13
   },
   "native": {
     "summary": {
@@ -54,24 +54,24 @@
     },
     "tests": [
       {
-        "name": "Magnitude response (hp)",
+        "name": "Magnitude response (lp)",
         "pass": true,
         "measured": {
-          "cutoff_hz": 101.15603490842743
+          "cutoff_hz": 999.1473293586585
         },
         "declared": {
-          "kind": "hp",
-          "cutoff_hz": 100
+          "kind": "lp",
+          "cutoff_hz": 1000
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 1149
+    "durationMs": 1190
   },
   "attribution": "verified-end-to-end",
   "declared": {
-    "kind": "hp",
-    "cutoff_hz": 100
+    "kind": "lp",
+    "cutoff_hz": 1000
   },
-  "durationMs": 1160
+  "durationMs": 1203
 }

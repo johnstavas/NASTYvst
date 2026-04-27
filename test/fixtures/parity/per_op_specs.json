@@ -1315,6 +1315,85 @@
       "reference_args": { "riseMs": 5, "fallMs": 20, "sr": 48000 },
       "sr": 48000,
       "block": 512
+    },
+    "_doc_foundational_compressor_chain": "Added 2026-04-27 — these four ops were stubbed in C++ for the entire codegen pipeline's life and never registered as parity fixtures, so the harness silently green-lit a non-functional native implementation. Adding them here forces JS-vs-C++ bit-identity validation per commit.",
+    "detector": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-detector-v0/build/SmokeDetectorV0_2604270229_artefacts/Release/VST3/SmokeDetectorV0_2604270229.vst3",
+      "params": {
+        "n_det__mode": 0
+      },
+      "paramRanges": {
+        "n_det__mode": { "min": 0, "max": 1, "type": "enum" }
+      },
+      "reference": "builtin:detector",
+      "reference_args": { "mode": "peak" },
+      "sr": 48000,
+      "block": 512
+    },
+    "envelope": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-envelope-v0/build/SmokeEnvelopeV0_2604270230_artefacts/Release/VST3/SmokeEnvelopeV0_2604270230.vst3",
+      "params": {
+        "n_env__attack": 5,
+        "n_env__release": 120,
+        "n_env__amount": 1,
+        "n_env__offset": 0
+      },
+      "paramRanges": {
+        "n_env__attack": { "min": 0.001, "max": 10000 },
+        "n_env__release": { "min": 0.001, "max": 10000 },
+        "n_env__amount": { "min": -4, "max": 4 },
+        "n_env__offset": { "min": -4, "max": 4 }
+      },
+      "reference": "builtin:envelope",
+      "reference_args": { "attack": 5, "release": 120, "amount": 1, "offset": 0, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "filter": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-filter-v0/build/SmokeFilterV0_2604270231_artefacts/Release/VST3/SmokeFilterV0_2604270231.vst3",
+      "params": {
+        "n_filt__mode": 0,
+        "n_filt__cutoff": 1000,
+        "n_filt__q": 0.707
+      },
+      "paramRanges": {
+        "n_filt__mode":   { "min": 0, "max": 3, "type": "enum" },
+        "n_filt__cutoff": { "min": 10, "max": 20000 },
+        "n_filt__q":      { "min": 0.001, "max": 40 }
+      },
+      "reference": "builtin:filter",
+      "reference_args": { "mode": "lp", "cutoff": 1000, "q": 0.707, "sr": 48000 },
+      "sr": 48000,
+      "block": 512
+    },
+    "gainComputer": {
+      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-gaincomputer-v0/build/SmokeGaincomputerV0_2604270232_artefacts/Release/VST3/SmokeGaincomputerV0_2604270232.vst3",
+      "params": {
+        "n_gc__thresholdDb": -18,
+        "n_gc__ratio": 4,
+        "n_gc__kneeDb": 6
+      },
+      "paramRanges": {
+        "n_gc__thresholdDb": { "min": -60, "max": 0 },
+        "n_gc__ratio":       { "min": 1,   "max": 20 },
+        "n_gc__kneeDb":      { "min": 0,   "max": 24 }
+      },
+      "reference": "builtin:gainComputer",
+      "reference_args": { "thresholdDb": -18, "ratio": 4, "kneeDb": 6 },
+      "sr": 48000,
+      "block": 512
     }
   }
 }

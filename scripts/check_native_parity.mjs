@@ -1277,6 +1277,129 @@ const REFERENCES = {
     for (let i = 0; i < input.length; i++) out[i] = input[i] * base;
     return out;
   },
+  // Mirror op_detector.cpp.jinja: peak (|x|) or rms (x²); mode 0=peak, 1=rms.
+  'builtin:detector': (input, args) => {
+    const mode = typeof args.mode === 'number'
+      ? args.mode
+      : (String(args.mode ?? 'peak') === 'rms' ? 1 : 0);
+    const out = new Float32Array(input.length);
+    if (mode === 1) {
+      for (let i = 0; i < input.length; i++) {
+        const x = input[i];
+        out[i] = Math.fround(x * x);
+      }
+    } else {
+      for (let i = 0; i < input.length; i++) {
+        out[i] = Math.fround(Math.abs(input[i]));
+      }
+    }
+    return out;
+  },
+  // Mirror op_envelope.cpp.jinja: AR follower + Watte alternating denormal bias.
+  // env[i] = offset + amount · state, state-tracking input rectified.
+  'builtin:envelope': (input, args) => {
+    const sr      = Number(args.sr ?? 48000);
+    const attack  = Number(args.attack ?? 5);
+    const release = Number(args.release ?? 120);
+    const amount  = Number(args.amount ?? -1);
+    const offset  = Number(args.offset ?? 0);
+    const atkSec  = Math.max(1e-4, attack  / 1000);
+    const relSec  = Math.max(1e-4, release / 1000);
+    const aAtt    = Math.exp(-1 / (atkSec * sr));
+    const aRel    = Math.exp(-1 / (relSec * sr));
+    const DENORM  = 1e-20;
+    let s  = 0;
+    let dn = -DENORM;
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const x = Math.abs(input[i]);
+      const a = (x > s) ? aAtt : aRel;
+      s  = a * s + (1 - a) * x;
+      dn = -dn;
+      s += dn;
+      out[i] = Math.fround(offset + amount * s);
+    }
+    return out;
+  },
+  // Mirror op_filter.cpp.jinja: RBJ cookbook biquad DF1, modes 0=lp,1=hp,2=bp,3=notch.
+  'builtin:filter': (input, args) => {
+    const sr = Number(args.sr ?? 48000);
+    const modeMap = { lp: 0, hp: 1, bp: 2, notch: 3 };
+    const mode = typeof args.mode === 'number'
+      ? args.mode
+      : (modeMap[String(args.mode ?? 'lp')] ?? 0);
+    const cutoff = Number(args.cutoff ?? 1000);
+    const q      = Number(args.q ?? 0.707);
+    const nyq    = 0.5 * sr - 100;
+    const f0     = Math.min(Math.max(cutoff, 10), nyq);
+    const Q      = Math.min(Math.max(q, 1e-3), 40);
+    const w0     = 2 * Math.PI * f0 / sr;
+    const cosw0  = Math.cos(w0);
+    const sinw0  = Math.sin(w0);
+    const alpha  = sinw0 / (2 * Q);
+    let b0, b1, b2, a0, a1, a2;
+    switch (mode) {
+      case 1:
+        b0 =  (1 + cosw0) * 0.5; b1 = -(1 + cosw0); b2 = (1 + cosw0) * 0.5;
+        a0 =   1 + alpha;        a1 = -2 * cosw0;   a2 =  1 - alpha;
+        break;
+      case 2:
+        b0 =  alpha; b1 = 0; b2 = -alpha;
+        a0 =  1 + alpha; a1 = -2 * cosw0; a2 = 1 - alpha;
+        break;
+      case 3:
+        b0 =  1; b1 = -2 * cosw0; b2 = 1;
+        a0 =  1 + alpha; a1 = -2 * cosw0; a2 = 1 - alpha;
+        break;
+      case 0:
+      default:
+        b0 = (1 - cosw0) * 0.5; b1 = 1 - cosw0; b2 = (1 - cosw0) * 0.5;
+        a0 =  1 + alpha;        a1 = -2 * cosw0; a2 =  1 - alpha;
+        break;
+    }
+    const inv_a0 = 1 / a0;
+    const nb0 = b0 * inv_a0, nb1 = b1 * inv_a0, nb2 = b2 * inv_a0;
+    const na1 = a1 * inv_a0, na2 = a2 * inv_a0;
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const x = input[i];
+      const y = nb0 * x + nb1 * x1 + nb2 * x2 - na1 * y1 - na2 * y2;
+      x2 = x1; x1 = x;
+      y2 = y1; y1 = y;
+      out[i] = Math.fround(y);
+    }
+    return out;
+  },
+  // Mirror op_gainComputer.cpp.jinja: Zölzer soft-knee static gain computer.
+  // Output = grLin - 1 (delta from unity), so gain.gainMod sums into base=1.0.
+  'builtin:gainComputer': (input, args) => {
+    const thr   = Number(args.thresholdDb ?? -18);
+    const ratio = Math.max(1, Number(args.ratio ?? 4));
+    const knee  = Math.max(0, Number(args.kneeDb ?? 6));
+    const halfK = knee * 0.5;
+    const invRm1 = (1 / ratio) - 1;
+    const LOG10 = 2.302585092994046;
+    const FLOOR = 1e-12;
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const lin = input[i];
+      const mag = lin >= 0 ? lin : -lin;
+      const xDb = 20 * Math.log(mag + FLOOR) / LOG10;
+      let yDb;
+      if (knee > 0 && xDb > thr - halfK && xDb < thr + halfK) {
+        const t = (xDb - thr + halfK) / knee;
+        yDb = xDb + invRm1 * knee * t * t * 0.5;
+      } else if (xDb >= thr + halfK) {
+        yDb = thr + (xDb - thr) / ratio;
+      } else {
+        yDb = xDb;
+      }
+      const grDb = yDb - xDb;
+      out[i] = Math.fround(Math.exp(grDb * LOG10 / 20) - 1);
+    }
+    return out;
+  },
 };
 
 // ─── metrics ──────────────────────────────────────────────────────────

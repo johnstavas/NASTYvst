@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-gaincomputer-v0",
+  "label": "SmokeGainComputer",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_gc", "op": "gainComputer", "x": 240, "y": 100,
+      "params": { "thresholdDb": -18, "ratio": 4, "kneeDb": 6 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_gc" },
+    { "from": "n_gc", "to": "out"  }
+  ],
+  "feedback": [],
+  "legendOps": ["gainComputer"]
+}

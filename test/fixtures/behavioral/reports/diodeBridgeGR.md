@@ -1,9 +1,9 @@
 # diodeBridgeGR — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:26.006Z
+**Generated:** 2026-04-27T02:50:30.473Z
 **Category:** compressor
 **Verdict:** ✅ PASS
-**Duration:** 110 ms
+**Duration:** 116 ms
 
 **Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
 

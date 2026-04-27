@@ -1,9 +1,9 @@
 # blackmerVCA — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:25.676Z
+**Generated:** 2026-04-27T02:50:30.140Z
 **Category:** compressor
 **Verdict:** ✅ PASS
-**Duration:** 130 ms
+**Duration:** 131 ms
 
 **Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
 

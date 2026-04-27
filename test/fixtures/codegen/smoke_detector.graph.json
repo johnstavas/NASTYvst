@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-detector-v0",
+  "label": "SmokeDetector",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_det", "op": "detector", "x": 240, "y": 100,
+      "params": { "mode": "peak" } }
+  ],
+  "wires": [
+    { "from": "in",    "to": "n_det" },
+    { "from": "n_det", "to": "out"   }
+  ],
+  "feedback": [],
+  "legendOps": ["detector"]
+}

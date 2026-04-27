@@ -1,9 +1,9 @@
 # mix — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:28.574Z
+**Generated:** 2026-04-27T02:50:33.492Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 3 ms
+**Duration:** 4 ms
 
 **Attribution:** ⏸ Native arm skipped (VST3 unavailable or multi-input)
 

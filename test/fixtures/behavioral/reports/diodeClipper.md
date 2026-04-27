@@ -1,9 +1,9 @@
 # diodeClipper — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:43.065Z
+**Generated:** 2026-04-27T02:50:50.132Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 314 ms
+**Duration:** 374 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

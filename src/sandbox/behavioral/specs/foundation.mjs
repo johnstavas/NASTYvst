@@ -58,6 +58,17 @@ export const UTILITY_BEHAVIORAL = {
       expectedFn: (x) => 2 * x - 1,
     },
   },
+  // ── Foundational compressor-chain ops (added 2026-04-27 to close the
+  //    coverage gap that hid four C++ stubs from the harness for the
+  //    entire codegen pipeline's life) ─────────────────────────────────
+  detector: {
+    category: 'utility',
+    defaultParams: { mode: 'peak' },
+    declared: {
+      // Peak mode: closed-form |x|. Stateless, no buffering.
+      expectedFn: (x) => Math.abs(x),
+    },
+  },
   // ── Worklet-shared variants ────────────────────────────────────────
   // These ops share a worklet sidecar with a sibling but get a separate
   // smoke build with different baked params, so per_op_specs.json has a
@@ -207,6 +218,16 @@ export const FILTER_BEHAVIORAL = {
     defaultParams: { mode: 'low', freq: 200, gainDb: 6 },
     declared: {
       kind: 'shelf',
+    },
+  },
+  // RBJ biquad filter op (the one that was stubbed in C++ until 2026-04-27).
+  // T8-B-tested at default LP 1 kHz to catch regression-to-stub or coefficient drift.
+  filter: {
+    category: 'filter',
+    defaultParams: { mode: 'lp', cutoff: 1000, q: 0.707 },
+    declared: {
+      kind: 'lp',
+      cutoff_hz: 1000,
     },
   },
   tilt: {

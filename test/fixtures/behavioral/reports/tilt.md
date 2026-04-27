@@ -1,9 +1,9 @@
 # tilt — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:41.396Z
+**Generated:** 2026-04-27T02:50:48.230Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1246 ms
+**Duration:** 1169 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

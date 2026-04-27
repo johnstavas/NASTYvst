@@ -1,9 +1,9 @@
 # ladder — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:33.872Z
+**Generated:** 2026-04-27T02:50:39.139Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1776 ms
+**Duration:** 1920 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

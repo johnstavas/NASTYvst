@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-envelope-v0",
+  "label": "SmokeEnvelope",
+  "canvas": { "width": 480, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 100 },
+    { "id": "out", "kind": "output", "x": 440, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_env", "op": "envelope", "x": 240, "y": 100,
+      "params": { "attack": 5, "release": 120, "amount": 1, "offset": 0 } }
+  ],
+  "wires": [
+    { "from": "in",    "to": "n_env" },
+    { "from": "n_env", "to": "out"   }
+  ],
+  "feedback": [],
+  "legendOps": ["envelope"]
+}

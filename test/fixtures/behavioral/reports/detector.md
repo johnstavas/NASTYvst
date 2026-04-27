@@ -1,9 +1,9 @@
-# uniBi — Behavioral Validation Report
+# detector — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:32.350Z
+**Generated:** 2026-04-27T02:50:32.642Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 297 ms
+**Duration:** 291 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
@@ -16,7 +16,7 @@
 
 ## Passing tests
 
-- **Closed-form math identity** → max_abs_err = 0.000, max_abs_err_db = -144.494
+- **Closed-form math identity** → max_abs_err = 0.000, max_abs_err_db = -Infinity
 - **Block-size invariance** → max_abs_err = 0.000
 
 ---

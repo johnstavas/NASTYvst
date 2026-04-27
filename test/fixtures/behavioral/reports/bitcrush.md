@@ -1,9 +1,9 @@
 # bitcrush — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:43.336Z
+**Generated:** 2026-04-27T02:50:50.432Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 271 ms
+**Duration:** 298 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

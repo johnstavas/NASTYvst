@@ -1,7 +1,7 @@
 {
   "opId": "polarity_inv",
   "category": "utility",
-  "timestamp": "2026-04-27T00:20:28.045Z",
+  "timestamp": "2026-04-27T02:50:32.936Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -99,9 +99,9 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 273
+    "durationMs": 291
   },
   "attribution": "verified-end-to-end",
   "declared": {},
-  "durationMs": 276
+  "durationMs": 293
 }

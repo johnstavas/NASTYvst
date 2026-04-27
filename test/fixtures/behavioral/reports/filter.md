@@ -1,9 +1,9 @@
-# dcBlock — Behavioral Validation Report
+# filter — Behavioral Validation Report
 
-**Generated:** 2026-04-27T02:50:37.217Z
+**Generated:** 2026-04-27T02:50:47.060Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1160 ms
+**Duration:** 1203 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
@@ -11,11 +11,11 @@
 
 | Test | Worklet | Native |
 |---|---|---|
-| Magnitude response (hp) | ✅ PASS | ✅ PASS |
+| Magnitude response (lp) | ✅ PASS | ✅ PASS |
 
 ## Passing tests
 
-- **Magnitude response (hp)** → cutoff_hz = 101.156
+- **Magnitude response (lp)** → cutoff_hz = 995.946
 
 ---
 

@@ -1,7 +1,7 @@
 {
-  "opId": "sign",
+  "opId": "detector",
   "category": "utility",
-  "timestamp": "2026-04-27T02:50:31.313Z",
+  "timestamp": "2026-04-27T02:50:32.642Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -65,7 +65,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 5
+    "durationMs": 3
   },
   "native": {
     "summary": {
@@ -99,9 +99,9 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 279
+    "durationMs": 288
   },
   "attribution": "verified-end-to-end",
   "declared": {},
-  "durationMs": 284
+  "durationMs": 291
 }

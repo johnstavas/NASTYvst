@@ -1,7 +1,7 @@
 {
   "opId": "xformerSat",
   "category": "distortion",
-  "timestamp": "2026-04-27T00:20:43.983Z",
+  "timestamp": "2026-04-27T02:50:51.107Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 314
+    "durationMs": 324
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -30
   },
-  "durationMs": 326
+  "durationMs": 336
 }
