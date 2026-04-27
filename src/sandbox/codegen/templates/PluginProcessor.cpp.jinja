@@ -51,11 +51,21 @@ bool {{ PROJECT_NAME }}AudioProcessor::isBusesLayoutSupported(const BusesLayout&
 void {{ PROJECT_NAME }}AudioProcessor::prepareToPlay(double sr, int blockSize) {
     graph_.prepare(sr, blockSize);
     setLatencySamples(graph_.getLatency());
+    // Allocate scratch for dry copy used by the bypass crossfade. Sized
+    // to max channel count + block size known at prepare time.
+    dryCopy_.setSize(juce::jmax(2, getTotalNumInputChannels()), blockSize, false, true, true);
+    // 5 ms crossfade — fast enough to feel instant, slow enough to be click-free.
+    const double rampSamples = juce::jmax(1.0, sr * 0.005);
+    bypassFadeStep_ = 1.0 / rampSamples;
+    bypassFade_ = bypass_ != nullptr && bypass_->get() ? 0.0 : 1.0;
 }
 
 void {{ PROJECT_NAME }}AudioProcessor::releaseResources() {}
 
-void {{ PROJECT_NAME }}AudioProcessor::reset() { graph_.reset(); }
+void {{ PROJECT_NAME }}AudioProcessor::reset() {
+    graph_.reset();
+    bypassFade_ = bypass_ != nullptr && bypass_->get() ? 0.0 : 1.0;
+}
 
 void {{ PROJECT_NAME }}AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
     juce::ScopedNoDenormals noDenormals;
@@ -76,14 +86,36 @@ void {{ PROJECT_NAME }}AudioProcessor::processBlock(juce::AudioBuffer<float>& bu
     graph_.setParam("{{ p.nodeId }}", "{{ p.opParamId }}", apvts.getRawParameterValue("{{ p.paramId }}")->load());
 {% endfor %}
 
-    if (bypass_ != nullptr && bypass_->get()) {
-        // Bypass: passthrough, sample-bit-identical. Re-tap output for meter parity.
-        if (numOut >= 1) levelOutL_.store(peakAbs(buffer.getReadPointer(0), N));
-        if (numOut >= 2) levelOutR_.store(peakAbs(buffer.getReadPointer(1), N));
-        return;
-    }
+    // BYPASS CROSSFADE.  Always run graph (keeps state current — no
+    // wake-up transient when bypass toggles back off).  Then crossfade
+    // between dry copy and processed output over ~5 ms whenever bypass
+    // state is in transition.  Eliminates bypass-toggle clicks AND the
+    // "first block back is wrong" issue caused by stale comp state.
+    const double targetFade = (bypass_ != nullptr && bypass_->get()) ? 0.0 : 1.0;
+
+    // Snapshot the dry input before graph_.process clobbers buffer in place.
+    const int chCopy = juce::jmin(numIn, dryCopy_.getNumChannels());
+    for (int ch = 0; ch < chCopy; ++ch)
+        std::memcpy(dryCopy_.getWritePointer(ch), buffer.getReadPointer(ch), sizeof(float) * (size_t)N);
 
     graph_.process(buffer);
+
+    // Per-sample crossfade between dryCopy_ and the processed buffer.
+    // Fade advances once per sample, applied to all channels in sync.
+    double fade = bypassFade_;
+    const double step = bypassFadeStep_;
+    for (int i = 0; i < N; ++i) {
+        if (fade < targetFade) { fade += step; if (fade > targetFade) fade = targetFade; }
+        else if (fade > targetFade) { fade -= step; if (fade < targetFade) fade = targetFade; }
+        const float fwet = static_cast<float>(fade);
+        const float fdry = static_cast<float>(1.0 - fade);
+        for (int ch = 0; ch < numOut; ++ch) {
+            float* wr = buffer.getWritePointer(ch);
+            const float dry = (ch < chCopy) ? dryCopy_.getReadPointer(ch)[i] : 0.0f;
+            wr[i] = fwet * wr[i] + fdry * dry;
+        }
+    }
+    bypassFade_ = fade;
 
     if (numOut >= 1) levelOutL_.store(peakAbs(buffer.getReadPointer(0), N));
     if (numOut >= 2) levelOutR_.store(peakAbs(buffer.getReadPointer(1), N));

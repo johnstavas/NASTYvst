@@ -50,5 +50,13 @@ private:
     juce::AudioParameterBool* bypass_{nullptr};
     shags::codegen::MasterGraph graph_;
 
+    // Bypass crossfade state.  Graph always runs (state stays current);
+    // output crossfades ~5 ms between dry input and processed graph output
+    // when bypass toggles.  Eliminates bypass-toggle clicks AND wake-up
+    // transients (compressor/transformer state never goes stale).
+    juce::AudioBuffer<float> dryCopy_;
+    double bypassFade_     = 1.0;     // 1 = full wet (active), 0 = full dry (bypassed)
+    double bypassFadeStep_ = 0.0;     // ramp increment per sample (set in prepare)
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR({{ PROJECT_NAME }}AudioProcessor)
 };
