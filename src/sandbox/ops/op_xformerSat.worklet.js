@@ -149,6 +149,9 @@ export class XformerSatOp {
 
     // Derived (recomputed when params or sr change).
     this._driveLin = 1;
+    // Per-sample smoothing of drive (kills knob-twiddle clicks on HEAT).
+    // <0 = prime on first block.
+    this._driveSmoothed = -1;
     this._gLfBase  = 0;   // 2π·fc_lf/sr at current sourceZ
     this._aHf      = 0;   // HF 1-pole LP coefficient
 
@@ -173,6 +176,7 @@ export class XformerSatOp {
     this._xPrev = 0;
     this._yHf = 0;
     this._vrPrev = 0;
+    this._driveSmoothed = -1;   // re-prime on next block
   }
 
   _recomputeDerived() {
@@ -239,7 +243,10 @@ export class XformerSatOp {
     if (!oBuf) return;
     const iBuf = inputs && inputs.in;
 
-    const drv     = this._driveLin;
+    const drvTarget = this._driveLin;
+    if (this._driveSmoothed < 0) this._driveSmoothed = drvTarget;   // prime
+    const drvInc = (drvTarget - this._driveSmoothed) / (N > 0 ? N : 1);
+    let drv       = this._driveSmoothed;
     const gLfBase = this._gLfBase;
     const aHf     = this._aHf;
     const a       = this._a;
@@ -253,6 +260,7 @@ export class XformerSatOp {
 
     for (let n = 0; n < N; n++) {
       const xin = iBuf ? iBuf[n] : 0;
+      drv += drvInc;                  // per-sample smoothing (no click on HEAT)
       const xd  = drv * xin;
 
       // ── Flux tracker (LP integrator → saturation gauge) ───────────
@@ -285,10 +293,11 @@ export class XformerSatOp {
       oBuf[n] = yHf;
     }
 
-    this._phi    = phi;
-    this._yHp    = yHp;
-    this._xPrev  = xPrev;
-    this._yHf    = yHf;
-    this._vrPrev = vrPrev;
+    this._phi           = phi;
+    this._yHp           = yHp;
+    this._xPrev         = xPrev;
+    this._yHf           = yHf;
+    this._vrPrev        = vrPrev;
+    this._driveSmoothed = drvTarget;   // snap; avoids float drift
   }
 }

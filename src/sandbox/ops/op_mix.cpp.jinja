@@ -27,7 +27,10 @@ public:
         recomputeGains();
     }
 
-    void reset() { /* stateless */ }
+    void reset() {
+        dryGSmoothed_ = -1.0;   // <0 sentinel: prime on first block
+        wetGSmoothed_ = -1.0;
+    }
 
     void setParam(const char* id, double v) {
         if (std::strcmp(id, "amount") == 0) {
@@ -39,39 +42,55 @@ public:
     int getLatencySamples() const { return 0; }
 
     // dry / wet: both mono inputs (either may be nullptr -> treat as 0).
-    // Codegen emits process(dry_buf, wet_buf, out_buf, N) in port order.
+    // PER-SAMPLE smoothing of dryG/wetG to kill knob-twiddle clicks (added
+    // 2026-04-27, mirrors op_gain smoothing).  Without smoothing, dragging
+    // the MIX knob produces a per-block step in dry/wet gain that audibly
+    // clicks.
     void process(const float* dry, const float* wet, float* out, int N) {
         if (!out) return;
-        const double dG = dryG_;
-        const double wG = wetG_;
-        if (!dry && !wet) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
+        if (dryGSmoothed_ < 0.0) { dryGSmoothed_ = dryGTarget_; wetGSmoothed_ = wetGTarget_; }
+        const double dInc = (dryGTarget_ - dryGSmoothed_) / (N > 0 ? N : 1);
+        const double wInc = (wetGTarget_ - wetGSmoothed_) / (N > 0 ? N : 1);
+        double dG = dryGSmoothed_;
+        double wG = wetGSmoothed_;
+        if (!dry && !wet) {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            dryGSmoothed_ = dryGTarget_; wetGSmoothed_ = wetGTarget_;
+            return;
+        }
         if (!dry) {
-            for (int i = 0; i < N; ++i)
+            for (int i = 0; i < N; ++i) {
+                wG += wInc;
                 out[i] = static_cast<float>(wG * static_cast<double>(wet[i]));
-            return;
-        }
-        if (!wet) {
-            for (int i = 0; i < N; ++i)
+            }
+        } else if (!wet) {
+            for (int i = 0; i < N; ++i) {
+                dG += dInc;
                 out[i] = static_cast<float>(dG * static_cast<double>(dry[i]));
-            return;
+            }
+        } else {
+            for (int i = 0; i < N; ++i) {
+                dG += dInc; wG += wInc;
+                out[i] = static_cast<float>(dG * static_cast<double>(dry[i])
+                                          + wG * static_cast<double>(wet[i]));
+            }
         }
-        for (int i = 0; i < N; ++i) {
-            const double y = dG * static_cast<double>(dry[i])
-                           + wG * static_cast<double>(wet[i]);
-            out[i] = static_cast<float>(y);
-        }
+        dryGSmoothed_ = dryGTarget_;
+        wetGSmoothed_ = wetGTarget_;
     }
 
 private:
     void recomputeGains() {
-        dryG_ = std::cos(amount_ * M_PI * 0.5);
-        wetG_ = std::sin(amount_ * M_PI * 0.5);
+        dryGTarget_ = std::cos(amount_ * M_PI * 0.5);
+        wetGTarget_ = std::sin(amount_ * M_PI * 0.5);
     }
 
     double sr_;
-    double amount_ = 0.5;
-    double dryG_   = 0.0;
-    double wetG_   = 0.0;
+    double amount_       = 0.5;
+    double dryGTarget_   = 0.7071067811865476;     // cos(π/4)
+    double wetGTarget_   = 0.7071067811865476;     // sin(π/4)
+    double dryGSmoothed_ = -1.0;                   // primes on first block
+    double wetGSmoothed_ = -1.0;
 };
 
 }  // namespace shags::ops

@@ -24,45 +24,64 @@ export class MixOp {
   constructor(sampleRate) {
     this.sr = sampleRate;
     this._amount = 0.5;
-    this._dryG = Math.cos(0.5 * Math.PI * 0.5);
-    this._wetG = Math.sin(0.5 * Math.PI * 0.5);
+    this._dryGTarget = Math.cos(0.5 * Math.PI * 0.5);
+    this._wetGTarget = Math.sin(0.5 * Math.PI * 0.5);
+    this._dryGSmoothed = -1;   // <0 sentinel: prime on first block
+    this._wetGSmoothed = -1;
   }
 
-  reset() { /* mix is stateless */ }
+  reset() {
+    this._dryGSmoothed = -1;
+    this._wetGSmoothed = -1;
+  }
 
   setParam(id, v) {
     if (id === 'amount') {
       this._amount = v;
-      this._dryG = Math.cos(v * Math.PI * 0.5);
-      this._wetG = Math.sin(v * Math.PI * 0.5);
+      this._dryGTarget = Math.cos(v * Math.PI * 0.5);
+      this._wetGTarget = Math.sin(v * Math.PI * 0.5);
     }
   }
 
   getLatencySamples() { return 0; }
 
-  // Equal-power crossfade, constant-energy form (-3 dB at amount=0.5):
+  // Equal-power crossfade with PER-SAMPLE smoothing of dryG/wetG to kill
+  // knob-twiddle clicks (added 2026-04-27, mirrors op_gain smoothing).
   //   dryGain = cos(amount · π/2)
   //   wetGain = sin(amount · π/2)
   //   out     = dry · dryGain + wet · wetGain
-  // Mandated by memory/dry_wet_mix_rule.md as the canonical mix law for
-  // every master-worklet plugin. Master-worklet codegen means dry and
-  // wet legs run at the same sample clock, so the "external parallel
-  // dry leg combs the oversampled wet leg" failure mode the dry/wet rule
-  // is guarding against cannot occur here.
+  // Mandated by memory/dry_wet_mix_rule.md as the canonical mix law.
   process(inputs, outputs, N) {
     const dryCh = inputs.dry;
     const wetCh = inputs.wet;
     const outCh = outputs.out;
-    const dG = this._dryG;
-    const wG = this._wetG;
+    if (this._dryGSmoothed < 0) {
+      this._dryGSmoothed = this._dryGTarget;
+      this._wetGSmoothed = this._wetGTarget;
+    }
+    const dInc = (this._dryGTarget - this._dryGSmoothed) / (N > 0 ? N : 1);
+    const wInc = (this._wetGTarget - this._wetGSmoothed) / (N > 0 ? N : 1);
+    let dG = this._dryGSmoothed;
+    let wG = this._wetGSmoothed;
     if (dryCh && wetCh) {
-      for (let i = 0; i < N; i++) outCh[i] = dryCh[i] * dG + wetCh[i] * wG;
+      for (let i = 0; i < N; i++) {
+        dG += dInc; wG += wInc;
+        outCh[i] = dryCh[i] * dG + wetCh[i] * wG;
+      }
     } else if (dryCh) {
-      for (let i = 0; i < N; i++) outCh[i] = dryCh[i] * dG;
+      for (let i = 0; i < N; i++) {
+        dG += dInc;
+        outCh[i] = dryCh[i] * dG;
+      }
     } else if (wetCh) {
-      for (let i = 0; i < N; i++) outCh[i] = wetCh[i] * wG;
+      for (let i = 0; i < N; i++) {
+        wG += wInc;
+        outCh[i] = wetCh[i] * wG;
+      }
     } else {
       for (let i = 0; i < N; i++) outCh[i] = 0;
     }
+    this._dryGSmoothed = this._dryGTarget;
+    this._wetGSmoothed = this._wetGTarget;
   }
 }

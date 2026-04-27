@@ -25,6 +25,7 @@ public:
         xPrev_ = 0.0;
         yHf_ = 0.0;
         vrPrev_ = 0.0;
+        driveSmoothed_ = -1.0;   // re-prime on next block
     }
 
     void setParam(const char* id, double v) {
@@ -62,7 +63,10 @@ public:
         if (!out) return;
         if (!in) { for (int i = 0; i < N; ++i) out[i] = 0.0f; return; }
 
-        const double drv     = driveLin_;
+        const double drvTarget = driveLin_;
+        if (driveSmoothed_ < 0.0) driveSmoothed_ = drvTarget;   // prime
+        const double drvInc = (drvTarget - driveSmoothed_) / static_cast<double>(N > 0 ? N : 1);
+        double drv           = driveSmoothed_;
         const double gLfBase = gLfBase_;
         const double aHf     = aHf_;
         const double a       = a_;
@@ -75,6 +79,7 @@ public:
         double vrPrev = vrPrev_;
 
         for (int n = 0; n < N; ++n) {
+            drv += drvInc;     // per-sample HEAT smoothing (no click)
             const double xd = drv * static_cast<double>(in[n]);
 
             // Flux tracker.
@@ -104,11 +109,12 @@ public:
             out[n] = static_cast<float>(yHf);
         }
 
-        phi_    = phi;
-        yHp_    = yHp;
-        xPrev_  = xPrev;
-        yHf_    = yHf;
-        vrPrev_ = vrPrev;
+        phi_           = phi;
+        yHp_           = yHp;
+        xPrev_         = xPrev;
+        yHf_           = yHf;
+        vrPrev_        = vrPrev;
+        driveSmoothed_ = drvTarget;   // snap; avoid float drift
     }
 
 private:
@@ -157,6 +163,9 @@ private:
     double xPrev_  = 0.0;
     double yHf_    = 0.0;
     double vrPrev_ = 0.0;
+
+    // Per-sample drive smoothing (kills HEAT-knob clicks). <0 = prime.
+    double driveSmoothed_ = -1.0;
 };
 
 }  // namespace shags::ops
