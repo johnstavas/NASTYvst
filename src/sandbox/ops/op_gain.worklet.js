@@ -27,9 +27,10 @@ export class GainOp {
   constructor(sampleRate) {
     this.sr = sampleRate;
     this._gainDb = 0;
+    this._baseSmoothed = -1;   // <0 sentinel: prime on first block
   }
 
-  reset() { /* gain is stateless */ }
+  reset() { this._baseSmoothed = -1; }
 
   setParam(id, v) {
     if (id === 'gainDb') this._gainDb = v;
@@ -49,15 +50,26 @@ export class GainOp {
     const inCh  = inputs.in;
     const modCh = inputs.gainMod;
     const outCh = outputs.out;
-    const base  = Math.pow(10, this._gainDb / 20);
+    const baseTarget = Math.pow(10, this._gainDb / 20);
+    if (this._baseSmoothed < 0) this._baseSmoothed = baseTarget;   // prime
+    const increment = (baseTarget - this._baseSmoothed) / (N > 0 ? N : 1);
     if (!inCh) {
       for (let i = 0; i < N; i++) outCh[i] = 0;
+      this._baseSmoothed = baseTarget;
       return;
     }
+    let b = this._baseSmoothed;
     if (modCh) {
-      for (let i = 0; i < N; i++) outCh[i] = inCh[i] * (base + modCh[i]);
+      for (let i = 0; i < N; i++) {
+        b += increment;
+        outCh[i] = inCh[i] * (b + modCh[i]);
+      }
     } else {
-      for (let i = 0; i < N; i++) outCh[i] = inCh[i] * base;
+      for (let i = 0; i < N; i++) {
+        b += increment;
+        outCh[i] = inCh[i] * b;
+      }
     }
+    this._baseSmoothed = baseTarget;   // snap to target
   }
 }

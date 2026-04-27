@@ -54,5 +54,14 @@
     { "from": "n_makeup", "to": "out" }
   ],
   "feedback": [],
-  "legendOps": ["detector", "envelope", "gainComputer", "gain"]
+  "legendOps": ["detector", "envelope", "gainComputer", "gain"],
+  "ui": {
+    "_doc_lockedParams": "Internal sidechain wiring + the n_vca base-gain stage are recipe-author-vetted and not user-touchable. Locking them here drops them from APVTS so the editor only renders 6 knobs (Attack / Release / Threshold / Ratio / Knee / Makeup) instead of 10. The locked params still get their JSON defaults baked into MasterGraph::prepare().",
+    "lockedParams": [
+      "n_det__mode",
+      "n_env__amount",
+      "n_env__offset",
+      "n_vca__gainDb"
+    ]
+  }
 }

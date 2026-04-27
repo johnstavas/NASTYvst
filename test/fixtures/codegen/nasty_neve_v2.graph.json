@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "id": "nasty-neve-v2",
+  "label": "Nasty Neve v2 — In / Mix / Out",
+  "_doc": [
+    "Adds production-essential In/Mix/Out controls per ear-test feedback (2026-04-27).",
+    "",
+    "TOPOLOGY (8 user knobs):",
+    "  in ─► n_in ─┬─► n_det ─► n_env ─► n_comp ─► n_vca.gainMod (sidechain)",
+    "              │                              │",
+    "              ├─► n_vca ──────────────────┴─► n_mix.wet",
+    "              │",
+    "              └─► n_mix.dry",
+    "                  │",
+    "                  n_mix ─► n_out ─► out",
+    "",
+    "USER KNOBS:  IN  ATTACK  RELEASE  THRESHOLD  RATIO  KNEE  MIX  OUT",
+    "",
+    "WHY no Makeup knob: with both In (drive) and Out (trim), separate Makeup",
+    "is redundant — user can compensate any GR via Out, and adjust character",
+    "via In. Mix gives parallel-compression blend (a real production tool).",
+    "",
+    "LOCKED params (recipe-author baked, not user-touchable):",
+    "  - n_det.mode       = peak  (always-peak detector for transient response)",
+    "  - n_env.amount     = 1     (positive linear magnitude into gainComputer)",
+    "  - n_env.offset     = 0     (no DC bias on envelope)",
+    "  - n_vca.gainDb     = 0     (internal VCA stage, base gain stays unity)"
+  ],
+  "canvas": { "width": 1000, "height": 320 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 200 },
+    { "id": "out", "kind": "output", "x": 960, "y": 200 }
+  ],
+  "nodes": [
+    { "id": "n_in",     "op": "gain",         "x": 140, "y": 200,
+      "params": { "gainDb": 0 } },
+    { "id": "n_det",    "op": "detector",     "x": 280, "y":  60,
+      "params": { "mode": "peak" } },
+    { "id": "n_env",    "op": "envelope",     "x": 420, "y":  60,
+      "params": { "attack": 5, "release": 250, "amount": 1, "offset": 0 } },
+    { "id": "n_comp",   "op": "gainComputer", "x": 560, "y":  60,
+      "params": { "thresholdDb": -18, "ratio": 4, "kneeDb": 6 } },
+    { "id": "n_vca",    "op": "gain",         "x": 560, "y": 200,
+      "params": { "gainDb": 0 } },
+    { "id": "n_mix",    "op": "mix",          "x": 720, "y": 200,
+      "params": { "amount": 1.0 } },
+    { "id": "n_out",    "op": "gain",         "x": 860, "y": 200,
+      "params": { "gainDb": 0 } }
+  ],
+  "wires": [
+    { "from": "in",       "to": "n_in" },
+    { "from": "n_in",     "to": "n_det" },
+    { "from": "n_det",    "to": "n_env" },
+    { "from": "n_env",    "to": "n_comp" },
+    { "from": "n_comp",   "to": "n_vca.gainMod" },
+    { "from": "n_in",     "to": "n_vca" },
+    { "from": "n_vca",    "to": "n_mix.wet" },
+    { "from": "n_in",     "to": "n_mix.dry" },
+    { "from": "n_mix",    "to": "n_out" },
+    { "from": "n_out",    "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["gain", "detector", "envelope", "gainComputer", "mix"],
+  "ui": {
+    "_doc_lockedParams": "Internal sidechain wiring + the n_vca base-gain stage are locked at recipe-author defaults so users can't accidentally break the compression curve.",
+    "lockedParams": [
+      "n_det__mode",
+      "n_env__amount",
+      "n_env__offset",
+      "n_vca__gainDb"
+    ]
+  }
+}

@@ -152,18 +152,29 @@ function paramRange(p) {
 }
 
 // ── compute apvtsParams (UI-bound knobs/sliders/buttons/choices) ─────────
+// graph.ui.lockedParams is an optional whitelist of full APVTS-style ids
+// (e.g. "n_vca__gainDb") that should NOT be exposed as user controls.
+// Locked params still get their JSON-declared default baked into the C++
+// MasterGraph::prepare() via paramSet, so the underlying op runs at the
+// recipe-author's vetted value forever — there's just no UI to touch them.
+// Closes the "10 knobs the user can break" UX trap (e.g. NastyNeveV1's
+// internal n_vca__gainDb that biases the entire compression curve when
+// non-zero).
+const lockedParamIds = new Set((graph.ui && graph.ui.lockedParams) || []);
 const apvtsParams = [];
 for (const n of pcof.nodes) {
   const opSpec = OPS[n.op];
   if (!opSpec) throw new Error(`unknown op ${n.op}`);
   for (const p of (opSpec.params || [])) {
     if (p.type !== 'number' && p.type !== 'bool' && p.type !== 'enum') continue;
+    const fullId = sanitizeIdent(`${n.id}__${p.id}`);
+    if (lockedParamIds.has(fullId)) continue;   // locked = baked default only
     const raw = (n.params && n.params[p.id] !== undefined) ? n.params[p.id] : p.default;
     const valueDefault = canonParam(p, raw);
     const r = paramRange(p);
     const ui = p.ui || (p.type === 'bool' ? 'toggle' : (p.type === 'enum' ? 'choice' : 'knob'));
     apvtsParams.push({
-      paramId   : sanitizeIdent(`${n.id}__${p.id}`),
+      paramId   : fullId,
       nodeId    : n.id,
       opParamId : p.id,
       label     : p.label || p.id,

@@ -15,7 +15,7 @@ public:
     GainOp_{{ node_id }}() = default;
     explicit GainOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
 
-    void reset() { /* gain is stateless */ }
+    void reset() { baseSmoothed_ = -1.0; /* triggers prime-on-first-block */ }
 
     void setParam(const char* id, double v) {
         if (std::strcmp(id, "gainDb") == 0) gainDb_ = v;
@@ -27,26 +27,41 @@ public:
     // gainMod: mono control input (nullptr if unwired -> static gain)
     // out:     mono audio output
     //
-    // Mirrors op_gain.worklet.js exactly:
-    //   base = 10^(gainDb/20)
-    //   if (modCh) out[i] = in[i] * (base + modCh[i])
-    //   else       out[i] = in[i] * base
+    // PER-SAMPLE PARAM SMOOTHING (added 2026-04-27 to kill knob-twiddle clicks):
+    //   base linearly ramps from baseSmoothed_ to baseTarget over N samples.
+    //   This eliminates the single-block step that produced audible clicks
+    //   when the user moved In/Out/VCA gains or clicked preset buttons that
+    //   set new param values instantly via APVTS::setValueNotifyingHost.
+    //
+    // Mirrors op_gain.worklet.js (which now also smooths).
     void process(const float* in, const float* gainMod, float* out, int N) {
-        const float base = static_cast<float>(std::pow(10.0, gainDb_ / 20.0));
+        const double baseTarget = std::pow(10.0, gainDb_ / 20.0);
+        if (baseSmoothed_ < 0.0) baseSmoothed_ = baseTarget;     // prime on first block
+        const double increment = (baseTarget - baseSmoothed_) / static_cast<double>(N > 0 ? N : 1);
         if (in == nullptr) {
             for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            baseSmoothed_ = baseTarget;
             return;
         }
+        double b = baseSmoothed_;
         if (gainMod != nullptr) {
-            for (int i = 0; i < N; ++i) out[i] = in[i] * (base + gainMod[i]);
+            for (int i = 0; i < N; ++i) {
+                b += increment;
+                out[i] = static_cast<float>(in[i] * (b + gainMod[i]));
+            }
         } else {
-            for (int i = 0; i < N; ++i) out[i] = in[i] * base;
+            for (int i = 0; i < N; ++i) {
+                b += increment;
+                out[i] = static_cast<float>(in[i] * b);
+            }
         }
+        baseSmoothed_ = baseTarget;   // snap to target to avoid float drift
     }
 
 private:
     double sr_ = 44100.0;
     double gainDb_ = 0.0;
+    double baseSmoothed_ = -1.0;   // <0 sentinel = "prime on first block"
 };
 
 }  // namespace shags::ops
