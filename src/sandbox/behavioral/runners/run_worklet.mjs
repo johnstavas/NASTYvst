@@ -68,7 +68,11 @@ export async function runWorklet(opId, params, stim, options = {}) {
   const sr = options.sampleRate || 48000;
   const blockSize = options.blockSize || 256;
 
-  const Klass = await loadOpClass(opId);
+  // options.workletOpId lets behavioral specs share a worklet sidecar across
+  // multiple parity entries (e.g., polarity_inv reuses op_polarity.worklet.js
+  // with `invert: true` baked in). Defaults to opId.
+  const workletId = options.workletOpId || opId;
+  const Klass = await loadOpClass(workletId);
   const op = new Klass(sr);
 
   // Apply declared params (after construction so user values override defaults).

@@ -1,7 +1,7 @@
 {
-  "opId": "clamp",
+  "opId": "mix",
   "category": "utility",
-  "timestamp": "2026-04-27T00:20:27.206Z",
+  "timestamp": "2026-04-27T00:20:28.574Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -13,8 +13,8 @@
       "name": "Closed-form math identity",
       "pass": true,
       "measured": {
-        "max_abs_err": 0,
-        "max_abs_err_db": null
+        "max_abs_err": 1.3990120006912576e-8,
+        "max_abs_err_db": -157.0835712024917
       },
       "declared": {
         "tolerance": 0.000001
@@ -45,8 +45,8 @@
         "name": "Closed-form math identity",
         "pass": true,
         "measured": {
-          "max_abs_err": 0,
-          "max_abs_err_db": null
+          "max_abs_err": 1.3990120006912576e-8,
+          "max_abs_err_db": -157.0835712024917
         },
         "declared": {
           "tolerance": 0.000001
@@ -69,39 +69,18 @@
   },
   "native": {
     "summary": {
-      "total": 2,
-      "passed": 2,
+      "total": 0,
+      "passed": 0,
       "failed": 0,
-      "verdict": "PASS"
+      "verdict": "SKIP"
     },
-    "tests": [
-      {
-        "name": "Closed-form math identity",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 9.5367431640625e-7,
-          "max_abs_err_db": -120.41199826559249
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      },
-      {
-        "name": "Block-size invariance",
-        "pass": true,
-        "measured": {
-          "max_abs_err": 0
-        },
-        "declared": {
-          "tolerance": 0.000001
-        },
-        "diagnostic": null
-      }
-    ],
-    "durationMs": 385
+    "tests": [],
+    "durationMs": 0,
+    "reason": "spec.nativeSkip — multi-input op or other architectural skip"
   },
-  "attribution": "verified-end-to-end",
-  "declared": {},
-  "durationMs": 388
+  "attribution": "native-skipped",
+  "declared": {
+    "inputPort": "dry"
+  },
+  "durationMs": 3
 }

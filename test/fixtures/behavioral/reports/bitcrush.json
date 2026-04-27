@@ -1,7 +1,7 @@
 {
   "opId": "bitcrush",
   "category": "distortion",
-  "timestamp": "2026-04-27T00:07:09.084Z",
+  "timestamp": "2026-04-27T00:20:43.336Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -121,7 +121,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 9
+    "durationMs": 8
   },
   "native": {
     "summary": {
@@ -183,7 +183,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 295
+    "durationMs": 262
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -197,5 +197,5 @@
     "high_level_thd_pct_min": 1,
     "dc_creep_max_dbfs": -30
   },
-  "durationMs": 304
+  "durationMs": 271
 }

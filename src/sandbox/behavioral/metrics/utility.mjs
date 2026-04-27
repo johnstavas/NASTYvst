@@ -60,7 +60,8 @@ async function testClosedFormIdentity(opId, params, declared) {
   let firstFailIdx = -1;
 
   for (const stim of stims) {
-    const r = await _runner(opId, params, { in: stim.buf }, { sampleRate: SR });
+    const inputPort = declared.inputPort || 'in';
+    const r = await _runner(opId, params, { [inputPort]: stim.buf }, { sampleRate: SR });
     const out = r.outputs.out || r.outputs[Object.keys(r.outputs)[0]];
     for (let i = 0; i < stim.buf.length; i++) {
       const expected = declared.expectedFn(stim.buf[i], params);
@@ -90,8 +91,9 @@ async function testClosedFormIdentity(opId, params, declared) {
 async function testBlockSizeInvariance(opId, params, declared) {
   // Run the same stimulus at two different block sizes; output must match.
   const stim = sine(2048, SR, 1000, 0.5);
-  const r256 = await _runner(opId, params, { in: stim }, { sampleRate: SR, blockSize: 256 });
-  const r64  = await _runner(opId, params, { in: stim }, { sampleRate: SR, blockSize: 64 });
+  const inputPort = declared.inputPort || 'in';
+  const r256 = await _runner(opId, params, { [inputPort]: stim }, { sampleRate: SR, blockSize: 256 });
+  const r64  = await _runner(opId, params, { [inputPort]: stim }, { sampleRate: SR, blockSize: 64 });
   const a = r256.outputs.out || r256.outputs[Object.keys(r256.outputs)[0]];
   const b = r64.outputs.out  || r64.outputs[Object.keys(r64.outputs)[0]];
   let maxAbsErr = 0;

@@ -1,7 +1,7 @@
 {
   "opId": "shelf",
   "category": "filter",
-  "timestamp": "2026-04-27T00:07:05.633Z",
+  "timestamp": "2026-04-27T00:20:40.150Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -41,7 +41,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 9
+    "durationMs": 10
   },
   "native": {
     "summary": {
@@ -63,11 +63,11 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1202
+    "durationMs": 1126
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "shelf"
   },
-  "durationMs": 1211
+  "durationMs": 1136
 }

@@ -1,9 +1,9 @@
-# polarity — Behavioral Validation Report
+# uniBi_b2u — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:27.495Z
+**Generated:** 2026-04-27T00:20:28.313Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 288 ms
+**Duration:** 268 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
@@ -16,7 +16,7 @@
 
 ## Passing tests
 
-- **Closed-form math identity** → max_abs_err = 0.000, max_abs_err_db = -Infinity
+- **Closed-form math identity** → max_abs_err = 0.000, max_abs_err_db = -150.515
 - **Block-size invariance** → max_abs_err = 0.000
 
 ---

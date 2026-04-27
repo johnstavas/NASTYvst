@@ -44,7 +44,45 @@ not fixed during the harness build itself.
 
 ### T8-B harness backlog (Day 6+)
 
-- **20 of 46 parity ops still need behavioral specs.** biquad LP/HP/BP/notch/peak/low-shelf/high-shelf, polarity_inv, uniBi_b2u, constant, dcBlock, gain_chain2, srcResampler, smooth, slew, drive, mix, xformerSat, polarity, scaleBy.
+#### Backfill closure (2026-04-26 — second pass)
+
+Added behavioral specs for 7 more parity ops: polarity_inv, uniBi_b2u,
+scaleBy, mix (worklet-only), dcBlock, onePole_hp, xformerSat.
+**Now 33 of 46 parity ops have committed behavioral reports** (28 verified
+end-to-end + 4 multi-input native-skips + 1 documented multi-input mix).
+
+Remaining 13 ops require infrastructure work, not just spec authoring:
+
+**Worklet-less ops** — ship via `builtin:` JS reference inside
+`check_native_parity.mjs` with no `op_<id>.worklet.js` sidecar. T8-B's
+worklet arm requires a class to load. Either upgrade to full tri-files
+or build a builtin-reference adapter for the worklet runner. Affected:
+  - **biquad_{lp, hp, bp, notch, peak, lowshelf, highshelf}** (7 ops)
+  - **drive** (1 op)
+  - **gain_chain2** (1 op)
+
+**Resampler** — `srcResampler` has internal lookahead latency even at
+speed=1.0; closed-form sample-by-sample identity check fails. Needs a
+dedicated resampler metric (anti-aliasing test, latency-compensation,
+RMS-equivalence at unity rate).
+
+**Source ops** — `constant` has zero audio inputs, emits a steady control
+value. Doesn't fit any current metric module (utility's expectedFn
+assumes input). Needs a "source" metric (output range, accuracy) — fits
+the `analyzer` category extension.
+
+**Modulation ops** — `smooth`, `slew` are stateful smoothers with
+declared time-constants. Need a modulation metric module (rate accuracy,
+T90 timing) — listed under "Categories not yet implemented" below.
+
+#### Newer findings from second-pass backfill
+
+| Op | Finding | Disposition |
+|---|---|---|
+| **mix** | Equal-power crossfade (`cos(amount·π/2)`, `sin(amount·π/2)`) per `dry_wet_mix_rule.md`, NOT linear (1−amount)·x. My initial behavioral spec had the wrong expectedFn — caught immediately by the harness. Native arm must SKIP because parity_host can't cleanly drive 2 input ports from 1 WAV. | spec fixed; nativeSkip=true logged |
+| **enum/string param coercion** | run_native was passing string param values (`mode='hp'`, `mode='biToUni'`) raw to parity_host's JSON-numeric interface. JUCE silently fell back to AudioParameterChoice index 0 (= 'lp' / 'uniToBi'), corrupting the smoke build's baked default. Fix: skip non-numeric values in run_native; smoke's baked enum default wins. Surfaced by `onePole_hp` and `uniBi_b2u`. | runner patched 2026-04-26 |
+
+#### Other open items
 - **Categories not yet implemented.** modulation, reverb, pitch, envelope (split from analyzer), eq (currently routed through filter), limiter, widener, pitchshift, gate, convolver, synth, stereo. Each needs a metric module per `behavioral_validation_harness.md` § 6.
 - **Cross-cutting metrics not yet implemented.** Tracktion-style transient-arrival latency test (any op with non-zero `getLatencySamples()`); clap-validator-style state-reproducibility test (every op).
 - **L0 pluginval gate.** Invoke `pluginval.exe --strictness-level 10` per built smoke graph as subprocess; parse stdout for FAIL. License-clean (subprocess only). Adds NaN/Inf/subnormal/audio-thread-alloc/state/thread coverage that L1 + L2 cannot detect.

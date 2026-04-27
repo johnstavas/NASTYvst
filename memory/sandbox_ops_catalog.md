@@ -46,18 +46,26 @@ done vs. what's left".
   sidecar yet (so shape-check would trip if included in OP_IDS).
 - ⬜    **not started** — no registry entry, no files.
 
-### T8-B closure summary (2026-04-26)
+### T8-B closure summary (2026-04-26 — updated after second backfill pass)
 
-26 of 46 parity ops have committed two-arm behavioral reports across 5
-categories (compressor, utility, filter, distortion, analyzer):
-- **21 ops** verified end-to-end (worklet PASS + native PASS) → eligible
+**33 of 46 parity ops** have committed two-arm behavioral reports across
+5 categories (compressor, utility, filter, distortion, analyzer):
+- **28 ops verified end-to-end** (worklet PASS + native PASS) → eligible
   for ✅+P+✓ promotion when catalog rows are next touched.
-- **4 ops** native-skipped (Cluster A compressors, audio + cv input shape
-  not driveable through current parity_host) — worklet PASS only;
-  promotion deferred until multi-input parity_host lands.
-- **1 op** with confirmed codegen-or-wiring bug (tilt — worklet shows
-  ~17 dB tilt, native shows ~6 dB; real C++ ↔ JS divergence). Stays at
-  ✅+P; logged in `sandbox_ops_research_debt.md`.
+- **5 ops native-skipped** with documented architectural reason:
+  - 4 Cluster A cells (varMuTube, fetVVR, blackmerVCA, diodeBridgeGR) —
+    audio + cv input shape not driveable by single-WAV parity_host
+  - mix — dry + wet input shape, same single-WAV constraint
+- **0 confirmed codegen-or-wiring bugs.** The original tilt finding was
+  resolved as a harness param-normalization bug (not a tilt op bug):
+  run_native was using stale per_op_specs.json paramRanges instead of
+  the authoritative param_ranges.json sidecar emitted by codegen. Fixed
+  2026-04-26.
+
+**13 of 46 parity ops not yet covered** — require infrastructure work
+beyond spec authoring (worklet-less builtin-reference ops, resampler,
+modulation generators, source ops). See `sandbox_ops_research_debt.md`
+T8-B harness backlog for the full ledger.
 
 Reports live in `test/fixtures/behavioral/reports/<opId>.{md,json}`.
 Run `node scripts/check_behavioral.mjs --native` to regenerate.

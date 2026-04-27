@@ -1,9 +1,9 @@
 # chebyshevWS — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:07:09.528Z
+**Generated:** 2026-04-27T00:20:43.657Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 442 ms
+**Duration:** 321 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

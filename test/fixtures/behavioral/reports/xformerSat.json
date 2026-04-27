@@ -1,7 +1,7 @@
 {
-  "opId": "wavefolder",
+  "opId": "xformerSat",
   "category": "distortion",
-  "timestamp": "2026-04-27T00:20:42.750Z",
+  "timestamp": "2026-04-27T00:20:43.983Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -16,35 +16,35 @@
         "samples": [
           {
             "dbfs": -40,
-            "thd_pct": 0.000001493804791900671,
+            "thd_pct": 0.05032207182571804,
             "nan": 0,
             "inf": 0
           },
           {
             "dbfs": -20,
-            "thd_pct": 0.0000014665801785984203,
+            "thd_pct": 0.5148974335776927,
             "nan": 0,
             "inf": 0
           },
           {
             "dbfs": -6,
-            "thd_pct": 28.877716728510176,
+            "thd_pct": 2.8779757924977676,
             "nan": 0,
             "inf": 0
           },
           {
             "dbfs": 0,
-            "thd_pct": 37.7003978578128,
+            "thd_pct": 6.69962620137378,
             "nan": 0,
             "inf": 0
           }
         ],
-        "low_thd_pct": 0.000001493804791900671,
-        "high_thd_pct": 37.7003978578128
+        "low_thd_pct": 0.05032207182571804,
+        "high_thd_pct": 6.69962620137378
       },
       "declared": {
-        "low_level_thd_pct_max": 1,
-        "high_level_thd_pct_min": 1
+        "low_level_thd_pct_max": 5,
+        "high_level_thd_pct_min": 0.5
       },
       "diagnostic": null
     },
@@ -53,10 +53,10 @@
       "pass": true,
       "measured": {
         "classification": "odd",
-        "h2_rel": 0.00001020335256212634,
-        "h3_rel": 0.2634467316396171,
-        "h4_rel": 0.000001960227200390488,
-        "h5_rel": 0.1101079925799911
+        "h2_rel": 1.3878937752056683e-8,
+        "h3_rel": 0.02848082774010814,
+        "h4_rel": 2.9831871810303566e-9,
+        "h5_rel": 0.003911179147396143
       },
       "declared": {
         "harmonic_signature": "odd"
@@ -67,11 +67,11 @@
       "name": "DC creep",
       "pass": true,
       "measured": {
-        "dc_dbfs": -344.5518208450948,
-        "dc_linear": -5.921189464667502e-18
+        "dc_dbfs": -206.73361439162264,
+        "dc_linear": -4.605950649689745e-11
       },
       "declared": {
-        "dc_creep_max_dbfs": -40
+        "dc_creep_max_dbfs": -30
       },
       "diagnostic": null
     }
@@ -91,35 +91,35 @@
           "samples": [
             {
               "dbfs": -40,
-              "thd_pct": 0.000001493804791900671,
+              "thd_pct": 0.05032207182571804,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": -20,
-              "thd_pct": 0.0000014665801785984203,
+              "thd_pct": 0.5148974335776927,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": -6,
-              "thd_pct": 28.877716728510176,
+              "thd_pct": 2.8779757924977676,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": 0,
-              "thd_pct": 37.7003978578128,
+              "thd_pct": 6.69962620137378,
               "nan": 0,
               "inf": 0
             }
           ],
-          "low_thd_pct": 0.000001493804791900671,
-          "high_thd_pct": 37.7003978578128
+          "low_thd_pct": 0.05032207182571804,
+          "high_thd_pct": 6.69962620137378
         },
         "declared": {
-          "low_level_thd_pct_max": 1,
-          "high_level_thd_pct_min": 1
+          "low_level_thd_pct_max": 5,
+          "high_level_thd_pct_min": 0.5
         },
         "diagnostic": null
       },
@@ -128,10 +128,10 @@
         "pass": true,
         "measured": {
           "classification": "odd",
-          "h2_rel": 0.00001020335256212634,
-          "h3_rel": 0.2634467316396171,
-          "h4_rel": 0.000001960227200390488,
-          "h5_rel": 0.1101079925799911
+          "h2_rel": 1.3878937752056683e-8,
+          "h3_rel": 0.02848082774010814,
+          "h4_rel": 2.9831871810303566e-9,
+          "h5_rel": 0.003911179147396143
         },
         "declared": {
           "harmonic_signature": "odd"
@@ -142,16 +142,16 @@
         "name": "DC creep",
         "pass": true,
         "measured": {
-          "dc_dbfs": -344.5518208450948,
-          "dc_linear": -5.921189464667502e-18
+          "dc_dbfs": -206.73361439162264,
+          "dc_linear": -4.605950649689745e-11
         },
         "declared": {
-          "dc_creep_max_dbfs": -40
+          "dc_creep_max_dbfs": -30
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 14
+    "durationMs": 12
   },
   "native": {
     "summary": {
@@ -168,35 +168,35 @@
           "samples": [
             {
               "dbfs": -40,
-              "thd_pct": 0.000001493804791900671,
+              "thd_pct": 0.05032207322069594,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": -20,
-              "thd_pct": 0.0000014665801785984203,
+              "thd_pct": 0.514897419040917,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": -6,
-              "thd_pct": 28.877716728510176,
+              "thd_pct": 2.8779755149061184,
               "nan": 0,
               "inf": 0
             },
             {
               "dbfs": 0,
-              "thd_pct": 37.7003978578128,
+              "thd_pct": 6.699626005178354,
               "nan": 0,
               "inf": 0
             }
           ],
-          "low_thd_pct": 0.000001493804791900671,
-          "high_thd_pct": 37.7003978578128
+          "low_thd_pct": 0.05032207322069594,
+          "high_thd_pct": 6.699626005178354
         },
         "declared": {
-          "low_level_thd_pct_max": 1,
-          "high_level_thd_pct_min": 1
+          "low_level_thd_pct_max": 5,
+          "high_level_thd_pct_min": 0.5
         },
         "diagnostic": null
       },
@@ -205,10 +205,10 @@
         "pass": true,
         "measured": {
           "classification": "odd",
-          "h2_rel": 0.00001020335256212634,
-          "h3_rel": 0.2634467316396171,
-          "h4_rel": 0.000001960227200390488,
-          "h5_rel": 0.1101079925799911
+          "h2_rel": 1.5585064604086005e-8,
+          "h3_rel": 0.028480824995131902,
+          "h4_rel": 2.4403427594127578e-9,
+          "h5_rel": 0.003911178866482949
         },
         "declared": {
           "harmonic_signature": "odd"
@@ -219,16 +219,16 @@
         "name": "DC creep",
         "pass": true,
         "measured": {
-          "dc_dbfs": -344.5518208450948,
-          "dc_linear": -5.921189464667502e-18
+          "dc_dbfs": -205.8675922393415,
+          "dc_linear": -5.0888586513422155e-11
         },
         "declared": {
-          "dc_creep_max_dbfs": -40
+          "dc_creep_max_dbfs": -30
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 311
+    "durationMs": 314
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -238,10 +238,10 @@
       -6,
       0
     ],
-    "low_level_thd_pct_max": 1,
-    "high_level_thd_pct_min": 1,
+    "low_level_thd_pct_max": 5,
+    "high_level_thd_pct_min": 0.5,
     "harmonic_signature": "odd",
-    "dc_creep_max_dbfs": -40
+    "dc_creep_max_dbfs": -30
   },
-  "durationMs": 325
+  "durationMs": 326
 }

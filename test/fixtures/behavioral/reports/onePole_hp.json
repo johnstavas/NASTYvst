@@ -1,7 +1,7 @@
 {
-  "opId": "allpass",
+  "opId": "onePole_hp",
   "category": "filter",
-  "timestamp": "2026-04-27T00:20:39.013Z",
+  "timestamp": "2026-04-27T00:20:30.950Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -10,14 +10,14 @@
   },
   "tests": [
     {
-      "name": "Magnitude response (allpass flatness)",
+      "name": "Magnitude response (hp)",
       "pass": true,
       "measured": {
-        "mean_deviation_db": 0.016262157606737066
+        "cutoff_hz": 999.9850537766656
       },
       "declared": {
-        "kind": "allpass",
-        "max_deviation_db": 1
+        "kind": "hp",
+        "cutoff_hz": 1000
       },
       "diagnostic": null
     }
@@ -31,19 +31,19 @@
     },
     "tests": [
       {
-        "name": "Magnitude response (allpass flatness)",
+        "name": "Magnitude response (hp)",
         "pass": true,
         "measured": {
-          "mean_deviation_db": 0.016262157606737066
+          "cutoff_hz": 999.9850537766656
         },
         "declared": {
-          "kind": "allpass",
-          "max_deviation_db": 1
+          "kind": "hp",
+          "cutoff_hz": 1000
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 10
+    "durationMs": 11
   },
   "native": {
     "summary": {
@@ -54,23 +54,24 @@
     },
     "tests": [
       {
-        "name": "Magnitude response (allpass flatness)",
+        "name": "Magnitude response (hp)",
         "pass": true,
         "measured": {
-          "mean_deviation_db": 0.016262157606737066
+          "cutoff_hz": 999.9850537766656
         },
         "declared": {
-          "kind": "allpass",
-          "max_deviation_db": 1
+          "kind": "hp",
+          "cutoff_hz": 1000
         },
         "diagnostic": null
       }
     ],
-    "durationMs": 1096
+    "durationMs": 1193
   },
   "attribution": "verified-end-to-end",
   "declared": {
-    "kind": "allpass"
+    "kind": "hp",
+    "cutoff_hz": 1000
   },
-  "durationMs": 1106
+  "durationMs": 1204
 }

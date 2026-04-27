@@ -60,7 +60,16 @@ async function runArmFor(opId, spec, armName) {
   }
 
   // Pre-flight for native arm: probe runner; if skipped, mark arm skipped.
+  // spec.nativeSkip = true also forces a clean skip (multi-input ops the
+  // current parity_host can't drive cleanly, e.g. mix with dry+wet ports).
   if (armName === 'native') {
+    if (spec.nativeSkip) {
+      return {
+        summary: { total: 0, passed: 0, failed: 0, verdict: 'SKIP' },
+        tests: [], durationMs: Date.now() - t0,
+        reason: 'spec.nativeSkip — multi-input op or other architectural skip',
+      };
+    }
     const probe = await RUNNERS.native(opId, spec.defaultParams || {},
       { in: new Float32Array(64) }, { sampleRate: 48000, parityKey: spec.parityKey });
     if (probe.skipped) {
@@ -72,11 +81,15 @@ async function runArmFor(opId, spec, armName) {
     }
   }
 
-  // Native runner needs parityKey on every call — wrap it.
+  // Wrap runners to thread spec-level options through every call:
+  //   - workletOpId  (worklet arm) — shared sidecar for variants
+  //   - parityKey    (native arm)  — distinct VST3 build for variants
   const baseRunner = RUNNERS[armName];
-  const wrappedRunner = (armName === 'native' && spec.parityKey)
-    ? (op, params, stim, opts) => baseRunner(op, params, stim, { ...opts, parityKey: spec.parityKey })
-    : baseRunner;
+  const wrappedRunner = (op, params, stim, opts) => baseRunner(op, params, stim, {
+    ...opts,
+    workletOpId: spec.workletOpId,
+    parityKey: spec.parityKey,
+  });
   setAllRunners(wrappedRunner);
 
   let result;

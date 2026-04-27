@@ -1,7 +1,7 @@
 {
   "opId": "korg35",
   "category": "filter",
-  "timestamp": "2026-04-27T00:07:01.662Z",
+  "timestamp": "2026-04-27T00:20:36.145Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 25
+    "durationMs": 26
   },
   "native": {
     "summary": {
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1121
+    "durationMs": 1103
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp",
     "cutoff_hz": 240
   },
-  "durationMs": 1146
+  "durationMs": 1129
 }

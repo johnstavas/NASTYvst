@@ -58,7 +58,57 @@ export const UTILITY_BEHAVIORAL = {
       expectedFn: (x) => 2 * x - 1,
     },
   },
-  // dcBlock and constant are stateful or zero-input — handle separately if added.
+  // ── Worklet-shared variants ────────────────────────────────────────
+  // These ops share a worklet sidecar with a sibling but get a separate
+  // smoke build with different baked params, so per_op_specs.json has a
+  // distinct key and parity_host loads a distinct VST3.
+  polarity_inv: {
+    category: 'utility',
+    parityKey: 'polarity_inv',
+    workletOpId: 'polarity',     // load op_polarity.worklet.js
+    defaultParams: { invert: 1 },
+    declared: {
+      expectedFn: (x) => -x,
+    },
+  },
+  uniBi_b2u: {
+    category: 'utility',
+    parityKey: 'uniBi_b2u',
+    workletOpId: 'uniBi',
+    defaultParams: { mode: 'biToUni' },
+    declared: {
+      expectedFn: (x) => (x + 1) * 0.5,
+    },
+  },
+  // ── Single-param numeric ───────────────────────────────────────────
+  scaleBy: {
+    category: 'utility',
+    defaultParams: { k: 2 },
+    declared: {
+      expectedFn: (x, p) => p.k * x,
+    },
+  },
+  mix: {
+    category: 'utility',
+    // mix uses equal-power crossfade per dry_wet_mix_rule.md (NON-NEGOTIABLE):
+    //   dryGain = cos(amount · π/2)     wetGain = sin(amount · π/2)
+    // Worklet arm tested with dry-only stimulus → expectedFn = dryGain · x.
+    // Native arm SKIPS — parity_host's single-WAV interface cannot drive
+    // mix's two input ports (dry, wet) cleanly: the smoke build's port
+    // wiring may copy the WAV to both ports OR leave one zeroed; either
+    // way the wet path doesn't match the worklet test expectation.
+    // Resolve when multi-input parity_host lands (logged in research-debt).
+    defaultParams: { amount: 0.5 },
+    nativeSkip: true,
+    declared: {
+      inputPort: 'dry',
+      expectedFn: (x, p) => Math.cos(p.amount * Math.PI * 0.5) * x,
+    },
+  },
+  // srcResampler — has internal lookahead latency even at speed=1.0 that
+  // breaks the closed-form sample-by-sample utility check. Needs a dedicated
+  // resampler metric (anti-aliasing test, latency-compensation, RMS-equivalence
+  // at unity rate). Logged in research-debt for Day 6+.
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -73,6 +123,28 @@ export const FILTER_BEHAVIORAL = {
     declared: {
       kind: 'lp',
       cutoff_hz: 1000,
+    },
+  },
+  onePole_hp: {
+    category: 'filter',
+    parityKey: 'onePole_hp',
+    workletOpId: 'onePole',
+    defaultParams: { cutoff: 1000, mode: 'hp' },
+    declared: {
+      kind: 'hp',
+      cutoff_hz: 1000,
+    },
+  },
+  dcBlock: {
+    category: 'filter',
+    // Default cutoff=10 Hz is BELOW the harness sweep's f_min (20 Hz), so
+    // the −3 dB point would be invisible. Raise to 100 Hz for behavioral
+    // testing — registry caps at 200 Hz so this is well within range.
+    // (Production use stays at 10 Hz default; this is a test-only override.)
+    defaultParams: { cutoff: 100 },
+    declared: {
+      kind: 'hp',
+      cutoff_hz: 100,
     },
   },
   ladder: {
@@ -229,6 +301,20 @@ export const DISTORTION_BEHAVIORAL = {
       high_level_thd_pct_min: 1.0,
       harmonic_signature: 'odd',
       dc_creep_max_dbfs: -40,
+    },
+  },
+  xformerSat: {
+    // De Paiva 2011 — gyrator-capacitor + WDF transformer model. Drive
+    // exposed in dB; default 0 dB = nominally linear, but core curvature
+    // means even at low input there's some hysteresis-driven 2H.
+    category: 'distortion',
+    defaultParams: { drive: 12, coreSize: 1, sourceZ: 600, loss: 0.3, air: 1 },
+    declared: {
+      input_levels_dbfs: [-40, -20, -6, 0],
+      low_level_thd_pct_max: 5.0,    // transformer always has some THD
+      high_level_thd_pct_min: 0.5,
+      harmonic_signature: 'odd',     // anhysteretic Langevin is dominant odd
+      dc_creep_max_dbfs: -30,        // hysteresis can produce small DC
     },
   },
 };

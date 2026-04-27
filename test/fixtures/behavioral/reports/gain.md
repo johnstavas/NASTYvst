@@ -1,9 +1,9 @@
 # gain — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:06:54.803Z
+**Generated:** 2026-04-27T00:20:26.276Z
 **Category:** utility
 **Verdict:** ✅ PASS
-**Duration:** 273 ms
+**Duration:** 269 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

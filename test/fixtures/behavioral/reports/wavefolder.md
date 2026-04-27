@@ -1,9 +1,9 @@
 # wavefolder — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:07:08.426Z
+**Generated:** 2026-04-27T00:20:42.750Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 352 ms
+**Duration:** 325 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

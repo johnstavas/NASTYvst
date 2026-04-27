@@ -1,7 +1,7 @@
 {
   "opId": "hardClip",
   "category": "distortion",
-  "timestamp": "2026-04-27T00:07:07.732Z",
+  "timestamp": "2026-04-27T00:20:42.106Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -151,7 +151,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 19
+    "durationMs": 20
   },
   "native": {
     "summary": {
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 340
+    "durationMs": 344
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 359
+  "durationMs": 364
 }

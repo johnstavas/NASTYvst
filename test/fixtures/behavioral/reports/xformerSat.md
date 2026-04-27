@@ -1,9 +1,9 @@
-# hardClip — Behavioral Validation Report
+# xformerSat — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:42.106Z
+**Generated:** 2026-04-27T00:20:43.983Z
 **Category:** distortion
 **Verdict:** ✅ PASS
-**Duration:** 364 ms
+**Duration:** 326 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
@@ -17,9 +17,9 @@
 
 ## Passing tests
 
-- **THD vs level** → low_thd_pct = 0.000, high_thd_pct = 32.866
-- **Harmonic signature** → classification = odd, h2_rel = 0.000, h3_rel = 0.183, h4_rel = 0.000, h5_rel = 0.005
-- **DC creep** → dc_dbfs = -351.595, dc_linear = -0.000
+- **THD vs level** → low_thd_pct = 0.050, high_thd_pct = 6.700
+- **Harmonic signature** → classification = odd, h2_rel = 0.000, h3_rel = 0.028, h4_rel = 0.000, h5_rel = 0.004
+- **DC creep** → dc_dbfs = -206.734, dc_linear = -0.000
 
 ---
 

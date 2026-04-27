@@ -1,7 +1,7 @@
 {
   "opId": "ladder",
   "category": "filter",
-  "timestamp": "2026-04-27T00:06:59.346Z",
+  "timestamp": "2026-04-27T00:20:33.872Z",
   "summary": {
     "total": 1,
     "passed": 1,
@@ -43,7 +43,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 340
+    "durationMs": 338
   },
   "native": {
     "summary": {
@@ -66,12 +66,12 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 1490
+    "durationMs": 1438
   },
   "attribution": "verified-end-to-end",
   "declared": {
     "kind": "lp",
     "cutoff_hz": 1700
   },
-  "durationMs": 1830
+  "durationMs": 1776
 }

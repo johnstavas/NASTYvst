@@ -1,7 +1,7 @@
 {
-  "opId": "clamp",
+  "opId": "uniBi_b2u",
   "category": "utility",
-  "timestamp": "2026-04-27T00:20:27.206Z",
+  "timestamp": "2026-04-27T00:20:28.313Z",
   "summary": {
     "total": 2,
     "passed": 2,
@@ -13,8 +13,8 @@
       "name": "Closed-form math identity",
       "pass": true,
       "measured": {
-        "max_abs_err": 0,
-        "max_abs_err_db": null
+        "max_abs_err": 2.9802322387695312e-8,
+        "max_abs_err_db": -150.5149978319906
       },
       "declared": {
         "tolerance": 0.000001
@@ -45,8 +45,8 @@
         "name": "Closed-form math identity",
         "pass": true,
         "measured": {
-          "max_abs_err": 0,
-          "max_abs_err_db": null
+          "max_abs_err": 2.9802322387695312e-8,
+          "max_abs_err_db": -150.5149978319906
         },
         "declared": {
           "tolerance": 0.000001
@@ -65,7 +65,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 3
+    "durationMs": 1
   },
   "native": {
     "summary": {
@@ -79,8 +79,8 @@
         "name": "Closed-form math identity",
         "pass": true,
         "measured": {
-          "max_abs_err": 9.5367431640625e-7,
-          "max_abs_err_db": -120.41199826559249
+          "max_abs_err": 2.9802322387695312e-8,
+          "max_abs_err_db": -150.5149978319906
         },
         "declared": {
           "tolerance": 0.000001
@@ -99,9 +99,9 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 385
+    "durationMs": 267
   },
   "attribution": "verified-end-to-end",
   "declared": {},
-  "durationMs": 388
+  "durationMs": 268
 }

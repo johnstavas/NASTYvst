@@ -1,9 +1,9 @@
 # diodeLadder — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:07:03.330Z
+**Generated:** 2026-04-27T00:20:37.907Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1667 ms
+**Duration:** 1761 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 

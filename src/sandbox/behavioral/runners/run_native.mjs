@@ -123,15 +123,20 @@ export async function runNative(opId, params, stim, options = {}) {
     // Find the prefixed key whose tail matches this bareKey.
     const fullKey = paramKeys.find(k => k.endsWith(`__${bareKey}`));
     if (!fullKey) continue;  // op may not actually expose this param
+
+    // Skip non-numeric values entirely. Enum/string params (e.g.
+    // mode='hp', mode='biToUni') cannot be deserialized by parity_host's
+    // JSON-numeric param interface; sending them silently corrupts JUCE's
+    // AudioParameterChoice (defaults to index 0 = wrong mode). The smoke
+    // build bakes the correct enum default at codegen time per
+    // per_op_specs.json `params`, so dropping the value here lets the
+    // baked default win. Bug surfaced 2026-04-26 by uniBi_b2u + onePole_hp.
+    if (typeof val !== 'number' || !Number.isFinite(val)) continue;
+
     const rng = allRanges[fullKey];
-    if (rng?.type && rng.type !== 'number') {
-      // Enum/bool: pass through unchanged (parity_host expects raw 0/1/etc).
-      hashedParams[juceParamHash(fullKey)] = val;
-    } else {
-      const snapped = rng ? snapParamValue(val, rng) : val;
-      const norm = rng ? rawToNorm(snapped, rng) : val;
-      hashedParams[juceParamHash(fullKey)] = norm;
-    }
+    const snapped = rng ? snapParamValue(val, rng) : val;
+    const norm = rng ? rawToNorm(snapped, rng) : val;
+    hashedParams[juceParamHash(fullKey)] = norm;
   }
 
   // Workspace.

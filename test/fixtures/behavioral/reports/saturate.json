@@ -1,7 +1,7 @@
 {
   "opId": "saturate",
   "category": "distortion",
-  "timestamp": "2026-04-27T00:07:07.372Z",
+  "timestamp": "2026-04-27T00:20:41.741Z",
   "summary": {
     "total": 3,
     "passed": 3,
@@ -151,7 +151,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 13
+    "durationMs": 11
   },
   "native": {
     "summary": {
@@ -228,7 +228,7 @@
         "diagnostic": null
       }
     ],
-    "durationMs": 390
+    "durationMs": 333
   },
   "attribution": "verified-end-to-end",
   "declared": {
@@ -243,5 +243,5 @@
     "harmonic_signature": "odd",
     "dc_creep_max_dbfs": -40
   },
-  "durationMs": 403
+  "durationMs": 344
 }

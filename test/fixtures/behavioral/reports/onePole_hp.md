@@ -1,9 +1,9 @@
-# allpass — Behavioral Validation Report
+# onePole_hp — Behavioral Validation Report
 
-**Generated:** 2026-04-27T00:20:39.013Z
+**Generated:** 2026-04-27T00:20:30.950Z
 **Category:** filter
 **Verdict:** ✅ PASS
-**Duration:** 1106 ms
+**Duration:** 1204 ms
 
 **Attribution:** ✅✅ Verified end-to-end (worklet + native both PASS)
 
@@ -11,11 +11,11 @@
 
 | Test | Worklet | Native |
 |---|---|---|
-| Magnitude response (allpass flatness) | ✅ PASS | ✅ PASS |
+| Magnitude response (hp) | ✅ PASS | ✅ PASS |
 
 ## Passing tests
 
-- **Magnitude response (allpass flatness)** → mean_deviation_db = 0.016
+- **Magnitude response (hp)** → cutoff_hz = 999.985
 
 ---
 
