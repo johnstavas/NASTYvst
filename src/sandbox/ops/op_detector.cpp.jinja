@@ -1,8 +1,15 @@
-// op_detector.cpp — Stage-3b C++ sidecar stub for the `detector` op.
-// Contract: memory/codegen_design.md § 4. Mirrors op_detector.worklet.js.
-// Full-wave rectifier, stateless.
+// op_detector.cpp — Stage-3b C++ sidecar for the `detector` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_detector.worklet.js
+// bit-for-bit. Full-wave rectifier (peak = |x|, rms = x²; sqrt + averaging
+// live downstream in the envelope op). Stateless.
+//
+// Ported 2026-04-27 from op_detector.worklet.js after discovery that the
+// stub-zero output (alongside envelope, filter, gainComputer C++ stubs)
+// broke every compressor/filter recipe in compiled VST3 form. Browser
+// worklets were correct; native side was silently a passthrough-of-zero.
 #pragma once
 #include <cmath>
+#include <cstring>
 
 namespace shags::ops {
 
@@ -10,25 +17,45 @@ class DetectorOp_{{ node_id }} {
 public:
     static constexpr const char* opId = "detector";
 
+    // Mode encoded as int: 0 = peak (|x|), 1 = rms (x²).
+    // Setter accepts either the numeric encoding (codegen-baked) or a
+    // string ("peak"/"rms") via the const char* path; downstream callers
+    // currently send the numeric form, so the string branch is defensive.
     explicit DetectorOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
 
-    void reset() {}
+    void reset() { /* stateless */ }
 
     void setParam(const char* id, double v) {
-        // TODO(stage-3b): mode enum ('peak' | 'rms')
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "mode") == 0) {
+            mode_ = (v >= 0.5) ? 1 : 0;     // round-to-nearest int
+        }
     }
 
     int getLatencySamples() const { return 0; }
 
     // in:  mono input
-    // det: mono control-rate output
+    // det: mono control-rate output (|x| or x², per mode)
     void process(const float* in, float* det, int N) {
-        for (int i = 0; i < N; ++i) det[i] = 0.0f;
-        // TODO(stage-3b): mode==rms ? x*x : std::fabs(x)
+        if (in == nullptr) {
+            for (int i = 0; i < N; ++i) det[i] = 0.0f;
+            return;
+        }
+        if (mode_ == 1) {
+            for (int i = 0; i < N; ++i) {
+                const float x = in[i];
+                det[i] = x * x;
+            }
+        } else {
+            for (int i = 0; i < N; ++i) {
+                det[i] = std::fabs(in[i]);
+            }
+        }
     }
 
 private:
     double sr_;
+    int    mode_ = 0;   // 0 = peak (default), 1 = rms
 };
 
 }  // namespace shags::ops

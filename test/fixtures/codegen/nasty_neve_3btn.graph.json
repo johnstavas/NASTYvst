@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0",
+  "id": "nasty-neve-3btn",
+  "label": "Nasty Neve 3-Button",
+  "_doc": [
+    "Neve-flavored 3-button compressor — VOCAL / DRUMS / GLUE.",
+    "Mirrors Nasty3btn's UX (no knob-twiddling, gain-matched presets,",
+    "single TRIM knob for taste) but with Neve-style ballistics:",
+    "  - Slower attacks (Neve never sounds surgical)",
+    "  - Softer knees (Neve's signature is the smooth onset)",
+    "  - Lower ratios (Neve is a tone shaper more than a smasher)",
+    "  - Medium-long releases (program-dependent feel without auto-release op)",
+    "",
+    "TOPOLOGY (same as Nasty3btn / TOY_COMP): textbook 5-op compressor.",
+    "  in ─► detector ─► envelope ─► gainComputer ─► gain.gainMod (sidechain)",
+    "       │                                        │",
+    "       └─► gain ───────────────────────────────┴─► makeup ─► out",
+    "",
+    "PRESET design rationale:",
+    "  VOCAL — subtle 2:1, slow 15ms attack lets vocal transients pass,",
+    "          longer 350ms release for smooth sustained-vowel feel.",
+    "  DRUMS — moderate 3:1 bus comp at -22 dB threshold, attack 5ms",
+    "          catches snare/hat transients without crushing kick punch.",
+    "  GLUE  — master-bus glue, 2.5:1 ratio with very soft 10dB knee +",
+    "          long 500ms release. Catches peaks gently across whole mix."
+  ],
+  "canvas": { "width": 600, "height": 240 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 120 },
+    { "id": "out", "kind": "output", "x": 560, "y": 120 }
+  ],
+  "nodes": [
+    { "id": "n_det",    "op": "detector",     "x": 180, "y":  60,
+      "params": { "mode": "peak" } },
+    { "id": "n_env",    "op": "envelope",     "x": 320, "y":  60,
+      "params": { "attack": 5, "release": 200, "amount": 1, "offset": 0 } },
+    { "id": "n_comp",   "op": "gainComputer", "x": 460, "y":  60,
+      "params": { "thresholdDb": -22, "ratio": 3, "kneeDb": 6 } },
+    { "id": "n_vca",    "op": "gain",         "x": 360, "y": 180,
+      "params": { "gainDb": 0 } },
+    { "id": "n_makeup", "op": "gain",         "x": 480, "y": 180,
+      "params": { "gainDb": 6 } }
+  ],
+  "wires": [
+    { "from": "in",       "to": "n_det" },
+    { "from": "n_det",    "to": "n_env" },
+    { "from": "n_env",    "to": "n_comp" },
+    { "from": "n_comp",   "to": "n_vca.gainMod" },
+    { "from": "in",       "to": "n_vca" },
+    { "from": "n_vca",    "to": "n_makeup" },
+    { "from": "n_makeup", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["detector", "envelope", "gainComputer", "gain"],
+  "presets": [
+    {
+      "id": "vocal",
+      "label": "VOCAL",
+      "params": {
+        "n_env__attack":      15,
+        "n_env__release":     350,
+        "n_env__amount":      1,
+        "n_env__offset":      0,
+        "n_comp__thresholdDb": -18,
+        "n_comp__ratio":      2,
+        "n_comp__kneeDb":     8,
+        "n_vca__gainDb":      0,
+        "n_makeup__gainDb":   3
+      }
+    },
+    {
+      "id": "drums",
+      "label": "DRUMS",
+      "params": {
+        "n_env__attack":      5,
+        "n_env__release":     200,
+        "n_env__amount":      1,
+        "n_env__offset":      0,
+        "n_comp__thresholdDb": -22,
+        "n_comp__ratio":      3,
+        "n_comp__kneeDb":     6,
+        "n_vca__gainDb":      0,
+        "n_makeup__gainDb":   6
+      }
+    },
+    {
+      "id": "glue",
+      "label": "GLUE",
+      "params": {
+        "n_env__attack":      8,
+        "n_env__release":     500,
+        "n_env__amount":      1,
+        "n_env__offset":      0,
+        "n_comp__thresholdDb": -16,
+        "n_comp__ratio":      2.5,
+        "n_comp__kneeDb":     10,
+        "n_vca__gainDb":      0,
+        "n_makeup__gainDb":   4
+      }
+    }
+  ],
+  "ui": {
+    "mode": "presets-only",
+    "defaultPreset": "drums",
+    "userKnobs": [
+      { "paramId": "n_makeup__gainDb", "label": "TRIM" }
+    ]
+  }
+}

@@ -1,6 +1,16 @@
-// op_filter.cpp — Stage-3b C++ sidecar stub for the `filter` op.
-// Contract: memory/codegen_design.md § 4. Mirrors op_filter.worklet.js.
-// Math target: RBJ cookbook biquad (dsp_code_canon_filters.md §9).
+// op_filter.cpp — Stage-3b C++ sidecar for the `filter` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_filter.worklet.js
+// bit-for-bit. RBJ cookbook biquad (LP / HP / BP / notch), Direct Form I.
+//
+// Ported 2026-04-27 from op_filter.worklet.js after the stub-zero output
+// was identified as the cause of every filter recipe producing silence
+// in compiled VST3 form.
+//
+// Topology (DF1):  y[n] = b0·x[n] + b1·x[n-1] + b2·x[n-2] - a1·y[n-1] - a2·y[n-2]
+// Coefficients per RBJ Audio EQ Cookbook (Canon:filters §9), normalised by a0.
+//
+// Mode encoding: 0 = lp, 1 = hp, 2 = bp, 3 = notch (numeric form sent by
+// codegen-baked enum). Default lp.
 #pragma once
 #include <cmath>
 #include <cstring>
@@ -12,27 +22,103 @@ public:
     static constexpr const char* opId = "filter";
 
     explicit FilterOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
-        std::memset(&x1_, 0, sizeof(double) * 4);
+        recomputeCoefs();
     }
 
-    void reset() {
-        x1_ = x2_ = y1_ = y2_ = 0.0;
-    }
+    void reset() { x1_ = x2_ = y1_ = y2_ = 0.0; }
 
     void setParam(const char* id, double v) {
-        // TODO(stage-3b): mode (enum) / cutoff / q; recompute RBJ coeffs
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "mode") == 0) {
+            const int m = static_cast<int>(v + 0.5);
+            mode_ = (m >= 0 && m <= 3) ? m : 0;
+        } else if (std::strcmp(id, "cutoff") == 0) {
+            cutoff_ = v;
+        } else if (std::strcmp(id, "q") == 0) {
+            q_ = v;
+        } else {
+            return;
+        }
+        recomputeCoefs();
     }
 
     int getLatencySamples() const { return 0; }
 
     void process(const float* in, float* out, int N) {
-        for (int i = 0; i < N; ++i) out[i] = 0.0f;
-        // TODO(stage-3b): port RBJ biquad inner loop from op_filter.worklet.js
+        if (in == nullptr) {
+            for (int i = 0; i < N; ++i) out[i] = 0.0f;
+            return;
+        }
+        double x1 = x1_, x2 = x2_, y1 = y1_, y2 = y2_;
+        const double b0 = b0_, b1 = b1_, b2 = b2_;
+        const double a1 = a1_, a2 = a2_;
+        for (int i = 0; i < N; ++i) {
+            const double x = static_cast<double>(in[i]);
+            const double y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+            x2 = x1; x1 = x;
+            y2 = y1; y1 = y;
+            out[i] = static_cast<float>(y);
+        }
+        x1_ = x1; x2_ = x2; y1_ = y1; y2_ = y2;
     }
 
 private:
+    void recomputeCoefs() {
+        const double sr  = sr_;
+        const double nyq = 0.5 * sr - 100.0;
+        const double f0  = std::fmin(std::fmax(cutoff_, 10.0), nyq);
+        const double Q   = std::fmin(std::fmax(q_, 1e-3), 40.0);
+        const double w0  = 2.0 * 3.141592653589793 * f0 / sr;
+        const double cosw0 = std::cos(w0);
+        const double sinw0 = std::sin(w0);
+        const double alpha = sinw0 / (2.0 * Q);
+
+        double b0, b1, b2, a0, a1, a2;
+        switch (mode_) {
+            case 1: // hp
+                b0 =  (1.0 + cosw0) * 0.5;
+                b1 = -(1.0 + cosw0);
+                b2 =  (1.0 + cosw0) * 0.5;
+                a0 =   1.0 + alpha;
+                a1 =  -2.0 * cosw0;
+                a2 =   1.0 - alpha;
+                break;
+            case 2: // bp (constant 0 dB peak; skirt = Q)
+                b0 =  alpha;
+                b1 =  0.0;
+                b2 = -alpha;
+                a0 =  1.0 + alpha;
+                a1 = -2.0 * cosw0;
+                a2 =  1.0 - alpha;
+                break;
+            case 3: // notch
+                b0 =  1.0;
+                b1 = -2.0 * cosw0;
+                b2 =  1.0;
+                a0 =  1.0 + alpha;
+                a1 = -2.0 * cosw0;
+                a2 =  1.0 - alpha;
+                break;
+            case 0: // lp
+            default:
+                b0 =  (1.0 - cosw0) * 0.5;
+                b1 =   1.0 - cosw0;
+                b2 =  (1.0 - cosw0) * 0.5;
+                a0 =   1.0 + alpha;
+                a1 =  -2.0 * cosw0;
+                a2 =   1.0 - alpha;
+                break;
+        }
+        const double inv_a0 = 1.0 / a0;
+        b0_ = b0 * inv_a0;
+        b1_ = b1 * inv_a0;
+        b2_ = b2 * inv_a0;
+        a1_ = a1 * inv_a0;
+        a2_ = a2 * inv_a0;
+    }
+
     double sr_;
-    // Mode stored as enum in real impl — string switch at setParam time.
+    int    mode_   = 0;       // 0=lp, 1=hp, 2=bp, 3=notch
     double cutoff_ = 1000.0;
     double q_      = 0.707;
     double b0_ = 1.0, b1_ = 0.0, b2_ = 0.0, a1_ = 0.0, a2_ = 0.0;

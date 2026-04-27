@@ -10,14 +10,25 @@ void PeakMeterStrip::paint(juce::Graphics& g) {
     auto bounds = getLocalBounds().toFloat();
     g.fillAll(juce::Colour::fromRGB(20, 22, 26));
 
+    // Reserve top 14 px for the IN/OUT label.
+    auto labelArea = bounds.removeFromTop(14.0f);
+    g.setColour(juce::Colour::fromRGB(160, 170, 180));
+    g.setFont(10.0f);
+    g.drawText(label_, labelArea, juce::Justification::centred);
+
     const float floorDb = -60.0f, ceilDb = 6.0f;
     auto dbToY = [&](float db) {
         const float t = juce::jlimit(0.0f, 1.0f, (ceilDb - db) / (ceilDb - floorDb));
         return bounds.getY() + t * bounds.getHeight();
     };
 
-    const float peakL = juce::Decibels::gainToDecibels(proc_.levelOutL_.load(), floorDb);
-    const float peakR = juce::Decibels::gainToDecibels(proc_.levelOutR_.load(), floorDb);
+    // Source dispatch: Input → levelIn*, Output → levelOut*.
+    const float linL = (source_ == MeterSource::Input) ? proc_.levelInL_.load()
+                                                       : proc_.levelOutL_.load();
+    const float linR = (source_ == MeterSource::Input) ? proc_.levelInR_.load()
+                                                       : proc_.levelOutR_.load();
+    const float peakL = juce::Decibels::gainToDecibels(linL, floorDb);
+    const float peakR = juce::Decibels::gainToDecibels(linR, floorDb);
 
     if (peakL > holdL_) { holdL_ = peakL; holdCountL_ = 30; }
     else if (--holdCountL_ <= 0) holdL_ = juce::jmax(floorDb, holdL_ - 0.5f);
@@ -28,7 +39,15 @@ void PeakMeterStrip::paint(juce::Graphics& g) {
     const float gap    = 4.0f;
     const float colW   = halfW - gap;
 
-    auto drawCol = [&](float x, float peakDb, float holdDb, juce::Colour c) {
+    // 0 dB reference line — solid horizontal mark.
+    g.setColour(juce::Colours::white.withAlpha(0.25f));
+    g.drawHorizontalLine((int)dbToY(0.0f), bounds.getX(), bounds.getRight());
+
+    auto drawCol = [&](float x, float peakDb, float holdDb) {
+        // Color shifts: green below -6, amber -6..-1, red above -1 dBFS.
+        juce::Colour c = peakDb < -6.0f ? juce::Colour::fromRGB(82, 200, 140)
+                       : peakDb < -1.0f ? juce::Colour::fromRGB(220, 170, 60)
+                                        : juce::Colour::fromRGB(220, 80, 70);
         juce::Rectangle<float> col (x, dbToY(peakDb), colW, bounds.getBottom() - dbToY(peakDb));
         g.setColour(c.withAlpha(0.85f));
         g.fillRect(col);
@@ -37,8 +56,8 @@ void PeakMeterStrip::paint(juce::Graphics& g) {
         g.fillRect(juce::Rectangle<float>(x, hy - 1.0f, colW, 2.0f));
     };
 
-    drawCol(bounds.getX(),                    peakL, holdL_, juce::Colour::fromRGB(82, 200, 140));
-    drawCol(bounds.getX() + halfW + gap*0.5f, peakR, holdR_, juce::Colour::fromRGB(82, 200, 140));
+    drawCol(bounds.getX(),                    peakL, holdL_);
+    drawCol(bounds.getX() + halfW + gap*0.5f, peakR, holdR_);
 
     g.setColour(juce::Colours::white.withAlpha(0.4f));
     g.drawRect(bounds, 1.0f);
@@ -48,10 +67,58 @@ void PeakMeterStrip::paint(juce::Graphics& g) {
     : juce::AudioProcessorEditor(&p), proc_(p)
 {
     bypassBtn_.setClickingTogglesState(true);
+    bypassBtn_.setColour(juce::TextButton::buttonColourId,    juce::Colour::fromRGB(50,  55,  62));
+    bypassBtn_.setColour(juce::TextButton::buttonOnColourId,  juce::Colour::fromRGB(180, 70,  60));
+    bypassBtn_.setColour(juce::TextButton::textColourOffId,   juce::Colour::fromRGB(200, 210, 220));
+    bypassBtn_.setColour(juce::TextButton::textColourOnId,    juce::Colour::fromRGB(255, 255, 255));
     addAndMakeVisible(bypassBtn_);
     bypassAttach_ = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         proc_.apvts, "bypass", bypassBtn_);
 
+{% if presetsMode %}
+    // Preset buttons. Each click sets every relevant APVTS param to the
+    // preset's normalized value (computed at codegen time from the recipe's
+    // declared raw values + each param's NormalisableRange).
+    auto setupPresetBtn = [&](juce::TextButton& b, juce::Colour off, juce::Colour on) {
+        b.setClickingTogglesState(true);
+        b.setRadioGroupId(1);   // mutually-exclusive — only one preset at a time
+        b.setColour(juce::TextButton::buttonColourId,   off);
+        b.setColour(juce::TextButton::buttonOnColourId, on);
+        b.setColour(juce::TextButton::textColourOffId,  juce::Colour::fromRGB(200, 210, 220));
+        b.setColour(juce::TextButton::textColourOnId,   juce::Colour::fromRGB(255, 255, 255));
+        addAndMakeVisible(b);
+    };
+
+{% for preset in presets %}
+    setupPresetBtn({{ preset.id }}Btn_,
+        juce::Colour::fromRGB(40, 44, 50),
+        juce::Colour::fromRGB(82, 200, 140));
+    {{ preset.id }}Btn_.onClick = [this]() {
+        if (! {{ preset.id }}Btn_.getToggleState()) return;  // only on activation
+{% for ps in preset.paramSettings %}
+        if (auto* p = proc_.apvts.getParameter("{{ ps.paramId }}"))
+            p->setValueNotifyingHost({{ ps.normValue }}f);
+{% endfor %}
+    };
+{% endfor %}
+
+    // Set the default preset's button to active state on first show.
+{% if defaultPresetId %}
+    {{ defaultPresetId }}Btn_.setToggleState(true, juce::sendNotificationSync);
+{% endif %}
+
+    // User-facing knobs (e.g. TRIM) — whitelisted alongside the buttons.
+{% for uk in userKnobs %}
+    {{ uk.paramId }}_slider_.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    {{ uk.paramId }}_slider_.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 16);
+    addAndMakeVisible({{ uk.paramId }}_slider_);
+    {{ uk.paramId }}_label_.setText("{{ uk.label }}", juce::dontSendNotification);
+    {{ uk.paramId }}_label_.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible({{ uk.paramId }}_label_);
+    {{ uk.paramId }}_attach_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        proc_.apvts, "{{ uk.paramId }}", {{ uk.paramId }}_slider_);
+{% endfor %}
+{% else %}
 {% for p in apvtsParams %}
     {{ p.paramId }}_slider_.setSliderStyle(styleFor("{{ p.ui }}"));
     {{ p.paramId }}_slider_.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 16);
@@ -62,8 +129,10 @@ void PeakMeterStrip::paint(juce::Graphics& g) {
     {{ p.paramId }}_attach_ = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         proc_.apvts, "{{ p.paramId }}", {{ p.paramId }}_slider_);
 {% endfor %}
+{% endif %}
 
-    addAndMakeVisible(meter_);
+    addAndMakeVisible(meterIn_);
+    addAndMakeVisible(meterOut_);
     setSize({{ editorWidth }}, {{ editorHeight }});
 }
 
@@ -79,12 +148,46 @@ void {{ PROJECT_NAME }}Editor::paint(juce::Graphics& g) {
 
 void {{ PROJECT_NAME }}Editor::resized() {
     auto area = getLocalBounds();
-    auto top  = area.removeFromTop(32);
-    bypassBtn_.setBounds(top.removeFromRight(80).reduced(4));
 
-    auto meterArea = area.removeFromRight(96).reduced(8);
-    meter_.setBounds(meterArea);
+    // Top bar: title strip (44 px) leaves prominent bypass button at top-right
+    // sized 120 × 32 — easily clickable, clearly labeled.
+    auto top  = area.removeFromTop(44);
+    bypassBtn_.setBounds(top.removeFromRight(120).reduced(6, 6));
 
+    // Right side: dual IN / OUT meter strips, 56 px each + 8 px gap = 120 px.
+    auto meterArea = area.removeFromRight(128).reduced(4, 8);
+    meterIn_.setBounds(meterArea.removeFromLeft(56));
+    meterArea.removeFromLeft(8);
+    meterOut_.setBounds(meterArea.removeFromLeft(56));
+
+{% if presetsMode %}
+    // Reserve bottom strip for user knobs (TRIM etc.) if any.
+    const int userKnobCount = {{ userKnobs|length }};
+    if (userKnobCount > 0) {
+        auto knobStrip = area.removeFromBottom(80).reduced(16, 4);
+        const int slotW = knobStrip.getWidth() / userKnobCount;
+        int xk = knobStrip.getX();
+{% for uk in userKnobs %}
+        {
+            juce::Rectangle<int> slot(xk, knobStrip.getY(), slotW, knobStrip.getHeight());
+            {{ uk.paramId }}_label_.setBounds(slot.removeFromTop(16));
+            {{ uk.paramId }}_slider_.setBounds(slot.reduced(6));
+            xk += slotW;
+        }
+{% endfor %}
+    }
+    // Preset buttons fill the remaining main area.
+    auto btnRow = area.reduced(16, 24);
+    const int btnCount = {{ presets|length }};
+    if (btnCount > 0) {
+        const int slotW = btnRow.getWidth() / btnCount;
+        int x = btnRow.getX();
+{% for preset in presets %}
+        {{ preset.id }}Btn_.setBounds(juce::Rectangle<int>(x, btnRow.getY(), slotW, btnRow.getHeight()).reduced(6));
+        x += slotW;
+{% endfor %}
+    }
+{% else %}
     auto knobRow = area.reduced(8);
     const int knobCount = {{ apvtsParams|length }};
     if (knobCount > 0) {
@@ -99,4 +202,5 @@ void {{ PROJECT_NAME }}Editor::resized() {
         }
 {% endfor %}
     }
+{% endif %}
 }

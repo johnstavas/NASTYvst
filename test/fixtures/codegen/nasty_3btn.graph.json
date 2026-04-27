@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "1.0",
+  "id": "nasty-3btn",
+  "label": "Nasty 3-Button Comp",
+  "_doc": [
+    "Three-button compressor — Light / Medium / Smashed.",
+    "No knobs. Each button snaps every internal parameter to a vetted preset.",
+    "Built 2026-04-27 in response to UX problem: 10-knob auto-UI was creating",
+    "more confusion than control. Three buttons cannot be misconfigured.",
+    "",
+    "TOPOLOGY (mirrors TOY_COMP exactly): textbook 5-op compressor.",
+    "  in ─► detector ─► envelope ─► gainComputer ─► gain.gainMod (sidechain)",
+    "       │                                        │",
+    "       └─► gain ───────────────────────────────┴─► makeup ─► out",
+    "",
+    "PRESETS rationale:",
+    "  LIGHT   — gentle 2-3 dB GR, slow attack lets transients pass, soft knee",
+    "  MEDIUM  — classic 4-6 dB GR, balanced for full mixes / drum bus",
+    "  SMASHED — heavy 10+ dB GR, fast attack, hard ratio, NY/parallel territory"
+  ],
+  "canvas": { "width": 600, "height": 240 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 120 },
+    { "id": "out", "kind": "output", "x": 560, "y": 120 }
+  ],
+  "nodes": [
+    { "id": "n_det",    "op": "detector",     "x": 180, "y":  60,
+      "params": { "mode": "peak" } },
+    { "id": "n_env",    "op": "envelope",     "x": 320, "y":  60,
+      "params": { "attack": 5, "release": 200, "amount": 1, "offset": 0 } },
+    { "id": "n_comp",   "op": "gainComputer", "x": 460, "y":  60,
+      "params": { "thresholdDb": -18, "ratio": 4, "kneeDb": 6 } },
+    { "id": "n_vca",    "op": "gain",         "x": 360, "y": 180,
+      "params": { "gainDb": 0 } },
+    { "id": "n_makeup", "op": "gain",         "x": 480, "y": 180,
+      "params": { "gainDb": 5 } }
+  ],
+  "wires": [
+    { "from": "in",       "to": "n_det" },
+    { "from": "n_det",    "to": "n_env" },
+    { "from": "n_env",    "to": "n_comp" },
+    { "from": "n_comp",   "to": "n_vca.gainMod" },
+    { "from": "in",       "to": "n_vca" },
+    { "from": "n_vca",    "to": "n_makeup" },
+    { "from": "n_makeup", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["detector", "envelope", "gainComputer", "gain"],
+  "presets": [
+    {
+      "id": "light",
+      "label": "LIGHT",
+      "params": {
+        "n_env__attack":      10,
+        "n_env__release":     300,
+        "n_env__amount":      1,
+        "n_env__offset":      0,
+        "n_comp__thresholdDb": -22,
+        "n_comp__ratio":      3,
+        "n_comp__kneeDb":     6,
+        "n_vca__gainDb":      0,
+        "n_makeup__gainDb":   4
+      }
+    },
+    {
+      "id": "medium",
+      "label": "MEDIUM",
+      "params": {
+        "n_env__attack":      3,
+        "n_env__release":     150,
+        "n_env__amount":      1,
+        "n_env__offset":      0,
+        "n_comp__thresholdDb": -24,
+        "n_comp__ratio":      5,
+        "n_comp__kneeDb":     3,
+        "n_vca__gainDb":      0,
+        "n_makeup__gainDb":   7
+      }
+    },
+    {
+      "id": "smashed",
+      "label": "SMASHED",
+      "params": {
+        "n_env__attack":      1,
+        "n_env__release":     80,
+        "n_env__amount":      1,
+        "n_env__offset":      0,
+        "n_comp__thresholdDb": -28,
+        "n_comp__ratio":      8,
+        "n_comp__kneeDb":     2,
+        "n_vca__gainDb":      0,
+        "n_makeup__gainDb":   10
+      }
+    }
+  ],
+  "ui": {
+    "mode": "presets-only",
+    "defaultPreset": "medium",
+    "_doc_userKnobs": "Whitelist of APVTS param IDs that remain user-facing as knobs (in addition to preset buttons). Everything else is locked.",
+    "userKnobs": [
+      { "paramId": "n_makeup__gainDb", "label": "TRIM" }
+    ]
+  }
+}

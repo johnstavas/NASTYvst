@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "nasty-neve-v1",
+  "label": "NastyNeve v1 — textbook bus comp",
+  "_doc": [
+    "Neve-flavored bus compressor recipe. v1 = bare-bones textbook structure;",
+    "v2 will add the diodeBridgeGR character stage as a post-VCA harmonic shaper.",
+    "",
+    "TOPOLOGY (mirrors src/sandbox/mockGraphs.js TOY_COMP exactly):",
+    "  in ──┬─► detector ─► envelope ─► gainComputer ─► gain.gainMod    (sidechain)",
+    "       │                                            │",
+    "       └─► gain ────────────────────────────────────┴─► makeup gain ─► out",
+    "",
+    "DESIGN HISTORY: this recipe was rebuilt 2026-04-27 after the 2-op",
+    "envelopeFollower → diodeBridgeGR smoke recipe (smoke_neve33609.graph.json)",
+    "failed audible compression tests. Audit of airwindows/Pressure5 + BussColors4",
+    "and re-read of TOY_COMP confirmed the textbook 5-op chain is the correct",
+    "structural pattern. Cluster A 'GR cells' (diodeBridgeGR/varMuTube/fetVVR/",
+    "optoCell) are now understood as character primitives, not complete compressors.",
+    "",
+    "DEFAULTS rationale:",
+    "  detector.mode  = peak       (Neve 33609 is peak-sensing, not RMS)",
+    "  envelope.attack  = 5 ms     (Neve datasheet medium-fast)",
+    "  envelope.release = 250 ms   (Neve datasheet medium)",
+    "  gainComputer.thresholdDb = -18  (typical bus-comp position; expects hot input)",
+    "  gainComputer.ratio       = 4    (Neve-typical bus ratio)",
+    "  gainComputer.kneeDb      = 6    (soft knee — Neve character is gentle)",
+    "  makeup.gainDb            = +6   (compensates for ~6 dB GR at default settings)"
+  ],
+  "canvas": { "width": 900, "height": 320 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x":  40, "y": 200 },
+    { "id": "out", "kind": "output", "x": 860, "y": 200 }
+  ],
+  "nodes": [
+    { "id": "n_det",    "op": "detector",     "x": 180, "y":  60,
+      "params": { "mode": "peak" } },
+    { "id": "n_env",    "op": "envelope",     "x": 320, "y":  60,
+      "params": { "attack": 5, "release": 250, "amount": 1, "offset": 0 } },
+    { "id": "n_comp",   "op": "gainComputer", "x": 480, "y":  60,
+      "params": { "thresholdDb": -18, "ratio": 4, "kneeDb": 6 } },
+    { "id": "n_vca",    "op": "gain",         "x": 580, "y": 200,
+      "params": { "gainDb": 0 } },
+    { "id": "n_makeup", "op": "gain",         "x": 740, "y": 200,
+      "params": { "gainDb": 6 } }
+  ],
+  "wires": [
+    { "from": "in",       "to": "n_det" },
+    { "from": "n_det",    "to": "n_env" },
+    { "from": "n_env",    "to": "n_comp" },
+    { "from": "n_comp",   "to": "n_vca.gainMod" },
+    { "from": "in",       "to": "n_vca" },
+    { "from": "n_vca",    "to": "n_makeup" },
+    { "from": "n_makeup", "to": "out" }
+  ],
+  "feedback": [],
+  "legendOps": ["detector", "envelope", "gainComputer", "gain"]
+}

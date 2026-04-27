@@ -12,6 +12,7 @@ dist/
 clap/
 clap-validator/
 tracktion_engine/
+airwindows/
 
 # Local Claude config / runtime
 .claude/settings.local.json

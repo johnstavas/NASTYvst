@@ -1,37 +1,69 @@
-// op_envelope.cpp — Stage-3b C++ sidecar stub for the `envelope` op.
-// Contract: memory/codegen_design.md § 4. Mirrors op_envelope.worklet.js.
-// CRITICAL: real impl MUST include Watte denormal bias (DENORM) on both
-// state-accumulating paths — mirrors ENVELOPE_DENORMAL_GUARD T6 rule.
+// op_envelope.cpp — Stage-3b C++ sidecar for the `envelope` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_envelope.worklet.js
+// bit-for-bit. Asymmetric AR follower with Watte denormal bias.
+//
+// Ported 2026-04-27 from op_envelope.worklet.js after discovery that the
+// stub-zero output broke every compressor recipe that used the envelope
+// op in a compiled VST3 (browser worklet works correctly; C++ stub did not).
 #pragma once
 #include <cmath>
+#include <cstring>
 
 namespace shags::ops {
 
 class EnvelopeOp_{{ node_id }} {
 public:
     static constexpr const char* opId = "envelope";
-    // Watte denormal bias — dsp_code_canon_utilities.md §1.
+    // Watte denormal bias — dsp_code_canon_utilities.md §1, applied with
+    // alternating sign so long-term DC of the bias is zero while idle-channel
+    // tails never cause subnormal-trap stalls.
     static constexpr double DENORM = 1e-20;
 
     explicit EnvelopeOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {
         recomputeAlphas();
     }
 
-    void reset() { state_ = 0.0; }
+    void reset() { state_ = 0.0; denormSign_ = false; }
 
     void setParam(const char* id, double v) {
-        // TODO(stage-3b): dispatch attack / release / amount / offset;
-        //                 recomputeAlphas() on attack/release.
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "attack") == 0) {
+            attackMs_ = v; recomputeAlphas();
+        } else if (std::strcmp(id, "release") == 0) {
+            releaseMs_ = v; recomputeAlphas();
+        } else if (std::strcmp(id, "amount") == 0) {
+            amount_ = v;
+        } else if (std::strcmp(id, "offset") == 0) {
+            offset_ = v;
+        }
     }
 
     int getLatencySamples() const { return 0; }
 
     // in:  mono input (typically rectified)
-    // env: mono control-rate output
+    // env: mono control-rate output  (offset + amount * smoothed_state)
     void process(const float* in, float* env, int N) {
-        for (int i = 0; i < N; ++i) env[i] = 0.0f;
-        // TODO(stage-3b): port AR smoother from op_envelope.worklet.js.
-        //                 MUST add DENORM on state updates (both branches).
+        if (in == nullptr) {
+            const float ofs = static_cast<float>(offset_);
+            for (int i = 0; i < N; ++i) env[i] = ofs;
+            return;
+        }
+        const double aAtt   = atkAlpha_;
+        const double aRel   = relAlpha_;
+        const double amount = amount_;
+        const double offset = offset_;
+        double s  = state_;
+        double dn = denormSign_ ? DENORM : -DENORM;
+        for (int i = 0; i < N; ++i) {
+            const double x = std::fabs(static_cast<double>(in[i]));
+            const double a = (x > s) ? aAtt : aRel;
+            s  = a * s + (1.0 - a) * x;
+            dn = -dn;
+            s += dn;                         // alternating-sign Watte bias
+            env[i] = static_cast<float>(offset + amount * s);
+        }
+        state_      = s;
+        denormSign_ = (dn > 0.0);
     }
 
 private:
@@ -50,6 +82,7 @@ private:
     double state_     = 0.0;
     double atkAlpha_  = 0.0;
     double relAlpha_  = 0.0;
+    bool   denormSign_ = false;
 };
 
 }  // namespace shags::ops

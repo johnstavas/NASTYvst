@@ -220,10 +220,49 @@ const outputTerminals = pcof.terminals.outputs.map(t => ({
   sources: (t.sources || []).map(s => ({ bufferIdx: s.bufferIdx })),
 }));
 
+// ── compute presets (UI-mode: presets-only) ──────────────────────────────
+// Each preset becomes a button on the editor. Click → set every APVTS
+// parameter to the preset's value (normalized [0,1]). Internal sidechain
+// params can be locked here at recipe-author-vetted values, eliminating
+// the "10 knobs the user can break" problem.
+const uiMode = (graph.ui && graph.ui.mode) || 'knobs';
+const apvtsByFullId = Object.fromEntries(apvtsParams.map(p => [p.paramId, p]));
+const presets = (graph.presets || []).map(preset => {
+  const paramSettings = [];
+  for (const [fullId, raw] of Object.entries(preset.params || {})) {
+    const ap = apvtsByFullId[fullId];
+    if (!ap) {
+      console.warn(`[build_native] preset '${preset.id}' references unknown param '${fullId}' — skipping`);
+      continue;
+    }
+    const min = parseFloat(ap.min), max = parseFloat(ap.max);
+    const norm = (Number(raw) - min) / (max - min);
+    const normClamped = Math.max(0, Math.min(1, norm));
+    paramSettings.push({ paramId: ap.paramId, normValue: normClamped.toFixed(6) });
+  }
+  return { id: preset.id, label: preset.label, paramSettings };
+});
+const defaultPresetId = (graph.ui && graph.ui.defaultPreset) || (presets[0] && presets[0].id) || null;
+
+// userKnobs: in presets-only mode, the buttons lock most params. This
+// whitelist keeps a few specific ones user-adjustable (e.g. an output TRIM
+// knob alongside the preset buttons). Resolved against apvtsParams entries.
+const userKnobsList = (graph.ui && graph.ui.userKnobs) || [];
+const userKnobs = userKnobsList.map(uk => {
+  const ap = apvtsByFullId[uk.paramId];
+  if (!ap) {
+    console.warn(`[build_native] userKnobs references unknown param '${uk.paramId}' — skipping`);
+    return null;
+  }
+  return { ...ap, label: uk.label || ap.label };
+}).filter(Boolean);
+
 // ── compute editor footprint ─────────────────────────────────────────────
 const knobCount    = apvtsParams.length;
-const editorWidth  = Math.max(360, 120 + 100 * knobCount + 96);
-const editorHeight = 280;
+const editorWidth  = uiMode === 'presets-only'
+  ? 480
+  : Math.max(360, 120 + 100 * knobCount + 96);
+const editorHeight = uiMode === 'presets-only' ? (userKnobs.length > 0 ? 320 : 240) : 280;
 
 // BUILD_TAG — UTC timestamp baked into the editor so the user can confirm
 // at a glance which build Reaper actually loaded (defeats stale-cache
@@ -245,6 +284,11 @@ const ctx = {
   numBuffers: pcof.buffers.length,
   editorWidth,
   editorHeight,
+  uiMode,
+  presetsMode: uiMode === 'presets-only',  // boolean for Jinja-subset engine
+  presets,
+  defaultPresetId,
+  userKnobs,
 };
 
 // ── workspace ────────────────────────────────────────────────────────────

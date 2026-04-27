@@ -1,9 +1,22 @@
-// op_gainComputer.cpp — Stage-3b C++ sidecar stub for the `gainComputer` op.
-// Contract: memory/codegen_design.md § 4. Mirrors op_gainComputer.worklet.js.
-// Math target: Zölzer soft-knee gain computer (dB domain).
-// Monotonicity enforced at validator tier (T6.GAINCOMP_MONOTONIC).
+// op_gainComputer.cpp — Stage-3b C++ sidecar for the `gainComputer` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_gainComputer.worklet.js
+// bit-for-bit. Zölzer DAFX §4.2.2 soft-knee static gain computer.
+//
+// Ported 2026-04-27 from op_gainComputer.worklet.js after the stub-zero
+// output was identified as the cause of every compressor recipe producing
+// passthrough audio in compiled VST3 form.
+//
+// Curve (input dB-level x → output dB-level y):
+//   below knee:    y = x                                       (1:1)
+//   above knee:    y = thr + (x - thr) / ratio                 (compressed)
+//   in  knee:      y = x + (1/ratio - 1) · k · t² / 2,         t = (x - thr + K/2)/K
+// Output (`gr`) is delta-from-unity in [-1, 0]:
+//   gr = 10^((y - x)/20) - 1
+// so gain.gainMod sums directly into base=1.0:
+//   effective_gain = base + gr = 1 + (grLin - 1) = grLin
 #pragma once
 #include <cmath>
+#include <cstring>
 
 namespace shags::ops {
 
@@ -13,26 +26,56 @@ public:
 
     explicit GainComputerOp_{{ node_id }}(double sampleRate) : sr_(sampleRate) {}
 
-    void reset() {}
+    void reset() { /* stateless */ }
 
     void setParam(const char* id, double v) {
-        // TODO(stage-3b): dispatch thresholdDb / ratio (clamp >=1) / kneeDb (clamp >=0)
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "thresholdDb") == 0) thr_ = v;
+        else if (std::strcmp(id, "ratio") == 0)  ratio_ = std::fmax(1.0, v);
+        else if (std::strcmp(id, "kneeDb") == 0) knee_ = std::fmax(0.0, v);
     }
 
     int getLatencySamples() const { return 0; }
 
-    // env: mono linear-magnitude input
-    // gr:  mono delta-from-unity output (<=0)
+    // env: linear magnitude (envelope op output)
+    // gr:  delta-from-unity gain in [-1, 0] (0 = no GR, negative = duck)
     void process(const float* env, float* gr, int N) {
-        for (int i = 0; i < N; ++i) gr[i] = 0.0f;
-        // TODO(stage-3b): port Zölzer soft-knee computer from op_gainComputer.worklet.js
+        if (env == nullptr) {
+            for (int i = 0; i < N; ++i) gr[i] = 0.0f;
+            return;
+        }
+        const double thr    = thr_;
+        const double ratio  = ratio_;
+        const double knee   = knee_;
+        const double halfK  = knee * 0.5;
+        const double invRm1 = (1.0 / ratio) - 1.0;
+        constexpr double LOG10     = 2.302585092994046;
+        constexpr double LOG10_INV = 1.0 / 2.302585092994046;
+        constexpr double FLOOR     = 1e-12;
+
+        for (int i = 0; i < N; ++i) {
+            const double lin = env[i];
+            const double mag = lin >= 0.0 ? lin : -lin;
+            const double xDb = 20.0 * std::log(mag + FLOOR) * LOG10_INV;
+            double yDb;
+            if (knee > 0.0 && xDb > thr - halfK && xDb < thr + halfK) {
+                const double t = (xDb - thr + halfK) / knee;
+                yDb = xDb + invRm1 * knee * t * t * 0.5;
+            } else if (xDb >= thr + halfK) {
+                yDb = thr + (xDb - thr) / ratio;
+            } else {
+                yDb = xDb;
+            }
+            const double grDb = yDb - xDb;
+            gr[i] = static_cast<float>(std::exp(grDb * LOG10 / 20.0) - 1.0);
+        }
     }
 
 private:
     double sr_;
     double thr_   = -18.0;
-    double ratio_ =   4.0;
-    double knee_  =   6.0;
+    double ratio_ = 4.0;
+    double knee_  = 6.0;
 };
 
 }  // namespace shags::ops
