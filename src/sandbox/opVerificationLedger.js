@@ -106,6 +106,32 @@ export function mergeSignoffs(ledger, signoffs) {
 }
 
 /**
+ * POST the merged ledger back to the dev server's /__dev/save-ledger
+ * endpoint, which writes it to public/verification_ledger.json (with a
+ * .bak.json backup of the previous file). Returns the server's JSON
+ * response on success or throws on failure.
+ *
+ * Intended to be called from the Save button in OpVerificationLedgerView
+ * after the user has ticked listen gates and wants the change to survive
+ * a page reload.
+ */
+export async function saveLedgerToDisk(ledger) {
+  if (!ledger || !Array.isArray(ledger.ops)) throw new Error('invalid ledger');
+  const res = await fetch('/__dev/save-ledger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ledger),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error || `save failed (${res.status})`);
+  }
+  // Refresh the in-memory cache to match what's now on disk.
+  _ledgerCache = ledger;
+  return json;
+}
+
+/**
  * Fetch the verification ledger. Cached after first call.
  * Returns null on failure (browser keeps running with no gate annotations).
  */

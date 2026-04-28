@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-bbddelay-v0",
+  "label": "SmokeBbdDelay",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_bbddelay",
+      "op": "bbdDelay",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "delayMs": 250,
+        "aaHz": 6000,
+        "feedback": 0.35,
+        "mix": 0.5
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_bbddelay.in"
+    },
+    {
+      "from": "n_bbddelay.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "bbdDelay"
+  ]
+}

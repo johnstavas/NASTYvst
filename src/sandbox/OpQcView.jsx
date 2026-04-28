@@ -319,7 +319,12 @@ export default function OpQcView({ opId, onClose, onSignOff }) {
               "listen is informational only" banner. */}
           <OpListenPanel
             opId={opId}
-            params={spec?.defaultParams || {}}
+            // listenParams: optional spec override for the listen rig only.
+            // Used when defaultParams puts the op at an "off" or inaudible
+            // setting (e.g. microDetune cents=0 = no shift; smooth τ=50ms = LP
+            // at 3 Hz). Math tests still run at defaultParams; ear-tests use
+            // listenParams when present.
+            params={spec?.listenParams || spec?.defaultParams || {}}
             defaultPort={
               spec?.category === 'compressor' ? (spec?.declared?.audioPort || 'audio')
               : (spec?.declared?.inputPort || 'in')

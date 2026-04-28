@@ -774,7 +774,7 @@
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-drive-v0/build/SmokeDriveV0_artefacts/Release/VST3/SmokeDriveV0.vst3",
       "params": {
-        "n_drv__drive": 4.0
+        "n_drv__drive": 4
       },
       "paramRanges": {
         "n_drv__drive": {
@@ -784,7 +784,7 @@
       },
       "reference": "builtin:drive",
       "reference_args": {
-        "drive": 4.0
+        "drive": 4
       },
       "sr": 48000,
       "block": 512
@@ -856,8 +856,8 @@
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-saturate-v0/build/SmokeSaturateV0_2604252047_artefacts/Release/VST3/SmokeSaturateV0_2604252047.vst3",
       "params": {
-        "n_sat__drive": 2.0,
-        "n_sat__trim": -3.0
+        "n_sat__drive": 2,
+        "n_sat__trim": -3
       },
       "paramRanges": {
         "n_sat__drive": {
@@ -871,8 +871,8 @@
       },
       "reference": "builtin:saturate",
       "reference_args": {
-        "drive": 2.0,
-        "trim": -3.0
+        "drive": 2,
+        "trim": -3
       },
       "sr": 48000,
       "block": 512
@@ -918,7 +918,7 @@
       "params": {
         "n_hc__drive": 1.5,
         "n_hc__threshold": 0.7,
-        "n_hc__trim": 0.0,
+        "n_hc__trim": 0,
         "n_hc__adaa": 0
       },
       "paramRanges": {
@@ -943,54 +943,98 @@
       "reference_args": {
         "drive": 1.5,
         "threshold": 0.7,
-        "trim": 0.0,
+        "trim": 0,
         "adaa": false
       },
       "sr": 48000,
       "block": 512
     },
     "wavefolder": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -120,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-wavefolder-v0/build/SmokeWavefolderV0_2604252101_artefacts/Release/VST3/SmokeWavefolderV0_2604252101.vst3",
       "params": {
         "n_wf__drive": 1.5,
         "n_wf__width": 0.6,
-        "n_wf__trim": -2.0
+        "n_wf__trim": -2
       },
       "paramRanges": {
-        "n_wf__drive": { "min": 1, "max": 8 },
-        "n_wf__width": { "min": 0, "max": 1 },
-        "n_wf__trim":  { "min": -24, "max": 24 }
+        "n_wf__drive": {
+          "min": 1,
+          "max": 8
+        },
+        "n_wf__width": {
+          "min": 0,
+          "max": 1
+        },
+        "n_wf__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:wavefolder",
-      "reference_args": { "drive": 1.5, "width": 0.6, "trim": -2.0 },
+      "reference_args": {
+        "drive": 1.5,
+        "width": 0.6,
+        "trim": -2
+      },
       "sr": 48000,
       "block": 512
     },
     "diodeClipper": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -120,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-diodeclipper-v0/build/SmokeDiodeclipperV0_2604252102_artefacts/Release/VST3/SmokeDiodeclipperV0_2604252102.vst3",
       "params": {
-        "n_dc__drive": 3.0,
+        "n_dc__drive": 3,
         "n_dc__asym": 0.3,
-        "n_dc__trim": 0.0
+        "n_dc__trim": 0
       },
       "paramRanges": {
-        "n_dc__drive": { "min": 0.1, "max": 20 },
-        "n_dc__asym":  { "min": 0, "max": 1 },
-        "n_dc__trim":  { "min": -24, "max": 24 }
+        "n_dc__drive": {
+          "min": 0.1,
+          "max": 20
+        },
+        "n_dc__asym": {
+          "min": 0,
+          "max": 1
+        },
+        "n_dc__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:diodeClipper",
-      "reference_args": { "drive": 3.0, "asym": 0.3, "trim": 0.0 },
+      "reference_args": {
+        "drive": 3,
+        "asym": 0.3,
+        "trim": 0
+      },
       "sr": 48000,
       "block": 512
     },
     "shelf_low": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-shelf-low-v0/build/SmokeShelfLowV0_2604252103_artefacts/Release/VST3/SmokeShelfLowV0_2604252103.vst3",
@@ -1000,17 +1044,37 @@
         "n_sh__gainDb": 6
       },
       "paramRanges": {
-        "n_sh__mode":   { "min": 0, "max": 1 },
-        "n_sh__freq":   { "min": 20, "max": 20000 },
-        "n_sh__gainDb": { "min": -24, "max": 24 }
+        "n_sh__mode": {
+          "min": 0,
+          "max": 1
+        },
+        "n_sh__freq": {
+          "min": 20,
+          "max": 20000
+        },
+        "n_sh__gainDb": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:shelf",
-      "reference_args": { "mode": "low", "freq": 250, "gainDb": 6, "sr": 48000 },
+      "reference_args": {
+        "mode": "low",
+        "freq": 250,
+        "gainDb": 6,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "allpass": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-allpass-v0/build/SmokeAllpassV0_2604252104_artefacts/Release/VST3/SmokeAllpassV0_2604252104.vst3",
@@ -1018,30 +1082,56 @@
         "n_ap__freq": 1000
       },
       "paramRanges": {
-        "n_ap__freq": { "min": 1, "max": 20000 }
+        "n_ap__freq": {
+          "min": 1,
+          "max": 20000
+        }
       },
       "reference": "builtin:allpass",
-      "reference_args": { "freq": 1000, "sr": 48000 },
+      "reference_args": {
+        "freq": 1000,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "tilt": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-tilt-v0/build/SmokeTiltV0_2604252106_artefacts/Release/VST3/SmokeTiltV0_2604252106.vst3",
       "params": {
         "n_tilt__f0": 630,
-        "n_tilt__gain": 3.0,
+        "n_tilt__gain": 3,
         "n_tilt__gfactor": 5
       },
       "paramRanges": {
-        "n_tilt__f0":      { "min": 1, "max": 20000 },
-        "n_tilt__gain":    { "min": -24, "max": 24 },
-        "n_tilt__gfactor": { "min": 0.01, "max": 100 }
+        "n_tilt__f0": {
+          "min": 1,
+          "max": 20000
+        },
+        "n_tilt__gain": {
+          "min": -24,
+          "max": 24
+        },
+        "n_tilt__gfactor": {
+          "min": 0.01,
+          "max": 100
+        }
       },
       "reference": "builtin:tilt",
-      "reference_args": { "f0": 630, "gain": 3.0, "gfactor": 5, "sr": 48000 },
+      "reference_args": {
+        "f0": 630,
+        "gain": 3,
+        "gfactor": 5,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
@@ -1057,7 +1147,7 @@
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-chebyshevws-v0/build/SmokeChebyshevwsV0_2604252052_artefacts/Release/VST3/SmokeChebyshevwsV0_2604252052.vst3",
       "params": {
-        "n_cb__g1": 1.0,
+        "n_cb__g1": 1,
         "n_cb__g2": 0.3,
         "n_cb__g3": 0.2,
         "n_cb__g4": 0.1,
@@ -1065,16 +1155,34 @@
         "n_cb__level": 0.8
       },
       "paramRanges": {
-        "n_cb__g1": { "min": -2, "max": 2 },
-        "n_cb__g2": { "min": -2, "max": 2 },
-        "n_cb__g3": { "min": -2, "max": 2 },
-        "n_cb__g4": { "min": -2, "max": 2 },
-        "n_cb__g5": { "min": -2, "max": 2 },
-        "n_cb__level": { "min": 0, "max": 4 }
+        "n_cb__g1": {
+          "min": -2,
+          "max": 2
+        },
+        "n_cb__g2": {
+          "min": -2,
+          "max": 2
+        },
+        "n_cb__g3": {
+          "min": -2,
+          "max": 2
+        },
+        "n_cb__g4": {
+          "min": -2,
+          "max": 2
+        },
+        "n_cb__g5": {
+          "min": -2,
+          "max": 2
+        },
+        "n_cb__level": {
+          "min": 0,
+          "max": 4
+        }
       },
       "reference": "builtin:chebyshevWS",
       "reference_args": {
-        "g1": 1.0,
+        "g1": 1,
         "g2": 0.3,
         "g3": 0.2,
         "g4": 0.1,
@@ -1085,159 +1193,317 @@
       "block": 512
     },
     "korg35": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-korg35-v0/build/SmokeKorg35V0_2604252252_artefacts/Release/VST3/SmokeKorg35V0_2604252252.vst3",
       "params": {
         "n_k35__normFreq": 0.5,
-        "n_k35__Q": 4.0,
-        "n_k35__trim": 0.0
+        "n_k35__Q": 4,
+        "n_k35__trim": 0
       },
       "paramRanges": {
-        "n_k35__normFreq": { "min": 0, "max": 1 },
-        "n_k35__Q":        { "min": 0.5, "max": 10 },
-        "n_k35__trim":     { "min": -24, "max": 24 }
+        "n_k35__normFreq": {
+          "min": 0,
+          "max": 1
+        },
+        "n_k35__Q": {
+          "min": 0.5,
+          "max": 10
+        },
+        "n_k35__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:korg35",
-      "reference_args": { "normFreq": 0.5, "Q": 4.0, "trim": 0.0, "sr": 48000 },
+      "reference_args": {
+        "normFreq": 0.5,
+        "Q": 4,
+        "trim": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "diodeBridgeGR": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-diodebridgegr-v0/build/SmokeDiodebridgegrV0_2604262035_artefacts/Release/VST3/SmokeDiodebridgegrV0_2604262035.vst3",
       "params": {
-        "n_dbgr__cutoffScale":   8,
+        "n_dbgr__cutoffScale": 8,
         "n_dbgr__curveExponent": 1.8,
-        "n_dbgr__distortion":    0.10,
-        "n_dbgr__asymmetry":     0.0,
-        "n_dbgr__trim":          0
+        "n_dbgr__distortion": 0.1,
+        "n_dbgr__asymmetry": 0,
+        "n_dbgr__trim": 0
       },
       "paramRanges": {
-        "n_dbgr__cutoffScale":   { "min": 0.5,  "max": 30  },
-        "n_dbgr__curveExponent": { "min": 1.0,  "max": 3.0 },
-        "n_dbgr__distortion":    { "min": 0,    "max": 0.5 },
-        "n_dbgr__asymmetry":     { "min": -0.3, "max": 0.3 },
-        "n_dbgr__trim":          { "min": -24,  "max": 24  }
+        "n_dbgr__cutoffScale": {
+          "min": 0.5,
+          "max": 30
+        },
+        "n_dbgr__curveExponent": {
+          "min": 1,
+          "max": 3
+        },
+        "n_dbgr__distortion": {
+          "min": 0,
+          "max": 0.5
+        },
+        "n_dbgr__asymmetry": {
+          "min": -0.3,
+          "max": 0.3
+        },
+        "n_dbgr__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:diodeBridgeGR",
-      "reference_args": { "cutoffScale": 8, "curveExponent": 1.8, "distortion": 0.10, "asymmetry": 0.0, "trim": 0, "sr": 48000 },
+      "reference_args": {
+        "cutoffScale": 8,
+        "curveExponent": 1.8,
+        "distortion": 0.1,
+        "asymmetry": 0,
+        "trim": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512,
       "note": "Diode-bridge GR cell phenomenology (Neve 33609/2254 family). Pure-odd 3H from cubic + asymmetry knob. Memoryless. Smoke at default + cv=0 → unity pass-through."
     },
     "fetVVR": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-fetvvr-v0/build/SmokeFetvvrV0_2604262011_artefacts/Release/VST3/SmokeFetvvrV0_2604262011.vst3",
       "params": {
-        "n_fet__cutoffScale":   5,
-        "n_fet__curveExponent": 2.0,
-        "n_fet__distortion2H":  0.10,
-        "n_fet__distortion3H":  0.05,
-        "n_fet__trim":          0
+        "n_fet__cutoffScale": 5,
+        "n_fet__curveExponent": 2,
+        "n_fet__distortion2H": 0.1,
+        "n_fet__distortion3H": 0.05,
+        "n_fet__trim": 0
       },
       "paramRanges": {
-        "n_fet__cutoffScale":   { "min": 0.5, "max": 30  },
-        "n_fet__curveExponent": { "min": 1.0, "max": 4.0 },
-        "n_fet__distortion2H":  { "min": 0,   "max": 0.5 },
-        "n_fet__distortion3H":  { "min": 0,   "max": 0.5 },
-        "n_fet__trim":          { "min": -24, "max": 24  }
+        "n_fet__cutoffScale": {
+          "min": 0.5,
+          "max": 30
+        },
+        "n_fet__curveExponent": {
+          "min": 1,
+          "max": 4
+        },
+        "n_fet__distortion2H": {
+          "min": 0,
+          "max": 0.5
+        },
+        "n_fet__distortion3H": {
+          "min": 0,
+          "max": 0.5
+        },
+        "n_fet__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:fetVVR",
-      "reference_args": { "cutoffScale": 5, "curveExponent": 2.0, "distortion2H": 0.10, "distortion3H": 0.05, "trim": 0, "sr": 48000 },
+      "reference_args": {
+        "cutoffScale": 5,
+        "curveExponent": 2,
+        "distortion2H": 0.1,
+        "distortion3H": 0.05,
+        "trim": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512,
       "note": "JFET-VVR GR cell phenomenology (UREI 1176 family). Memoryless. Smoke at default + cv=0 → unity pass-through (gain=1, no distortion since comprDepth=0)."
     },
     "varMuTube": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-varmutube-v0/build/SmokeVarmutubeV0_2604261952_artefacts/Release/VST3/SmokeVarmutubeV0_2604261952.vst3",
       "params": {
-        "n_vmt__cutoffScale":   10,
+        "n_vmt__cutoffScale": 10,
         "n_vmt__curveExponent": 1.5,
-        "n_vmt__distortion":    0.1,
-        "n_vmt__trim":          0
+        "n_vmt__distortion": 0.1,
+        "n_vmt__trim": 0
       },
       "paramRanges": {
-        "n_vmt__cutoffScale":   { "min": 1,    "max": 50  },
-        "n_vmt__curveExponent": { "min": 0.5,  "max": 3.0 },
-        "n_vmt__distortion":    { "min": 0,    "max": 0.5 },
-        "n_vmt__trim":          { "min": -24,  "max": 24  }
+        "n_vmt__cutoffScale": {
+          "min": 1,
+          "max": 50
+        },
+        "n_vmt__curveExponent": {
+          "min": 0.5,
+          "max": 3
+        },
+        "n_vmt__distortion": {
+          "min": 0,
+          "max": 0.5
+        },
+        "n_vmt__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:varMuTube",
-      "reference_args": { "cutoffScale": 10, "curveExponent": 1.5, "distortion": 0.1, "trim": 0, "sr": 48000 },
+      "reference_args": {
+        "cutoffScale": 10,
+        "curveExponent": 1.5,
+        "distortion": 0.1,
+        "trim": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512,
       "note": "Variable-mu tube GR cell phenomenology (Manley/Fairchild 670 family). Memoryless. Smoke at default params + cv=0 → unity pass-through (gain=1, no distortion since comprDepth=0)."
     },
     "blackmerVCA": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-blackmervca-v0/build/SmokeBlackmervcaV0_2604261910_artefacts/Release/VST3/SmokeBlackmervcaV0_2604261910.vst3",
       "params": {
-        "n_vca__bias": 0.0,
-        "n_vca__trim": 0.0
+        "n_vca__bias": 0,
+        "n_vca__trim": 0
       },
       "paramRanges": {
-        "n_vca__bias": { "min": -0.5, "max": 0.5 },
-        "n_vca__trim": { "min": -24,  "max": 24  }
+        "n_vca__bias": {
+          "min": -0.5,
+          "max": 0.5
+        },
+        "n_vca__trim": {
+          "min": -24,
+          "max": 24
+        }
       },
       "reference": "builtin:blackmerVCA",
-      "reference_args": { "bias": 0.0, "trim": 0.0, "sr": 48000 },
+      "reference_args": {
+        "bias": 0,
+        "trim": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512,
       "note": "Blackmer log-add-antilog VCA (US 3,714,462). Memoryless. Smoke at default params (cv=0, bias=0, trim=0) = identity / pass-through; native parity verifies bit-for-bit equivalence."
     },
     "optoCell": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-optocell-v0/build/SmokeOptocellV0_2604261848_artefacts/Release/VST3/SmokeOptocellV0_2604261848.vst3",
       "params": {
-        "n_oc__attackMs":       10,
-        "n_oc__releaseMsFast":  60,
+        "n_oc__attackMs": 10,
+        "n_oc__releaseMsFast": 60,
         "n_oc__releaseSecSlow": 5,
-        "n_oc__responsivity":   1.0
+        "n_oc__responsivity": 1
       },
       "paramRanges": {
-        "n_oc__attackMs":       { "min": 0.1,  "max": 100 },
-        "n_oc__releaseMsFast":  { "min": 5,    "max": 500 },
-        "n_oc__releaseSecSlow": { "min": 0.5,  "max": 15  },
-        "n_oc__responsivity":   { "min": 0.05, "max": 4.0 }
+        "n_oc__attackMs": {
+          "min": 0.1,
+          "max": 100
+        },
+        "n_oc__releaseMsFast": {
+          "min": 5,
+          "max": 500
+        },
+        "n_oc__releaseSecSlow": {
+          "min": 0.5,
+          "max": 15
+        },
+        "n_oc__responsivity": {
+          "min": 0.05,
+          "max": 4
+        }
       },
       "reference": "builtin:optoCell",
-      "reference_args": { "attackMs": 10, "releaseMsFast": 60, "releaseSecSlow": 5, "responsivity": 1.0, "sr": 48000 },
+      "reference_args": {
+        "attackMs": 10,
+        "releaseMsFast": 60,
+        "releaseSecSlow": 5,
+        "responsivity": 1,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512,
       "note": "LA-2A T4-style phenomenological optical-isolator GR cell. Two-state envelope (fast/slow) + LDR-divider gain mapping. UA T4 spec defaults."
     },
     "srcResampler": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-srcresampler-v0/build/SmokeSrcresamplerV0_2604261805_artefacts/Release/VST3/SmokeSrcresamplerV0_2604261805.vst3",
       "params": {
-        "n_src__speed": 1.0
+        "n_src__speed": 1
       },
       "paramRanges": {
-        "n_src__speed": { "min": 0.25, "max": 4.0 }
+        "n_src__speed": {
+          "min": 0.25,
+          "max": 4
+        }
       },
       "reference": "builtin:srcResampler",
-      "reference_args": { "speed": 1.0, "sr": 48000 },
+      "reference_args": {
+        "speed": 1,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512,
       "note": "Polyphase Kaiser-windowed-sinc varispeed reader. At speed=1 (test default) the op is a pure NZ-sample filter delay; native parity verifies bit-for-bit equivalence with the worklet path. Sustained speed != 1 has known causality limits documented in worklet header (P2 elastic input buffering)."
     },
     "xformerSat": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-xformersat-v0/build/SmokeXformersatV0_2604260218_artefacts/Release/VST3/SmokeXformersatV0_2604260218.vst3",
@@ -1249,41 +1515,93 @@
         "n_xf__air": 1
       },
       "paramRanges": {
-        "n_xf__drive":    { "min": -24, "max": 36 },
-        "n_xf__coreSize": { "min": 0.05, "max": 10 },
-        "n_xf__sourceZ":  { "min": 1, "max": 10000 },
-        "n_xf__loss":     { "min": 0, "max": 1 },
-        "n_xf__air":      { "min": 0.1, "max": 8 }
+        "n_xf__drive": {
+          "min": -24,
+          "max": 36
+        },
+        "n_xf__coreSize": {
+          "min": 0.05,
+          "max": 10
+        },
+        "n_xf__sourceZ": {
+          "min": 1,
+          "max": 10000
+        },
+        "n_xf__loss": {
+          "min": 0,
+          "max": 1
+        },
+        "n_xf__air": {
+          "min": 0.1,
+          "max": 8
+        }
       },
       "reference": "builtin:xformerSat",
-      "reference_args": { "drive": 6, "coreSize": 1, "sourceZ": 600, "loss": 0.3, "air": 1, "sr": 48000 },
+      "reference_args": {
+        "drive": 6,
+        "coreSize": 1,
+        "sourceZ": 600,
+        "loss": 0.3,
+        "air": 1,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "diodeLadder": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-diodeladder-v0/build/SmokeDiodeladderV0_2604252349_artefacts/Release/VST3/SmokeDiodeladderV0_2604252349.vst3",
       "params": {
         "n_dl__normFreq": 0.45,
-        "n_dl__Q": 5.0,
-        "n_dl__drive": 1.0,
-        "n_dl__trim": 0.0
+        "n_dl__Q": 5,
+        "n_dl__drive": 1,
+        "n_dl__trim": 0
       },
       "paramRanges": {
-        "n_dl__normFreq": { "min": 0, "max": 1 },
-        "n_dl__Q":        { "min": 0.7, "max": 20 },
-        "n_dl__drive":    { "min": 0, "max": 1 },
-        "n_dl__trim":     { "min": -24, "max": 12 }
+        "n_dl__normFreq": {
+          "min": 0,
+          "max": 1
+        },
+        "n_dl__Q": {
+          "min": 0.7,
+          "max": 20
+        },
+        "n_dl__drive": {
+          "min": 0,
+          "max": 1
+        },
+        "n_dl__trim": {
+          "min": -24,
+          "max": 12
+        }
       },
       "reference": "builtin:diodeLadder",
-      "reference_args": { "normFreq": 0.45, "Q": 5.0, "drive": 1.0, "trim": 0.0, "sr": 48000 },
+      "reference_args": {
+        "normFreq": 0.45,
+        "Q": 5,
+        "drive": 1,
+        "trim": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "smooth": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-smooth-v0/build/SmokeSmoothV0_2604252112_artefacts/Release/VST3/SmokeSmoothV0_2604252112.vst3",
@@ -1291,15 +1609,27 @@
         "n_sm__time": 0.005
       },
       "paramRanges": {
-        "n_sm__time": { "min": 0, "max": 10 }
+        "n_sm__time": {
+          "min": 0,
+          "max": 10
+        }
       },
       "reference": "builtin:smooth",
-      "reference_args": { "time": 0.005, "sr": 48000 },
+      "reference_args": {
+        "time": 0.005,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "slew": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -120,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-slew-v0/build/SmokeSlewV0_2604252126_artefacts/Release/VST3/SmokeSlewV0_2604252126.vst3",
@@ -1308,17 +1638,33 @@
         "n_sl__fallMs": 20
       },
       "paramRanges": {
-        "n_sl__riseMs": { "min": 0.001, "max": 10000 },
-        "n_sl__fallMs": { "min": 0.001, "max": 10000 }
+        "n_sl__riseMs": {
+          "min": 0.001,
+          "max": 10000
+        },
+        "n_sl__fallMs": {
+          "min": 0.001,
+          "max": 10000
+        }
       },
       "reference": "builtin:slew",
-      "reference_args": { "riseMs": 5, "fallMs": 20, "sr": 48000 },
+      "reference_args": {
+        "riseMs": 5,
+        "fallMs": 20,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "_doc_foundational_compressor_chain": "Added 2026-04-27 — these four ops were stubbed in C++ for the entire codegen pipeline's life and never registered as parity fixtures, so the harness silently green-lit a non-functional native implementation. Adding them here forces JS-vs-C++ bit-identity validation per commit.",
     "detector": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -120,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-detector-v0/build/SmokeDetectorV0_2604270229_artefacts/Release/VST3/SmokeDetectorV0_2604270229.vst3",
@@ -1326,15 +1672,27 @@
         "n_det__mode": 0
       },
       "paramRanges": {
-        "n_det__mode": { "min": 0, "max": 1, "type": "enum" }
+        "n_det__mode": {
+          "min": 0,
+          "max": 1,
+          "type": "enum"
+        }
       },
       "reference": "builtin:detector",
-      "reference_args": { "mode": "peak" },
+      "reference_args": {
+        "mode": "peak"
+      },
       "sr": 48000,
       "block": 512
     },
     "envelope": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-envelope-v0/build/SmokeEnvelopeV0_2604270230_artefacts/Release/VST3/SmokeEnvelopeV0_2604270230.vst3",
@@ -1345,18 +1703,42 @@
         "n_env__offset": 0
       },
       "paramRanges": {
-        "n_env__attack": { "min": 0.001, "max": 10000 },
-        "n_env__release": { "min": 0.001, "max": 10000 },
-        "n_env__amount": { "min": -4, "max": 4 },
-        "n_env__offset": { "min": -4, "max": 4 }
+        "n_env__attack": {
+          "min": 0.001,
+          "max": 10000
+        },
+        "n_env__release": {
+          "min": 0.001,
+          "max": 10000
+        },
+        "n_env__amount": {
+          "min": -4,
+          "max": 4
+        },
+        "n_env__offset": {
+          "min": -4,
+          "max": 4
+        }
       },
       "reference": "builtin:envelope",
-      "reference_args": { "attack": 5, "release": 120, "amount": 1, "offset": 0, "sr": 48000 },
+      "reference_args": {
+        "attack": 5,
+        "release": 120,
+        "amount": 1,
+        "offset": 0,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "filter": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-filter-v0/build/SmokeFilterV0_2604270231_artefacts/Release/VST3/SmokeFilterV0_2604270231.vst3",
@@ -1366,17 +1748,38 @@
         "n_filt__q": 0.707
       },
       "paramRanges": {
-        "n_filt__mode":   { "min": 0, "max": 3, "type": "enum" },
-        "n_filt__cutoff": { "min": 10, "max": 20000 },
-        "n_filt__q":      { "min": 0.001, "max": 40 }
+        "n_filt__mode": {
+          "min": 0,
+          "max": 3,
+          "type": "enum"
+        },
+        "n_filt__cutoff": {
+          "min": 10,
+          "max": 20000
+        },
+        "n_filt__q": {
+          "min": 0.001,
+          "max": 40
+        }
       },
       "reference": "builtin:filter",
-      "reference_args": { "mode": "lp", "cutoff": 1000, "q": 0.707, "sr": 48000 },
+      "reference_args": {
+        "mode": "lp",
+        "cutoff": 1000,
+        "q": 0.707,
+        "sr": 48000
+      },
       "sr": 48000,
       "block": 512
     },
     "gainComputer": {
-      "signals": ["impulse","dc_step","pink_noise","sine_440","two_tone"],
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440",
+        "two_tone"
+      ],
       "tolerance_db": -90,
       "metric": "max_abs_diff",
       "vst3": ".shagsplug/smoke-gaincomputer-v0/build/SmokeGaincomputerV0_2604270232_artefacts/Release/VST3/SmokeGaincomputerV0_2604270232.vst3",
@@ -1386,14 +1789,556 @@
         "n_gc__kneeDb": 6
       },
       "paramRanges": {
-        "n_gc__thresholdDb": { "min": -60, "max": 0 },
-        "n_gc__ratio":       { "min": 1,   "max": 20 },
-        "n_gc__kneeDb":      { "min": 0,   "max": 24 }
+        "n_gc__thresholdDb": {
+          "min": -60,
+          "max": 0
+        },
+        "n_gc__ratio": {
+          "min": 1,
+          "max": 20
+        },
+        "n_gc__kneeDb": {
+          "min": 0,
+          "max": 24
+        }
       },
       "reference": "builtin:gainComputer",
-      "reference_args": { "thresholdDb": -18, "ratio": 4, "kneeDb": 6 },
+      "reference_args": {
+        "thresholdDb": -18,
+        "ratio": 4,
+        "kneeDb": 6
+      },
       "sr": 48000,
       "block": 512
+    },
+    "busSum": {
+      "nativeSkip": true,
+      "skipReason": "4 audio inputs — single-WAV parity_host drives one port; remaining 3 are unfed.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "fanOut": {
+      "nativeSkip": true,
+      "skipReason": "1→4 outputs — parity_host writes one WAV; remaining 3 outputs unobserved.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "select": {
+      "nativeSkip": true,
+      "skipReason": "4 audio inputs, param-driven switch — 3 inputs unfed by single-WAV harness.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "crossfade": {
+      "nativeSkip": true,
+      "skipReason": "2 audio inputs (a, b) — equal-power blend needs both fed simultaneously, harness drives one.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "combine": {
+      "nativeSkip": true,
+      "skipReason": "2 control-rate inputs — harness is audio-WAV-driven, no control-rate stim path.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "meters": {
+      "nativeSkip": true,
+      "skipReason": "2 control-rate outputs (peak, rms) — harness writes one audio WAV.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "ramp": {
+      "nativeSkip": true,
+      "skipReason": "Triggered op (rising-edge stim required) — harness is steady-state WAV-driven.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "trigger": {
+      "nativeSkip": true,
+      "skipReason": "Stateful Schmitt hysteresis on control rate — output depends on prior state, not amenable to single-WAV diff.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "quantizer": {
+      "nativeSkip": true,
+      "skipReason": "Control-rate primitive — closed-form snap-to-grid, harness is audio-rate.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host (added 2026-04-28)."
+    },
+    "z1": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440"
+      ],
+      "tolerance_db": -120,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-z1-v0/build/SmokeZ1V0_2604280419_artefacts/Release/VST3/SmokeZ1V0_2604280419.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:z1",
+      "reference_args": {},
+      "sr": 48000,
+      "block": 512,
+      "note": "Single-sample delay y[n] = x[n−1]. Both JS and C++ run the same trivial state-update; sample-by-sample identity expected within float32 epsilon."
+    },
+    "curve": {
+      "signals": [
+        "impulse",
+        "dc_step",
+        "pink_noise",
+        "sine_440"
+      ],
+      "tolerance_db": -100,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-curve-v0/build/SmokeCurveV0_2604280424_artefacts/Release/VST3/SmokeCurveV0_2604280424.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:curve",
+      "reference_args": {
+        "points": [
+          {
+            "x": 0,
+            "y": 0,
+            "tIn": 1,
+            "tOut": 1
+          },
+          {
+            "x": 1,
+            "y": 1,
+            "tIn": 1,
+            "tOut": 1
+          }
+        ],
+        "interp": "hermite"
+      },
+      "sr": 48000,
+      "block": 512,
+      "note": "Hermite interp through default identity points = clamp(x, 0, 1). Negative-domain inputs hard-clip at 0. Tolerance -100 dB allows for float32 round-trip on the clamp boundary."
+    },
+    "microDetune": {
+      "signals": [
+        "impulse",
+        "pink_noise",
+        "sine_440"
+      ],
+      "tolerance_db": -90,
+      "metric": "max_abs_diff",
+      "vst3": ".shagsplug/smoke-microdetune-v0/build/SmokeMicrodetuneV0_2604280453_artefacts/Release/VST3/SmokeMicrodetuneV0_2604280453.vst3",
+      "params": {},
+      "paramRanges": {},
+      "reference": "builtin:microDetune",
+      "reference_args": {
+        "cents": 0,
+        "windowMs": 50,
+        "xfadeMs": 10,
+        "level": 1
+      },
+      "sr": 48000,
+      "block": 512,
+      "note": "Two-tap crossfading delay-line pitch shifter. At cents=0 → fixed W-sample delay. JS reference mirrors worklet algorithm verbatim. Tolerance -90 dB allows for float32 round-off in the linear-interp read taps."
+    },
+    "sampleHold": {
+      "nativeSkip": true,
+      "skipReason": "Triggered op — needs both trig (rising-edge) and in (value) ports fed simultaneously. Single-WAV parity_host can only drive one port; the latching behavior cannot be exercised.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host."
+    },
+    "stepSeq": {
+      "nativeSkip": true,
+      "skipReason": "Triggered op — needs trig (rising-edge) port to advance the step pointer. Single-WAV parity_host drives audio at full rate, not edge-stim semantics.",
+      "note": "Architectural skip — port shape incompatible with single-WAV parity_host."
+    },
+    "noise": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — pure LCG-seeded source. Parity host architecture is input→output diff, not output-only generator verification.",
+      "note": "Architectural skip — source op has no audio input port; parity_host is input/output-diff oriented (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "hiss": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — pure feldkirch PRNG + Kellett pink filter source. Parity host expects input-driven transformations.",
+      "note": "Architectural skip — source op has no audio input port; parity_host is input/output-diff oriented (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "chaos": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — logistic-map iteration source. Parity host architecture is input→output diff.",
+      "note": "Architectural skip — source op has no audio input port; parity_host is input/output-diff oriented (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "crackle": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — Poisson-distributed impulse source over feldkirch PRNG. Parity host expects input-driven.",
+      "note": "Architectural skip — source op has no audio input port; parity_host is input/output-diff oriented (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "randomWalk": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — bounded random-walk source over feldkirch PRNG. Parity host expects input-driven.",
+      "note": "Architectural skip — source op has no audio input port; parity_host is input/output-diff oriented (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "velvetNoise": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — seeded grid-impulse source (Karjalainen-Järveläinen). Parity host expects input-driven.",
+      "note": "Architectural skip — source op has no audio input port; parity_host is input/output-diff oriented (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "kWeighting": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / audio-out filter (BS.1770 K-weighting). Could in principle parity-test via input/output WAV diff, but it is the front-end of the loudness chain — no character risk distinct from other biquad filters. Architectural skip pending dedicated standards-compliance harness.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "peak": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out — outputs CV peak envelope. Single-WAV parity_host expects audio output; control-rate envelopes need a different comparison scheme.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "rms": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out — outputs CV windowed-RMS. Same as peak — control-output ops do not fit input/audio-output diff architecture.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "lufsIntegrator": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out (LUFS value). Stateful integration over program-long windows — output is a single number per measurement window, not an audio stream.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "loudnessGate": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out gating logic for lufsIntegrator chain. Same control-output architectural skip.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "truePeak": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out — 4× upsampled peak detector outputs CV envelope.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "lra": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out — Loudness Range value over program-long window. Stateful percentile estimator outputs a single LU number.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "stereoWidth": {
+      "nativeSkip": true,
+      "skipReason": "Stereo audio-in (L,R) / control-out width value. Multi-input + control-output combination — single-WAV harness cannot drive both inputs simultaneously.",
+      "note": "Architectural skip — loudness/metering op outputs CV not audio (added 2026-04-28). Worklet still exercised in listen rig with audio-in stim."
+    },
+    "adsr": {
+      "nativeSkip": true,
+      "skipReason": "Triggered op — needs rising-edge gate input. Single-WAV parity_host drives audio at full rate, not edge-stim semantics.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "envelopeFollower": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / control-out (envelope shape). Single-WAV parity_host expects audio output; control-rate envelope needs a different comparison scheme.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "expander": {
+      "nativeSkip": true,
+      "skipReason": "Stateful dynamics processor — gain reduction depends on prior detector state. Real parity possible in principle but JS reference would need to mirror the worklet IIR detector exactly. Defer to dedicated dynamics-compliance harness.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "gate": {
+      "nativeSkip": true,
+      "skipReason": "Stateful state-machine (closed/open/hold/release) with timer states. Parity diff would require mirroring full state machine in JS reference. Defer to dynamics-compliance harness.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "glide": {
+      "nativeSkip": true,
+      "skipReason": "Control-rate primitive — portamento smoother on CV values, not audio. Single-WAV harness is audio-driven.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "sidechainHPF": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / audio-out 2nd-order RBJ HPF. Real parity COULD pass via builtin biquad reference, but architectural skip kept for batch consistency. Promote to real parity when next dynamics-batch build pass runs.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "transient": {
+      "nativeSkip": true,
+      "skipReason": "Stateful dual-envelope detector + reshape gain. Real parity would need to mirror two parallel one-pole envelopes + the differential gain math. Defer to dynamics-compliance harness.",
+      "note": "Architectural skip — envelope/dynamics op not driveable by single-WAV input/output-diff harness in current state (added 2026-04-28)."
+    },
+    "sineOsc": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — pure DFR sinusoid generator. Source ops do not fit input/output-diff harness.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "blit": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — closed-form DSF impulse train generator. Source op architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "polyBLEP": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — polynomial-corrected sawtooth source. Architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "minBLEP": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — windowed-sinc-step corrected sawtooth source. Architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "fm": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — 2-op FM synthesis source. Source op architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "karplusStrong": {
+      "nativeSkip": true,
+      "skipReason": "No audio input + triggered (needs rising-edge trig burst). Source + triggered = doubly architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "lfo": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — sub-audio control-rate oscillator outputting CV. Source + control-output skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "padSynth": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — PADsynth wavetable source built in freq domain. Architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "wavetable": {
+      "nativeSkip": true,
+      "skipReason": "No audio input — single-cycle wavetable lookup oscillator. Architectural skip.",
+      "note": "Architectural skip — synthesis source op (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "ER": {
+      "nativeSkip": true,
+      "skipReason": "Stateful tap delay-line + filter — single-WAV parity_host can drive audio in/out, but the long internal state buffer makes sample-by-sample comparison brittle. Defer to dedicated reverb-compliance harness (decay-time + EDR measurements).",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "SDN": {
+      "nativeSkip": true,
+      "skipReason": "Multi-output (l, r) reverb. Single-WAV parity_host writes one output WAV; can't cleanly compare stereo. Architectural skip.",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "diffuser": {
+      "nativeSkip": true,
+      "skipReason": "Stateful 4-stage allpass cascade. Audio in/out single port could parity-test in principle, but state-dependent comparison is brittle. Defer to reverb-compliance harness.",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "fdnCore": {
+      "nativeSkip": true,
+      "skipReason": "Stateful 8-channel FDN — large internal state. Audio in/out single port. Defer to reverb-compliance harness.",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "plate": {
+      "nativeSkip": true,
+      "skipReason": "Stereo audio-in (l, r) AND stereo audio-out (l, r). Single-WAV harness cannot drive both inputs simultaneously, can't compare stereo outputs. Doubly architectural skip.",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "schroederChain": {
+      "nativeSkip": true,
+      "skipReason": "Multi-output (l, r) reverb — same architectural issue as SDN.",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "spring": {
+      "nativeSkip": true,
+      "skipReason": "Mono-in / stereo-out (l, r) — output asymmetry breaks single-WAV diff. Architectural skip.",
+      "note": "Architectural skip — reverb op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "fpDacRipple": {
+      "nativeSkip": true,
+      "skipReason": "Stochastic re-quantization with exponent-tracking — output depends on PRNG state. Real parity would require mirroring the exact PRNG sequence in JS reference. Defer to dedicated quantization-compliance harness.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "noiseShaper": {
+      "nativeSkip": true,
+      "skipReason": "Stochastic dither with state-feedback error shaping — output depends on PRNG state + filter state. Real parity needs PRNG mirror. Defer.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "tapeAir9": {
+      "nativeSkip": true,
+      "skipReason": "Multi-stage stateful processor (IIR crossover + flutter mod + IIR decode). Real parity possible in principle but state-dependent. Defer to dedicated character-compliance harness.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "tapeSim": {
+      "nativeSkip": true,
+      "skipReason": "Stateful filter-cascaded waveshaper. Real parity possible but state-dependent. Defer.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "transformerSim": {
+      "nativeSkip": true,
+      "skipReason": "Memoryless waveshaper with bias-DC removal — real parity COULD pass via builtin reference, but architectural skip for batch consistency. Promote to real parity in next character-batch build pass.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "tubeSim": {
+      "nativeSkip": true,
+      "skipReason": "Memoryless Koren waveshaper — same as transformerSim, real parity possible. Defer for batch consistency.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "dither": {
+      "nativeSkip": true,
+      "skipReason": "Stochastic — output depends on PRNG state. Real parity needs PRNG mirror. Defer.",
+      "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "bbdDelay": {
+      "nativeSkip": true,
+      "skipReason": "Stateful delay-line + AA/reconstruction filters + feedback. Audio in/out single port; could parity-test in principle but state-dependent. Defer to dedicated delay-compliance harness.",
+      "note": "Architectural skip — time/delay op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "delay": {
+      "nativeSkip": true,
+      "skipReason": "External feedback port (fb) — single-WAV harness drives in only; feedback path stays silent. Output is single-tap slap, not the full delay-with-feedback character.",
+      "note": "Architectural skip — time/delay op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "lookahead": {
+      "nativeSkip": true,
+      "skipReason": "Pure delay buffer — math-by-definition y[n] = x[n-D]. Architectural skip for batch consistency; trivially correct.",
+      "note": "Architectural skip — time/delay op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "oversample2x": {
+      "nativeSkip": true,
+      "skipReason": "Roundtrip 2x upsample + downsample = near-identity. Real parity COULD pass via bit-near-identical reference, but architectural skip for batch consistency.",
+      "note": "Architectural skip — time/delay op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "pitchShift": {
+      "nativeSkip": true,
+      "skipReason": "Stateful FIFO + STFT + IFFT phase vocoder — large internal state (FFT buffers + overlap-add). State-dependent comparison brittle. Defer to dedicated time-stretch-compliance harness.",
+      "note": "Architectural skip — time/delay op stateful or multi-port (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "panner": {
+      "nativeSkip": true,
+      "skipReason": "Mono-in / stereo-out (l, r). Single-WAV harness writes one output WAV; cannot compare stereo outputs simultaneously. Architectural skip.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "autopan": {
+      "nativeSkip": true,
+      "skipReason": "Mono-in / stereo-out + LFO-driven (stateful). Same architectural issue as panner plus state.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "msEncode": {
+      "nativeSkip": true,
+      "skipReason": "Stereo-in (l, r) / stereo-out (m, s). Single-WAV harness cannot drive both inputs simultaneously, cannot compare both outputs.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "msDecode": {
+      "nativeSkip": true,
+      "skipReason": "Stereo-in (m, s) / stereo-out (l, r). Same architectural issue.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "haas": {
+      "nativeSkip": true,
+      "skipReason": "Stereo-in / stereo-out + delay-line state. Multi-port + stateful.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "crossfeed": {
+      "nativeSkip": true,
+      "skipReason": "Stereo-in / stereo-out + IIR lowpass state. Multi-port + stateful.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "comb": {
+      "nativeSkip": true,
+      "skipReason": "Audio in/out single port + delay-line state. Real parity COULD pass via builtin reference, but architectural skip for batch consistency. Promote in next character-batch parity build pass.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "lrXover": {
+      "nativeSkip": true,
+      "skipReason": "Audio-in / multi-out (low, high bands). Single-WAV harness cannot compare both bands simultaneously.",
+      "note": "Architectural skip — multi-port and/or stateful (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "fft": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / multi-output (real, imag bins). Single-WAV harness cannot compare both output streams.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "ifft": {
+      "nativeSkip": true,
+      "skipReason": "Multi-input (real, imag) / audio out. Stateful FFT block buffer + window. Architectural skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "stft": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / multi-output (mag, phase 2D arrays). Architectural skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "istft": {
+      "nativeSkip": true,
+      "skipReason": "Multi-input (mag, phase) / audio out. Stateful overlap-add. Architectural skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "phaseVocoder": {
+      "nativeSkip": true,
+      "skipReason": "Stateful FFT-based time-stretch / pitch-shift — large internal state. Defer.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "convolution": {
+      "nativeSkip": true,
+      "skipReason": "Audio + IR multi-input. Stateful FFT partition buffers. Architectural skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "correlation": {
+      "nativeSkip": true,
+      "skipReason": "Stereo audio-in / control-out. Multi-port + control-output skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "chromagram": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / 12-bin chroma vector control output. Multi-channel control out.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "yin": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / control-out (f0 + confidence). Multi-control-output skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "pyin": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / control-out + HMM-Viterbi state. Multi-output + stateful.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "crepe": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / control-out + neural-network model state. Multi-output + ML-runtime gated.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "onset": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / control-out (onset detection function). Stateful spectral-flux state.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "formant": {
+      "nativeSkip": true,
+      "skipReason": "Stateful 10th-order IIR — single audio in/out. Real parity COULD pass; architectural skip for batch consistency.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "goertzel": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / control-out (single magnitude scalar per block). Block-rate output, architectural skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "granularBuffer": {
+      "nativeSkip": true,
+      "skipReason": "Stateful circular buffer + grain scheduler — large internal state. Defer.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "lpc": {
+      "nativeSkip": true,
+      "skipReason": "Stateful autocorrelation + Levinson-Durbin block solver. Audio in / residual out + filter coefficients (multi-output).",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "warpedLPC": {
+      "nativeSkip": true,
+      "skipReason": "Same as lpc with bilinear warp — same architectural skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "mfcc": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / multi-coefficient control output (13 coefs per frame). Multi-output skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "chamberlinZeroCross": {
+      "nativeSkip": true,
+      "skipReason": "Stateful zero-crossing detector with glitch injection. Real parity COULD pass; architectural skip for batch consistency.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "kellyLochbaum": {
+      "nativeSkip": true,
+      "skipReason": "Stateful tube-section physical model with multiple delay-line states. Defer.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "scatteringJunction": {
+      "nativeSkip": true,
+      "skipReason": "Multi-input (fIn, bIn) / multi-output (fOut, bOut). Bidirectional wave-port skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "waveguide": {
+      "nativeSkip": true,
+      "skipReason": "Stateful bidirectional delay-line physical model. Real parity COULD pass with careful state mirroring; defer for batch.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
+    },
+    "bpm": {
+      "nativeSkip": true,
+      "skipReason": "Audio in / control-out (single BPM scalar per histogram window). Block-rate output skip.",
+      "note": "Architectural skip — analysis/spectral/physical primitive (added 2026-04-28). Worklet still exercised in listen rig."
     }
   }
 }

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-correlation-v0",
+  "label": "SmokeCorrelation",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "l",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "corr",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_correlation",
+      "op": "correlation",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "timeMs": 300
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "l",
+      "to": "n_correlation.l"
+    },
+    {
+      "from": "r",
+      "to": "n_correlation.r"
+    },
+    {
+      "from": "n_correlation.corr",
+      "to": "corr"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "correlation"
+  ]
+}

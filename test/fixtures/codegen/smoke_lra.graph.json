@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-lra-v0",
+  "label": "SmokeLra",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "lra",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_lra",
+      "op": "lra",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "channelWeight": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_lra.in"
+    },
+    {
+      "from": "n_lra.lra",
+      "to": "lra"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "lra"
+  ]
+}

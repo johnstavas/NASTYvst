@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-ifft-v0",
+  "label": "SmokeIfft",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "real",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "imag",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_ifft",
+      "op": "ifft",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "size": 1024
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "real",
+      "to": "n_ifft.real"
+    },
+    {
+      "from": "imag",
+      "to": "n_ifft.imag"
+    },
+    {
+      "from": "n_ifft.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "ifft"
+  ]
+}

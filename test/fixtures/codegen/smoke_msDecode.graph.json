@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-msdecode-v0",
+  "label": "SmokeMsDecode",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "m",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "s",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_msdecode",
+      "op": "msDecode",
+      "x": 240,
+      "y": 100,
+      "params": {}
+    }
+  ],
+  "wires": [
+    {
+      "from": "m",
+      "to": "n_msdecode.m"
+    },
+    {
+      "from": "s",
+      "to": "n_msdecode.s"
+    },
+    {
+      "from": "n_msdecode.l",
+      "to": "l"
+    },
+    {
+      "from": "n_msdecode.r",
+      "to": "r"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "msDecode"
+  ]
+}

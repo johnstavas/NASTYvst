@@ -785,7 +785,7 @@ modulation.
 "best tape sim on the market." Reviewed full pipeline against shipped
 v1 (gloubi → RBJ peak → 1-pole LP).
 
-**Resolution.** Shipping as separate slot **#112a tapeAirwindows**
+**Resolution.** Shipping as separate slot **#112a tapeAir9**
 rather than re-blessing #112 — two distinct flavors (de Soros gloubi
 minimal vs. Airwindows 12-stage) serve different sandbox use cases.
 v1 tapeSim stays as shipped.

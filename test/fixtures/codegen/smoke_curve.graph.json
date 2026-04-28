@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-curve-v0",
+  "label": "SmokeCurve",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_curve",
+      "op": "curve",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "interp": "hermite",
+        "bipolar": false
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_curve.in"
+    },
+    {
+      "from": "n_curve.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "curve"
+  ]
+}

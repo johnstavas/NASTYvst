@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-pyin-v0",
+  "label": "SmokePyin",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "f0",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "conf",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_pyin",
+      "op": "pyin",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "f0Min": 61.735,
+        "f0Max": 880,
+        "windowMs": 46.4
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_pyin.in"
+    },
+    {
+      "from": "n_pyin.f0",
+      "to": "f0"
+    },
+    {
+      "from": "n_pyin.conf",
+      "to": "conf"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "pyin"
+  ]
+}

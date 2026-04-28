@@ -67,7 +67,7 @@ export const CLUSTER_A_BEHAVIORAL = {
   // ──────────────────────────────────────────────────────────────
   varMuTube: {
     category: 'compressor',
-    tldr: 'Smooth, fat, glued tube compression. Manley Vari-Mu / Fairchild 670 — even-harmonic warmth that grows with compression.',
+    tldr: 'Smooth, fat, glued tube compression. Manley Vari-Mu / Fairchild 670 — pure 2H + 4H even-harmonic warmth that BLOOMS with compression depth (more squash = more tube glow).',
     defaultParams: {
       // Default cutoffScale floor is 1.0 in the worklet (the very bug we're
       // hunting). At default cutoffScale=10, cv up to 8 should still show a
@@ -101,7 +101,7 @@ export const CLUSTER_A_BEHAVIORAL = {
   // ──────────────────────────────────────────────────────────────
   fetVVR: {
     category: 'compressor',
-    tldr: 'Snappy FET pump. UREI 1176 character — sharp, fast compression that grabs drums and vocals.',
+    tldr: 'Snappy FET pump. UREI 1176 character — sharp, fast compression that grabs drums and vocals. Has separate 2H + 3H distortion knobs for "all buttons in" character (asymmetric FET channel = 2H, pinch-off non-linearity = 3H).',
     defaultParams: {
       cutoffScale:    1.0,
       curveExponent:  2.0,

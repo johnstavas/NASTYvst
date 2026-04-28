@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-lrxover-v0",
+  "label": "SmokeLrXover",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "h",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_lrxover",
+      "op": "lrXover",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "f0": 1000
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_lrxover.in"
+    },
+    {
+      "from": "n_lrxover.l",
+      "to": "l"
+    },
+    {
+      "from": "n_lrxover.h",
+      "to": "h"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "lrXover"
+  ]
+}

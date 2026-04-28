@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-schroederchain-v0",
+  "label": "SmokeschroederChain",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_schroederchain",
+      "op": "schroederChain",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "rt60": 2,
+        "damping": 0,
+        "size": 1,
+        "spread": 23
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_schroederchain.in"
+    },
+    {
+      "from": "n_schroederchain.l",
+      "to": "l"
+    },
+    {
+      "from": "n_schroederchain.r",
+      "to": "r"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "schroederChain"
+  ]
+}

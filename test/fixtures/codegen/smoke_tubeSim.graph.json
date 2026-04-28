@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-tubesim-v0",
+  "label": "SmokeTubeSim",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 100
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_tubesim",
+      "op": "tubeSim",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "drive": 1.5,
+        "bias": 1.5,
+        "plateV": 250,
+        "mu": 100,
+        "ex": 1.4,
+        "kg1": 1060
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_tubesim.in"
+    },
+    {
+      "from": "n_tubesim.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "tubeSim"
+  ]
+}

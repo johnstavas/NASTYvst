@@ -3,10 +3,16 @@
 
 #pragma once
 #include <cmath>
+#include <cstring>
 #include <algorithm>
 #include <cstdint>
 
-struct OpCrackle_{{ instance }} {
+namespace shags::ops {
+
+class CrackleOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "crackle";
+    explicit CrackleOp_{{ node_id }}(double sampleRate) { setSampleRate((float)sampleRate); }
     static constexpr float SCALE = 2.0f / (float)0xffffffffu;
 
     float sr        = 48000.0f;
@@ -68,4 +74,14 @@ struct OpCrackle_{{ instance }} {
     }
 
     int getLatencySamples() const { return 0; }
+
+    // Dispatch entry-point used by MasterGraph (matches canonical convention).
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "density") == 0) setParam_density((float)v);
+        else if (std::strcmp(id, "mode") == 0) setParam_mode((float)v);
+        else if (std::strcmp(id, "level") == 0) setParam_level((float)v);
+        // unknown ids: defensive ignore
+    }
 };
+
+}  // namespace shags::ops

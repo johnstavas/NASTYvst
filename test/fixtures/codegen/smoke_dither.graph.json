@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-dither-v0",
+  "label": "SmokeDither",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 100
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_dither",
+      "op": "dither",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "bits": 16,
+        "shape": 0.5,
+        "seed": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_dither.in"
+    },
+    {
+      "from": "n_dither.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "dither"
+  ]
+}

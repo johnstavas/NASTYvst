@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-truepeak-v0",
+  "label": "SmokeTruePeak",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "peak",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_truepeak",
+      "op": "truePeak",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "releaseMs": 1700
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_truepeak.in"
+    },
+    {
+      "from": "n_truepeak.peak",
+      "to": "peak"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "truePeak"
+  ]
+}

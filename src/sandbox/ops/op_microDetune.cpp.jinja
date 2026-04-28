@@ -1,12 +1,18 @@
 // op_microDetune.cpp.jinja — C++ mirror of op_microDetune.worklet.js.
 // Two-tap crossfading delay-line pitch shifter (Faust transpose, MIT).
+// Template: matches the canonical {namespace shags::ops} + class
+// {<Name>Op_{{ node_id }}} convention used by curve / tilt / etc.
 
 #pragma once
 #include <cmath>
 #include <algorithm>
 #include <cstring>
 
-struct OpMicroDetune_{{ instance }} {
+namespace shags::ops {
+
+class MicroDetuneOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "microDetune";
     static constexpr int   MAX_WINDOW_MS = 200;
 
     float sr = 48000.0f;
@@ -22,11 +28,15 @@ struct OpMicroDetune_{{ instance }} {
     int   p_xfadeSamps = 480;    // 10 ms @ 48 kHz
     float p_level = 1.0f;
 
-    OpMicroDetune_{{ instance }}() {
+    MicroDetuneOp_{{ node_id }}() {
         N = std::max(1, (int)std::ceil(MAX_WINDOW_MS * 0.001f * sr));
         buf = new float[N]();
     }
-    ~OpMicroDetune_{{ instance }}() { delete[] buf; }
+    explicit MicroDetuneOp_{{ node_id }}(double sampleRate) : sr((float)sampleRate) {
+        N = std::max(1, (int)std::ceil(MAX_WINDOW_MS * 0.001f * sr));
+        buf = new float[N]();
+    }
+    ~MicroDetuneOp_{{ node_id }}() { delete[] buf; }
 
     void setSampleRate(float s) {
         sr = s;
@@ -65,6 +75,15 @@ struct OpMicroDetune_{{ instance }} {
         if (std::isfinite(v)) p_level = std::clamp(v, 0.0f, 1.0f);
     }
 
+    // Dispatch entry-point used by MasterGraph (matches curve / tilt convention).
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "cents")    == 0) setParam_cents((float)v);
+        else if (std::strcmp(id, "windowMs") == 0) setParam_windowMs((float)v);
+        else if (std::strcmp(id, "xfadeMs")  == 0) setParam_xfadeMs((float)v);
+        else if (std::strcmp(id, "level")    == 0) setParam_level((float)v);
+        // unknown ids: defensive ignore
+    }
+
     void process(const float* in, float* out, int Nsamps) {
         if (!out) return;
         const int M = N;
@@ -98,3 +117,5 @@ struct OpMicroDetune_{{ instance }} {
 
     int getLatencySamples() const { return 0; }
 };
+
+}  // namespace shags::ops

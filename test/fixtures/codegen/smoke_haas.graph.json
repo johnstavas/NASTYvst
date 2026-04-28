@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-haas-v0",
+  "label": "SmokeHaas",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "l",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_haas",
+      "op": "haas",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "delayMs": 18,
+        "levelDb": 0,
+        "side": 0,
+        "mix": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "l",
+      "to": "n_haas.l"
+    },
+    {
+      "from": "r",
+      "to": "n_haas.r"
+    },
+    {
+      "from": "n_haas.l",
+      "to": "l"
+    },
+    {
+      "from": "n_haas.r",
+      "to": "r"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "haas"
+  ]
+}

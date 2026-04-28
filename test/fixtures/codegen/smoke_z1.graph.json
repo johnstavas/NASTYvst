@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-z1-v0",
+  "label": "SmokeZ1",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_z1",
+      "op": "z1",
+      "x": 240,
+      "y": 100,
+      "params": {}
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_z1.in"
+    },
+    {
+      "from": "n_z1.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "z1"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-transient-v0",
+  "label": "SmokeTransient",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_transient",
+      "op": "transient",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "attackAmount": 0,
+        "sustainAmount": 0,
+        "fastMs": 1,
+        "slowMs": 30,
+        "releaseMs": 300,
+        "mix": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_transient.in"
+    },
+    {
+      "from": "n_transient.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "transient"
+  ]
+}

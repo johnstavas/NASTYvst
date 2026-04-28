@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-chaos-v0",
+  "label": "SmokeChaos",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_chaos",
+      "op": "chaos",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "r": 3.99,
+        "freq": 100,
+        "y0": 0.5,
+        "mode": 1,
+        "level": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "n_chaos.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "chaos"
+  ]
+}

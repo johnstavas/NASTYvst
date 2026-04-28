@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-spring-v0",
+  "label": "Smokespring",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_spring",
+      "op": "spring",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "decay": 0.7,
+        "dispersion": 0.65,
+        "transitionHz": 4300,
+        "chirpRate": 1,
+        "numStagesLF": 30,
+        "numStagesHF": 12
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_spring.in"
+    },
+    {
+      "from": "n_spring.l",
+      "to": "l"
+    },
+    {
+      "from": "n_spring.r",
+      "to": "r"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "spring"
+  ]
+}

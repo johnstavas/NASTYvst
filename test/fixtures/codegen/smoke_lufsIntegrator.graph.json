@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-lufsintegrator-v0",
+  "label": "SmokeLufsIntegrator",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "lufs",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_lufsintegrator",
+      "op": "lufsIntegrator",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "mode": "momentary",
+        "channelWeight": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_lufsintegrator.in"
+    },
+    {
+      "from": "n_lufsintegrator.lufs",
+      "to": "lufs"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "lufsIntegrator"
+  ]
+}

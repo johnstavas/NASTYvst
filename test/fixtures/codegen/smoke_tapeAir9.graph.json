@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-tapeairwindows-v0",
+  "label": "SmokeTapeAir9",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 100
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_tapeairwindows",
+      "op": "tapeAir9",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "drive": 0.5,
+        "dubly": 0.5,
+        "encCross": 0.5,
+        "flutterDepth": 0,
+        "flutterRate": 0.5,
+        "bias": 0.5
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_tapeairwindows.in"
+    },
+    {
+      "from": "n_tapeairwindows.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "tapeAir9"
+  ]
+}

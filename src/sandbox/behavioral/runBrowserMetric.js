@@ -844,7 +844,21 @@ async function runCompressorMetric(opId, spec) {
   // 2. ~6 dB GR at declared cv_for_6db_gr.
   if (declared.cv_for_6db_gr != null) {
     const cv6 = declared.cv_for_6db_gr;
-    const r6 = rows.find(r => r.cvDb === cv6);
+    let r6 = rows.find(r => r.cvDb === cv6);
+    // Fallback: if the sweep didn't include cv_for_6db_gr exactly, drive a
+    // dedicated measurement so the test isn't "undefined" just because the
+    // sweep skipped that value (e.g. varMuTube's sweep is [0,1,3,5,8,12,20,30]
+    // but cv_for_6db_gr=10 — would otherwise return undefined).
+    if (!r6) {
+      const cvStim = new Float32Array(N).fill(cv6);
+      const r = await runWorkletBrowser(opId, params,
+        { [audioPort]: audioStim, [cvPort]: cvStim }, { sampleRate: SR });
+      const out = r.outputs[Object.keys(r.outputs)[0]];
+      const outRms = rms(out, settledStart, N);
+      const gainLin = inRms > 0 ? outRms / inRms : 0;
+      const gainDb = gainLin > 0 ? 20 * Math.log10(gainLin) : -120;
+      r6 = { cvDb: cv6, gainLin, gainDb };
+    }
     const measuredGrDb = r6 ? Math.abs(r6.gainDb) : null;
     const tol = 1.5;
     const pass = measuredGrDb != null && Math.abs(measuredGrDb - 6) <= tol;
@@ -1021,6 +1035,120 @@ async function runAnalyzerMetric(opId, spec) {
   };
 }
 
+// ── OSCILLATOR / SOURCE: waveform + spectrum visualization ──────────────────
+// For source ops (synth generators, noise sources) — render N samples of
+// output, plot time-domain waveform + FFT magnitude spectrum. Auto-PASS
+// (visual proof only); strict assertion checks belong in a dedicated
+// synth-compliance harness (see qc_backlog.md).
+async function runOscillatorMetric(opId, spec) {
+  // Use listenParams override if present (some specs put op at "off" by default).
+  const params = spec.listenParams || spec.defaultParams || {};
+  const declared = spec.declared || {};
+  const N = Math.round(0.05 * SR);     // 50 ms = 2400 samples @ 48kHz
+
+  // Drive empty input — source ops generate based on internal state.
+  // The fixture's dummy `in` terminal exists but the op port may not match.
+  const empty = new Float32Array(N);
+  const r = await runWorkletBrowser(opId, params, { in: empty }, { sampleRate: SR });
+  const outKey = Object.keys(r.outputs)[0];
+  const out = r.outputs[outKey];
+
+  // ── Waveform plot: show first ~2-5 cycles or first 25 ms, whichever shorter
+  const declaredFreq = params.freq || params.carrierFreq || params.rateHz || 100;
+  const cyclesToShow = 3;
+  const samplesPerCycle = Math.round(SR / Math.max(declaredFreq, 1));
+  const wavePlotN = Math.min(out.length, Math.max(samplesPerCycle * cyclesToShow, Math.round(0.025 * SR)));
+  const wavePoints = [];
+  for (let i = 0; i < wavePlotN; i++) {
+    wavePoints.push([(i / SR) * 1000, out[i]]);   // x = ms
+  }
+
+  // ── Spectrum plot: FFT magnitude
+  const M = 2048;
+  const sampSlice = out.subarray(0, Math.min(M, out.length));
+  // Zero-pad to power of 2 for FFT (magnitudeSpectrum should accept; if shorter
+  // than M, sampSlice goes as-is).
+  const padded = new Float32Array(M);
+  padded.set(sampSlice);
+  const spec_ = magnitudeSpectrum(padded);
+  // spec_ is an array of magnitudes for bins 0..N/2.
+  const specPoints = [];
+  for (let k = 1; k < spec_.length; k++) {                 // skip DC bin
+    const freqHz = (k * SR) / M;
+    if (freqHz > 24000) break;                              // skip above audio band
+    const dB = 20 * Math.log10(Math.max(spec_[k], 1e-10));
+    specPoints.push([freqHz, dB]);
+  }
+
+  // Output stats for the panel.
+  let mn = Infinity, mx = -Infinity, sumSq = 0;
+  for (let i = 0; i < out.length; i++) {
+    const v = out[i];
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+    sumSq += v * v;
+  }
+  const rmsVal = Math.sqrt(sumSq / out.length);
+  const peakVal = Math.max(Math.abs(mn), Math.abs(mx));
+
+  // Two separate test entries so each gets its own panel via the existing
+  // single-plot OpQcChart renderer (which doesn't yet support multiPanel).
+  return {
+    summary: { total: 2, passed: 2, failed: 0, verdict: 'PASS' },
+    tests: [
+      {
+        name: 'Waveform (time domain)',
+        pass: true,
+        explanation:
+          `Render ${N} samples of source-op output at ${declaredFreq} Hz (default freq or ` +
+          `listenParams override). Plot first ${cyclesToShow} cycles (or 25 ms, whichever ` +
+          `is shorter). Sign off if the shape matches what the algorithm promises (sine, ` +
+          `saw, FM-modulated, pad, etc.).`,
+        declared: {
+          ...declared,
+          freq_hz_for_plot: declaredFreq,
+          samples_shown: wavePlotN,
+        },
+        measured: {
+          peak: peakVal.toFixed(4),
+          rms: rmsVal.toFixed(4),
+          min: mn.toFixed(4),
+          max: mx.toFixed(4),
+        },
+        plot: {
+          kind: 'sampleTrace',
+          title: 'Waveform (first ~3 cycles)',
+          xLabel: 'Time (ms)', yLabel: 'Amplitude',
+          series: [{ name: 'output', color: '#d99fcf', points: wavePoints }],
+        },
+        diagnostic: null,
+      },
+      {
+        name: 'Spectrum (FFT magnitude)',
+        pass: true,
+        explanation:
+          `Take ${M}-point FFT of source-op output. Plot magnitude in dB vs log-frequency. ` +
+          `Sign off if harmonic content matches the algorithm: pure sine = single spike at the ` +
+          `fundamental; saw = decreasing odd+even harmonics at integer multiples; FM = Bessel ` +
+          `sidebands around carrier; noise = broadband; pad = harmonic series with bandwidth.`,
+        declared: { fft_size: M, declared_fundamental_hz: declaredFreq },
+        measured: {
+          peak: peakVal.toFixed(4),
+          rms: rmsVal.toFixed(4),
+        },
+        plot: {
+          kind: 'magnitudeResponse',
+          title: 'Magnitude spectrum',
+          xLabel: 'Freq (Hz)', yLabel: 'Magnitude (dB)',
+          logX: true,
+          series: [{ name: 'spectrum', color: '#5ed184', points: specPoints }],
+        },
+        diagnostic: null,
+      },
+    ],
+  };
+}
+
 // Registry: spec.category → runner.
 const BROWSER_METRIC_REGISTRY = {
   utility:    runUtilityMetric,
@@ -1031,6 +1159,8 @@ const BROWSER_METRIC_REGISTRY = {
   distortion: runDistortionMetric,
   compressor: runCompressorMetric,
   analyzer:   runAnalyzerMetric,
+  oscillator: runOscillatorMetric,
+  source:     runOscillatorMetric,    // alias
 };
 
 /**

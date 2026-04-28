@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-scatteringjunction-v0",
+  "label": "SmokeScatteringJunction",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "fIn",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "bIn",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "fOut",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "bOut",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_scatteringjunction",
+      "op": "scatteringJunction",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "k": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "fIn",
+      "to": "n_scatteringjunction.fIn"
+    },
+    {
+      "from": "bIn",
+      "to": "n_scatteringjunction.bIn"
+    },
+    {
+      "from": "n_scatteringjunction.fOut",
+      "to": "fOut"
+    },
+    {
+      "from": "n_scatteringjunction.bOut",
+      "to": "bOut"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "scatteringJunction"
+  ]
+}

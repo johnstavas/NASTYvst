@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-fanout-v0",
+  "label": "SmokeFanOut",
+  "canvas": {
+    "width": 480,
+    "height": 320
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "out0",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    },
+    {
+      "id": "out1",
+      "kind": "output",
+      "x": 440,
+      "y": 90
+    },
+    {
+      "id": "out2",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    },
+    {
+      "id": "out3",
+      "kind": "output",
+      "x": 440,
+      "y": 190
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_fanout",
+      "op": "fanOut",
+      "x": 240,
+      "y": 100,
+      "params": {}
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_fanout.in"
+    },
+    {
+      "from": "n_fanout.out0",
+      "to": "out0"
+    },
+    {
+      "from": "n_fanout.out1",
+      "to": "out1"
+    },
+    {
+      "from": "n_fanout.out2",
+      "to": "out2"
+    },
+    {
+      "from": "n_fanout.out3",
+      "to": "out3"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "fanOut"
+  ]
+}

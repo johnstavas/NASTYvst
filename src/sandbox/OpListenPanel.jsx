@@ -159,6 +159,35 @@ function makeCVPump(N, sr, peak = -12, rateHz = 4) {
   return out;
 }
 
+// ── CV scope helper ─────────────────────────────────────────────────────────
+// For control-signal ops, the rendered output buffer IS the CV trace (a
+// gain coefficient, an envelope, a LUFS reading, a 0..1 width value, …).
+// Downsample to ~SCOPE_POINTS bins via min-of-window so abrupt changes
+// remain visible (we don't want averaging to hide a fast envelope edge).
+const SCOPE_POINTS = 256;
+function buildCvScope(buf) {
+  if (!buf || buf.length === 0) {
+    return { points: [], min: 0, max: 0, last: 0 };
+  }
+  const N = SCOPE_POINTS;
+  const points = new Float32Array(N);
+  const step = buf.length / N;
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < N; i++) {
+    const a = Math.floor(i * step);
+    const b = Math.min(buf.length, Math.floor((i + 1) * step));
+    let sum = 0, count = 0;
+    for (let j = a; j < b; j++) { sum += buf[j]; count++; }
+    const v = count > 0 ? sum / count : buf[a] || 0;
+    points[i] = v;
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
+  if (!isFinite(mn)) mn = 0;
+  if (!isFinite(mx)) mx = 0;
+  return { points: Array.from(points), min: mn, max: mx, last: buf[buf.length - 1] || 0 };
+}
+
 export default function OpListenPanel({
   opId, params,
   defaultPort = 'in', cvPort = null, cvPumpPeak = -12,
@@ -169,6 +198,7 @@ export default function OpListenPanel({
   const [driveCv, setDriveCv] = useState(true);          // for compressor cells
   const [inputGainDb, setInputGainDb] = useState(0);     // pre-op drive (to push clamp/sat/etc. into engagement)
   const [meters, setMeters] = useState(null);            // { in: {peakDb,rmsDb}, out: {peakDb,rmsDb} }
+  const [cvScope, setCvScope] = useState(null);          // { points, min, max, last } — only populated for controlSignalOp ops
   const [showFlow, setShowFlow] = useState(false);       // info panel toggle
   const [playing, setPlaying] = useState(false);
   const [renderingMessage, setRenderingMessage] = useState(null);
@@ -238,20 +268,74 @@ export default function OpListenPanel({
       //    at ±1.0, making both modes sound identical at high IN GAIN.
       let processed;
       let driveStim = stim;     // what we feed the op (track for meters)
-      if (mode === 'through') {
+      if (mode === 'through' || mode === 'drywet') {
         if (inputGainDb !== 0) {
           const k = Math.pow(10, inputGainDb / 20);
           const driven = new Float32Array(stim.length);
           for (let i = 0; i < stim.length; i++) driven[i] = stim[i] * k;
           driveStim = driven;
         }
+        // Feed defaultPort with the source. For multi-audio-input ops, also
+        // mirror the source onto known stereo-pair input ports so stereo-in
+        // processors behave sensibly (msEncode, msDecode, haas, crossfeed,
+        // plate, etc.). Without this, R-side stays silent and the op outputs
+        // L-only-plus-leak instead of normal stereo behavior.
         const inputs = { [defaultPort]: driveStim };
+        // Common stereo audio-input port names — mirror the same stim to
+        // ALL of them so multi-input stereo ops (msEncode, msDecode, haas,
+        // crossfeed, plate) get both L AND R fed identically. The op only
+        // reads the port names IT declares; extra unused names are ignored.
+        const stereoMirrors = [
+          'l', 'r',          // canonical L/R
+          'm', 's',           // M/S short
+          'mid', 'side',      // M/S long (used by msEncode/msDecode)
+          'in2', 'inR',       // alt R names
+          'inL', 'left', 'right',
+        ];
+        for (const p of stereoMirrors) {
+          if (!(p in inputs)) inputs[p] = driveStim;
+        }
         if (cvPort && driveCv) {
           inputs[cvPort] = makeCVPump(driveStim.length, SR, cvPumpPeak);
         }
         const r = await runWorkletBrowser(opId, params || {}, inputs, { sampleRate: SR });
-        const outKey = Object.keys(r.outputs)[0];
-        processed = r.outputs[outKey];
+        const outKeys = Object.keys(r.outputs);
+        // Detect stereo output: ops with 'l'+'r', 'm'+'s', or 'l'+'h' get
+        // routed to a 2-channel AudioBuffer so spatial character (autopan,
+        // panner, msEncode/Decode, haas, crossfeed, plate, lrXover, etc.)
+        // is actually audible. Mono ops keep the existing single-channel path.
+        const stereoPair =
+          (outKeys.includes('l') && outKeys.includes('r')) ? ['l', 'r']
+          : (outKeys.includes('left') && outKeys.includes('right')) ? ['left', 'right']
+          : (outKeys.includes('m') && outKeys.includes('s')) ? ['m', 's']
+          : (outKeys.includes('mid') && outKeys.includes('side')) ? ['mid', 'side']
+          : (outKeys.includes('l') && outKeys.includes('h')) ? ['l', 'h']
+          : null;
+        if (stereoPair) {
+          processed = { _stereo: true, L: r.outputs[stereoPair[0]], R: r.outputs[stereoPair[1]] };
+        } else {
+          processed = r.outputs[outKeys[0]];
+        }
+        if (mode === 'drywet') {
+          // 50/50 dry+wet sum — exposes time-based character (delay = comb,
+          // pitchShift = harmonization, microDetune = chorus) that's
+          // invisible inside a wet-only loop. Apply per-channel for stereo.
+          if (processed._stereo) {
+            const N = Math.min(driveStim.length, processed.L.length);
+            const mL = new Float32Array(N);
+            const mR = new Float32Array(N);
+            for (let i = 0; i < N; i++) {
+              mL[i] = 0.5 * driveStim[i] + 0.5 * processed.L[i];
+              mR[i] = 0.5 * driveStim[i] + 0.5 * processed.R[i];
+            }
+            processed = { _stereo: true, L: mL, R: mR };
+          } else {
+            const N = Math.min(driveStim.length, processed.length);
+            const mixed = new Float32Array(N);
+            for (let i = 0; i < N; i++) mixed[i] = 0.5 * driveStim[i] + 0.5 * processed[i];
+            processed = mixed;
+          }
+        }
       } else {
         // Bypass = source as-is. No input gain. So you hear what the op had to chew on.
         processed = stim;
@@ -259,11 +343,25 @@ export default function OpListenPanel({
 
       // 2b. Compute meter readings from the actual buffers we just rendered.
       // IN = what fed the op (driveStim if through, raw stim if bypass).
-      // OUT = post-op buffer.
+      // OUT = post-op buffer. For stereo output, meter the louder of L/R.
+      const outForMeter = processed && processed._stereo
+        ? (rmsDbfs(processed.L) >= rmsDbfs(processed.R) ? processed.L : processed.R)
+        : processed;
       setMeters({
         in:  { peakDb: peakDbfs(driveStim), rmsDb: rmsDbfs(driveStim) },
-        out: { peakDb: peakDbfs(processed), rmsDb: rmsDbfs(processed) },
+        out: { peakDb: peakDbfs(outForMeter), rmsDb: rmsDbfs(outForMeter) },
       });
+
+      // 2c. For control-signal ops, the OUT buffer is the CV trace itself
+      // (gain coefficient, envelope, LUFS reading, etc.). Build a scope
+      // payload so the panel can render a time-series plot — far more
+      // useful than peak/rms dB readings for a non-audio output.
+      if (controlSignalOp && mode === 'through') {
+        const cvSource = processed && processed._stereo ? processed.L : processed;
+        setCvScope(buildCvScope(cvSource));
+      } else {
+        setCvScope(null);
+      }
 
       // 3. Set up AudioContext + BufferSourceNode for live playback.
       if (!ctxRef.current) {
@@ -279,16 +377,33 @@ export default function OpListenPanel({
       // (otherwise the last sample != first sample = audible click on every
       // buffer wrap). 10 ms each end, barely affects audible content.
       const FADE_S = 0.010;
-      const fadeN = Math.min(Math.floor(FADE_S * SR), Math.floor(processed.length / 4));
-      const looped = new Float32Array(processed.length);
-      looped.set(processed);
-      for (let i = 0; i < fadeN; i++) {
-        const w = 0.5 - 0.5 * Math.cos(Math.PI * i / fadeN);    // 0 → 1
-        looped[i] *= w;                                          // fade in
-        looped[looped.length - 1 - i] *= w;                      // fade out (mirror)
+      const isStereoOut = !!(processed && processed._stereo);
+      const refChan = isStereoOut ? processed.L : processed;
+      const fadeN = Math.min(Math.floor(FADE_S * SR), Math.floor(refChan.length / 4));
+
+      const fadeChannel = (src) => {
+        const out = new Float32Array(src.length);
+        out.set(src);
+        for (let i = 0; i < fadeN; i++) {
+          const w = 0.5 - 0.5 * Math.cos(Math.PI * i / fadeN);
+          out[i] *= w;
+          out[out.length - 1 - i] *= w;
+        }
+        return out;
+      };
+
+      let ab;
+      if (isStereoOut) {
+        const loopedL = fadeChannel(processed.L);
+        const loopedR = fadeChannel(processed.R);
+        ab = ctx.createBuffer(2, loopedL.length, SR);
+        ab.getChannelData(0).set(loopedL);
+        ab.getChannelData(1).set(loopedR);
+      } else {
+        const looped = fadeChannel(processed);
+        ab = ctx.createBuffer(1, looped.length, SR);
+        ab.getChannelData(0).set(looped);
       }
-      const ab = ctx.createBuffer(1, looped.length, SR);
-      ab.getChannelData(0).set(looped);
       const sn = ctx.createBufferSource();
       sn.buffer = ab;
       sn.loop = true;
@@ -520,6 +635,15 @@ export default function OpListenPanel({
             border: `1px solid ${mode === 'bypass' ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)'}`,
             color: mode === 'bypass' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)', cursor: 'pointer',
           }}>Bypass</button>
+        <button onClick={() => setMode('drywet')}
+          title="50/50 dry+wet sum — exposes time-based character (delay comb, pitchShift harmonization, microDetune chorus) that's invisible inside a wet-only loop."
+          style={{
+            fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+            fontWeight: 600, padding: '6px 10px', borderRadius: 4,
+            background: mode === 'drywet' ? 'rgba(94,209,132,0.18)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${mode === 'drywet' ? 'rgba(94,209,132,0.55)' : 'rgba(255,255,255,0.12)'}`,
+            color: mode === 'drywet' ? '#5ed184' : 'rgba(255,255,255,0.6)', cursor: 'pointer',
+          }}>Dry+Wet</button>
       </div>
 
       {/* Input gain — push the signal hot to engage threshold-based ops. */}
@@ -558,8 +682,12 @@ export default function OpListenPanel({
         </span>
       </div>
 
-      {/* Meter strip — IN vs OUT peak / RMS in dBFS, refreshed each render. */}
-      {meters && (
+      {/* Meter strip — IN vs OUT peak / RMS in dBFS, refreshed each render.
+          Hidden when controlSignalOp=true: for CV-output ops the OUT peak/rms
+          numbers are nonsense (they treat LUFS / envelope values as audio
+          amplitudes, falsely trip the "over 0 dBFS" warning). The CV scope
+          below is the real readout for those ops. */}
+      {meters && !controlSignalOp && (
         <div style={{
           display: 'grid', gridTemplateColumns: '50px 1fr 50px 1fr',
           gap: 10, marginBottom: 12, padding: '8px 10px',
@@ -585,6 +713,61 @@ export default function OpListenPanel({
           </div>
         </div>
       )}
+
+      {/* CV scope — rolling time-series of the op's CV output. Only shown
+          for controlSignalOp=true ops (meters, envelopes, gain-curves, LUFS
+          family) where the OUT signal isn't audio but a control-rate value.
+          Speakers can't play the CV; this scope shows what it actually does. */}
+      {cvScope && cvScope.points.length > 0 && (() => {
+        const pts = cvScope.points;
+        const W = 600, H = 80;
+        // Pad min/max so flat traces (e.g. 0-LUFS silence) still show a baseline.
+        const range = Math.max(1e-6, cvScope.max - cvScope.min);
+        const pad = range * 0.1 + 1e-3;
+        const lo = cvScope.min - pad;
+        const hi = cvScope.max + pad;
+        const yScale = H / (hi - lo);
+        const path = pts.map((v, i) => {
+          const x = (i / (pts.length - 1)) * W;
+          const y = H - (v - lo) * yScale;
+          return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
+        }).join(' ');
+        // Zero baseline if it falls inside the visible range.
+        const zeroY = (lo <= 0 && hi >= 0) ? H - (0 - lo) * yScale : null;
+        return (
+          <div style={{
+            background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '10px 12px',
+            marginBottom: 12,
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+              fontFamily: 'monospace', fontSize: 11, marginBottom: 6,
+              color: 'rgba(255,255,255,0.7)',
+            }}>
+              <span style={{ color: '#d99fcf', letterSpacing: '0.15em' }}>CV SCOPE</span>
+              <span>
+                last <span style={{ color: '#5ed184' }}>{cvScope.last.toFixed(4)}</span>
+                <span style={{ color: 'rgba(255,255,255,0.4)', marginLeft: 12 }}>
+                  range {cvScope.min.toFixed(3)} → {cvScope.max.toFixed(3)}
+                </span>
+              </span>
+            </div>
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+              {zeroY != null && (
+                <line x1="0" y1={zeroY} x2={W} y2={zeroY}
+                  stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="3,3" />
+              )}
+              <path d={path} fill="none" stroke="#d99fcf" strokeWidth="1.5" />
+            </svg>
+            <div style={{
+              fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 4,
+              fontFamily: 'monospace', letterSpacing: '0.05em',
+            }}>
+              ~2 s of CV output · {pts.length} samples · raw value (units depend on op — see DECLARED block)
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Transport */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

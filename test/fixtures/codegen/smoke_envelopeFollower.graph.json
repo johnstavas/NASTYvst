@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-envelopefollower-v0",
+  "label": "SmokeEnvelopeFollower",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_envelopefollower",
+      "op": "envelopeFollower",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "attack": 5,
+        "release": 120,
+        "mode": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_envelopefollower.in"
+    },
+    {
+      "from": "n_envelopefollower.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "envelopeFollower"
+  ]
+}

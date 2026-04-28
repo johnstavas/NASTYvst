@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-stepseq-v0",
+  "label": "SmokeStepSeq",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "trig",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_stepseq",
+      "op": "stepSeq",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "length": 8,
+        "s0": 0,
+        "s1": 0,
+        "s2": 0,
+        "s3": 0,
+        "s4": 0,
+        "s5": 0,
+        "s6": 0,
+        "s7": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "trig",
+      "to": "n_stepseq.trig"
+    },
+    {
+      "from": "n_stepseq.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "stepSeq"
+  ]
+}

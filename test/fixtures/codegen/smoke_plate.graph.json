@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-plate-v0",
+  "label": "Smokeplate",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "l",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_plate",
+      "op": "plate",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "decay": 0.5,
+        "predelayMs": 0,
+        "bandwidth": 0.9999,
+        "damping": 0.0005,
+        "size": 1,
+        "modDepth": 16
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "l",
+      "to": "n_plate.l"
+    },
+    {
+      "from": "r",
+      "to": "n_plate.r"
+    },
+    {
+      "from": "n_plate.l",
+      "to": "l"
+    },
+    {
+      "from": "n_plate.r",
+      "to": "r"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "plate"
+  ]
+}

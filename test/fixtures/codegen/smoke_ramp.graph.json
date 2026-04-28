@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-ramp-v0",
+  "label": "SmokeRamp",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "trig",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_ramp",
+      "op": "ramp",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "startVal": 0,
+        "endVal": 1,
+        "timeMs": 100
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "trig",
+      "to": "n_ramp.trig"
+    },
+    {
+      "from": "n_ramp.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "ramp"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-meters-v0",
+  "label": "SmokeMeters",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "peak",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    },
+    {
+      "id": "rms",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_meters",
+      "op": "meters",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "standard": "vu",
+        "peakReleaseMs": 1700,
+        "rmsWindowMs": 300
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_meters.in"
+    },
+    {
+      "from": "n_meters.peak",
+      "to": "peak"
+    },
+    {
+      "from": "n_meters.rms",
+      "to": "rms"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "meters"
+  ]
+}

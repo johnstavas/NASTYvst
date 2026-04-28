@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-oversample2x-v0",
+  "label": "SmokeOversample2x",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_oversample2x",
+      "op": "oversample2x",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "attenuationDb": 100,
+        "transitionBw": 0.01
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_oversample2x.in"
+    },
+    {
+      "from": "n_oversample2x.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "oversample2x"
+  ]
+}

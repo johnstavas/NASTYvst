@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-minblep-v0",
+  "label": "SmokeMinBLEP",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_minblep",
+      "op": "minBLEP",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "freq": 440,
+        "amp": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "n_minblep.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "minBLEP"
+  ]
+}

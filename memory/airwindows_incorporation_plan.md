@@ -1,6 +1,6 @@
 # Airwindows Incorporation Plan — Mine, Don't Rip
 
-**Status:** Binding policy. Created 2026-04-24 after #112a tapeAirwindows
+**Status:** Binding policy. Created 2026-04-24 after #112a tapeAir9
 landed and user clarified incorporation intent: *"we want it to be a mine
 to extract so we aren't directly ripping him off."*
 
@@ -22,7 +22,7 @@ Three-tier incorporation policy:
 | **Shortlist port** | Port whole plugin to a dedicated op slot when the plugin's *identity* is the chain itself (ToTape9, ToVinyl4). | Verbatim primary citation in op `.worklet.js` header. Constants preserved byte-for-byte. |
 | **Inspiration ledger** | One-line index of every remaining plugin's distinctive trick. Not shipped. | Reference only. |
 
-**#112a tapeAirwindows is the only shortlist port we commit to in
+**#112a tapeAir9 is the only shortlist port we commit to in
 advance.** Future shortlist additions require a separate decision each
 time — no blanket authorization.
 

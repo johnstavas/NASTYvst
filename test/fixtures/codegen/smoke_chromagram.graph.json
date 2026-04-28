@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-chromagram-v0",
+  "label": "SmokeChromagram",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_chromagram",
+      "op": "chromagram",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "size": 1024,
+        "nChroma": 12,
+        "tuning": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_chromagram.in"
+    },
+    {
+      "from": "n_chromagram.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "chromagram"
+  ]
+}

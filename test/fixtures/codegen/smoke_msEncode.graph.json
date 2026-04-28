@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-msencode-v0",
+  "label": "SmokeMsEncode",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "l",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "m",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "s",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_msencode",
+      "op": "msEncode",
+      "x": 240,
+      "y": 100,
+      "params": {}
+    }
+  ],
+  "wires": [
+    {
+      "from": "l",
+      "to": "n_msencode.l"
+    },
+    {
+      "from": "r",
+      "to": "n_msencode.r"
+    },
+    {
+      "from": "n_msencode.m",
+      "to": "m"
+    },
+    {
+      "from": "n_msencode.s",
+      "to": "s"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "msEncode"
+  ]
+}

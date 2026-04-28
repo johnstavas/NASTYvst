@@ -3,9 +3,15 @@
 
 #pragma once
 #include <cmath>
+#include <cstring>
 #include <algorithm>
 
-struct OpChaos_{{ instance }} {
+namespace shags::ops {
+
+class ChaosOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "chaos";
+    explicit ChaosOp_{{ node_id }}(double sampleRate) { setSampleRate((float)sampleRate); }
     float sr      = 48000.0f;
     float p_r     = 3.99f;
     float p_freq  = 100.0f;
@@ -47,4 +53,16 @@ struct OpChaos_{{ instance }} {
     }
 
     int getLatencySamples() const { return 0; }
+
+    // Dispatch entry-point used by MasterGraph (matches canonical convention).
+    void setParam(const char* id, double v) {
+        if      (std::strcmp(id, "r") == 0) setParam_r((float)v);
+        else if (std::strcmp(id, "freq") == 0) setParam_freq((float)v);
+        else if (std::strcmp(id, "y0") == 0) setParam_y0((float)v);
+        else if (std::strcmp(id, "mode") == 0) setParam_mode((float)v);
+        else if (std::strcmp(id, "level") == 0) setParam_level((float)v);
+        // unknown ids: defensive ignore
+    }
 };
+
+}  // namespace shags::ops

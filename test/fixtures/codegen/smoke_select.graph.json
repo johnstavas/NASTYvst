@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-select-v0",
+  "label": "SmokeSelect",
+  "canvas": {
+    "width": 480,
+    "height": 320
+  },
+  "terminals": [
+    {
+      "id": "in0",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "in1",
+      "kind": "input",
+      "x": 40,
+      "y": 90
+    },
+    {
+      "id": "in2",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "in3",
+      "kind": "input",
+      "x": 40,
+      "y": 190
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_select",
+      "op": "select",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "index": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in0",
+      "to": "n_select.in0"
+    },
+    {
+      "from": "in1",
+      "to": "n_select.in1"
+    },
+    {
+      "from": "in2",
+      "to": "n_select.in2"
+    },
+    {
+      "from": "in3",
+      "to": "n_select.in3"
+    },
+    {
+      "from": "n_select.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "select"
+  ]
+}

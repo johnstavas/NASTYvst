@@ -65,6 +65,95 @@ const REFERENCES = {
     for (let i = 0; i < input.length; i++) out[i] = input[i] * base;
     return out;
   },
+  // ── z1 — single-sample delay ───────────────────────────────────────
+  // y[n] = x[n−1] with x[−1] = 0 at reset. Bit-identical between JS
+  // and C++ port; tolerance can be tight.
+  'builtin:z1': (input) => {
+    const out = new Float32Array(input.length);
+    let prev = 0;
+    for (let i = 0; i < input.length; i++) {
+      out[i] = prev;
+      prev = input[i];
+    }
+    return out;
+  },
+  // ── microDetune — two-tap crossfading delay-line pitch shifter ────
+  // Mirrors src/sandbox/ops/op_microDetune.worklet.js process() exactly.
+  // At cents=0 the pitch ratio = 1, step = 0, d stays at 0, output is
+  // a fixed W-sample (50 ms @ 48 kHz default) delay through tap2.
+  'builtin:microDetune': (input, args) => {
+    const sr = 48000;
+    const cents = args.cents ?? 0;
+    const winMs = args.windowMs ?? 50;
+    const xfadeMs = args.xfadeMs ?? 10;
+    const level = args.level ?? 1;
+    const rate  = Math.pow(2, cents / 1200);
+    const step  = 1 - rate;
+    const MAX_WINDOW_MS = 200;
+    const M = Math.max(1, Math.ceil(MAX_WINDOW_MS * 0.001 * sr));
+    const W = Math.max(2, Math.round(winMs * 0.001 * sr));
+    const X = Math.max(1, Math.round(xfadeMs * 0.001 * sr));
+    const buf = new Float32Array(M);
+    let w = 0;
+    let d = 0;
+    const out = new Float32Array(input.length);
+    const read = (off) => {
+      let p = w - off;
+      p = p - M * Math.floor(p / M);
+      const i0 = p | 0;
+      const i1 = (i0 + 1) % M;
+      const a  = p - i0;
+      return (1 - a) * buf[i0] + a * buf[i1];
+    };
+    for (let n = 0; n < input.length; n++) {
+      buf[w] = input[n];
+      w++; if (w >= M) w = 0;
+      d = d + step;
+      d = d - W * Math.floor(d / W);
+      const tap1 = read(d);
+      const tap2 = read(d + W);
+      const wgt = d < X ? d / X : 1;
+      out[n] = (wgt * tap1 + (1 - wgt) * tap2) * level;
+    }
+    return out;
+  },
+  // ── curve — universal parametric-curve primitive ──────────────────
+  // Mirrors src/sandbox/ops/op_curve.worklet.js _evalUnipolar() exactly.
+  // For default points [{0,0,1,1},{1,1,1,1}] in 'hermite' mode this reduces
+  // to clamp(x, 0, 1) — Hermite interpolation through (0,0)→(1,1) with
+  // unit slopes is the linear identity, plus end-of-domain clamp.
+  // Bipolar=false here means out-of-domain negative inputs clip to 0,
+  // out-of-domain positive inputs clip to 1.
+  'builtin:curve': (input, args) => {
+    const P = args.points || [
+      { x: 0, y: 0, tIn: 1, tOut: 1 },
+      { x: 1, y: 1, tIn: 1, tOut: 1 },
+    ];
+    const interp = args.interp || 'hermite';
+    const evalAt = (x) => {
+      if (x <= P[0].x) return P[0].y;
+      if (x >= P[P.length - 1].x) return P[P.length - 1].y;
+      // Linear segment search (fixtures have ≤4 points).
+      let i = 0;
+      while (i < P.length - 1 && !(P[i].x <= x && x < P[i + 1].x)) i++;
+      const p0 = P[i], p1 = P[i + 1];
+      const dx = p1.x - p0.x;
+      if (dx <= 0) return p0.y;
+      const t = (x - p0.x) / dx;
+      if (interp === 'linear') return p0.y + (p1.y - p0.y) * t;
+      // Hermite (catmull would derive m0/m1 from neighbours; using hermite tangents here)
+      const m0 = p0.tOut, m1 = p1.tIn;
+      const t2 = t * t, t3 = t2 * t;
+      const h00 =  2*t3 - 3*t2 + 1;
+      const h10 =     t3 - 2*t2 + t;
+      const h01 = -2*t3 + 3*t2;
+      const h11 =     t3 -   t2;
+      return h00 * p0.y + h10 * m0 * dx + h01 * p1.y + h11 * m1 * dx;
+    };
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) out[i] = evalAt(input[i]);
+    return out;
+  },
   'builtin:abs': (input) => {
     const out = new Float32Array(input.length);
     for (let i = 0; i < input.length; i++) out[i] = Math.abs(input[i]);

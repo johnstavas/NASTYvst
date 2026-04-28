@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-pitchshift-v0",
+  "label": "SmokePitchShift",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_pitchshift",
+      "op": "pitchShift",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "pitch": 1,
+        "mix": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_pitchshift.in"
+    },
+    {
+      "from": "n_pitchshift.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "pitchShift"
+  ]
+}

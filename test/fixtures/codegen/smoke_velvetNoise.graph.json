@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-velvetnoise-v0",
+  "label": "SmokeVelvetNoise",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_velvetnoise",
+      "op": "velvetNoise",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "density": 1500,
+        "amp": 1,
+        "seed": 22222
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "n_velvetnoise.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "velvetNoise"
+  ]
+}

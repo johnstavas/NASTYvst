@@ -54,17 +54,35 @@ if (existsSync(ledgerPath)) {
   }
 }
 
+// Pre-build a lower-cased smoke-fixture filename set so the per-op gate
+// check is O(1) and we can match mode-suffixed variants (smoke_onePole_lp,
+// smoke_shelf_low, smoke_svf_lp …) the same way the parity gate already
+// matches its mode-suffixed keys (see g5 below). Without this, ops like
+// onePole/shelf/svf would read 4/6 forever even though the fixtures exist
+// on disk under their mode-suffixed names.
+const smokeFiles = new Set(
+  readdirSync(codegenFx)
+    .filter(f => /^smoke_.+\.graph\.json$/.test(f))
+    .map(f => f.toLowerCase())
+);
+
 const rows = [];
 for (const id of opIds) {
   const wPath = resolve(opsDir, `op_${id}.worklet.js`);
   const cPath = resolve(opsDir, `op_${id}.cpp.jinja`);
-  const sPath = resolve(codegenFx, `smoke_${id.toLowerCase()}.graph.json`);
+  const idLc = id.toLowerCase();
   const wSrc = existsSync(wPath) ? readFileSync(wPath, 'utf8') : '';
   const cSrc = existsSync(cPath) ? readFileSync(cPath, 'utf8') : '';
 
   const g1 = wSrc.length > 100 && !isStub(wSrc);
   const g2 = cSrc.length > 100 && !isStub(cSrc);
-  const g3 = existsSync(sPath);
+  // Smoke gate: bare-id match OR any mode-suffixed variant (smoke_<id>_*).
+  let g3 = smokeFiles.has(`smoke_${idLc}.graph.json`);
+  if (!g3) {
+    for (const f of smokeFiles) {
+      if (f.startsWith(`smoke_${idLc}_`)) { g3 = true; break; }
+    }
+  }
   const g4 = g3;
   let g5 = parityKeys.has(id);
   if (!g5) for (const k of parityKeys) if (k === id || k.startsWith(`${id}_`)) { g5 = true; break; }
@@ -114,24 +132,51 @@ console.log(`Wrote ${ledgerPath} (${rows.length} ops).`);
 
 // Machine-readable mirror for browser consumption (read by OpGraphCanvas
 // gate-strip widget + per-op QC panel — see Phase A of op-qc-rig).
+//
+// MONOTONIC PRESERVATION: if the JSON already exists on disk, read it
+// first and preserve any listen-gate values that have been signed off.
+// The generator only walks specs/worklets/parity/behavioral on disk —
+// it has no view into UI listen ticks, so a naive overwrite would
+// destroy user sign-offs every time the script runs. We treat the disk
+// listen value as the authoritative source for that gate.
+let preservedListen = new Map();
+try {
+  if (existsSync(ledgerJsonPath)) {
+    const prev = JSON.parse(readFileSync(ledgerJsonPath, 'utf8'));
+    if (prev && Array.isArray(prev.ops)) {
+      for (const o of prev.ops) {
+        if (o.gates?.listen) preservedListen.set(o.id, o.gates.listen);
+      }
+    }
+  }
+} catch (err) {
+  console.warn(`[generate_verification_ledger] could not read prior JSON for listen-tick preservation: ${err.message}`);
+}
+
 const ledgerJson = {
   generatedAt: new Date().toISOString(),
   totalOps:    rows.length,
-  goldCount:   rows.filter(r => r.auto === 6 && r.listen).length,
-  ops: rows.map(r => ({
-    id: r.id,
-    gates: {
-      worklet:    r.g1,    // gate 1
-      cpp:        r.g2,    // gate 2
-      smoke:      r.g3,    // gate 3
-      t1_t7:      r.g4,    // gate 4
-      parity:     r.g5,    // gate 5
-      behavioral: r.g6,    // gate 6
-      listen:     r.listen || null,   // gate 7 — manual sign-off string or null
-    },
-    autoPassed: r.auto,        // 0–6
-    notes:      r.notes || '',
-  })),
+  goldCount:   rows.filter(r => r.auto === 6 && (r.listen || preservedListen.get(r.id))).length,
+  ops: rows.map(r => {
+    const listen = r.listen || preservedListen.get(r.id) || null;
+    return {
+      id: r.id,
+      gates: {
+        worklet:    r.g1,
+        cpp:        r.g2,
+        smoke:      r.g3,
+        t1_t7:      r.g4,
+        parity:     r.g5,
+        behavioral: r.g6,
+        listen,                   // gate 7 — preserved from prior JSON if not in spec
+      },
+      autoPassed: r.auto,         // 0–6
+      notes:      r.notes || '',
+    };
+  }),
 };
 writeFileSync(ledgerJsonPath, JSON.stringify(ledgerJson, null, 2));
+if (preservedListen.size > 0) {
+  console.log(`Preserved ${preservedListen.size} listen-gate sign-offs from prior JSON.`);
+}
 console.log(`Wrote ${ledgerJsonPath} (${rows.length} ops, machine-readable).`);

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-quantizer-v0",
+  "label": "SmokeQuantizer",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_quantizer",
+      "op": "quantizer",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "step": 0.125,
+        "offset": 0,
+        "mode": "round"
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_quantizer.in"
+    },
+    {
+      "from": "n_quantizer.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "quantizer"
+  ]
+}

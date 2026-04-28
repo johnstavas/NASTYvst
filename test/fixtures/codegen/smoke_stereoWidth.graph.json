@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-stereowidth-v0",
+  "label": "SmokeStereoWidth",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "inL",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "inR",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "width",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_stereowidth",
+      "op": "stereoWidth",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "timeMs": 300
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "inL",
+      "to": "n_stereowidth.inL"
+    },
+    {
+      "from": "inR",
+      "to": "n_stereowidth.inR"
+    },
+    {
+      "from": "n_stereowidth.width",
+      "to": "width"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "stereoWidth"
+  ]
+}

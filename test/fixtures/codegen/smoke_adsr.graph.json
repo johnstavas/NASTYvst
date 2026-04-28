@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-adsr-v0",
+  "label": "SmokeAdsr",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "gate",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_adsr",
+      "op": "adsr",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "attackMs": 5,
+        "decayMs": 50,
+        "sustain": 0.7,
+        "releaseMs": 200
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "gate",
+      "to": "n_adsr.gate"
+    },
+    {
+      "from": "n_adsr.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "adsr"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-fm-v0",
+  "label": "SmokeFm",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_fm",
+      "op": "fm",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "carrierFreq": 440,
+        "modRatio": 1,
+        "modIndex": 1,
+        "amp": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "n_fm.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "fm"
+  ]
+}

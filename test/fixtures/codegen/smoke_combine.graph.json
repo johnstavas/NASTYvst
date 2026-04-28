@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-combine-v0",
+  "label": "SmokeCombine",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "a",
+      "kind": "input",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "b",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 40
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_combine",
+      "op": "combine",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "weight": 0.5,
+        "mode": "mul"
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "a",
+      "to": "n_combine.a"
+    },
+    {
+      "from": "b",
+      "to": "n_combine.b"
+    },
+    {
+      "from": "n_combine.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "combine"
+  ]
+}

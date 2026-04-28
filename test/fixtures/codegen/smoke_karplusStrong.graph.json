@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-karplusstrong-v0",
+  "label": "SmokeKarplusStrong",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_karplusstrong",
+      "op": "karplusStrong",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "freq": 220,
+        "decay": 0.996,
+        "bright": 0.5
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "n_karplusstrong.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "karplusStrong"
+  ]
+}

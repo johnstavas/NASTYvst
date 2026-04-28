@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-diffuser-v0",
+  "label": "Smokediffuser",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_diffuser",
+      "op": "diffuser",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "g": 0.7,
+        "size": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_diffuser.in"
+    },
+    {
+      "from": "n_diffuser.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "diffuser"
+  ]
+}

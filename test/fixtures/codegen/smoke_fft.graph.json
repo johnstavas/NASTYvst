@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-fft-v0",
+  "label": "SmokeFft",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "real",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "imag",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_fft",
+      "op": "fft",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "size": 1024
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_fft.in"
+    },
+    {
+      "from": "n_fft.real",
+      "to": "real"
+    },
+    {
+      "from": "n_fft.imag",
+      "to": "imag"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "fft"
+  ]
+}

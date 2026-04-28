@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-chamberlinzerocross-v0",
+  "label": "SmokeChamberlinZeroCross",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_chamberlinzerocross",
+      "op": "chamberlinZeroCross",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "deadZone": 0.002,
+        "glitch": 0.05
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_chamberlinzerocross.in"
+    },
+    {
+      "from": "n_chamberlinzerocross.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "chamberlinZeroCross"
+  ]
+}

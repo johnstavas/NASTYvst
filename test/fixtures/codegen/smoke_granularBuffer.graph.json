@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-granularbuffer-v0",
+  "label": "SmokeGranularBuffer",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_granularbuffer",
+      "op": "granularBuffer",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "bufMs": 1000,
+        "delayMs": 100,
+        "grainMs": 50
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_granularbuffer.in"
+    },
+    {
+      "from": "n_granularbuffer.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "granularBuffer"
+  ]
+}

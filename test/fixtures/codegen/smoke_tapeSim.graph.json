@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-tapesim-v0",
+  "label": "SmokeTapeSim",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 100
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 100
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_tapesim",
+      "op": "tapeSim",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "drive": 1,
+        "bumpHz": 60,
+        "bumpDb": 3,
+        "bumpQ": 1,
+        "hfHz": 16000,
+        "trim": 1
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_tapesim.in"
+    },
+    {
+      "from": "n_tapesim.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "tapeSim"
+  ]
+}

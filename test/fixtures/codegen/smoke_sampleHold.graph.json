@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-samplehold-v0",
+  "label": "SmokeSampleHold",
+  "canvas": {
+    "width": 480,
+    "height": 240
+  },
+  "terminals": [
+    {
+      "id": "trig",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 140
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_samplehold",
+      "op": "sampleHold",
+      "x": 240,
+      "y": 100,
+      "params": {}
+    }
+  ],
+  "wires": [
+    {
+      "from": "trig",
+      "to": "n_samplehold.trig"
+    },
+    {
+      "from": "in",
+      "to": "n_samplehold.in"
+    },
+    {
+      "from": "n_samplehold.out",
+      "to": "out"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "sampleHold"
+  ]
+}

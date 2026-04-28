@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-autopan-v0",
+  "label": "SmokeAutopan",
+  "canvas": {
+    "width": 480,
+    "height": 200
+  },
+  "terminals": [
+    {
+      "id": "in",
+      "kind": "input",
+      "x": 40,
+      "y": 60
+    },
+    {
+      "id": "l",
+      "kind": "output",
+      "x": 440,
+      "y": 60
+    },
+    {
+      "id": "r",
+      "kind": "output",
+      "x": 440,
+      "y": 140
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n_autopan",
+      "op": "autopan",
+      "x": 240,
+      "y": 100,
+      "params": {
+        "rateHz": 1,
+        "depth": 1,
+        "shape": 0,
+        "phaseDeg": 0
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "in",
+      "to": "n_autopan.in"
+    },
+    {
+      "from": "n_autopan.l",
+      "to": "l"
+    },
+    {
+      "from": "n_autopan.r",
+      "to": "r"
+    }
+  ],
+  "feedback": [],
+  "legendOps": [
+    "autopan"
+  ]
+}

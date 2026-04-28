@@ -11,7 +11,10 @@
 //   ⬜ nothing built       — neutral
 
 import React, { useMemo, useState } from 'react';
-import { useVerificationLedger, gatesPassed, statusEmoji } from './opVerificationLedger.js';
+import {
+  useVerificationLedger, gatesPassed, statusEmoji,
+  saveLedgerToDisk, clearAllSignoffs, getLocalSignoffs,
+} from './opVerificationLedger.js';
 import OpQcView from './OpQcView.jsx';
 
 const GATE_COLS = [
@@ -74,6 +77,28 @@ export default function OpVerificationLedgerView({ onClose }) {
   const [filter, setFilter] = useState('all');     // all | gold | partial | pink | empty
   const [search, setSearch] = useState('');
   const [selectedOpId, setSelectedOpId] = useState(null);
+  const [saveState, setSaveState] = useState({ status: 'idle', message: '' });
+  // status: 'idle' | 'saving' | 'ok' | 'err'
+
+  const localSignoffCount = useMemo(() => Object.keys(getLocalSignoffs()).length, [ledger]);
+  const handleSave = async () => {
+    if (!ledger) return;
+    setSaveState({ status: 'saving', message: 'writing ledger…' });
+    try {
+      const r = await saveLedgerToDisk(ledger);
+      // Disk now has the merged truth — clear local signoffs so the next
+      // fetch isn't a double-merge, then re-fetch to pick up savedAt.
+      clearAllSignoffs();
+      await refresh();
+      setSaveState({
+        status: 'ok',
+        message: `saved ${r.opCount} ops · ${new Date(r.savedAt).toLocaleTimeString()}`,
+      });
+      setTimeout(() => setSaveState({ status: 'idle', message: '' }), 4000);
+    } catch (err) {
+      setSaveState({ status: 'err', message: String(err.message || err) });
+    }
+  };
 
   // NOTE: ALL hooks must run unconditionally on every render — the early
   // return for selectedOpId comes AFTER the useMemos to satisfy rules-of-hooks.
@@ -161,7 +186,52 @@ export default function OpVerificationLedgerView({ onClose }) {
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {saveState.message && (
+            <span style={{
+              fontSize: 10, letterSpacing: '0.06em',
+              color: saveState.status === 'ok' ? '#5ed184'
+                   : saveState.status === 'err' ? '#e57b7b'
+                   : 'rgba(255,255,255,0.5)',
+              maxWidth: 260, textAlign: 'right',
+            }}>
+              {saveState.message}
+            </span>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!ledger || saveState.status === 'saving'}
+            title={
+              localSignoffCount > 0
+                ? `Persist ${localSignoffCount} unsaved sign-off${localSignoffCount === 1 ? '' : 's'} to public/verification_ledger.json`
+                : 'Persist current ledger state to public/verification_ledger.json'
+            }
+            style={{
+              fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase',
+              fontWeight: 600, padding: '8px 14px', borderRadius: 6,
+              background: localSignoffCount > 0
+                ? 'rgba(94,209,132,0.18)'
+                : 'rgba(94,209,132,0.08)',
+              border: `1px solid ${localSignoffCount > 0 ? 'rgba(94,209,132,0.7)' : 'rgba(94,209,132,0.3)'}`,
+              color: '#5ed184',
+              cursor: saveState.status === 'saving' ? 'wait' : 'pointer',
+              opacity: saveState.status === 'saving' ? 0.6 : 1,
+              position: 'relative',
+            }}
+          >
+            {saveState.status === 'saving' ? '… Saving' : '💾 Save'}
+            {localSignoffCount > 0 && saveState.status !== 'saving' && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4,
+                background: '#5ed184', color: '#0a0a0a',
+                fontSize: 9, fontWeight: 700,
+                width: 16, height: 16, borderRadius: 8,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {localSignoffCount}
+              </span>
+            )}
+          </button>
           <button
             onClick={refresh}
             style={{

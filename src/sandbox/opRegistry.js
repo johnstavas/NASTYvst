@@ -469,13 +469,13 @@ export const OPS = {
   },
 
   // ───────────────────────────────────────────────────────────────────────
-  // tapeAirwindows — Airwindows ToTape9 faithful mono port (MIT). 12-stage
+  // tapeAir9 — Airwindows ToTape9 faithful mono port (MIT). 12-stage
   // chain: Dubly encode → flutter → 9-threshold golden-ratio bias → tiny
   // hysteresis → pre-avg cascade → Taylor-sin sat (±2.305929… clamp, coefs
   // /6, /69, /2530.08, /224985.6, /9979200) → post-avg → tan-K dual-biquad
   // BPF head-bump + cubic soft-clip → Dubly decode → output. See debt #112.
-  tapeAirwindows: {
-    id: 'tapeAirwindows',
+  tapeAir9: {
+    id: 'tapeAir9',
     label: 'Tape (Airwindows)',
     description: 'Airwindows ToTape9 port · Dubly·flutter·bias·Taylor-sin·head-bump',
     ports: {
