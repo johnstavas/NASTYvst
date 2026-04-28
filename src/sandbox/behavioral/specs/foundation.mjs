@@ -621,6 +621,19 @@ export const UTILITY_BEHAVIORAL = {
     },
   },
 
+  pingPong: {
+    category: 'utility',
+    tldr: "It's the equal-level stereo ping-pong delay. Single mono buffer with two staggered read taps -- R reads at -TIME, L reads at -2*TIME, so a pulse fires R, L, R, L alternating at perfectly balanced amplitude per bounce-pair. Built-in LP tone filter inside the FB loop progressively darkens repeats. SPREAD blends between full L/R panning and mono-summed wet for in-the-mix bouncing without speaker hopping.",
+    defaultParams: { time: 350, feedback: 0.5, tone: 4500, spread: 1.0, mix: 0.5 },
+    listenParams:  { time: 350, feedback: 0.6, tone: 5000, spread: 1.0, mix: 1.0 },
+    declared: {
+      method: 'Single mono delay buffer + two staggered linear-interp read taps + LP-filtered FB loop',
+      topology: 'R = read(-TIME), L = read(-2*TIME), buf[w] = in + LP(wetL)*fb',
+      vs_classic_ping_pong: 'Classic asymmetric (input-on-L, cross-couple R) gives one side 2x louder; this two-tap form is equal-level by construction',
+      primary: 'Zolzer DAFX 2nd ed. §3.1 "Basic Delay Structures" Fig 3.7 + JOS PASP "Delay Lines" (Lagrange interpolated read)',
+    },
+  },
+
   // ─────────────────────────────────────────────────────────────────
   // BATCH: character / saturation (7 ops, 2026-04-28)
   // Real audio processors — all distortion-class ops with audible

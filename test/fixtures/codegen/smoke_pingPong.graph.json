@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "id": "smoke-pingPong",
+  "label": "smoke_pingPong",
+  "canvas": { "width": 400, "height": 200 },
+  "terminals": [
+    { "id": "in",  "kind": "input",  "x": 40,  "y": 100 },
+    { "id": "out", "kind": "output", "x": 360, "y": 100 }
+  ],
+  "nodes": [
+    { "id": "n_pp", "op": "pingPong", "x": 200, "y": 100,
+      "params": { "time": 350, "feedback": 0.5, "tone": 4500, "spread": 1.0, "mix": 0.5 } }
+  ],
+  "wires": [
+    { "from": "in",   "to": "n_pp" },
+    { "from": "n_pp", "to": "out"  }
+  ]
+}

@@ -792,4 +792,739 @@ class SandboxFdnReverb extends AudioWorkletProcessor {
 }
 
 registerProcessor('sandbox-fdn-reverb', SandboxFdnReverb);
+
+// ---------------------------------------------------------------------
+//  sandbox-tape-air9 — Airwindows ToTape9 faithful mono port.
+// ---------------------------------------------------------------------
+//
+// Mirrors src/sandbox/ops/op_tapeAir9.worklet.js (the standalone class
+// version used by the headless math harness). This inline copy is what
+// the WebAudio compiler instantiates as an AudioWorkletNode for live
+// sandbox bricks. Same pipeline, same constants, k-rate params.
+//
+// 11-stage pipeline (verbatim ToTape9 math, MIT license, Chris Johnson):
+//   input gain → dubly encode → flutter → bias/slew chain (9 thresholds,
+//   golden-ratio spaced) → tiny hysteresis → pre-averaging cascade →
+//   Taylor-sin saturator (clamp ±2.305929007734908, 5 verbatim coefs)
+//   → post-averaging cascade → head-bump dual biquad (tan-K, golden-
+//   ratio reso) → dubly decode → output gain.
+//
+// Params (all k-rate, normalized 0..1):
+//   drive        A (input gain → (A·2)²)
+//   dubly        B (encode/decode depth)
+//   encCross     C (Dubly IIR crossover freq)
+//   flutterDepth D (pow(D,6)·overallscale·50 samples)
+//   flutterRate  E (0.02·D³ / overallscale)
+//   bias         F ((F·2)-1 → ±1 bias offset)
+//   bumpMix      G (head-bump wet amount)
+//   bumpHz       H ((H²·175+25) Hz / sr)
+//
+// Skipped from full ToTape9 (live elsewhere in catalog):
+//   ClipOnly3 post-limiter (use op #88 softLimit downstream)
+//   Noise-shape dither    (use op #114 noiseShaper downstream)
+
+class SandboxTapeAir9 extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    const def = (name, defaultValue) => ({
+      name, defaultValue, minValue: 0, maxValue: 1, automationRate: 'k-rate',
+    });
+    return [
+      def('drive',        0.5),
+      def('dubly',        0.5),
+      def('encCross',     0.5),
+      def('flutterDepth', 0.0),
+      def('flutterRate',  0.5),
+      def('bias',         0.5),
+      def('bumpMix',      0.25),
+      def('bumpHz',       0.5),
+    ];
+  }
+
+  constructor() {
+    super();
+    this.overallscale = sampleRate / 44100;
+    this.slewsing = Math.floor(this.overallscale * 2);
+    if (this.slewsing < 2)  this.slewsing = 2;
+    if (this.slewsing > 32) this.slewsing = 32;
+
+    this._d = new Float32Array(1002);
+    this._gcount = 0;
+    this._sweep = 0;
+    this._nextmax = 0.5;
+    this._fpd = 17;
+
+    this._iirEnc = 0; this._avgEnc = 0; this._compEnc = 0;
+    this._iirDec = 0; this._avgDec = 0; this._compDec = 0;
+
+    this._gsPrev   = new Float64Array(9);
+    this._gsThresh = new Float64Array(9);
+
+    this._hyst = 0;
+
+    this._avg2  = new Float64Array(2);
+    this._avg4  = new Float64Array(4);
+    this._avg8  = new Float64Array(8);
+    this._avg16 = new Float64Array(16);
+    this._avg32 = new Float64Array(32);
+    this._post2  = new Float64Array(2);
+    this._post4  = new Float64Array(4);
+    this._post8  = new Float64Array(8);
+    this._post16 = new Float64Array(16);
+    this._post32 = new Float64Array(32);
+    this._avgPos = 0;
+    this._lastDark = 0;
+
+    this._hbSample = 0;
+    this._hdbA = { a0: 0, a1: 0, a2: 0, b1: 0, b2: 0, s1: 0, s2: 0 };
+    this._hdbB = { a0: 0, a1: 0, a2: 0, b1: 0, b2: 0, s1: 0, s2: 0 };
+
+    this._lastBumpHz = -1;
+  }
+
+  _recomputeBiquads(H) {
+    const INV_PHI = 0.618033988749894848;
+    const freqA = ((H * H) * 175 + 25) / sampleRate;
+    const freqB = freqA * 0.9375;
+    const reso  = INV_PHI;
+    const setBiquad = (biq, freq) => {
+      const K = Math.tan(Math.PI * freq);
+      const norm = 1 / (1 + K / reso + K * K);
+      biq.a0 = (K / reso) * norm;
+      biq.a1 = 0;
+      biq.a2 = -biq.a0;
+      biq.b1 = 2 * (K * K - 1) * norm;
+      biq.b2 = (1 - K / reso + K * K) * norm;
+    };
+    setBiquad(this._hdbA, freqA);
+    setBiquad(this._hdbB, freqB);
+  }
+
+  process(inputs, outputs, params) {
+    const TWO_PI = Math.PI * 2;
+    const PHI    = 1.618033988749894848;
+    const DENORMAL = 1e-30;
+
+    const out = outputs[0];
+    if (!out || out.length === 0) return true;
+    const oBuf = out[0];
+    const N = oBuf.length;
+
+    const inp = inputs[0];
+    const iBuf = (inp && inp.length > 0) ? inp[0] : null;
+
+    const A = params.drive[0],        B = params.dubly[0];
+    const C = params.encCross[0],     D = params.flutterDepth[0];
+    const E = params.flutterRate[0],  F = params.bias[0];
+    const G = params.bumpMix[0],      H = params.bumpHz[0];
+
+    if (H !== this._lastBumpHz) {
+      this._recomputeBiquads(H);
+      this._lastBumpHz = H;
+    }
+
+    const ovs = this.overallscale;
+    const slewsing = this.slewsing;
+
+    const inputGain  = (A * 2) * (A * 2);
+    const outputGain = inputGain * 2;
+    const dublyAmount = B * 2;
+    let outlyAmount = (1 - B) * -2;
+    if (outlyAmount < -1) outlyAmount = -1;
+    const iirEncFreq = (1 - C) / ovs;
+    const iirDecFreq = C / ovs;
+
+    let flutDepth = Math.pow(D, 6) * ovs * 50;
+    if (flutDepth > 498) flutDepth = 498;
+    const flutFrequency = (0.02 * Math.pow(E, 3)) / ovs;
+
+    const bias = (F * 2) - 1;
+    let underBias = (Math.pow(bias, 4) * 0.25) / ovs;
+    let overBias  = Math.pow(1 - bias, 3) / ovs;
+    if (bias > 0) underBias = 0;
+    if (bias < 0) overBias  = 1 / ovs;
+
+    let ob = overBias;
+    for (let i = 8; i >= 0; i--) { this._gsThresh[i] = ob; ob *= PHI; }
+
+    const headBumpDrive = (G * 0.1) / ovs;
+    const headBumpMix   = G * 0.5;
+    const cubicClipK = 0.0618 / Math.sqrt(ovs);
+
+    const d = this._d;
+    let gcount = this._gcount, sweep = this._sweep, nextmax = this._nextmax;
+    let fpd = this._fpd >>> 0;
+    let iirEnc = this._iirEnc, avgEnc = this._avgEnc, compEnc = this._compEnc;
+    let iirDec = this._iirDec, avgDec = this._avgDec, compDec = this._compDec;
+    const gsPrev = this._gsPrev, gsThresh = this._gsThresh;
+    let hyst = this._hyst;
+    const avg2 = this._avg2, avg4 = this._avg4, avg8 = this._avg8;
+    const avg16 = this._avg16, avg32 = this._avg32;
+    const post2 = this._post2, post4 = this._post4, post8 = this._post8;
+    const post16 = this._post16, post32 = this._post32;
+    let avgPos = this._avgPos;
+    let lastDark = this._lastDark;
+    let hb = this._hbSample;
+    const hA = this._hdbA, hB = this._hdbB;
+
+    for (let n = 0; n < N; n++) {
+      let x = iBuf ? +iBuf[n] : 0;
+      if (Math.abs(x) < 1.18e-23) x = fpd * 1.18e-17 / 0x100000000;
+      if (inputGain !== 1) x *= inputGain;
+
+      // (1) Dubly encode
+      if (B > 0) {
+        iirEnc = (iirEnc * (1 - iirEncFreq)) + (x * iirEncFreq);
+        let highPart = (x - iirEnc) * 2.848;
+        highPart += avgEnc;
+        avgEnc = (x - iirEnc) * 1.152;
+        if (highPart >  1) highPart =  1;
+        if (highPart < -1) highPart = -1;
+        let dub = Math.abs(highPart);
+        if (dub > 0) {
+          const adj = Math.log(1 + 255 * dub) / 2.40823996531;
+          if (adj > 0) dub /= adj;
+          compEnc = (compEnc * (1 - iirEncFreq)) + (dub * iirEncFreq);
+          x += (highPart * compEnc) * dublyAmount;
+        }
+      }
+
+      // (2) Flutter
+      if (flutDepth > 0) {
+        if (gcount < 0 || gcount > 999) gcount = 999;
+        d[gcount] = x;
+        let count = gcount;
+        const offset = flutDepth + (flutDepth * Math.sin(sweep));
+        sweep += nextmax * flutFrequency;
+        if (sweep > TWO_PI) {
+          sweep -= TWO_PI;
+          const flutA = 0.24 + (fpd / 0xFFFFFFFF) * 0.74;
+          fpd ^= fpd << 13; fpd >>>= 0;
+          fpd ^= fpd >>> 17;
+          fpd ^= fpd << 5;  fpd >>>= 0;
+          const flutB = 0.24 + (fpd / 0xFFFFFFFF) * 0.74;
+          const target = Math.sin(sweep + nextmax);
+          nextmax = (Math.abs(flutA - target) < Math.abs(flutB - target)) ? flutA : flutB;
+        }
+        count += Math.floor(offset);
+        const frac = offset - Math.floor(offset);
+        const i0 = count - (count > 999 ? 1000 : 0);
+        const i1 = (count + 1) - ((count + 1) > 999 ? 1000 : 0);
+        x  = d[i0] * (1 - frac);
+        x += d[i1] * frac;
+        gcount--;
+      }
+
+      // (3) Bias/slew chain
+      if (Math.abs(bias) > 0.001) {
+        for (let k = 0; k < 9; k++) {
+          const prev = gsPrev[k];
+          const th   = gsThresh[k];
+          if (underBias > 0) {
+            const stuck = Math.abs(x - (prev / 0.975)) / underBias;
+            if (stuck < 1) x = (x * stuck) + ((prev / 0.975) * (1 - stuck));
+          }
+          if ((x - prev) >  th) x = prev + th;
+          if (-(x - prev) > th) x = prev - th;
+          gsPrev[k] = x * 0.975;
+        }
+      }
+
+      // (4) Tiny hysteresis
+      const ax = Math.abs(x);
+      const apply = (1 - ax) * (1 - ax) * 0.012;
+      hyst = Math.max(Math.min(hyst + (x * ax), 0.011449), -0.011449) * 0.999;
+      x += hyst * apply;
+
+      // (5) Pre-averaging cascade
+      let dark = x;
+      let posCap = avgPos; if (posCap > 31) posCap = 0;
+      if (slewsing > 31) {
+        avg32[posCap] = dark; let s = 0;
+        for (let k = 0; k < 32; k++) s += avg32[k]; dark = s / 32;
+      }
+      if (slewsing > 15) {
+        avg16[posCap % 16] = dark; let s = 0;
+        for (let k = 0; k < 16; k++) s += avg16[k]; dark = s / 16;
+      }
+      if (slewsing > 7) {
+        avg8[posCap % 8] = dark; let s = 0;
+        for (let k = 0; k < 8; k++) s += avg8[k]; dark = s / 8;
+      }
+      if (slewsing > 3) {
+        avg4[posCap % 4] = dark; let s = 0;
+        for (let k = 0; k < 4; k++) s += avg4[k]; dark = s / 4;
+      }
+      if (slewsing > 1) {
+        avg2[posCap % 2] = dark; let s = 0;
+        for (let k = 0; k < 2; k++) s += avg2[k]; dark = s / 2;
+      }
+      let avgSlew = Math.min(Math.abs(lastDark - x) * 0.12 * ovs, 1);
+      avgSlew = 1 - (1 - avgSlew * 1 - avgSlew);
+      x = (x * (1 - avgSlew)) + (dark * avgSlew);
+      lastDark = dark;
+
+      // (6) Taylor-sin saturator (verbatim Airwindows coefs)
+      if (x >  2.305929007734908) x =  2.305929007734908;
+      if (x < -2.305929007734908) x = -2.305929007734908;
+      const xx = x * x;
+      let emp = x * xx;        x -= emp / 6.0;
+      emp *= xx;               x += emp / 69.0;
+      emp *= xx;               x -= emp / 2530.08;
+      emp *= xx;               x += emp / 224985.6;
+      emp *= xx;               x -= emp / 9979200.0;
+
+      // (7) Post-averaging cascade
+      dark = x;
+      posCap = avgPos; if (posCap > 31) posCap = 0;
+      if (slewsing > 31) {
+        post32[posCap] = dark; let s = 0;
+        for (let k = 0; k < 32; k++) s += post32[k]; dark = s / 32;
+      }
+      if (slewsing > 15) {
+        post16[posCap % 16] = dark; let s = 0;
+        for (let k = 0; k < 16; k++) s += post16[k]; dark = s / 16;
+      }
+      if (slewsing > 7) {
+        post8[posCap % 8] = dark; let s = 0;
+        for (let k = 0; k < 8; k++) s += post8[k]; dark = s / 8;
+      }
+      if (slewsing > 3) {
+        post4[posCap % 4] = dark; let s = 0;
+        for (let k = 0; k < 4; k++) s += post4[k]; dark = s / 4;
+      }
+      if (slewsing > 1) {
+        post2[posCap % 2] = dark; let s = 0;
+        for (let k = 0; k < 2; k++) s += post2[k]; dark = s / 2;
+      }
+      avgPos++;
+      x = (x * (1 - avgSlew)) + (dark * avgSlew);
+
+      // (8) Head-bump dual biquad
+      let hbOut = 0;
+      if (headBumpMix > 0) {
+        hb += x * headBumpDrive;
+        hb -= (hb * hb * hb) * cubicClipK;
+        const yA = hA.a0 * hb + hA.s1;
+        hA.s1 = hA.a1 * hb - hA.b1 * yA + hA.s2;
+        hA.s2 = hA.a2 * hb - hA.b2 * yA;
+        const yB = hB.a0 * yA + hB.s1;
+        hB.s1 = hB.a1 * yA - hB.b1 * yB + hB.s2;
+        hB.s2 = hB.a2 * yA - hB.b2 * yB;
+        hbOut = yB;
+      }
+      x += hbOut * headBumpMix;
+
+      // (9) Dubly decode
+      if (B > 0) {
+        iirDec = (iirDec * (1 - iirDecFreq)) + (x * iirDecFreq);
+        let highPart = (x - iirDec) * 2.628;
+        highPart += avgDec;
+        avgDec = (x - iirDec) * 1.372;
+        if (highPart >  1) highPart =  1;
+        if (highPart < -1) highPart = -1;
+        let dub = Math.abs(highPart);
+        if (dub > 0) {
+          const adj = Math.log(1 + 255 * dub) / 2.40823996531;
+          if (adj > 0) dub /= adj;
+          compDec = (compDec * (1 - iirDecFreq)) + (dub * iirDecFreq);
+          x += (highPart * compDec) * outlyAmount;
+        }
+      }
+
+      // (10) Output gain
+      if (outputGain !== 1) x *= outputGain;
+      if (Math.abs(x) < DENORMAL) x = 0;
+      if (!Number.isFinite(x)) x = 0;
+      oBuf[n] = x;
+    }
+
+    const flush = (v) => (Math.abs(v) < DENORMAL ? 0 : v);
+    this._gcount = gcount; this._sweep = sweep; this._nextmax = nextmax;
+    this._fpd = fpd >>> 0;
+    this._iirEnc = flush(iirEnc); this._avgEnc = flush(avgEnc); this._compEnc = flush(compEnc);
+    this._iirDec = flush(iirDec); this._avgDec = flush(avgDec); this._compDec = flush(compDec);
+    this._hyst = flush(hyst);
+    this._avgPos = avgPos;
+    this._lastDark = flush(lastDark);
+    this._hbSample = flush(hb);
+    hA.s1 = flush(hA.s1); hA.s2 = flush(hA.s2);
+    hB.s1 = flush(hB.s1); hB.s2 = flush(hB.s2);
+    return true;
+  }
+}
+
+registerProcessor('sandbox-tape-air9', SandboxTapeAir9);
+
+// ---------------------------------------------------------------------
+//  sandbox-pitch-shift — Bernsee smbPitchShift mono port (catalog #28).
+// ---------------------------------------------------------------------
+//
+// Streaming phase-vocoder pitch shifter — FFT_SIZE=2048, OSAMP=4,
+// stepSize=512, latency=1536 samples (~32 ms @ 48 kHz). Verbatim port
+// of Stephan Bernsee's smbPitchShift.cpp (1999-2015, free use license).
+// Mirrors src/sandbox/ops/op_pitchShift.worklet.js bit-for-bit; this
+// is the inline copy the WebAudio compiler instantiates for live
+// sandbox bricks (shimmer delays, shifters, etc.).
+//
+// Pipeline: input FIFO → Hann-windowed FFT → magn/freq analysis →
+//           bin-shift (k → ⌊k·pitch⌋) → phase-coherent resynth →
+//           inverse FFT → OLA → output FIFO.
+//
+// Params (k-rate):
+//   pitch  0.25..4.0  ratio (1.0 = unison, 2.0 = +1 oct, 0.5 = -1 oct)
+//   mix    0..1       equal-power dry/wet inside the op
+
+class SandboxPitchShift extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'pitch', defaultValue: 1.0, minValue: 0.25, maxValue: 4.0, automationRate: 'k-rate' },
+      { name: 'mix',   defaultValue: 1.0, minValue: 0.0,  maxValue: 1.0, automationRate: 'k-rate' },
+    ];
+  }
+
+  constructor() {
+    super();
+    const FFT_SIZE = 2048;
+    const OSAMP = 4;
+    const STEP_SIZE = FFT_SIZE / OSAMP;
+    const LATENCY = FFT_SIZE - STEP_SIZE;
+    const TWO_PI = Math.PI * 2;
+    this._FFT_SIZE = FFT_SIZE;
+    this._FFT_SIZE_2 = FFT_SIZE / 2;
+    this._OSAMP = OSAMP;
+    this._STEP_SIZE = STEP_SIZE;
+    this._LATENCY = LATENCY;
+    this._TWO_PI = TWO_PI;
+    this._EXPCT = TWO_PI * STEP_SIZE / FFT_SIZE;
+
+    this._WINDOW = new Float64Array(FFT_SIZE);
+    for (let k = 0; k < FFT_SIZE; k++) {
+      this._WINDOW[k] = -0.5 * Math.cos(TWO_PI * k / FFT_SIZE) + 0.5;
+    }
+
+    this.freqPerBin = sampleRate / FFT_SIZE;
+
+    this._inFIFO    = new Float64Array(FFT_SIZE);
+    this._outFIFO   = new Float64Array(FFT_SIZE);
+    this._fft       = new Float64Array(2 * FFT_SIZE);
+    this._lastPhase = new Float64Array(this._FFT_SIZE_2 + 1);
+    this._sumPhase  = new Float64Array(this._FFT_SIZE_2 + 1);
+    this._outAccum  = new Float64Array(2 * FFT_SIZE);
+    this._anaFreq   = new Float64Array(FFT_SIZE);
+    this._anaMagn   = new Float64Array(FFT_SIZE);
+    this._synFreq   = new Float64Array(FFT_SIZE);
+    this._synMagn   = new Float64Array(FFT_SIZE);
+    this._rover     = LATENCY;
+  }
+
+  // In-place radix-2 Cooley-Tukey FFT. buf interleaved re/im, length 2*N.
+  // sign=-1 forward, +1 inverse. Verbatim Bernsee smbFft.
+  _smbFft(buf, N, sign) {
+    for (let i = 2, j = 0; i < 2 * N - 2; i += 2) {
+      let bitm = N;
+      for (; bitm >= 2; bitm >>= 1) {
+        if (!(j & bitm)) break;
+        j ^= bitm;
+      }
+      j ^= bitm;
+      if (i < j) {
+        let t = buf[i];     buf[i]     = buf[j];     buf[j]     = t;
+        t     = buf[i + 1]; buf[i + 1] = buf[j + 1]; buf[j + 1] = t;
+      }
+    }
+    const kMax = Math.log(N) / Math.log(2);
+    for (let k = 0, le = 2; k < kMax; k++) {
+      le <<= 1;
+      const le2 = le >> 1;
+      let ur = 1.0, ui = 0.0;
+      const arg = Math.PI / (le2 >> 1);
+      const wr  = Math.cos(arg);
+      const wi  = sign * Math.sin(arg);
+      for (let j = 0; j < le2; j += 2) {
+        for (let i = j; i < 2 * N; i += le) {
+          const tr = buf[i + le2]     * ur - buf[i + le2 + 1] * ui;
+          const ti = buf[i + le2]     * ui + buf[i + le2 + 1] * ur;
+          buf[i + le2]     = buf[i]     - tr;
+          buf[i + le2 + 1] = buf[i + 1] - ti;
+          buf[i]           = buf[i]     + tr;
+          buf[i + 1]       = buf[i + 1] + ti;
+        }
+        const tr = ur * wr - ui * wi;
+        ui       = ur * wi + ui * wr;
+        ur       = tr;
+      }
+    }
+  }
+
+  _processFrame(pitch) {
+    const FFT_SIZE = this._FFT_SIZE;
+    const FFT_SIZE_2 = this._FFT_SIZE_2;
+    const OSAMP = this._OSAMP;
+    const STEP_SIZE = this._STEP_SIZE;
+    const TWO_PI = this._TWO_PI;
+    const EXPCT = this._EXPCT;
+    const WINDOW = this._WINDOW;
+
+    const fft       = this._fft;
+    const inFIFO    = this._inFIFO;
+    const lastPhase = this._lastPhase;
+    const sumPhase  = this._sumPhase;
+    const outAccum  = this._outAccum;
+    const anaFreq   = this._anaFreq;
+    const anaMagn   = this._anaMagn;
+    const synFreq   = this._synFreq;
+    const synMagn   = this._synMagn;
+    const freqPerBin = this.freqPerBin;
+
+    for (let k = 0; k < FFT_SIZE; k++) {
+      fft[2 * k]     = inFIFO[k] * WINDOW[k];
+      fft[2 * k + 1] = 0;
+    }
+    this._smbFft(fft, FFT_SIZE, -1);
+
+    for (let k = 0; k <= FFT_SIZE_2; k++) {
+      const real = fft[2 * k];
+      const imag = fft[2 * k + 1];
+      const magn = 2.0 * Math.sqrt(real * real + imag * imag);
+      const phase = Math.atan2(imag, real);
+      let tmp = phase - lastPhase[k];
+      lastPhase[k] = phase;
+      tmp -= k * EXPCT;
+      let qpd = tmp / Math.PI | 0;
+      if (qpd >= 0) qpd += qpd & 1;
+      else          qpd -= qpd & 1;
+      tmp -= Math.PI * qpd;
+      tmp = OSAMP * tmp / TWO_PI;
+      tmp = k * freqPerBin + tmp * freqPerBin;
+      anaMagn[k] = magn;
+      anaFreq[k] = tmp;
+    }
+
+    synMagn.fill(0, 0, FFT_SIZE);
+    synFreq.fill(0, 0, FFT_SIZE);
+    for (let k = 0; k <= FFT_SIZE_2; k++) {
+      const index = Math.floor(k * pitch);
+      if (index <= FFT_SIZE_2) {
+        synMagn[index] += anaMagn[k];
+        synFreq[index]  = anaFreq[k] * pitch;
+      }
+    }
+
+    for (let k = 0; k <= FFT_SIZE_2; k++) {
+      const magn = synMagn[k];
+      let tmp = synFreq[k];
+      tmp -= k * freqPerBin;
+      tmp /= freqPerBin;
+      tmp = TWO_PI * tmp / OSAMP;
+      tmp += k * EXPCT;
+      sumPhase[k] += tmp;
+      const phase = sumPhase[k];
+      fft[2 * k]     = magn * Math.cos(phase);
+      fft[2 * k + 1] = magn * Math.sin(phase);
+    }
+    for (let k = FFT_SIZE + 2; k < 2 * FFT_SIZE; k++) fft[k] = 0;
+
+    this._smbFft(fft, FFT_SIZE, 1);
+
+    const olaScale = 2.0 / (FFT_SIZE_2 * OSAMP);
+    for (let k = 0; k < FFT_SIZE; k++) {
+      outAccum[k] += olaScale * WINDOW[k] * fft[2 * k];
+    }
+
+    const outFIFO = this._outFIFO;
+    for (let k = 0; k < STEP_SIZE; k++) outFIFO[k] = outAccum[k];
+
+    outAccum.copyWithin(0, STEP_SIZE);
+    for (let k = FFT_SIZE; k < 2 * FFT_SIZE; k++) outAccum[k] = 0;
+    inFIFO.copyWithin(0, STEP_SIZE);
+  }
+
+  process(inputs, outputs, params) {
+    const DENORMAL = 1e-30;
+    const out = outputs[0];
+    if (!out || out.length === 0) return true;
+    const oBuf = out[0];
+    const N = oBuf.length;
+    const inp = inputs[0];
+    const iBuf = (inp && inp.length > 0) ? inp[0] : null;
+
+    let pitch = params.pitch[0];
+    if (!Number.isFinite(pitch)) pitch = 1.0;
+    if (pitch < 0.25) pitch = 0.25;
+    if (pitch > 4.0)  pitch = 4.0;
+
+    const mix = params.mix[0];
+    const gDry = Math.cos(mix * Math.PI * 0.5);
+    const gWet = Math.sin(mix * Math.PI * 0.5);
+
+    const FFT_SIZE = this._FFT_SIZE;
+    const LATENCY = this._LATENCY;
+
+    for (let i = 0; i < N; i++) {
+      const x = iBuf ? iBuf[i] : 0;
+      this._inFIFO[this._rover] = x;
+      let y = this._outFIFO[this._rover - LATENCY];
+      if (y > -DENORMAL && y < DENORMAL) y = 0;
+      oBuf[i] = gDry * x + gWet * y;
+      this._rover++;
+      if (this._rover >= FFT_SIZE) {
+        this._rover = LATENCY;
+        this._processFrame(pitch);
+      }
+    }
+    return true;
+  }
+}
+
+registerProcessor('sandbox-pitch-shift', SandboxPitchShift);
+
+// ---------------------------------------------------------------------
+//  sandbox-pingpong — equal-level stereo ping-pong (mono-in, stereo-out).
+// ---------------------------------------------------------------------
+//
+// Single mono delay buffer with TWO staggered read taps:
+//   readR at -TIME/2  (half-delay tap → R speaker)
+//   readL at -TIME    (full-delay tap → L speaker)
+//
+// A pulse fires R at TIME/2, L at TIME, R at 3·TIME/2, L at 2·TIME, …
+// Both taps come from the same buffer at the SAME amplitude per cycle,
+// so the bounce is properly balanced L/R — no "stuck-on-one-side" feel
+// the asymmetric cross-coupled topology has.
+//
+// Feedback is tapped from the long (L) read and fed back into the
+// buffer write. Built-in one-pole LP "tone" filter on the FB tap so
+// repeats progressively darken (Space Echo / TimeLine character).
+// Frequency-dependent loop loss also bounds FB — Nyquist-stable for
+// fb < 1.
+//
+// SPREAD knob blends wet output between full ping-pong (1.0) and
+// mono-summed wet (0.0). At spread=0 the bounce still happens but you
+// hear the L+R wet summed equally on both speakers — useful for
+// in-the-mix ping-pong without hard L/R panning.
+//
+// TIME = bounce-to-bounce interval (R→L spacing). Full L→L round trip
+// is 2·TIME. Buffer is sized for max round-trip 4 s (= 2·max TIME).
+//
+// Latency: zero.
+//
+// Params (all k-rate):
+//   time      ms    10..2000   (R/L stagger interval)
+//   feedback        0..0.85
+//   tone      Hz    200..18000  (LP cutoff inside loop)
+//   spread          0..1        (0 = mono wet, 1 = full ping-pong)
+//   mix             0..1
+
+class SandboxPingPong extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'time',     defaultValue: 350,   minValue: 10,  maxValue: 2000,  automationRate: 'k-rate' },
+      { name: 'feedback', defaultValue: 0.5,   minValue: 0,   maxValue: 0.85,  automationRate: 'k-rate' },
+      { name: 'tone',     defaultValue: 4500,  minValue: 200, maxValue: 18000, automationRate: 'k-rate' },
+      { name: 'spread',   defaultValue: 1.0,   minValue: 0,   maxValue: 1,     automationRate: 'k-rate' },
+      { name: 'mix',      defaultValue: 0.5,   minValue: 0,   maxValue: 1,     automationRate: 'k-rate' },
+    ];
+  }
+
+  constructor() {
+    super();
+    // Buffer must hold the long (L) tap = 2× max TIME = 4 s @ max 2000ms.
+    // Add a margin for the smoother + interpolation read.
+    this._MAX = Math.ceil(4.5 * sampleRate);
+    this._buf = new Float32Array(this._MAX);
+    this._write = 0;
+    this._lp = 0;
+    this._delaySamplesSmooth = -1;
+  }
+
+  process(inputs, outputs, params) {
+    const DENORMAL = 1e-30;
+    const out = outputs[0];
+    if (!out || out.length === 0) return true;
+
+    const oL = out[0];
+    const oR = out.length > 1 ? out[1] : out[0];
+    const N = oL.length;
+
+    const inp = inputs[0];
+    const iL = (inp && inp.length > 0) ? inp[0] : null;
+    const iR = (inp && inp.length > 1) ? inp[1] : iL;
+
+    const timeMs = params.time[0];
+    const fb     = params.feedback[0];
+    const toneHz = params.tone[0];
+    const spread = params.spread[0];
+    const mix    = params.mix[0];
+
+    // TIME = R/L stagger interval. R reads at -TIME, L reads at -2·TIME.
+    let target = Math.max(1, timeMs * sampleRate * 0.001);
+    const targetL = target * 2;
+    if (targetL >= this._MAX - 4) target = (this._MAX - 4) * 0.5;
+
+    if (this._delaySamplesSmooth < 0) this._delaySamplesSmooth = target;
+
+    const smoothCoef = 1 - Math.exp(-1 / (0.05 * sampleRate));
+    const alpha = 1 - Math.exp(-2 * Math.PI * toneHz / sampleRate);
+    const dryGain = Math.cos(mix * Math.PI * 0.5);
+    const wetGain = Math.sin(mix * Math.PI * 0.5);
+
+    let lp = this._lp;
+    let w = this._write;
+    let dSmooth = this._delaySamplesSmooth;
+    const MAX = this._MAX;
+    const buf = this._buf;
+
+    // Linear-interpolated read helper.
+    const read = (offset) => {
+      let rf = w - offset;
+      while (rf < 0) rf += MAX;
+      while (rf >= MAX) rf -= MAX;
+      const r0 = Math.floor(rf);
+      const r1 = (r0 + 1) % MAX;
+      return buf[r0] * (1 - (rf - r0)) + buf[r1] * (rf - r0);
+    };
+
+    for (let i = 0; i < N; i++) {
+      dSmooth += smoothCoef * (target - dSmooth);
+
+      const inL = iL ? iL[i] : 0;
+      const inR = iR ? iR[i] : 0;
+      const inMono = (inL + inR) * 0.5;
+
+      // R tap at -TIME, L tap at -2·TIME.
+      const wetR = read(dSmooth);
+      const wetL = read(dSmooth * 2);
+
+      // LP tone-filter on the FB tap (uses long L tap, the loop point).
+      lp += alpha * (wetL - lp);
+
+      // Write input + LP-filtered FB.
+      let next = inMono + lp * fb;
+      if (next >  1.5) next =  1.5;
+      if (next < -1.5) next = -1.5;
+
+      buf[w] = next;
+      w++;
+      if (w >= MAX) w -= MAX;
+
+      // SPREAD blends wet between full L/R (1) and mono-summed (0).
+      const wetMid = (wetL + wetR) * 0.5;
+      const finalWetL = wetL * spread + wetMid * (1 - spread);
+      const finalWetR = wetR * spread + wetMid * (1 - spread);
+
+      let yL = inL * dryGain + finalWetL * wetGain;
+      let yR = inR * dryGain + finalWetR * wetGain;
+      if (Math.abs(yL) < DENORMAL) yL = 0;
+      if (Math.abs(yR) < DENORMAL) yR = 0;
+      oL[i] = yL;
+      oR[i] = yR;
+    }
+
+    this._lp = (Math.abs(lp) < DENORMAL) ? 0 : lp;
+    this._write = w;
+    this._delaySamplesSmooth = dSmooth;
+    return true;
+  }
+}
+
+registerProcessor('sandbox-pingpong', SandboxPingPong);
 `;

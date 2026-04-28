@@ -1533,18 +1533,22 @@ export const OPS = {
   filter: {
     id: 'filter',
     label: 'filter',
-    description: 'biquad — LP/HP/BP/notch, resonant',
+    description: 'biquad — LP/HP/BP/notch/peaking, resonant. Peaking adds gainDb param (RBJ Cookbook bell curve, ±36 dB).',
     ports: { inputs: [{ id: 'in', kind: 'audio' }], outputs: [{ id: 'out', kind: 'audio' }] },
     params: [
       { id: 'mode', label: 'Mode', type: 'enum', default: 'lp',
         options: [
-          { value: 'lp',    label: 'low-pass'  },
-          { value: 'hp',    label: 'high-pass' },
-          { value: 'bp',    label: 'band-pass' },
-          { value: 'notch', label: 'notch'     },
+          { value: 'lp',      label: 'low-pass'  },
+          { value: 'hp',      label: 'high-pass' },
+          { value: 'bp',      label: 'band-pass' },
+          { value: 'notch',   label: 'notch'     },
+          { value: 'peaking', label: 'peaking'   },
         ] },
       { id: 'cutoff', label: 'Cutoff', type: 'number', min: 20, max: 20000, default: 1000, unit: 'Hz', format: fmtHz },
       { id: 'q',      label: 'Q',      type: 'number', min: 0.1, max: 24, step: 0.01, default: 0.707, unit: '' },
+      { id: 'gainDb', label: 'Gain',   type: 'number', min: -36, max: 36, step: 0.1, default: 0, unit: 'dB',
+        // Only meaningful for peaking mode. Ignored by lp/hp/bp/notch (no-op).
+      },
     ],
   },
 
@@ -1758,6 +1762,23 @@ export const OPS = {
       { id: 'releaseMs', label: 'Release', type: 'number', min: 0.01, max: 2000, step: 1,     default: 100,  unit: 'ms', format: fmtMs },
       { id: 'floor',     label: 'Floor',   type: 'number', min: 0,    max: 1,    step: 0.01,  default: 0,    unit: '',   format: fmtPct },
       { id: 'mix',       label: 'Mix',     type: 'number', min: 0,    max: 1,    step: 0.01,  default: 1,    unit: '',   format: fmtPct },
+    ],
+  },
+
+  pingPong: {
+    id: 'pingPong',
+    label: 'pingPong',
+    description: 'Stereo cross-coupled ping-pong delay. Mono-in, stereo-out. Built-in LP tone filter inside the FB loop. Single dedicated worklet handles delay/fb/tone/mix in one node.',
+    ports: {
+      inputs:  [{ id: 'in',  kind: 'audio' }],
+      outputs: [{ id: 'out', kind: 'audio' }],
+    },
+    params: [
+      { id: 'time',     label: 'Time',     type: 'number', min: 10,  max: 2000,  step: 1,    default: 350,  unit: 'ms', format: fmtMs },
+      { id: 'feedback', label: 'Feedback', type: 'number', min: 0,   max: 0.85,  step: 0.01, default: 0.5,  unit: '',   format: fmtPct },
+      { id: 'tone',     label: 'Tone',     type: 'number', min: 200, max: 18000, step: 1,    default: 4500, unit: 'Hz', format: fmtHz },
+      { id: 'spread',   label: 'Spread',   type: 'number', min: 0,   max: 1,     step: 0.01, default: 1.0,  unit: '',   format: fmtPct },
+      { id: 'mix',      label: 'Mix',      type: 'number', min: 0,   max: 1,     step: 0.01, default: 0.5,  unit: '',   format: fmtPct },
     ],
   },
 

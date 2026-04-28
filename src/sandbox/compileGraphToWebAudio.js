@@ -117,12 +117,16 @@ const FACTORIES = {
   filter(ctx, params) {
     const f = ctx.createBiquadFilter();
     const setMode = (m) => {
-      const map = { lp: 'lowpass', hp: 'highpass', bp: 'bandpass', notch: 'notch' };
+      const map = { lp: 'lowpass', hp: 'highpass', bp: 'bandpass', notch: 'notch', peaking: 'peaking' };
       f.type = map[m] || 'lowpass';
     };
     setMode(params.mode ?? 'lp');
     f.frequency.value = params.cutoff ?? 1000;
     f.Q.value         = params.q      ?? 0.707;
+    // gain only meaningful in peaking (and shelf, but we use the shelf op
+    // for that). For lp/hp/bp/notch the WebAudio BiquadFilterNode ignores
+    // the gain AudioParam — RBJ-canonical, same as our worklet.
+    f.gain.value      = params.gainDb ?? 0;
     return {
       nodes: [f],
       inputs:  { in:  f },
@@ -131,6 +135,7 @@ const FACTORIES = {
         if (id === 'mode')   setMode(v);
         if (id === 'cutoff') f.frequency._set(v, t, 0.005);
         if (id === 'q')      f.Q._set(v, t, 0.005);
+        if (id === 'gainDb') f.gain._set(v, t, 0.005);
       },
     };
   },
@@ -328,6 +333,109 @@ const FACTORIES = {
       outputs: { out: ws },
       setParam(id, v) {
         if (id === 'bits') setBits(v);
+      },
+    };
+  },
+
+  // Airwindows ToTape9 faithful mono port — full 11-stage tape pipeline
+  // (dubly encode → flutter → bias/slew → hysteresis → averaging cascade
+  // → Taylor-sin saturator → post-averaging → head-bump biquad → dubly
+  // decode → output gain). Worklet processor lives in workletSources.js
+  // as `sandbox-tape-air9`. All 8 params are normalized 0..1 k-rate.
+  tapeAir9(ctx, params) {
+    if (!isSandboxWorkletReady(ctx)) {
+      throw new Error(
+        'tapeAir9 op: sandbox worklet not registered — ' +
+        'await ensureSandboxWorklets(ctx) before compileGraphToWebAudio.'
+      );
+    }
+    const node = new AudioWorkletNode(ctx, 'sandbox-tape-air9', {
+      numberOfInputs:  1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    const ids = ['drive', 'dubly', 'encCross', 'flutterDepth',
+                 'flutterRate', 'bias', 'bumpMix', 'bumpHz'];
+    const ap = {};
+    for (const id of ids) ap[id] = node.parameters.get(id);
+    for (const id of ids) {
+      if (params[id] != null && Number.isFinite(+params[id])) {
+        ap[id].value = +params[id];
+      }
+    }
+    return {
+      nodes: [node],
+      inputs:  { in:  node },
+      outputs: { out: node },
+      setParam(id, v, t) {
+        const a = ap[id];
+        if (a) a._set(+v, t, 0.005);
+      },
+    };
+  },
+
+  // Bernsee phase-vocoder pitch shifter (catalog #28). FFT_SIZE=2048,
+  // OSAMP=4, ~32 ms latency at 48 kHz. Pitch is a ratio (1.0 unison,
+  // 2.0 octave up, 0.5 octave down). Worklet processor lives in
+  // workletSources.js as `sandbox-pitch-shift`.
+  pitchShift(ctx, params) {
+    if (!isSandboxWorkletReady(ctx)) {
+      throw new Error(
+        'pitchShift op: sandbox worklet not registered — ' +
+        'await ensureSandboxWorklets(ctx) before compileGraphToWebAudio.'
+      );
+    }
+    const node = new AudioWorkletNode(ctx, 'sandbox-pitch-shift', {
+      numberOfInputs:  1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    const pPitch = node.parameters.get('pitch');
+    const pMix   = node.parameters.get('mix');
+    if (params.pitch != null && Number.isFinite(+params.pitch)) pPitch.value = +params.pitch;
+    if (params.mix   != null && Number.isFinite(+params.mix))   pMix.value   = +params.mix;
+    return {
+      nodes: [node],
+      inputs:  { in:  node },
+      outputs: { out: node },
+      setParam(id, v, t) {
+        if (id === 'pitch') pPitch._set(+v, t, 0.005);
+        if (id === 'mix')   pMix._set(+v, t, 0.005);
+      },
+    };
+  },
+
+  // Stereo ping-pong delay — mono-in, stereo-out, cross-coupled topology.
+  // Worklet processor lives in workletSources.js as `sandbox-pingpong`.
+  // 5 k-rate params (time/feedback/tone/spread/mix). Built-in LP tone
+  // filter on each side's feedback tap so repeats progressively darken.
+  pingPong(ctx, params) {
+    if (!isSandboxWorkletReady(ctx)) {
+      throw new Error(
+        'pingPong op: sandbox worklet not registered — ' +
+        'await ensureSandboxWorklets(ctx) before compileGraphToWebAudio.'
+      );
+    }
+    const node = new AudioWorkletNode(ctx, 'sandbox-pingpong', {
+      numberOfInputs:  1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],   // stereo out
+    });
+    const ids = ['time', 'feedback', 'tone', 'spread', 'mix'];
+    const ap = {};
+    for (const id of ids) ap[id] = node.parameters.get(id);
+    for (const id of ids) {
+      if (params[id] != null && Number.isFinite(+params[id])) {
+        ap[id].value = +params[id];
+      }
+    }
+    return {
+      nodes: [node],
+      inputs:  { in:  node },
+      outputs: { out: node },
+      setParam(id, v, t) {
+        const a = ap[id];
+        if (a) a._set(+v, t, 0.005);
       },
     };
   },

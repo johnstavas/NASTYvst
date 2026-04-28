@@ -1,13 +1,24 @@
 // op_filter.worklet.js — Stage-3 op sidecar for the `filter` op.
 //
 // Pins the per-op emission contract defined in memory/codegen_design.md § 4.
-// Biquad (LP / HP / BP / notch), resonant. Coefficients per the RBJ Audio
-// EQ Cookbook (Robert Bristow-Johnson; memory/dsp_code_canon_filters.md §9)
+// Biquad (LP / HP / BP / notch / peaking), resonant. Coefficients per the
+// RBJ Audio EQ Cookbook (Robert Bristow-Johnson; memory/dsp_code_canon_filters.md §9)
 // — the same topology WebAudio's createBiquadFilter uses internally, so
 // porting lands sample-identical numerical behavior with compileGraphToWebAudio.
 //
 // Topology: Direct Form I.
 //   y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
+//
+// PEAKING (bell) mode adds the `gainDb` param (default 0 = unity → no-op).
+// RBJ peakingEQ formulas (Cookbook §"Peaking EQ"):
+//   A      = 10^(gainDb / 40)              ← note /40 not /20 (sqrt of mag)
+//   b0     =   1 + alpha*A
+//   b1     =  -2*cosw0
+//   b2     =   1 - alpha*A
+//   a0     =   1 + alpha/A
+//   a1     =  -2*cosw0
+//   a2     =   1 - alpha/A
+// LP/HP/BP/notch ignore gainDb. gainDb clamped to ±36 dB.
 //
 // Stability guards:
 //   - cutoff clamped to [10, sr/2 - 100] before the pre-warp;
@@ -19,7 +30,7 @@
 //   compileGraphToWebAudio.js `filter()` factory (delegates to WebAudio
 //   BiquadFilterNode). Canon:filters §9 for the coefficient derivations.
 
-const MODES = ['lp', 'hp', 'bp', 'notch'];
+const MODES = ['lp', 'hp', 'bp', 'notch', 'peaking'];
 
 export class FilterOp {
   static opId = 'filter';
@@ -29,6 +40,7 @@ export class FilterOp {
     { id: 'mode',   default: 'lp' },
     { id: 'cutoff', default: 1000 },
     { id: 'q',      default: 0.707 },
+    { id: 'gainDb', default: 0 },     // peaking only; ignored by lp/hp/bp/notch
   ]);
 
   constructor(sampleRate) {
@@ -36,6 +48,7 @@ export class FilterOp {
     this._mode   = 'lp';
     this._cutoff = 1000;
     this._q      = 0.707;
+    this._gainDb = 0;
     // DF1 state — 2-sample history for input + output.
     this._x1 = 0; this._x2 = 0; this._y1 = 0; this._y2 = 0;
     // Normalised coefficients (after dividing by a0).
@@ -52,6 +65,7 @@ export class FilterOp {
     if (id === 'mode')   { this._mode = MODES.includes(v) ? v : 'lp'; }
     if (id === 'cutoff') { this._cutoff = +v; }
     if (id === 'q')      { this._q = +v; }
+    if (id === 'gainDb') { this._gainDb = +v; }
     this._recomputeCoefs();
   }
 
@@ -96,6 +110,19 @@ export class FilterOp {
         a1 = -2 * cosw0;
         a2 =  1 - alpha;
         break;
+      case 'peaking': {
+        // RBJ Cookbook "Peaking EQ" — A = sqrt(10^(gainDb/20)) = 10^(gainDb/40).
+        // gainDb clamped to ±36 dB to keep alpha/A and alpha*A well-conditioned.
+        const g = Math.min(Math.max(this._gainDb, -36), 36);
+        const A = Math.pow(10, g * 0.025); // 0.025 = 1/40
+        b0 =  1 + alpha * A;
+        b1 = -2 * cosw0;
+        b2 =  1 - alpha * A;
+        a0 =  1 + alpha / A;
+        a1 = -2 * cosw0;
+        a2 =  1 - alpha / A;
+        break;
+      }
       case 'lp':
       default:
         b0 =  (1 - cosw0) * 0.5;

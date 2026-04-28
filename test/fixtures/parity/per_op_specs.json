@@ -2140,6 +2140,11 @@
       "skipReason": "Multi-stage stateful processor (IIR crossover + flutter mod + IIR decode). Real parity possible in principle but state-dependent. Defer to dedicated character-compliance harness.",
       "note": "Architectural skip — character/saturation op stateful or stochastic (added 2026-04-28). Worklet still exercised in listen rig."
     },
+    "pingPong": {
+      "nativeSkip": true,
+      "skipReason": "Stereo two-tap delay with per-sample smoothed delay length + linear-interp fractional read. Standalone worklet mono-collapses for headless tests; inline AudioWorkletProcessor produces 2-channel output. Real parity needs stereo native harness.",
+      "note": "Architectural skip — multi-output stereo time-domain op (added 2026-04-29). Worklet exercised in listen rig + math tests verify pulse-response timing."
+    },
     "tapeSim": {
       "nativeSkip": true,
       "skipReason": "Stateful filter-cascaded waveshaper. Real parity possible but state-dependent. Defer.",

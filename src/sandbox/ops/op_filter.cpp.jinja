@@ -1,16 +1,21 @@
 // op_filter.cpp — Stage-3b C++ sidecar for the `filter` op.
 // Contract: memory/codegen_design.md § 4. Mirrors op_filter.worklet.js
-// bit-for-bit. RBJ cookbook biquad (LP / HP / BP / notch), Direct Form I.
+// bit-for-bit. RBJ cookbook biquad (LP / HP / BP / notch / peaking),
+// Direct Form I.
 //
 // Ported 2026-04-27 from op_filter.worklet.js after the stub-zero output
 // was identified as the cause of every filter recipe producing silence
-// in compiled VST3 form.
+// in compiled VST3 form. Peaking mode added 2026-04-28 for pultecLite +
+// future EQ-family bricks (1073 / API 550 / Massive Passive / etc.).
 //
 // Topology (DF1):  y[n] = b0·x[n] + b1·x[n-1] + b2·x[n-2] - a1·y[n-1] - a2·y[n-2]
 // Coefficients per RBJ Audio EQ Cookbook (Canon:filters §9), normalised by a0.
 //
-// Mode encoding: 0 = lp, 1 = hp, 2 = bp, 3 = notch (numeric form sent by
-// codegen-baked enum). Default lp.
+// Mode encoding: 0 = lp, 1 = hp, 2 = bp, 3 = notch, 4 = peaking
+// (numeric form sent by codegen-baked enum). Default lp.
+//
+// Peaking adds the `gainDb` param (default 0 = unity). LP/HP/BP/notch
+// ignore it. gainDb clamped to ±36 dB.
 #pragma once
 #include <cmath>
 #include <cstring>
@@ -31,11 +36,13 @@ public:
         if (!std::isfinite(v)) return;
         if (std::strcmp(id, "mode") == 0) {
             const int m = static_cast<int>(v + 0.5);
-            mode_ = (m >= 0 && m <= 3) ? m : 0;
+            mode_ = (m >= 0 && m <= 4) ? m : 0;
         } else if (std::strcmp(id, "cutoff") == 0) {
             cutoff_ = v;
         } else if (std::strcmp(id, "q") == 0) {
             q_ = v;
+        } else if (std::strcmp(id, "gainDb") == 0) {
+            gainDb_ = v;
         } else {
             return;
         }
@@ -99,6 +106,18 @@ private:
                 a1 = -2.0 * cosw0;
                 a2 =  1.0 - alpha;
                 break;
+            case 4: { // peaking — RBJ Cookbook "Peaking EQ"
+                // A = 10^(gainDb/40); gainDb clamped to ±36 dB.
+                const double g = std::fmin(std::fmax(gainDb_, -36.0), 36.0);
+                const double A = std::pow(10.0, g * 0.025);
+                b0 =  1.0 + alpha * A;
+                b1 = -2.0 * cosw0;
+                b2 =  1.0 - alpha * A;
+                a0 =  1.0 + alpha / A;
+                a1 = -2.0 * cosw0;
+                a2 =  1.0 - alpha / A;
+                break;
+            }
             case 0: // lp
             default:
                 b0 =  (1.0 - cosw0) * 0.5;
@@ -118,9 +137,10 @@ private:
     }
 
     double sr_;
-    int    mode_   = 0;       // 0=lp, 1=hp, 2=bp, 3=notch
+    int    mode_   = 0;       // 0=lp, 1=hp, 2=bp, 3=notch, 4=peaking
     double cutoff_ = 1000.0;
     double q_      = 0.707;
+    double gainDb_ = 0.0;     // peaking only
     double b0_ = 1.0, b1_ = 0.0, b2_ = 0.0, a1_ = 0.0, a2_ = 0.0;
     double x1_ = 0, x2_ = 0, y1_ = 0, y2_ = 0;
 };

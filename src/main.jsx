@@ -12,6 +12,12 @@ import ModDuckOrb from './sandbox/ModDuckOrb';
 import ToyCompOrb from './sandbox/ToyCompOrb';
 import LofiLightOrb from './sandbox/LofiLightOrb';
 import FdnHallOrb from './sandbox/FdnHallOrb';
+import PultecLiteOrb from './sandbox/PultecLiteOrb';
+import VintageAmpOrb from './sandbox/VintageAmpOrb';
+import TapeSatOrb from './sandbox/TapeSatOrb';
+import ShimmerDelayOrb from './sandbox/ShimmerDelayOrb';
+import PingPongOrb from './sandbox/PingPongOrb';
+import HarmonyPadOrb from './sandbox/HarmonyPadOrb';
 import DistortionOrb from './DistortionOrb';
 import AmpOrb from './AmpOrb';
 import ModulationOrb from './ModulationOrb';
@@ -172,6 +178,24 @@ const SANDBOX_BRICKS = [
   { type: 'fdnHall',      label: 'FdnHall',      accent: '#8cd4e8',
     tagline: 'Geraint Luff FDN reverb (Tier-3 port)',
     description: 'First sandbox-native reverb. Monolithic fdnReverb op — 8-ch Householder FB + 4-step Hadamard diffuser + per-channel HF shelf + fractional-delay mod + 8-tap stereo ER. Port of morphReverbEngine.js; re-decomposed into delay/matrix/shelf primitives at Stage 3.' },
+  { type: 'pultecLite',   label: 'PultecLite',   accent: '#d4b370',
+    tagline: 'Pultec EQP-1A — passive program EQ',
+    description: 'Recipe #19. Two peaking filters at the same LF freq with asymmetric Q (boost Q=0.7, atten Q=1.0) produce the signature "Pultec trick" shelf-with-dip — boost AND cut at 60 Hz for the legendary kick-low move. Plus HF peak boost, HF shelf cut, and tanh-saturator makeup. Manual locked at docs/primary_sources/pultec/. Lite swaps the Koren tube model for a 4×-OS tanh; v2 pipes tubeSim through the worklet path.' },
+  { type: 'vintageAmp',   label: 'VintageAmp',   accent: '#e89853',
+    tagline: '3-tube vintage guitar amp',
+    description: 'Recipes #1–#4 (Marshall JTM45 / Vox AC30 / Fender Twin / Fender Tweed) on one chassis. Three tube stages: preamp (12AX7) → tone stack → driver (12AT7) → power amp (EL34/6L6) → cab sim (LP rolloff + 2.5 kHz speaker bump). Five voicings cover the British/American canon. v2 swaps tanh for tubeSim Koren model + adds output transformer + reverb tank.' },
+  { type: 'tapeSat',      label: 'TapeSat',      accent: '#c8866a',
+    tagline: 'Magnetic tape saturation',
+    description: 'Recipe #13 (Studer / Ampex tape compression). Three-layer character: pre/de-emphasis HF trick (puts the distortion in the highs where the ear is forgiving) + 75 Hz head bump (the "tape weight") + HF gap-loss rolloff (the "tape warmth"). Five voicings: Studer A800 / 2-Inch 24 / Mastering 1/4" / Cassette / Slammed. v2 swaps tanh for a dedicated tape worklet + adds wow/flutter.' },
+  { type: 'shimmerDly',   label: 'ShimmerDly',   accent: '#a48bff',
+    tagline: 'Wild pitch-shift delay',
+    description: 'Bernsee phase-vocoder pitch shifter inside a feedback delay loop. Each repeat goes through the shifter — at +12 you get the classic Eventide H910 shimmer cascade, at -12 you get an Inception sub-bass dive, at +7 a perfect-fifth ascending stack, at small detune analog-chorus delay. Five voicings: Shimmer / Sub Dive / Fifth Stack / Detune / Inception.' },
+  { type: 'pingPong',     label: 'PingPong',     accent: '#7adcc8',
+    tagline: 'Stereo ping-pong delay',
+    description: 'Cross-coupled L/R bouncing delay with built-in tone filter. A single input pulse fires L, R, L, R alternating, each repeat darker and quieter. SPREAD knob blends from full ping-pong (hard L/R panning) to mono-summed wet (in-the-mix bounce without speaker hopping). Five voicings: Classic / Dub Echo / Slap / Fast Pan / In Mix.' },
+  { type: 'harmonyPad',   label: 'HarmonyPad',   accent: '#f0a8d8',
+    tagline: '4-voice harmonizer + Valhalla wash',
+    description: 'Four parallel pitch shifters tuned to chord intervals + a Valhalla-style fdnReverb wash to soften the digital edge. Single note in → instant arena-rock vocal stack out. Six voicings: Major / Minor / Sus2 / Power / Maj7 / Dim. Perfect for guitar single notes, vocal hums, or any monophonic source.' },
 ];
 
 // ─── WorkbenchView — Lab-mode full-takeover gallery. ─────────────────────
@@ -975,7 +999,7 @@ function App() {
             const insertBefore = insertAfterIndex === idx - 1;
             const insertAfter  = insertAfterIndex === idx;
             const isBypassed = !!pillBypasses[inst.id];
-            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'eightOhEight' ? '808' : inst.type === 'lofiLoofy' ? 'Loofy' : inst.type === 'flapjackman' ? 'Flap Jack' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : inst.type === 'manchild' ? 'ManChild' : inst.type === 'sandboxToy' ? 'Sandbox' : inst.type === 'filterFx' ? 'FilterFX' : inst.type === 'echoformLite' ? 'EchoLite' : inst.type === 'modDuck' ? 'ModDuck' : 'Space';
+            const label = inst.type === 'amp' ? 'Amp' : inst.type === 'distortion' ? 'Dist' : inst.type === 'modulation' ? 'Mod' : inst.type === 'vocal' ? 'Vocal' : inst.type === 'mixbus' ? 'Mix Bus' : inst.type === 'reverb' ? 'Reverb' : inst.type === 'scope' ? 'Scope' : inst.type === 'neve' ? '1073' : inst.type === 'iron1073' ? 'Iron' : inst.type === 'nastyneve' ? 'Nasty' : inst.type === 'tape' ? '424' : inst.type === 'spring' ? 'Wabble' : inst.type === 'spring2' ? 'Spring' : inst.type === 'eightOhEight' ? '808' : inst.type === 'lofiLoofy' ? 'Loofy' : inst.type === 'flapjackman' ? 'Flap Jack' : inst.type === 'tapedelay' ? 'Tape Dly' : inst.type === 'analogglue' ? 'Nasty Glue' : inst.type === 'la2a' ? 'LVL-2A' : inst.type === 'shagatron' ? 'Shag' : inst.type === 'flanger' ? 'Flanger' : inst.type === 'gluesmash' ? 'GlueSmash' : inst.type === 'bassmind' ? 'BassMind' : inst.type === 'echoform' ? 'EchoForm' : inst.type === 'drift' ? 'Drift' : inst.type === 'ampless' ? 'Ampless' : inst.type === 'finisher' ? 'Finisher' : inst.type === 'reactor' ? 'Reactor' : inst.type === 'splitdrive' ? 'SplitDrv' : inst.type === 'smoother' ? 'Smoother' : inst.type === 'playbox' ? 'PlayBox' : inst.type === 'pitchshift' ? 'Pitch' : inst.type === 'vocallock' ? 'VocLock' : inst.type === 'deharsh' ? 'DeHarsh' : inst.type === 'vibemic' ? 'VibeMic' : inst.type === 'phraserider' ? 'Rider' : inst.type === 'airlift' ? 'AirLift' : inst.type === 'character' ? 'CharBox' : inst.type === 'gravity' ? 'Gravity' : inst.type === 'focusreverb' ? 'FocusRev' : inst.type === 'nearfar' ? 'NearFar' : inst.type === 'morphreverb' ? 'Morph' : inst.type === 'transientreverb' ? 'TransRev' : inst.type === 'smear' ? 'Smear' : inst.type === 'orbit' ? 'Orbit' : inst.type === 'platex' ? 'PlateX' : inst.type === 'reverbbus' ? 'RevBus' : inst.type === 'drumbus' ? 'Panther Buss' : inst.type === 'manchild' ? 'ManChild' : inst.type === 'sandboxToy' ? 'Sandbox' : inst.type === 'filterFx' ? 'FilterFX' : inst.type === 'echoformLite' ? 'EchoLite' : inst.type === 'modDuck' ? 'ModDuck' : inst.type === 'pultecLite' ? 'Pultec' : inst.type === 'vintageAmp' ? 'Amp' : inst.type === 'tapeSat' ? 'Tape' : inst.type === 'shimmerDly' ? 'Shimmer' : inst.type === 'pingPong' ? 'PingPong' : inst.type === 'harmonyPad' ? 'Harmony' : 'Space';
             return (
               <div key={inst.id} className="flex items-center">
                 {/* Insert-before line */}
@@ -1531,6 +1555,84 @@ function App() {
           />
         ) : inst.type === 'fdnHall' ? (
           <FdnHallOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'pultecLite' ? (
+          <PultecLiteOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'vintageAmp' ? (
+          <VintageAmpOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'tapeSat' ? (
+          <TapeSatOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'shimmerDly' ? (
+          <ShimmerDelayOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'pingPong' ? (
+          <PingPongOrb
+            key={inst.id}
+            instanceId={inst.id}
+            sharedSource={sharedSource}
+            registerEngine={registerEngine}
+            unregisterEngine={unregisterEngine}
+            onRemove={instances.length > 1 ? () => removeInstance(inst.id) : null}
+            onStateChange={handleStateChange}
+            initialState={initialStates[inst.id]}
+            bypassed={!!pillBypasses[inst.id]}
+            onToggleBypass={() => togglePillBypass(inst.id)}
+          />
+        ) : inst.type === 'harmonyPad' ? (
+          <HarmonyPadOrb
             key={inst.id}
             instanceId={inst.id}
             sharedSource={sharedSource}

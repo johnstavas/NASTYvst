@@ -205,6 +205,76 @@ const tests = [
       return { pass: true };
     },
   },
+
+  // ---- Peaking (bell) -----------------------------------------------
+  {
+    name: 'Peaking: gainDb=0 → unity (sine at cutoff RMS unchanged within 0.5 dB)',
+    run() {
+      const f0 = 1000;
+      const op = freshOp({ mode: 'peaking', cutoff: f0, q: 1, gainDb: 0 });
+      const inFill = i => Math.sin(2 * Math.PI * f0 * i / SR);
+      const dry = new Float32Array(N);
+      for (let i = 0; i < N; i++) dry[i] = inFill(i);
+      const out = render(op, inFill);
+      const dryRms = tailRms(dry, 2048);
+      const outRms = tailRms(out, 2048);
+      const dB = 20 * Math.log10(outRms / dryRms);
+      if (Math.abs(dB) > 0.5) return { pass: false, why: `unity peaking off by ${dB.toFixed(2)} dB` };
+      return { pass: true };
+    },
+  },
+  {
+    name: 'Peaking: +12 dB boost at cutoff (sine RMS gain ≈ +12 dB ± 0.5)',
+    run() {
+      const f0 = 1000;
+      const op = freshOp({ mode: 'peaking', cutoff: f0, q: 1, gainDb: 12 });
+      const inFill = i => Math.sin(2 * Math.PI * f0 * i / SR);
+      const dry = new Float32Array(N);
+      for (let i = 0; i < N; i++) dry[i] = inFill(i);
+      const out = render(op, inFill);
+      const dryRms = tailRms(dry, 2048);
+      const outRms = tailRms(out, 2048);
+      const dB = 20 * Math.log10(outRms / dryRms);
+      if (Math.abs(dB - 12) > 0.5) return { pass: false, why: `boost=${dB.toFixed(2)} dB, expected ~+12` };
+      return { pass: true };
+    },
+  },
+  {
+    name: 'Peaking: -12 dB cut at cutoff (sine RMS gain ≈ -12 dB ± 0.5)',
+    run() {
+      const f0 = 1000;
+      const op = freshOp({ mode: 'peaking', cutoff: f0, q: 1, gainDb: -12 });
+      const inFill = i => Math.sin(2 * Math.PI * f0 * i / SR);
+      const dry = new Float32Array(N);
+      for (let i = 0; i < N; i++) dry[i] = inFill(i);
+      const out = render(op, inFill);
+      const dryRms = tailRms(dry, 2048);
+      const outRms = tailRms(out, 2048);
+      const dB = 20 * Math.log10(outRms / dryRms);
+      if (Math.abs(dB - -12) > 0.5) return { pass: false, why: `cut=${dB.toFixed(2)} dB, expected ~-12` };
+      return { pass: true };
+    },
+  },
+  {
+    name: 'Peaking: DC unaffected (constant input passes through)',
+    run() {
+      const op = freshOp({ mode: 'peaking', cutoff: 1000, q: 1, gainDb: 12 });
+      const out = render(op, 0.5);
+      const last = out[out.length - 1];
+      if (!approx(last, 0.5, 1e-3)) return { pass: false, why: `DC=${last}, expected 0.5 (peaking should not affect DC)` };
+      return { pass: true };
+    },
+  },
+  {
+    name: 'Peaking: gainDb clamped to ±36 dB (gainDb=999 → finite, no NaN)',
+    run() {
+      const op = freshOp({ mode: 'peaking', cutoff: 1000, q: 1, gainDb: 999 });
+      const out = render(op, i => Math.sin(2 * Math.PI * 1000 * i / SR));
+      for (let i = 0; i < out.length; i++)
+        if (!Number.isFinite(out[i])) return { pass: false, why: `NaN at ${i}` };
+      return { pass: true };
+    },
+  },
 ];
 
 export default { opId: 'filter', tests };
