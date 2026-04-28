@@ -14,6 +14,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getOp, primaryParamDisplay, enumParamDisplay } from './opRegistry';
+import {
+  getEditLayout,
+  setEditNodePos,
+  setEditTerminalPos,
+  subscribeEditLayout,
+} from './liveGraphStore';
 
 // Node footprint sized to fit existing graph layouts (most graphs space
 // nodes 120px apart). Title bar + 2-line body + port markers all fit in
@@ -378,22 +384,43 @@ function FeedbackLabel({ fb, graph }) {
   );
 }
 
-export default function OpGraphCanvas({ graph, selectedNodeId, onNodeClick }) {
+export default function OpGraphCanvas({ graph, instanceId, selectedNodeId, onNodeClick }) {
   if (!graph) return null;
   const { width, height } = graph.canvas || { width: 720, height: 340 };
   const gridId = `opgraph-grid-${graph.id}`;
 
   // ── Per-node + per-terminal position overrides ─────────────────────────
-  // When the user drags a node, we store the override here keyed by
-  // node.id. Same for terminals (IN / OUT) keyed by terminal.id. These
-  // are local UI state — not persisted yet (Stage 2d will round-trip into
-  // graph.json). Cleared when the graph changes.
-  const [nodePositions, setNodePositions]         = useState({});
-  const [terminalPositions, setTerminalPositions] = useState({});
+  // Persisted across close/reopen of the inside-view via the editLayout
+  // map in liveGraphStore (keyed by instanceId). Cleared explicitly via
+  // a "Reset" action — closing the modal does NOT discard.
+  const initLayout = instanceId ? getEditLayout(instanceId) : null;
+  const [nodePositions, setNodePositions]         = useState(() => initLayout?.nodes     || {});
+  const [terminalPositions, setTerminalPositions] = useState(() => initLayout?.terminals || {});
+
+  // Subscribe to external updates (e.g., Save button might trigger a
+  // re-snapshot, or another panel could modify the layout).
   useEffect(() => {
-    setNodePositions({});
-    setTerminalPositions({});
-  }, [graph.id]);
+    if (!instanceId) return;
+    const unsub = subscribeEditLayout(instanceId, (layout) => {
+      if (!layout) return;
+      setNodePositions(layout.nodes || {});
+      setTerminalPositions(layout.terminals || {});
+    });
+    return unsub;
+  }, [instanceId]);
+
+  // When the underlying brick (instanceId) changes, re-init from the
+  // store. Don't wipe — just reload from whatever's already stored.
+  useEffect(() => {
+    if (!instanceId) {
+      setNodePositions({});
+      setTerminalPositions({});
+      return;
+    }
+    const layout = getEditLayout(instanceId);
+    setNodePositions(layout?.nodes || {});
+    setTerminalPositions(layout?.terminals || {});
+  }, [instanceId, graph.id]);
   const effectivePos = (n) => {
     const o = nodePositions[n.id];
     return o ? { ...n, x: o.x, y: o.y } : n;
@@ -549,6 +576,8 @@ export default function OpGraphCanvas({ graph, selectedNodeId, onNodeClick }) {
       const nx = d.nodeX + dx;
       const ny = d.nodeY + dy;
       setNodePositions(prev => ({ ...prev, [nodeId]: { x: nx, y: ny } }));
+      // Auto-save to store (session-scope, persists across close/reopen).
+      if (instanceId) setEditNodePos(instanceId, nodeId, nx, ny);
       return;
     }
     if (d.mode === 'terminal') {
@@ -557,6 +586,7 @@ export default function OpGraphCanvas({ graph, selectedNodeId, onNodeClick }) {
       const nx = d.tX + dx;
       const ny = d.tY + dy;
       setTerminalPositions(prev => ({ ...prev, [tId]: { x: nx, y: ny } }));
+      if (instanceId) setEditTerminalPos(instanceId, tId, nx, ny);
     }
   };
   // After mouseup we remember if the most-recent node/terminal drag

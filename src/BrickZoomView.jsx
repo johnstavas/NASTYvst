@@ -15,7 +15,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import OpGraphCanvas from './sandbox/OpGraphCanvas';
 import { getMockGraphForBrick } from './sandbox/mockGraphs';
-import { getLiveGraph, subscribeLiveGraph, getLiveSetParam } from './sandbox/liveGraphStore';
+import {
+  getLiveGraph, subscribeLiveGraph, getLiveSetParam,
+  getEditLayout, setEditOverride, commitEditLayout, subscribeEditLayout,
+} from './sandbox/liveGraphStore';
 import { OPS, getOp } from './sandbox/opRegistry';
 import { validateGraph, SCHEMA_VERSION } from './sandbox/validateGraph';
 
@@ -272,6 +275,87 @@ function ValidationPanel({ graph }) {
   );
 }
 
+/** SaveControls — small inline header strip showing the dirty indicator
+ *  and a SAVE button that snapshots the current edit layout into the
+ *  store's `committed` slot. Shows a brief "saved" flash on click.
+ *
+ *  Future: SAVE will also push the layout into the brick's persistent
+ *  state via onStateChange so it survives full app reload. For now it
+ *  commits to the in-session store only — close/reopen still preserves,
+ *  but a hard page refresh resets to the original mockGraph layout. */
+function SaveControls({ instanceId }) {
+  const [layout, setLayout] = useState(() => getEditLayout(instanceId));
+  const [flash,  setFlash]  = useState(null); // 'saved' | null
+  useEffect(() => {
+    const unsub = subscribeEditLayout(instanceId, setLayout);
+    setLayout(getEditLayout(instanceId));
+    return unsub;
+  }, [instanceId]);
+
+  const dirty = !!layout?.dirty;
+  const hasEdits = layout && (
+    Object.keys(layout.nodes || {}).length > 0 ||
+    Object.keys(layout.terminals || {}).length > 0 ||
+    Object.keys(layout.overrides || {}).length > 0
+  );
+
+  const onSave = (e) => {
+    e.stopPropagation();
+    commitEditLayout(instanceId);
+    setFlash('saved');
+    setTimeout(() => setFlash(null), 1100);
+  };
+
+  if (!hasEdits && !flash) return null;
+
+  return (
+    <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {/* Dirty indicator */}
+      {dirty && !flash && (
+        <span style={{
+          fontSize: 8, letterSpacing: '0.22em',
+          padding: '2px 6px', borderRadius: 3,
+          color: 'rgba(255,160,90,0.85)',
+          background: 'rgba(255,160,90,0.08)',
+          border: '1px solid rgba(255,160,90,0.25)',
+        }}>
+          unsaved
+        </span>
+      )}
+      {/* "Saved" flash */}
+      {flash === 'saved' && (
+        <span style={{
+          fontSize: 8, letterSpacing: '0.22em',
+          padding: '2px 6px', borderRadius: 3,
+          color: 'rgba(127,255,143,0.85)',
+          background: 'rgba(127,255,143,0.08)',
+          border: '1px solid rgba(127,255,143,0.3)',
+        }}>
+          ✓ saved
+        </span>
+      )}
+      <button
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={onSave}
+        disabled={!dirty}
+        style={{
+          fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', fontWeight: 700,
+          padding: '4px 10px', borderRadius: 3,
+          background: dirty ? 'rgba(127,255,143,0.14)' : 'rgba(255,255,255,0.04)',
+          border: dirty
+            ? '1px solid rgba(127,255,143,0.5)'
+            : '1px solid rgba(255,255,255,0.1)',
+          color: dirty ? 'rgba(127,255,143,0.95)' : 'rgba(255,255,255,0.3)',
+          cursor: dirty ? 'pointer' : 'default',
+          letterSpacing: '0.22em',
+        }}
+      >
+        Save
+      </button>
+    </span>
+  );
+}
+
 /** Body picker. Subscribes to the live-graph store for sandbox-native
  *  bricks so the view re-renders when the parent's knobs move. Falls
  *  back to the static mock for hand-coded bricks (or the opaque
@@ -309,6 +393,7 @@ function ZoomBody({ instance }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <OpGraphCanvas
             graph={graph}
+            instanceId={instance.id}
             selectedNodeId={selectedNodeId}
             onNodeClick={setSelectedNodeId}
           />
@@ -347,13 +432,45 @@ function NodeDetailPanel({ instanceId, node, onClose, panel }) {
   const opDef = getOp(node.op);
   const setParam = getLiveSetParam(instanceId);
 
-  // Local overrides — keyed by paramId. When the user drags a slider in
-  // this panel, we hold the new value HERE so the slider stays where the
-  // user put it (the live-graph mirror would otherwise snap it back to
-  // whatever the parent panel knob says). Cleared whenever the user
-  // selects a different node.
-  const [overrides, setOverrides] = useState({});
-  useEffect(() => { setOverrides({}); }, [node.id]);
+  // Per-node param overrides live in the editLayout store (persist
+  // across close/reopen). We mirror them in local state so React
+  // re-renders on each slider tweak.
+  const [overrides, setOverrides] = useState(() => {
+    const layout = getEditLayout(instanceId);
+    return layout?.overrides?.[node.id] || {};
+  });
+
+  // Re-load overrides when the user selects a different node.
+  useEffect(() => {
+    const layout = getEditLayout(instanceId);
+    setOverrides(layout?.overrides?.[node.id] || {});
+  }, [instanceId, node.id]);
+
+  // Subscribe to external layout changes (e.g., "reset" wiping overrides).
+  useEffect(() => {
+    if (!instanceId) return;
+    const unsub = subscribeEditLayout(instanceId, (layout) => {
+      if (!layout) return;
+      setOverrides(layout.overrides?.[node.id] || {});
+    });
+    return unsub;
+  }, [instanceId, node.id]);
+
+  // On mount, replay the persisted overrides into the audio engine via
+  // setParam. This handles the case: user opens inside-view, edits a
+  // param, closes, opens again — the audio should match what the slider
+  // shows. Without this replay, the audio engine forgets between opens.
+  useEffect(() => {
+    if (!setParam) return;
+    const layout = getEditLayout(instanceId);
+    const myOv = layout?.overrides?.[node.id];
+    if (!myOv) return;
+    for (const [paramId, value] of Object.entries(myOv)) {
+      try { setParam(node.id, paramId, value); } catch {}
+    }
+    // intentionally only on (instanceId, node.id) change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId, node.id]);
 
   if (!opDef) {
     return (
@@ -419,7 +536,10 @@ function NodeDetailPanel({ instanceId, node, onClose, panel }) {
               drivers={drivers}
               onChange={(v) => {
                 setOverrides(prev => ({ ...prev, [p.id]: v }));
+                // Push to live audio engine.
                 if (setParam) setParam(node.id, p.id, v);
+                // Persist into editLayout store (auto-save).
+                if (instanceId) setEditOverride(instanceId, node.id, p.id, v);
               }}
               disabled={!setParam}
             />
@@ -670,6 +790,7 @@ export default function BrickZoomView({ instance, onClose }) {
           }}>
             inside view · preview
           </span>
+          <SaveControls instanceId={instance.id} />
         </div>
         <button
           onMouseDown={(e) => e.stopPropagation()}
