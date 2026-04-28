@@ -22,7 +22,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LOFI_LIGHT } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 import { runCompilerSanityTest } from './nullTestHarness';
 
 const ACCENT       = '#e8b87a';               // warm sand — reads "tape era"
@@ -83,9 +83,13 @@ export default function LofiLightOrb({
       };
       registerEngine?.(instanceId, engine);
 
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
+
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

@@ -11,7 +11,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { HARMONY_PAD } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT       = '#f0a8d8';                   // soft pink-pad
 const ACCENT_FAINT = 'rgba(240,168,216,';
@@ -101,10 +101,12 @@ export default function HarmonyPadOrb({
         __graph: HARMONY_PAD,
       };
       registerEngine?.(instanceId, engine);
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
 
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

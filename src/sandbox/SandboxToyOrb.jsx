@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SANDBOX_TOY } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 import { serializeGraph, deserializeGraph } from './graphIO';
 
 export default function SandboxToyOrb({
@@ -87,9 +87,14 @@ export default function SandboxToyOrb({
 
     registerEngine?.(instanceId, engine);
 
+
+    setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
+
     return () => {
       inst.dispose();
       unregisterEngine?.(instanceId);
+
+      clearLiveSetParam(instanceId);
       compiledRef.current = null;
       setBypassRef.current = null;
     };

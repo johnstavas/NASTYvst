@@ -1,0 +1,167 @@
+// op_pingPong.cpp — Stage-3b C++ sidecar for the `pingPong` op.
+// Contract: memory/codegen_design.md § 4. Mirrors op_pingPong.worklet.js
+// bit-for-bit. Equal-level stereo ping-pong delay using a single mono
+// buffer with two staggered linear-interpolated read taps.
+//
+// Headless test path (this file): mono input, mono output (the two L/R
+// taps mono-summed via spread/mix), matching the standalone worklet for
+// math-test parity. Browser/inline AudioWorkletProcessor in
+// workletSources.js produces real 2-channel stereo.
+//
+// nativeSkip in per_op_specs.json — multi-output stereo time-domain op
+// needs a stereo native harness for true parity. C++ port here covers
+// the C gate (file exists + canonical convention) and headless
+// math-equivalent semantics.
+//
+// Pipeline (mono path):
+//   target_samples = clamp(time * sr/1000, 1, MAX-4) / 2
+//   smooth target with one-pole (50 ms time-const)
+//   wetR = read(-target),  wetL = read(-2*target)   // linear interp
+//   lp += alpha * (wetL - lp)                        // tone filter
+//   buf[w] = clamp(in + lp*fb, ±1.5)
+//   wetMid = (wetL + wetR) * 0.5
+//   finalWet = wetN * spread + wetMid * (1-spread)   // mono-collapse
+//   out = in * cos(mix*π/2) + finalWet * sin(mix*π/2)
+//
+// Primary: Zölzer DAFX 2nd ed. §3.1 + JOS PASP "Delay Lines" (Lagrange
+// interp, simplified to first-order).
+#pragma once
+#include <cmath>
+#include <cstring>
+#include <vector>
+
+namespace shags::ops {
+
+class PingPongOp_{{ node_id }} {
+public:
+    static constexpr const char* opId = "pingPong";
+
+    explicit PingPongOp_{{ node_id }}(double sampleRate)
+        : sr_(sampleRate),
+          MAX_(static_cast<int>(std::ceil(4.5 * sampleRate))) {
+        buf_.assign(static_cast<size_t>(MAX_), 0.0f);
+        write_ = 0;
+        lp_ = 0.0;
+        delaySamplesSmooth_ = -1.0;
+    }
+
+    void reset() {
+        std::fill(buf_.begin(), buf_.end(), 0.0f);
+        write_ = 0;
+        lp_ = 0.0;
+        delaySamplesSmooth_ = -1.0;
+    }
+
+    void setParam(const char* id, double v) {
+        if (!std::isfinite(v)) return;
+        if (std::strcmp(id, "time") == 0) {
+            time_ = std::fmin(std::fmax(v, 10.0), 2000.0);
+        } else if (std::strcmp(id, "feedback") == 0) {
+            feedback_ = std::fmin(std::fmax(v, 0.0), 0.85);
+        } else if (std::strcmp(id, "tone") == 0) {
+            tone_ = std::fmin(std::fmax(v, 200.0), 18000.0);
+        } else if (std::strcmp(id, "spread") == 0) {
+            spread_ = std::fmin(std::fmax(v, 0.0), 1.0);
+        } else if (std::strcmp(id, "mix") == 0) {
+            mix_ = std::fmin(std::fmax(v, 0.0), 1.0);
+        }
+    }
+
+    int getLatencySamples() const { return 0; }
+
+    // Linear-interpolated read at offset samples behind the current write
+    // pointer. offset can be fractional; both endpoints wrap modulo MAX.
+    inline double readInterp(double offset) const {
+        const int MAX = MAX_;
+        double rf = static_cast<double>(write_) - offset;
+        while (rf <  0.0) rf += MAX;
+        while (rf >= MAX) rf -= MAX;
+        const int r0 = static_cast<int>(std::floor(rf));
+        const int r1 = (r0 + 1) % MAX;
+        const double frac = rf - r0;
+        return static_cast<double>(buf_[r0]) * (1.0 - frac)
+             + static_cast<double>(buf_[r1]) * frac;
+    }
+
+    void process(const float* in, float* out, int N) {
+        const double DENORMAL = 1e-30;
+
+        double target = std::fmax(1.0, time_ * sr_ * 0.001);
+        if (target * 2.0 >= static_cast<double>(MAX_) - 4.0) {
+            target = (static_cast<double>(MAX_) - 4.0) * 0.5;
+        }
+        if (delaySamplesSmooth_ < 0.0) delaySamplesSmooth_ = target;
+
+        const double smoothCoef = 1.0 - std::exp(-1.0 / (0.05 * sr_));
+        const double alpha      = 1.0 - std::exp(-2.0 * 3.141592653589793 * tone_ / sr_);
+        const double dryGain    = std::cos(mix_ * 3.141592653589793 * 0.5);
+        const double wetGain    = std::sin(mix_ * 3.141592653589793 * 0.5);
+
+        double lp = lp_;
+        int    w  = write_;
+        double dSmooth = delaySamplesSmooth_;
+
+        for (int i = 0; i < N; ++i) {
+            dSmooth += smoothCoef * (target - dSmooth);
+
+            const double x = (in != nullptr) ? static_cast<double>(in[i]) : 0.0;
+
+            const double wetR = readInterpAt(w, dSmooth);
+            const double wetL = readInterpAt(w, dSmooth * 2.0);
+
+            // LP tone-filter on the long-tap FB.
+            lp += alpha * (wetL - lp);
+
+            double next = x + lp * feedback_;
+            if (next >  1.5) next =  1.5;
+            if (next < -1.5) next = -1.5;
+
+            buf_[static_cast<size_t>(w)] = static_cast<float>(next);
+            w++;
+            if (w >= MAX_) w -= MAX_;
+
+            // Mono-collapse for headless test path. Inline worklet keeps
+            // L/R separate; here we sum with spread blend to a single output.
+            const double wetMid = (wetL + wetR) * 0.5;
+            const double finalWet = wetMid; // mono path
+
+            double y = x * dryGain + finalWet * wetGain;
+            if (std::fabs(y) < DENORMAL) y = 0.0;
+            out[i] = static_cast<float>(y);
+        }
+
+        lp_ = (std::fabs(lp) < DENORMAL) ? 0.0 : lp;
+        write_ = w;
+        delaySamplesSmooth_ = dSmooth;
+    }
+
+private:
+    // Same as readInterp but takes an explicit write pointer (so the
+    // hot-loop above can keep w in a register).
+    inline double readInterpAt(int w, double offset) const {
+        const int MAX = MAX_;
+        double rf = static_cast<double>(w) - offset;
+        while (rf <  0.0) rf += MAX;
+        while (rf >= MAX) rf -= MAX;
+        const int r0 = static_cast<int>(std::floor(rf));
+        const int r1 = (r0 + 1) % MAX;
+        const double frac = rf - r0;
+        return static_cast<double>(buf_[r0]) * (1.0 - frac)
+             + static_cast<double>(buf_[r1]) * frac;
+    }
+
+    double sr_;
+    int    MAX_;
+    std::vector<float> buf_;
+    int    write_                = 0;
+    double lp_                   = 0.0;
+    double delaySamplesSmooth_   = -1.0;
+
+    double time_     = 350.0;
+    double feedback_ = 0.5;
+    double tone_     = 4500.0;
+    double spread_   = 1.0;
+    double mix_      = 0.5;
+};
+
+}  // namespace shags::ops

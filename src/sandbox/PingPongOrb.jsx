@@ -11,7 +11,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PINGPONG_DLY } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT       = '#7adcc8';                   // mint stereo-bounce
 const ACCENT_FAINT = 'rgba(122,220,200,';
@@ -69,10 +69,12 @@ export default function PingPongOrb({
         __graph: PINGPONG_DLY,
       };
       registerEngine?.(instanceId, engine);
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
 
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

@@ -9,7 +9,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { SHIMMER_DLY } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT       = '#a48bff';                   // ethereal violet
 const ACCENT_FAINT = 'rgba(164,139,255,';
@@ -67,10 +67,12 @@ export default function ShimmerDelayOrb({
         __graph: SHIMMER_DLY,
       };
       registerEngine?.(instanceId, engine);
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
 
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

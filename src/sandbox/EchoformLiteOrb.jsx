@@ -18,7 +18,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ECHOFORM_LITE } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT = '#7fd4b3';               // muted mint — distinct from FilterFX (#e7b478)
 const ACCENT_FAINT = 'rgba(127,212,179,';
@@ -63,9 +63,13 @@ export default function EchoformLiteOrb({
       __graph: ECHOFORM_LITE,
     };
     registerEngine?.(instanceId, engine);
+
+    setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
     return () => {
       inst.dispose();
       unregisterEngine?.(instanceId);
+
+      clearLiveSetParam(instanceId);
       compiledRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

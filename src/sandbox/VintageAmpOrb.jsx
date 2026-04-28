@@ -16,7 +16,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { VINTAGE_AMP } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT       = '#e89853';                   // warm tweed-orange
 const ACCENT_FAINT = 'rgba(232,152,83,';
@@ -74,10 +74,12 @@ export default function VintageAmpOrb({
         __graph: VINTAGE_AMP,
       };
       registerEngine?.(instanceId, engine);
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
 
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

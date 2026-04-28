@@ -54,15 +54,15 @@ export const ECHOFORM_MOCK = {
   schemaVersion: '1.0',
   id: 'echoform-mock-v0',
   label: 'EchoForm',
-  canvas: { width: 720, height: 340 },
+  canvas: { width: 1152, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 217 },
-    { id: 'out', kind: 'output', x: 680, y: 217 },
+    { id: 'in',  kind: 'input',  x: 64, y: 217 },
+    { id: 'out', kind: 'output', x: 1088, y: 217 },
   ],
   nodes: [
-    { id: 'n_delay',  op: 'delay',  x:  96, y: 190, params: { time: 510, feedback: 0.60 } },
-    { id: 'n_filter', op: 'filter', x: 248, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.7 } },
-    { id: 'n_mix',    op: 'mix',    x: 400, y: 190, params: { amount: 0.25 } },
+    { id: 'n_delay',  op: 'delay',  x: 154, y: 190, params: { time: 510, feedback: 0.60 } },
+    { id: 'n_filter', op: 'filter', x: 397, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.7 } },
+    { id: 'n_mix',    op: 'mix',    x: 640, y: 190, params: { amount: 0.25 } },
   ],
   wires: [
     { from: 'in',       to: 'n_delay'  },
@@ -92,15 +92,15 @@ export const SANDBOX_TOY = {
   schemaVersion: '1.0',
   id: 'sandbox-toy-v0',
   label: 'SandboxToy',
-  canvas: { width: 720, height: 340 },
+  canvas: { width: 1152, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 217 },
-    { id: 'out', kind: 'output', x: 680, y: 217 },
+    { id: 'in',  kind: 'input',  x: 64, y: 217 },
+    { id: 'out', kind: 'output', x: 1088, y: 217 },
   ],
   nodes: [
-    { id: 'n_gain',   op: 'gain',   x: 120, y: 130, params: { gainDb: 0 } },
-    { id: 'n_filter', op: 'filter', x: 280, y: 130, params: { mode: 'lp', cutoff: 4000, q: 0.707 } },
-    { id: 'n_mix',    op: 'mix',    x: 460, y: 190, params: { amount: 0.5 } },
+    { id: 'n_gain',   op: 'gain',   x: 192, y: 130, params: { gainDb: 0 } },
+    { id: 'n_filter', op: 'filter', x: 448, y: 130, params: { mode: 'lp', cutoff: 4000, q: 0.707 } },
+    { id: 'n_mix',    op: 'mix',    x: 736, y: 190, params: { amount: 0.5 } },
   ],
   wires: [
     // wet leg
@@ -134,15 +134,15 @@ export const FILTER_FX = {
   schemaVersion: '1.0',
   id: 'filter-fx-v0',
   label: 'FilterFX',
-  canvas: { width: 720, height: 340 },
+  canvas: { width: 1152, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 217 },
-    { id: 'out', kind: 'output', x: 680, y: 217 },
+    { id: 'in',  kind: 'input',  x: 64, y: 217 },
+    { id: 'out', kind: 'output', x: 1088, y: 217 },
   ],
   nodes: [
-    { id: 'n_gain',   op: 'gain',   x: 120, y: 130, params: { gainDb: 0 } },
-    { id: 'n_filter', op: 'filter', x: 280, y: 130, params: { mode: 'lp', cutoff: 4000, q: 0.707 } },
-    { id: 'n_mix',    op: 'mix',    x: 460, y: 190, params: { amount: 0.80 } },
+    { id: 'n_gain',   op: 'gain',   x: 192, y: 130, params: { gainDb: 0 } },
+    { id: 'n_filter', op: 'filter', x: 448, y: 130, params: { mode: 'lp', cutoff: 4000, q: 0.707 } },
+    { id: 'n_mix',    op: 'mix',    x: 736, y: 190, params: { amount: 0.80 } },
   ],
   wires: [
     { from: 'in',       to: 'n_gain'         },
@@ -205,34 +205,34 @@ export const ECHOFORM_LITE = {
   schemaVersion: '1.0',
   id: 'echoform-lite-v0',
   label: 'EchoformLite',
-  canvas: { width: 780, height: 340 },
+  canvas: { width: 1248, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 220 },
-    { id: 'out', kind: 'output', x: 740, y: 220 },
+    { id: 'in',  kind: 'input',  x: 64, y: 220 },
+    { id: 'out', kind: 'output', x: 1184, y: 220 },
   ],
   nodes: [
     // Drive is PRE-loop (Memory Man topology) — colors input, stays
     // out of the loop-gain product. Dry tap forks BEFORE drive so the
     // dry leg isn't colored.
-    { id: 'n_sat',     op: 'saturate', x: 110, y: 190, params: { drive: 1.6, trim: -2 } },
-    { id: 'n_delay',   op: 'delay',    x: 220, y: 190, params: { time: 380, feedback: 0.55 } },
+    { id: 'n_sat',     op: 'saturate', x: 176, y: 190, params: { drive: 1.6, trim: -2 } },
+    { id: 'n_delay',   op: 'delay',    x: 352, y: 190, params: { time: 380, feedback: 0.55 } },
     // Tone filter INSIDE the loop — gives each repeat progressive HF
     // damping AND provides the frequency-dependent loss that makes
     // loop gain < 1 for all FB settings (Nyquist-stable by design).
-    { id: 'n_filter',  op: 'filter',   x: 360, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.707 } },
+    { id: 'n_filter',  op: 'filter',   x: 576, y: 190, params: { mode: 'lp', cutoff: 3200, q: 0.707 } },
     // DC trap on the FB return path — kills sub-10Hz DC buildup before it
     // self-multiplies through the feedback loop. Retires EFL-SB-02 per
     // qc_backlog.md § Sandbox Brick Audit Sweep. Post-filter / pre-
     // delay.fb so it sees the filtered tap.
-    { id: 'n_dcblock', op: 'dcBlock',  x: 360, y: 290, params: { cutoff: 10 } },
+    { id: 'n_dcblock', op: 'dcBlock',  x: 576, y: 290, params: { cutoff: 10 } },
     // Soft-limit on the FB return path — pure safety net now that
     // drive is pre-loop and tone provides in-loop loss. Threshold
     // back to 0.95 since loop gain is bounded by FB · filter_gain < 1
     // under all normal settings; this clamp only engages on genuinely
     // pathological input (e.g. huge DC blast that DC-block couldn't
     // catch fast enough). Retires EFL-SB-03.
-    { id: 'n_softlim', op: 'softLimit', x: 480, y: 290, params: { threshold: 0.95 } },
-    { id: 'n_mix',     op: 'mix',      x: 600, y: 210, params: { amount: 0.35 } },
+    { id: 'n_softlim', op: 'softLimit', x: 768, y: 290, params: { threshold: 0.95 } },
+    { id: 'n_mix',     op: 'mix',      x: 960, y: 210, params: { amount: 0.35 } },
   ],
   wires: [
     // Pre-loop drive — input hits saturate first, then enters the delay
@@ -302,20 +302,20 @@ export const MOD_DUCK = {
   schemaVersion: '1.0',
   id: 'mod-duck-v0',
   label: 'ModDuck',
-  canvas: { width: 780, height: 340 },
+  canvas: { width: 1248, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 220 },
-    { id: 'out', kind: 'output', x: 740, y: 220 },
+    { id: 'in',  kind: 'input',  x: 64, y: 220 },
+    { id: 'out', kind: 'output', x: 1184, y: 220 },
   ],
   nodes: [
     // Envelope-duck sidechain (visual: top row)
-    { id: 'n_det',      op: 'detector', x: 160, y:  60, params: { mode: 'peak' } },
-    { id: 'n_env',      op: 'envelope', x: 320, y:  60, params: {
+    { id: 'n_det',      op: 'detector', x: 256, y:  60, params: { mode: 'peak' } },
+    { id: 'n_env',      op: 'envelope', x: 512, y:  60, params: {
         // env.amount is baked at -1 (fixed polarity); the user AMOUNT knob
         // routes through n_envDepth downstream.
         attack: 5, release: 120, amount: -1, offset: 0,
     } },
-    { id: 'n_envDepth', op: 'scaleBy',  x: 480, y:  60, params: { k: 0.5 } },
+    { id: 'n_envDepth', op: 'scaleBy',  x: 768, y:  60, params: { k: 0.5 } },
 
     // LFO-pump path (visual: middle row). LFO amount is baked at -0.5 so
     // its bipolar [-1..1] output becomes unipolar-downward [-0.5..+0.5]
@@ -330,11 +330,11 @@ export const MOD_DUCK = {
     // v0 — a gain of 1.45× on peaks sounds like *accent* rather than
     // boost, and the envelope duck usually wins anyway. Stage B-1 can
     // add a clamp op if needed.
-    { id: 'n_lfo',      op: 'lfo',      x: 160, y: 130, params: { rateHz: 2, shape: 0, amount: 1, offset: 0 } },
-    { id: 'n_lfoDepth', op: 'scaleBy',  x: 320, y: 130, params: { k: 0 } },
+    { id: 'n_lfo',      op: 'lfo',      x: 256, y: 130, params: { rateHz: 2, shape: 0, amount: 1, offset: 0 } },
+    { id: 'n_lfoDepth', op: 'scaleBy',  x: 512, y: 130, params: { k: 0 } },
 
     // Main signal path (visual: bottom row)
-    { id: 'n_gain',     op: 'gain',     x: 560, y: 220, params: { gainDb: 0 } },
+    { id: 'n_gain',     op: 'gain',     x: 896, y: 220, params: { gainDb: 0 } },
   ],
   wires: [
     // Envelope sidechain tap (self-sidechain)
@@ -399,23 +399,23 @@ export const TOY_COMP = {
   schemaVersion: '1.0',
   id: 'toy-comp-v0',
   label: 'ToyComp',
-  canvas: { width: 860, height: 340 },
+  canvas: { width: 1376, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 220 },
-    { id: 'out', kind: 'output', x: 820, y: 220 },
+    { id: 'in',  kind: 'input',  x: 64, y: 220 },
+    { id: 'out', kind: 'output', x: 1312, y: 220 },
   ],
   nodes: [
     // Sidechain: detector → envelope (magnitude) → gainComputer → GR signal.
-    { id: 'n_det',   op: 'detector',     x: 160, y:  70, params: { mode: 'peak' } },
-    { id: 'n_env',   op: 'envelope',     x: 310, y:  70, params: {
+    { id: 'n_det',   op: 'detector',     x: 256, y:  70, params: { mode: 'peak' } },
+    { id: 'n_env',   op: 'envelope',     x: 496, y:  70, params: {
         attack: 5, release: 120, amount: 1, offset: 0,
     } },
-    { id: 'n_comp',  op: 'gainComputer', x: 480, y:  70, params: {
+    { id: 'n_comp',  op: 'gainComputer', x: 768, y:  70, params: {
         thresholdDb: -18, ratio: 4, kneeDb: 6,
     } },
     // Main signal path: gain (VCA, controlled by comp GR) → makeup gain.
-    { id: 'n_vca',    op: 'gain', x: 560, y: 220, params: { gainDb: 0 } },
-    { id: 'n_makeup', op: 'gain', x: 720, y: 220, params: { gainDb: 0 } },
+    { id: 'n_vca',    op: 'gain', x: 896, y: 220, params: { gainDb: 0 } },
+    { id: 'n_makeup', op: 'gain', x: 1152, y: 220, params: { gainDb: 0 } },
   ],
   wires: [
     // Sidechain tap (self-sidechain)
@@ -477,31 +477,31 @@ export const LOFI_LIGHT = {
   schemaVersion: '1.0',
   id: 'loofy-lite-v0',
   label: 'LofiLight',
-  canvas: { width: 900, height: 380 },
+  canvas: { width: 1440, height: 380 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 240 },
-    { id: 'out', kind: 'output', x: 860, y: 240 },
+    { id: 'in',  kind: 'input',  x: 64, y: 240 },
+    { id: 'out', kind: 'output', x: 1376, y: 240 },
   ],
   nodes: [
     // Main wet path (bottom row)
-    { id: 'n_tilt',  op: 'shelf',    x: 140, y: 240, params: { mode: 'low',  freq:  250, gainDb: 0 } },
-    { id: 'n_tone',  op: 'filter',   x: 260, y: 240, params: { mode: 'lp',   cutoff: 6000, q: 0.707 } },
-    { id: 'n_sat',   op: 'saturate', x: 380, y: 240, params: { drive: 1.5, trim: -1.5 } },
-    { id: 'n_tape',  op: 'delay',    x: 500, y: 240, params: { time: 30, feedback: 0 } },
+    { id: 'n_tilt',  op: 'shelf',    x: 224, y: 240, params: { mode: 'low',  freq:  250, gainDb: 0 } },
+    { id: 'n_tone',  op: 'filter',   x: 416, y: 240, params: { mode: 'lp',   cutoff: 6000, q: 0.707 } },
+    { id: 'n_sat',   op: 'saturate', x: 608, y: 240, params: { drive: 1.5, trim: -1.5 } },
+    { id: 'n_tape',  op: 'delay',    x: 800, y: 240, params: { time: 30, feedback: 0 } },
     // Digital-wear stage — bits (WaveShaper quantizer) → rate (biquad LP
     // at target/2 as ZOH proxy, per LL §4.5). Off by default (bits=0,
     // cutoff=20000) so the clean path is still clean until you engage.
-    { id: 'n_bits',  op: 'bitcrush', x: 600, y: 240, params: { bits: 0 } },
-    { id: 'n_rate',  op: 'filter',   x: 690, y: 240, params: { mode: 'lp', cutoff: 20000, q: 0.707 } },
-    { id: 'n_mix',   op: 'mix',      x: 790, y: 240, params: { amount: 0.5 } },
+    { id: 'n_bits',  op: 'bitcrush', x: 960, y: 240, params: { bits: 0 } },
+    { id: 'n_rate',  op: 'filter',   x: 1104, y: 240, params: { mode: 'lp', cutoff: 20000, q: 0.707 } },
+    { id: 'n_mix',   op: 'mix',      x: 1264, y: 240, params: { amount: 0.5 } },
 
     // Drift LFO (top-left) → delay.timeMod
-    { id: 'n_lfo',    op: 'lfo',     x: 260, y: 110, params: { rateHz: 0.5, shape: 0, amount: 1, offset: 0 } },
-    { id: 'n_driftK', op: 'scaleBy', x: 400, y: 110, params: { k: 0.002 } }, // ±2 ms max, knob-scaled
+    { id: 'n_lfo',    op: 'lfo',     x: 416, y: 110, params: { rateHz: 0.5, shape: 0, amount: 1, offset: 0 } },
+    { id: 'n_driftK', op: 'scaleBy', x: 640, y: 110, params: { k: 0.002 } }, // ±2 ms max, knob-scaled
 
     // Dust bus (top-right) → mix.wet (sums with tape output)
-    { id: 'n_noise', op: 'noise',    x: 260, y: 350, params: { shape: 'pink', amount: 1, offset: 0 } },
-    { id: 'n_dustK', op: 'scaleBy',  x: 400, y: 350, params: { k: 0 } },
+    { id: 'n_noise', op: 'noise',    x: 416, y: 350, params: { shape: 'pink', amount: 1, offset: 0 } },
+    { id: 'n_dustK', op: 'scaleBy',  x: 640, y: 350, params: { k: 0 } },
   ],
   wires: [
     // Dry leg (to mix.dry)
@@ -582,13 +582,13 @@ export const FDN_HALL = {
   schemaVersion: '1.0',
   id: 'fdn-hall-v0',
   label: 'FdnHall',
-  canvas: { width: 540, height: 260 },
+  canvas: { width: 864, height: 260 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 130 },
-    { id: 'out', kind: 'output', x: 500, y: 130 },
+    { id: 'in',  kind: 'input',  x: 64, y: 130 },
+    { id: 'out', kind: 'output', x: 800, y: 130 },
   ],
   nodes: [
-    { id: 'n_rev', op: 'fdnReverb', x: 220, y: 110, params: {
+    { id: 'n_rev', op: 'fdnReverb', x: 352, y: 110, params: {
         morph: 0.5, size: 0.55, decay: 0.5, tone: 0.55,
         density: 0.6, warp: 0.3, mix: 0.3,
     } },
@@ -764,36 +764,36 @@ export const VINTAGE_AMP = {
   schemaVersion: '1.0',
   id: 'vintage-amp-v0',
   label: 'VintageAmp',
-  canvas: { width: 1100, height: 280 },
+  canvas: { width: 2620, height: 280 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 140 },
-    { id: 'out', kind: 'output', x: 1060, y: 140 },
+    { id: 'in',  kind: 'input',  x: 64, y: 140 },
+    { id: 'out', kind: 'output', x: 2500, y: 140 },
   ],
   nodes: [
     // ── Tube 1 — preamp drive (12AX7 voiced) ──
-    { id: 'n_t1',     op: 'saturate', x: 120, y: 100,
+    { id: 'n_t1',     op: 'saturate', x: 192, y: 100,
       params: { drive: 2.5, trim: 0 } },
 
     // ── Tone stack (between t1 and t2 — Marshall / Fender layout) ──
-    { id: 'n_bass',   op: 'shelf',  x: 240, y: 100,
+    { id: 'n_bass',   op: 'shelf',  x: 384, y: 100,
       params: { mode: 'low',  freq:  120,  gainDb: 0 } },
-    { id: 'n_mid',    op: 'filter', x: 360, y: 100,
+    { id: 'n_mid',    op: 'filter', x: 576, y: 100,
       params: { mode: 'peaking', cutoff: 700, q: 0.9, gainDb: 0 } },
-    { id: 'n_treble', op: 'shelf',  x: 480, y: 100,
+    { id: 'n_treble', op: 'shelf',  x: 768, y: 100,
       params: { mode: 'high', freq: 4000,  gainDb: 0 } },
 
     // ── Tube 2 — driver / phase-inverter (12AT7 voiced, milder) ──
-    { id: 'n_t2',     op: 'saturate', x: 600, y: 100,
+    { id: 'n_t2',     op: 'saturate', x: 960, y: 100,
       params: { drive: 1.6, trim: 0 } },
 
     // ── Tube 3 — power amp (EL34 / 6L6, scales with master) ──
-    { id: 'n_t3',     op: 'saturate', x: 720, y: 100,
+    { id: 'n_t3',     op: 'saturate', x: 1152, y: 100,
       params: { drive: 1.0, trim: 0 } },
 
     // ── Cab sim — LP rolloff + 2.5 kHz speaker bump ──
-    { id: 'n_cabLP',  op: 'filter', x: 820, y: 100,
+    { id: 'n_cabLP',  op: 'filter', x: 1312, y: 100,
       params: { mode: 'lp',      cutoff: 6000, q: 0.707, gainDb: 0 } },
-    { id: 'n_cabPk',  op: 'filter', x: 920, y: 100,
+    { id: 'n_cabPk',  op: 'filter', x: 1472, y: 100,
       params: { mode: 'peaking', cutoff: 2500, q: 1.4,   gainDb: 4.0 } },
 
     // ── Glue comp — baked-in 1-2 dB GR averaging across the program.
@@ -803,13 +803,16 @@ export const VINTAGE_AMP = {
     //    it doesn't pump. No user controls — this is the "tying it all
     //    together" character that every studio amp DI gets from a real
     //    bus comp downstream. Knit, don't squash.
-    { id: 'n_glueDet', op: 'detector',     x: 980, y:  20,
+    // Sidechain row at y=20 (above main row), spread horizontally so
+    // det/env/gainComputer don't overlap. glueVca sits IN the main
+    // signal flow at y=100 between cabPk and master.
+    { id: 'n_glueDet', op: 'detector',     x: 1664, y:  20,
       params: { mode: 'peak' } },
-    { id: 'n_glueEnv', op: 'envelope',     x: 980, y:  60,
+    { id: 'n_glueEnv', op: 'envelope',     x: 1856, y:  20,
       params: { attack: 30, release: 120, amount: 1, offset: 0 } },
-    { id: 'n_glueGC',  op: 'gainComputer', x: 980, y: 100,
+    { id: 'n_glueGC',  op: 'gainComputer', x: 2048, y:  20,
       params: { thresholdDb: -16, ratio: 1.8, kneeDb: 8 } },
-    { id: 'n_glueVca', op: 'gain',         x: 980, y: 140,
+    { id: 'n_glueVca', op: 'gain',         x: 1664, y: 100,
       params: { gainDb: 0 } },
 
     // ── Hum bed — three noise sources shaped into the harmonic profile
@@ -819,29 +822,29 @@ export const VINTAGE_AMP = {
     //    bandpass filters to "tune" noise to the hum frequencies. Net
     //    result is more authentic than pure sines anyway because real
     //    amp hum has flicker-noise modulation on the carriers.
-    { id: 'n_humSrc60',  op: 'noise',  x: 140, y: 200,
+    { id: 'n_humSrc60',  op: 'noise',  x: 224, y: 200,
       params: { shape: 'white', amount: 4.0, offset: 0 } },
-    { id: 'n_humBP60',   op: 'filter', x: 260, y: 200,
+    { id: 'n_humBP60',   op: 'filter', x: 416, y: 200,
       // Tight Q — keeps the resonance focused on 60 Hz, low rumble only.
       params: { mode: 'bp', cutoff: 60, q: 7 } },
-    { id: 'n_humSrc120', op: 'noise',  x: 380, y: 200,
+    { id: 'n_humSrc120', op: 'noise',  x: 608, y: 200,
       // Much quieter source than 60 Hz — 120 Hz ripple is supporting
       // character, not the main event. Real amps have 120 < 60 in level.
       params: { shape: 'white', amount: 1.5, offset: 0 } },
-    { id: 'n_humBP120',  op: 'filter', x: 500, y: 200,
+    { id: 'n_humBP120',  op: 'filter', x: 800, y: 200,
       params: { mode: 'bp', cutoff: 120, q: 6 } },
     // Tube hiss is barely there — just a touch above the noise floor.
     // Was masking the LF hum tones at the previous level (0.08).
-    { id: 'n_humHiss',   op: 'noise',  x: 620, y: 200,
+    { id: 'n_humHiss',   op: 'noise',  x: 992, y: 200,
       params: { shape: 'pink', amount: 0.015, offset: 0 } },
     // n_humLevel: -60 dB floor (off), -6 dB top (audibly present idle
     // hum without becoming the dominant feature). Sums to `out` post-
     // master so it stays present regardless of master position.
-    { id: 'n_humLevel',  op: 'gain',  x: 760, y: 200,
+    { id: 'n_humLevel',  op: 'gain',  x: 1216, y: 200,
       params: { gainDb: -60 } },
 
     // ── Master volume ──
-    { id: 'n_master', op: 'gain',   x: 1010, y: 100,
+    { id: 'n_master', op: 'gain',   x: 2300, y: 100,
       params: { gainDb: 0 } },
   ],
   wires: [
@@ -960,19 +963,19 @@ export const TAPE_SAT = {
   schemaVersion: '1.0',
   id: 'tape-sat-v0',
   label: 'TapeSat',
-  canvas: { width: 980, height: 280 },
+  canvas: { width: 1804, height: 280 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 140 },
-    { id: 'out', kind: 'output', x: 940, y: 140 },
+    { id: 'in',  kind: 'input',  x: 64, y: 140 },
+    { id: 'out', kind: 'output', x: 1724, y: 140 },
   ],
   nodes: [
     // ── Wet path ───────────────────────────────────
-    { id: 'n_drive',   op: 'gain',    x: 120, y:  90,
+    { id: 'n_drive',   op: 'gain',    x: 192, y:  90,
       params: { gainDb: 0 } },
-    { id: 'n_preEmph', op: 'shelf',   x: 220, y:  90,
+    { id: 'n_preEmph', op: 'shelf',   x: 352, y:  90,
       // High shelf, +6 dB at 4 kHz — pushes HF into the saturator harder.
       params: { mode: 'high', freq: 4000, gainDb: 6 } },
-    { id: 'n_sat',     op: 'tapeAir9', x: 320, y:  90,
+    { id: 'n_sat',     op: 'tapeAir9', x: 512, y:  90,
       // Airwindows ToTape9 mono port. Drive knob below maps to this
       // node's `drive` param (Airwindows A control). All other params
       // baked at musical defaults — bias=0.5 (centered), bumpHz=0.5,
@@ -988,7 +991,7 @@ export const TAPE_SAT = {
         bumpMix:      0.0,   // skip ToTape9's own head bump — we have n_headBump
         bumpHz:       0.5,
       } },
-    { id: 'n_deEmph',  op: 'shelf',   x: 420, y:  90,
+    { id: 'n_deEmph',  op: 'shelf',   x: 672, y:  90,
       // Complementary -6 dB at 4 kHz — net FR flat, distortion stays in HF.
       params: { mode: 'high', freq: 4000, gainDb: -6 } },
     // ── Tape compression — baked-in 2:1ish gentle limiting that
@@ -997,34 +1000,34 @@ export const TAPE_SAT = {
     //    character: tape's saturation curve mathematically clips peaks
     //    before clipping average level, which is just compression.
     //    No user knob — drive controls it via input level.
-    { id: 'n_compDet', op: 'detector',     x: 460, y: 30,
+    { id: 'n_compDet', op: 'detector',     x: 736, y: 30,
       params: { mode: 'peak' } },
-    { id: 'n_compEnv', op: 'envelope',     x: 460, y: 60,
+    { id: 'n_compEnv', op: 'envelope',     x: 736, y: 60,
       // Faster than glue comp — tape's compression has more snap.
       params: { attack: 8, release: 60, amount: 1, offset: 0 } },
-    { id: 'n_compGC',  op: 'gainComputer', x: 460, y: 90,
+    { id: 'n_compGC',  op: 'gainComputer', x: 736, y: 90,
       // 2.5:1 with a 4 dB knee. Threshold -14 means at DRIVE=0 the comp
       // is barely engaged; at DRIVE=10 (input +12 dB) it's pulling 4-6
       // dB GR. The harder you push, the more it grabs — natural tape feel.
       params: { thresholdDb: -14, ratio: 2.5, kneeDb: 4 } },
-    { id: 'n_compVca', op: 'gain',         x: 480, y: 120,
+    { id: 'n_compVca', op: 'gain',         x: 768, y: 120,
       params: { gainDb: 0 } },
 
-    { id: 'n_warmth',  op: 'shelf',  x: 580, y:  90,
+    { id: 'n_warmth',  op: 'shelf',  x: 928, y:  90,
       // Baked-in low-mid warmth shelf — +2 dB at 250 Hz. The "body"
       // of tape that doesn't come from the head bump alone. Always on,
       // not user-controlled. Reference: every analog tape machine has
       // this regardless of head EQ alignment.
       params: { mode: 'low', freq: 250, gainDb: 2 } },
-    { id: 'n_headBump', op: 'filter', x: 600, y:  90,
+    { id: 'n_headBump', op: 'filter', x: 960, y:  90,
       // Peaking @ 90 Hz — the "tape weight" head bump. Wider Q (0.6 vs
       // v0's 0.9) so the bump has shoulders, not a surgical bell.
       params: { mode: 'peaking', cutoff: 90, q: 0.6, gainDb: 4 } },
-    { id: 'n_subCut',   op: 'filter', x: 700, y:  90,
+    { id: 'n_subCut',   op: 'filter', x: 1120, y:  90,
       // HP @ 25 Hz — tape's sub-30 Hz rumble cut (mentioned in reference).
       // Cleans up subsonic content without affecting kick fundamental.
       params: { mode: 'hp', cutoff: 25, q: 0.707 } },
-    { id: 'n_hfRoll',   op: 'filter', x: 800, y:  90,
+    { id: 'n_hfRoll',   op: 'filter', x: 1280, y:  90,
       // LP — tape head gap loss. Default 12 kHz (~2-inch tape territory,
       // -3 dB at 18 kHz with the 12 dB/oct biquad slope).
       params: { mode: 'lp', cutoff: 12000, q: 0.707 } },
@@ -1036,24 +1039,24 @@ export const TAPE_SAT = {
     //    grain noise + a touch of 60 Hz from the playback head + power
     //    supply. Very light by default; voicings can push it via TRIM
     //    if user wants more "rented machine" vibe.
-    { id: 'n_humSrc',     op: 'noise',  x: 200, y: 200,
+    { id: 'n_humSrc',     op: 'noise',  x: 320, y: 200,
       // amount=0 default → truly silent at HISS=OFF. Knob mapping
       // scales this up to 4.0 at full so we get real source level,
       // not just a gain attenuation of an always-running source.
       params: { shape: 'white', amount: 0, offset: 0 } },
-    { id: 'n_humBP',      op: 'filter', x: 320, y: 200,
+    { id: 'n_humBP',      op: 'filter', x: 512, y: 200,
       params: { mode: 'bp', cutoff: 60, q: 5 } },
-    { id: 'n_hissSrc',    op: 'noise',  x: 440, y: 200,
+    { id: 'n_hissSrc',    op: 'noise',  x: 704, y: 200,
       params: { shape: 'pink', amount: 0, offset: 0 } },
-    { id: 'n_noiseFloor', op: 'gain',   x: 600, y: 200,
+    { id: 'n_noiseFloor', op: 'gain',   x: 960, y: 200,
       // Fixed -12 dB output stage. Throttling is done at the source
       // amounts (above) so HISS=OFF means literal silence, not -60 dB.
       params: { gainDb: -12 } },
 
     // ── Mix (wet/dry) + Trim ────────────────────────
-    { id: 'n_mix',  op: 'mix',  x: 760, y: 140,
+    { id: 'n_mix',  op: 'mix',  x: 1216, y: 140,
       params: { amount: 1.0 } },         // 100% wet default — "tape on"
-    { id: 'n_trim', op: 'gain', x: 860, y: 140,
+    { id: 'n_trim', op: 'gain', x: 1376, y: 140,
       params: { gainDb: 0 } },
   ],
   wires: [
@@ -1177,17 +1180,17 @@ export const SHIMMER_DLY = {
   schemaVersion: '1.0',
   id: 'shimmer-dly-v0',
   label: 'ShimmerDly',
-  canvas: { width: 900, height: 340 },
+  canvas: { width: 1676, height: 340 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 220 },
-    { id: 'out', kind: 'output', x: 860, y: 220 },
+    { id: 'in',  kind: 'input',  x: 64, y: 220 },
+    { id: 'out', kind: 'output', x: 1596, y: 220 },
   ],
   nodes: [
-    { id: 'n_delay',   op: 'delay',      x: 160, y: 190,
+    { id: 'n_delay',   op: 'delay',      x: 256, y: 190,
       params: { time: 380, feedback: 0.6 } },
-    { id: 'n_tone',    op: 'filter',     x: 290, y: 190,
+    { id: 'n_tone',    op: 'filter',     x: 464, y: 190,
       params: { mode: 'lp', cutoff: 4500, q: 0.707 } },
-    { id: 'n_pitch',   op: 'pitchShift', x: 420, y: 190,
+    { id: 'n_pitch',   op: 'pitchShift', x: 672, y: 190,
       // pitch=2.0 by default = +1 octave shimmer.
       // Mix=1.0 → 100% wet inside the shifter (we use external mix at the end).
       params: { pitch: 2.0, mix: 1.0 } },
@@ -1195,14 +1198,14 @@ export const SHIMMER_DLY = {
     // shifter can introduce when stretching bins downward, AND keeps the
     // shimmer tail clean as repeats stack. Sits in the loop alongside
     // the LP tone — together they form a band-pass on the recirculation.
-    { id: 'n_hp',      op: 'filter',     x: 540, y: 190,
+    { id: 'n_hp',      op: 'filter',     x: 864, y: 190,
       params: { mode: 'hp', cutoff: 100, q: 0.707 } },
     // FB return-path safety: DC block + soft limit. Same pattern as EchoformLite.
-    { id: 'n_dcblock', op: 'dcBlock',    x: 540, y: 290,
+    { id: 'n_dcblock', op: 'dcBlock',    x: 864, y: 290,
       params: { cutoff: 10 } },
-    { id: 'n_softlim', op: 'softLimit',  x: 660, y: 290,
+    { id: 'n_softlim', op: 'softLimit',  x: 1056, y: 290,
       params: { threshold: 0.95 } },
-    { id: 'n_mix',     op: 'mix',        x: 740, y: 210,
+    { id: 'n_mix',     op: 'mix',        x: 1184, y: 210,
       params: { amount: 0.4 } },
   ],
   wires: [
@@ -1282,13 +1285,13 @@ export const PINGPONG_DLY = {
   schemaVersion: '1.0',
   id: 'pingpong-dly-v0',
   label: 'PingPong',
-  canvas: { width: 540, height: 220 },
+  canvas: { width: 1100, height: 220 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 110 },
-    { id: 'out', kind: 'output', x: 500, y: 110 },
+    { id: 'in',  kind: 'input',  x: 64, y: 110 },
+    { id: 'out', kind: 'output', x: 1020, y: 110 },
   ],
   nodes: [
-    { id: 'n_pp', op: 'pingPong', x: 270, y: 90,
+    { id: 'n_pp', op: 'pingPong', x: 432, y: 90,
       params: { time: 380, feedback: 0.55, tone: 4500, spread: 1.0, mix: 0.45 } },
   ],
   wires: [
@@ -1355,41 +1358,41 @@ export const HARMONY_PAD = {
   schemaVersion: '1.0',
   id: 'harmony-pad-v0',
   label: 'HarmonyPad',
-  canvas: { width: 980, height: 380 },
+  canvas: { width: 1804, height: 380 },
   terminals: [
-    { id: 'in',  kind: 'input',  x:  40, y: 200 },
-    { id: 'out', kind: 'output', x: 940, y: 200 },
+    { id: 'in',  kind: 'input',  x: 64, y: 200 },
+    { id: 'out', kind: 'output', x: 1724, y: 200 },
   ],
   nodes: [
     // ── Four pitch-shifter voices in parallel ───────
-    { id: 'n_v1', op: 'pitchShift', x: 160, y:  80,
+    { id: 'n_v1', op: 'pitchShift', x: 256, y:  80,
       params: { pitch: 1.0,    mix: 1.0 } },   // unison
-    { id: 'n_v2', op: 'pitchShift', x: 160, y: 150,
+    { id: 'n_v2', op: 'pitchShift', x: 256, y: 150,
       params: { pitch: 1.2599, mix: 1.0 } },   // major 3rd  (+4 st)
-    { id: 'n_v3', op: 'pitchShift', x: 160, y: 220,
+    { id: 'n_v3', op: 'pitchShift', x: 256, y: 220,
       params: { pitch: 1.4983, mix: 1.0 } },   // perfect 5th (+7 st)
-    { id: 'n_v4', op: 'pitchShift', x: 160, y: 290,
+    { id: 'n_v4', op: 'pitchShift', x: 256, y: 290,
       params: { pitch: 2.0,    mix: 1.0 } },   // octave     (+12 st)
 
     // Voice gains — used to balance unison vs harmonies via BLEND knob.
-    { id: 'n_g1', op: 'gain', x: 320, y:  80, params: { gainDb: 0 } },
-    { id: 'n_g2', op: 'gain', x: 320, y: 150, params: { gainDb: 0 } },
-    { id: 'n_g3', op: 'gain', x: 320, y: 220, params: { gainDb: 0 } },
-    { id: 'n_g4', op: 'gain', x: 320, y: 290, params: { gainDb: 0 } },
+    { id: 'n_g1', op: 'gain', x: 512, y:  80, params: { gainDb: 0 } },
+    { id: 'n_g2', op: 'gain', x: 512, y: 150, params: { gainDb: 0 } },
+    { id: 'n_g3', op: 'gain', x: 512, y: 220, params: { gainDb: 0 } },
+    { id: 'n_g4', op: 'gain', x: 512, y: 290, params: { gainDb: 0 } },
 
     // Sum point — WebAudio GainNode auto-sums multiple connections.
     // Trim down because 4 voices summed equally would be hot.
-    { id: 'n_sum',  op: 'gain',   x: 460, y: 185,
+    { id: 'n_sum',  op: 'gain',   x: 736, y: 185,
       params: { gainDb: -9 } },
 
     // Tone LP — softens the digital crunch of bin-shifted pitchShift.
-    { id: 'n_tone', op: 'filter', x: 580, y: 185,
+    { id: 'n_tone', op: 'filter', x: 928, y: 185,
       params: { mode: 'lp', cutoff: 6000, q: 0.707 } },
 
     // Valhalla-style wash. fdnReverb is the Geraint Luff Tier-3 port —
     // mix=1.0 inside the reverb so the wash IS the wet (we control wet
     // amount externally via n_mix).
-    { id: 'n_wash', op: 'fdnReverb', x: 700, y: 185,
+    { id: 'n_wash', op: 'fdnReverb', x: 1120, y: 185,
       params: {
         morph:   0.55,    // mid-warm voicing
         size:    0.55,    // medium room
@@ -1401,9 +1404,9 @@ export const HARMONY_PAD = {
       } },
 
     // External dry/wet + output trim
-    { id: 'n_mix',  op: 'mix',  x: 820, y: 200,
+    { id: 'n_mix',  op: 'mix',  x: 1312, y: 200,
       params: { amount: 0.55 } },  // wet-leaning default for chord-pad use
-    { id: 'n_trim', op: 'gain', x: 900, y: 200,
+    { id: 'n_trim', op: 'gain', x: 1440, y: 200,
       params: { gainDb: 0 } },
   ],
   wires: [

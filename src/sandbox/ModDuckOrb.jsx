@@ -20,7 +20,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MOD_DUCK } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT = '#c4a4ff';               // muted violet — distinct from EchoLite (mint) + FilterFX (amber)
 const ACCENT_FAINT = 'rgba(196,164,255,';
@@ -81,9 +81,13 @@ export default function ModDuckOrb({
       };
       registerEngine?.(instanceId, engine);
 
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
+
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

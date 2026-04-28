@@ -15,8 +15,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import OpGraphCanvas from './sandbox/OpGraphCanvas';
 import { getMockGraphForBrick } from './sandbox/mockGraphs';
-import { getLiveGraph, subscribeLiveGraph } from './sandbox/liveGraphStore';
-import { OPS } from './sandbox/opRegistry';
+import { getLiveGraph, subscribeLiveGraph, getLiveSetParam } from './sandbox/liveGraphStore';
+import { OPS, getOp } from './sandbox/opRegistry';
 import { validateGraph, SCHEMA_VERSION } from './sandbox/validateGraph';
 
 /** Type → display label. Mirrors the inline lookup in main.jsx chain-pill
@@ -276,26 +276,313 @@ function ValidationPanel({ graph }) {
  *  bricks so the view re-renders when the parent's knobs move. Falls
  *  back to the static mock for hand-coded bricks (or the opaque
  *  placeholder when no mock exists). Graph view gets the op palette;
- *  opaque-brick view doesn't (nothing to highlight against). */
+ *  opaque-brick view doesn't (nothing to highlight against).
+ *
+ *  Now also supports per-node click-to-edit: clicking a node opens
+ *  NodeDetailPanel showing all the op's params with sliders. Slider
+ *  changes dispatch live setParam through liveGraphStore — bypasses
+ *  the brick's panel knobs entirely (parameters can be tweaked even
+ *  if no knob is mapped to them). */
 function ZoomBody({ instance }) {
   const [liveGraph, setLive] = useState(() => getLiveGraph(instance.id));
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+
   useEffect(() => {
     const unsub = subscribeLiveGraph(instance.id, setLive);
-    setLive(getLiveGraph(instance.id)); // pick up latest in case it changed during mount
+    setLive(getLiveGraph(instance.id));
     return unsub;
   }, [instance.id]);
 
+  // Clear selection when switching bricks.
+  useEffect(() => { setSelectedNodeId(null); }, [instance.id]);
+
   const graph = liveGraph || getMockGraphForBrick(instance.type);
   if (!graph) return <PlaceholderBody instance={instance} />;
+
+  const selectedNode = selectedNodeId
+    ? graph.nodes.find(n => n.id === selectedNodeId)
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <OpGraphCanvas graph={graph} />
+          <OpGraphCanvas
+            graph={graph}
+            selectedNodeId={selectedNodeId}
+            onNodeClick={setSelectedNodeId}
+          />
         </div>
-        <OpPalette graph={graph} />
+        {selectedNode ? (
+          <NodeDetailPanel
+            instanceId={instance.id}
+            node={selectedNode}
+            panel={graph.panel}
+            onClose={() => setSelectedNodeId(null)}
+          />
+        ) : (
+          <OpPalette graph={graph} />
+        )}
       </div>
       <ValidationPanel graph={graph} />
+    </div>
+  );
+}
+
+/** NodeDetailPanel — opens when a node is clicked. Shows the op's full
+ *  params list (per opRegistry) with sliders that dispatch live setParam
+ *  on the brick's compiled engine via getLiveSetParam(instanceId).
+ *
+ *  Param value display reads from `node.params` — which is the live-graph
+ *  mirror, not the static template. So when a knob on the parent brick
+ *  moves and the live-graph re-publishes, we see the updated values here.
+ *
+ *  Direct setParam from this panel does NOT update the parent brick's
+ *  knobs — it's a separate authoring channel. Closing the panel and then
+ *  moving a parent knob will overwrite our edits because the knob's
+ *  mapping reasserts. That's the right behavior for v1 — if user wants
+ *  per-node persistence they save the modified graph as a new brick.
+ *  Tracked in qc_backlog. */
+function NodeDetailPanel({ instanceId, node, onClose, panel }) {
+  const opDef = getOp(node.op);
+  const setParam = getLiveSetParam(instanceId);
+
+  // Local overrides — keyed by paramId. When the user drags a slider in
+  // this panel, we hold the new value HERE so the slider stays where the
+  // user put it (the live-graph mirror would otherwise snap it back to
+  // whatever the parent panel knob says). Cleared whenever the user
+  // selects a different node.
+  const [overrides, setOverrides] = useState({});
+  useEffect(() => { setOverrides({}); }, [node.id]);
+
+  if (!opDef) {
+    return (
+      <div style={panelShellStyle}>
+        <PanelHeader node={node} opDef={null} onClose={onClose} />
+        <div style={{ padding: '16px', color: 'rgba(255,140,140,0.8)', fontSize: 11 }}>
+          Unknown op <code>{node.op}</code> — not in registry.
+        </div>
+      </div>
+    );
+  }
+
+  const params = opDef.params || [];
+
+  // Build a quick index: paramId → panel knob that drives this node.paramId.
+  // Used to label each ParamRow with "driven by knob X" so the user knows
+  // their direct edit will fight the panel knob.
+  const knobIndex = {};
+  if (panel?.knobs) {
+    for (const k of panel.knobs) {
+      for (const m of k.mappings || []) {
+        if (m.nodeId === node.id) {
+          if (!knobIndex[m.paramId]) knobIndex[m.paramId] = [];
+          knobIndex[m.paramId].push(k);
+        }
+      }
+    }
+  }
+
+  return (
+    <div style={panelShellStyle}>
+      <PanelHeader node={node} opDef={opDef} onClose={onClose} />
+
+      {!setParam && (
+        <div style={{
+          margin: '10px 12px', padding: '8px 10px', borderRadius: 4,
+          background: 'rgba(255,200,120,0.06)',
+          border: '1px solid rgba(255,200,120,0.2)',
+          fontSize: 10, lineHeight: 1.5,
+          color: 'rgba(255,210,150,0.85)',
+        }}>
+          Read-only — this brick doesn't expose live setParam yet.
+        </div>
+      )}
+
+      {params.length === 0 && (
+        <div style={{ padding: '16px', fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+          No params — this op has fixed behavior.
+        </div>
+      )}
+
+      <div style={{ padding: '6px 12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {params.map(p => {
+          const hasOverride = Object.prototype.hasOwnProperty.call(overrides, p.id);
+          const liveValue = hasOverride
+            ? overrides[p.id]
+            : (node.params?.[p.id] ?? p.default);
+          const drivers = knobIndex[p.id] || [];
+          return (
+            <ParamRow key={p.id}
+              param={p}
+              value={liveValue}
+              drivers={drivers}
+              onChange={(v) => {
+                setOverrides(prev => ({ ...prev, [p.id]: v }));
+                if (setParam) setParam(node.id, p.id, v);
+              }}
+              disabled={!setParam}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const panelShellStyle = {
+  width: 280, flexShrink: 0,
+  borderLeft: '1px solid rgba(255,255,255,0.07)',
+  background: 'rgba(10,14,18,0.55)',
+  display: 'flex', flexDirection: 'column',
+  fontFamily: 'Inter, system-ui, sans-serif',
+};
+
+function PanelHeader({ node, opDef, onClose }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 12px',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      <div>
+        <div style={{
+          fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase',
+          color: 'rgba(255,213,106,0.85)', fontWeight: 700,
+        }}>
+          Edit node
+        </div>
+        <div style={{
+          fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.92)',
+          marginTop: 2,
+        }}>
+          {opDef?.label ?? node.op}
+        </div>
+        <div style={{
+          fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1,
+          fontFamily: 'Courier New, monospace',
+        }}>
+          {node.id}
+        </div>
+      </div>
+      <button onClick={onClose}
+        style={{
+          fontSize: 14, padding: '2px 8px',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 3,
+          color: 'rgba(255,255,255,0.6)',
+          cursor: 'pointer', lineHeight: 1,
+        }}>×</button>
+    </div>
+  );
+}
+
+function ParamRow({ param, value, drivers, onChange, disabled }) {
+  const isEnum   = param.type === 'enum';
+  const isNumber = !isEnum;
+  const hasDrivers = Array.isArray(drivers) && drivers.length > 0;
+
+  // Format the displayed value. Use the registry-supplied format() if
+  // present, otherwise a sensible default.
+  const display = (() => {
+    if (isEnum) return String(value);
+    if (typeof param.format === 'function') {
+      try { return param.format(value); }
+      catch { return String(value); }
+    }
+    if (typeof value === 'number') {
+      return param.unit ? `${value.toFixed(2)} ${param.unit}` : value.toFixed(3);
+    }
+    return String(value);
+  })();
+
+  return (
+    <div style={{ opacity: disabled ? 0.55 : 1 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.7)',
+        marginBottom: 4, fontWeight: 600,
+      }}>
+        <span>{param.label || param.id}</span>
+        <span style={{
+          fontVariantNumeric: 'tabular-nums',
+          color: 'rgba(255,213,106,0.85)',
+          fontFamily: 'Courier New, monospace',
+          fontSize: 10,
+          letterSpacing: 0,
+        }}>
+          {display}
+        </span>
+      </div>
+
+      {isNumber && (
+        <input
+          type="range"
+          min={param.min ?? 0}
+          max={param.max ?? 1}
+          step={param.step ?? ((param.max ?? 1) - (param.min ?? 0)) / 1000}
+          value={typeof value === 'number' ? value : (param.default ?? 0)}
+          disabled={disabled}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          style={{
+            width: '100%',
+            accentColor: 'rgba(255,213,106,0.85)',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+          }}
+        />
+      )}
+
+      {isEnum && (
+        <select
+          value={String(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            width: '100%', padding: '4px 6px',
+            background: 'rgba(255,255,255,0.05)',
+            color: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 3,
+            fontSize: 11,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+          }}>
+          {(param.options || []).map(o => (
+            <option key={o.value} value={o.value}
+              style={{ background: '#1a1f25' }}>
+              {o.label || o.value}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {param.min != null && param.max != null && isNumber && (
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: 8, color: 'rgba(255,255,255,0.3)',
+          marginTop: 1, fontFamily: 'Courier New, monospace',
+        }}>
+          <span>{param.min}</span>
+          <span>{param.max}</span>
+        </div>
+      )}
+
+      {hasDrivers && (
+        <div style={{
+          marginTop: 6,
+          fontSize: 10.5,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          color: 'rgba(180,235,200,0.95)',
+        }}>
+          <span style={{ marginRight: 4, opacity: 0.7 }}>◀</span>
+          driven by panel knob{drivers.length > 1 ? 's' : ''}: {' '}
+          <span style={{ color: 'rgba(220,250,230,1)', fontWeight: 700 }}>
+            {drivers.map(d => d.label || d.id).join(' · ')}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -320,9 +607,9 @@ export default function BrickZoomView({ instance, onClose }) {
   return (
     <div style={{
       // Wide canvas — bricks will get dense once they have 10+ ops.
-      // Cap at 1400 so the SVG doesn't stretch ridiculously on ultrawides;
-      // the inner viewBox scales to fill via width:100%.
-      width: '100%', maxWidth: 1400,
+      // Bumped from 1400 → 1760 to fit the wider amp/tape graph layouts
+      // alongside the 280px NodeDetailPanel side panel without clipping.
+      width: '100%', maxWidth: 1760,
       margin: '0 auto',
       borderRadius: 12,
       background: 'rgba(10,14,18,0.85)',

@@ -22,7 +22,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TOY_COMP } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 import { runToyCompSanityTest, runToyCompMasterNullTest, runGainOnlyMasterNullTest } from './nullTestHarness';
 
 const ACCENT       = '#7ae1c1';               // muted teal — distinct from ModDuck violet
@@ -83,9 +83,13 @@ export default function ToyCompOrb({
       };
       registerEngine?.(instanceId, engine);
 
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
+
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

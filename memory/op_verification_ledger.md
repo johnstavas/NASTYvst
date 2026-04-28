@@ -21,7 +21,7 @@ Notes column survives regenerations.
 
 **Gold status (✅+P+✓ in catalog) = all 7 gates green.**
 
-Total ops: 132. Auto-gates 6/6 (need only listen): 132.
+Total ops: 133. Auto-gates 6/6 (need only listen): 133.
 
 ## Ledger
 
@@ -113,6 +113,7 @@ Total ops: 132. Auto-gates 6/6 (need only listen): 132.
 | panner | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |
 | peak | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |
 | phaseVocoder | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |
+| pingPong | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |
 | pitchShift | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |
 | plate | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |
 | polarity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |

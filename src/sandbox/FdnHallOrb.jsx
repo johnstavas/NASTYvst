@@ -12,7 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FDN_HALL } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT       = '#8cd4e8';               // cool hall blue
 const ACCENT_FAINT = 'rgba(140,212,232,';
@@ -72,9 +72,13 @@ export default function FdnHallOrb({
       };
       registerEngine?.(instanceId, engine);
 
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
+
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();

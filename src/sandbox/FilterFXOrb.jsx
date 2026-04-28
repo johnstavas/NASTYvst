@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FILTER_FX } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 export default function FilterFXOrb({
   instanceId, sharedSource,
@@ -56,9 +56,13 @@ export default function FilterFXOrb({
       __graph: FILTER_FX,
     };
     registerEngine?.(instanceId, engine);
+
+    setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
     return () => {
       inst.dispose();
       unregisterEngine?.(instanceId);
+
+      clearLiveSetParam(instanceId);
       compiledRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -12,6 +12,7 @@
 
 const live = new Map();          // instanceId → graph object
 const subs = new Map();          // instanceId → Set<callback>
+const setters = new Map();       // instanceId → setParam(nodeId, paramId, value) function
 
 export function setLiveGraph(instanceId, graph) {
   live.set(instanceId, graph);
@@ -40,4 +41,20 @@ export function subscribeLiveGraph(instanceId, cb) {
     set.delete(cb);
     if (set.size === 0) subs.delete(instanceId);
   };
+}
+
+/** Register a per-instance setParam dispatcher. Each sandbox-native orb
+ *  calls this on compile so BrickZoomView can mutate node params live
+ *  via direct setParam (bypassing the panel knobs).
+ *  fn signature: (nodeId, paramId, value) => void */
+export function setLiveSetParam(instanceId, fn) {
+  setters.set(instanceId, fn);
+}
+
+export function getLiveSetParam(instanceId) {
+  return setters.get(instanceId) || null;
+}
+
+export function clearLiveSetParam(instanceId) {
+  setters.delete(instanceId);
 }

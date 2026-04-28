@@ -22,7 +22,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PULTEC_LITE } from './mockGraphs';
 import { compileGraphToWebAudio } from './compileGraphToWebAudio';
 import { ensureSandboxWorklets } from './workletLoader';
-import { setLiveGraph, clearLiveGraph } from './liveGraphStore';
+import { setLiveGraph, clearLiveGraph, setLiveSetParam, clearLiveSetParam } from './liveGraphStore';
 
 const ACCENT       = '#d4b370';                   // warm tube-amber
 const ACCENT_FAINT = 'rgba(212,179,112,';
@@ -80,10 +80,15 @@ export default function PultecLiteOrb({
         __graph: PULTEC_LITE,
       };
       registerEngine?.(instanceId, engine);
+      // Publish live setParam dispatcher so BrickZoomView's NodeDetailPanel
+      // can mutate this brick's node params directly (bypassing the panel
+      // knobs). Cleared on cleanup.
+      setLiveSetParam(instanceId, (nodeId, paramId, v) => inst.setParam(nodeId, paramId, v));
 
       cleanup = () => {
         inst.dispose();
         unregisterEngine?.(instanceId);
+        clearLiveSetParam(instanceId);
         compiledRef.current = null;
       };
     })();
